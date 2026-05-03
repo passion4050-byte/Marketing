@@ -9,12 +9,22 @@ See: .planning/PROJECT.md (updated 2026-05-03)
 
 ## Current Position
 
-Phase: 1 of 6 (Demo Slice)
-Plan: 0 of 3 in current phase
-Status: Ready to plan
-Last activity: 2026-05-03 — 프로젝트 초기화 완료 (PROJECT/REQUIREMENTS/ROADMAP/STATE 작성)
+Phase: 1.5 of 6 (Demo Slice + SEO Blog 확장)
+Plan: 6 of 6 (Phase 1.5까지 완료)
+Status: Demo running — http://localhost:8501
+Last activity: 2026-05-03 — Phase 1 + Phase 1.5 데모 슬라이스 완성. Streamlit 동작 확인.
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 20% (Phase 1 + 1.5 완료, Phase 2~6 남음)
+
+**완료된 산출물:**
+- src/storage: 멀티테넌트 SQLAlchemy 모델 (Tenant, ComplianceRule, Keyword, GeneratedContent)
+- src/compliance/linter.py + config/compliance_rules/default.yaml (의료법 9개 룰)
+- src/content/llm.py: stub/gemini/anthropic/openai 멀티 프로바이더
+- src/content/generator.py: FAQ + Blog post 자동수정 루프
+- src/content/templates/schema_org.py + blog_html.py
+- src/reference/fetcher.py: URL → trafilatura 본문 추출 (간이 RAG)
+- src/dashboard/app.py: Streamlit FAQ/Blog 탭 + 이미지 업로더
+- 20/20 pytest 통과
 
 ## Performance Metrics
 
