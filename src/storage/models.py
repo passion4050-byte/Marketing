@@ -55,6 +55,9 @@ class Tenant(Base):
     event_offers: Mapped[list["EventOffer"]] = relationship(
         back_populates="tenant", cascade="all, delete-orphan"
     )
+    brand_voice: Mapped[Optional["BrandVoice"]] = relationship(
+        back_populates="tenant", cascade="all, delete-orphan", uselist=False
+    )
 
 
 # ─── Keyword (Phase 1에서 sample 1개 시드. 본격 사용은 Phase 4) ─
@@ -189,8 +192,54 @@ class EventOffer(Base):
         if not self.is_active or not self.period_start or not self.period_end:
             return False
         n = now or _now()
-        # tzinfo 정렬 — SQLite의 naive datetime 비교 호환
         ps = self.period_start.replace(tzinfo=None) if self.period_start.tzinfo else self.period_start
         pe = self.period_end.replace(tzinfo=None) if self.period_end.tzinfo else self.period_end
         nn = n.replace(tzinfo=None) if n.tzinfo else n
         return ps <= nn <= pe
+
+
+# ─── Brand Voice (persona.png) ──────────────────────────────────
+
+
+class BrandVoice(Base):
+    """톤/핵심 가치/커뮤니케이션 스타일 — LLM 시스템 프롬프트에 자동 주입."""
+
+    __tablename__ = "brand_voices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), unique=True)
+    tone: Mapped[str] = mapped_column(String(50), default="전문적")  # 전문적 | 친근함 | 간결함 | 상세함
+    vision: Mapped[Optional[str]] = mapped_column(Text, nullable=True)            # 비전
+    mission: Mapped[Optional[str]] = mapped_column(Text, nullable=True)           # 미션
+    core_values: Mapped[Optional[str]] = mapped_column(Text, nullable=True)       # 핵심 가치
+    style_guide: Mapped[Optional[str]] = mapped_column(Text, nullable=True)       # 안내문/매뉴얼 스타일
+    formality: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)   # 격식 (실어 / 100% 보임 등)
+    forbidden_words: Mapped[Optional[str]] = mapped_column(Text, nullable=True)   # 금지 단어 (콤마)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+    tenant: Mapped[Tenant] = relationship(back_populates="brand_voice")
+
+    def to_prompt_block(self) -> str:
+        """LLM system prompt 부록으로 들어갈 톤 가이드."""
+        if not (self.tone or self.vision or self.mission or self.core_values or self.style_guide):
+            return ""
+        lines = ["[브랜드 보이스]"]
+        if self.tone:
+            tone_desc = {
+                "전문적": "신뢰성 있고 정확한 어조. 의료진 입장에서 정중하게.",
+                "친근함": "따뜻하고 편안한 어조. 1인칭 \"저희\" 자주 사용.",
+                "간결함": "핵심만 빠르게. 짧은 문장 위주.",
+                "상세함": "자세하고 구체적. 단계별 설명 포함.",
+            }.get(self.tone, "")
+            lines.append(f"- 응답 톤: {self.tone} ({tone_desc})")
+        if self.vision:
+            lines.append(f"- 비전: {self.vision}")
+        if self.mission:
+            lines.append(f"- 미션: {self.mission}")
+        if self.core_values:
+            lines.append(f"- 핵심 가치: {self.core_values}")
+        if self.style_guide:
+            lines.append(f"- 커뮤니케이션 스타일: {self.style_guide}")
+        if self.forbidden_words:
+            lines.append(f"- 금지 단어: {self.forbidden_words}")
+        return "\n".join(lines)

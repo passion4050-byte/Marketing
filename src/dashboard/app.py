@@ -34,45 +34,23 @@ from src.content.llm import (  # noqa: E402
 from src.content.templates.blog_html import ImageSlot  # noqa: E402
 from src.content.templates.schema_org import faq_page_script_tag  # noqa: E402
 from src.content.tenant_context import has_active_data  # noqa: E402
+from src.dashboard.ai_simulator import render_ai_simulator_tab  # noqa: E402
+from src.dashboard.brand_voice_tab import render_brand_voice_tab  # noqa: E402
+from src.dashboard.dashboard_tab import render_dashboard_tab  # noqa: E402
 from src.dashboard.profile import render_profile_tab  # noqa: E402
+from src.dashboard.theme import GLOBAL_CSS, chip  # noqa: E402
 from src.storage.db import create_all, get_session_factory  # noqa: E402
 from src.storage.models import GeneratedContent, Keyword, Tenant  # noqa: E402
 
 st.set_page_config(
-    page_title="GEO/AEO SaaS — 메디맵 데모",
+    page_title="MEDIMAP — GEO/AEO 콘텐츠 발행",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ─── 글로벌 스타일 ───────────────────────────────────────────────
-st.markdown(
-    """
-    <style>
-      .stApp { background: #fbfbfd; }
-      h1, h2, h3 { letter-spacing: -0.02em; }
-      .gsd-chip {
-        display: inline-block; padding: 2px 10px; border-radius: 999px;
-        font-size: 12px; font-weight: 600; margin-right: 6px;
-      }
-      .gsd-chip-green { background:#e6f6ea; color:#1e7a3d; }
-      .gsd-chip-yellow { background:#fff4d6; color:#a36100; }
-      .gsd-chip-red { background:#fbe5e3; color:#a02520; }
-      .gsd-chip-blue { background:#e7eefb; color:#1d50a8; }
-      .gsd-chip-gray { background:#eef0f3; color:#555; }
-      .gsd-card {
-        background: white; border-radius: 12px; padding: 16px 20px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04); border: 1px solid #eee;
-        margin-bottom: 12px;
-      }
-      .gsd-section-title {
-        font-size: 13px; font-weight: 700; color:#666; text-transform: uppercase;
-        letter-spacing: 0.05em; margin: 8px 0 4px 0;
-      }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+# ─── 글로벌 디자인 시스템 ────────────────────────────────────────
+st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
 
 UPLOADS_DIR = ROOT / "data" / "uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
@@ -133,37 +111,52 @@ def _save_uploaded_image(uploaded) -> str:
 
 def _sidebar() -> None:
     with st.sidebar:
-        st.markdown("## 🏥 GEO/AEO SaaS")
-        st.caption("메디맵 — Phase 1.5 Demo")
+        st.markdown(
+            """
+            <div style="padding:8px 4px 16px 4px;">
+              <div style="font-size:22px;font-weight:800;letter-spacing:-0.02em;color:#1a1a1a;">
+                🏥 MEDIMAP
+              </div>
+              <div style="font-size:12px;color:#888;margin-top:2px;letter-spacing:0.04em;">
+                GEO/AEO Content Platform
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         provider_name, provider_msg, ok = _provider_status()
         chip_color = "green" if ok else "red"
         st.markdown(
-            f"### Provider: <span class='gsd-chip gsd-chip-{chip_color}'>{provider_name}</span>",
+            f"**LLM Provider** &nbsp; {chip(provider_name, chip_color)}",
             unsafe_allow_html=True,
         )
         st.caption(provider_msg)
 
         if provider_name == "stub":
             st.info(
-                "💡 키 없이 동작 모드입니다. 진짜 LLM을 쓰려면 `.env`의 `LLM_PROVIDER`를 `gemini`로 바꾸고 "
-                "[Google AI Studio](https://aistudio.google.com/apikey)에서 무료 키 발급 후 재실행하세요."
+                "💡 키 없이 동작 모드입니다. `.env`에서 `LLM_PROVIDER=gemini`로 바꾸고 "
+                "[Google AI Studio](https://aistudio.google.com/apikey)에서 무료 키 발급 후 재실행."
             )
         elif not ok:
-            st.warning(f"`.env`의 `LLM_PROVIDER={provider_name}` 인데 해당 API 키가 비어있습니다.")
+            st.warning(f"`LLM_PROVIDER={provider_name}` 인데 해당 API 키가 비어있습니다.")
 
         st.divider()
-        st.markdown("### 📊 비용 가드레일")
+        st.markdown("**📊 비용 가드레일**")
         st.caption(
             f"하루 한도: **{os.getenv('MAX_CONTENT_GEN_PER_DAY', '50')}건**  \n"
-            f"최대 일일 USD: ${os.getenv('MAX_DAILY_USD', '10.0')}"
+            f"일일 한도 USD: **${os.getenv('MAX_DAILY_USD', '10.0')}**"
         )
 
         st.divider()
-        st.markdown("### 📚 모드 안내")
+        st.markdown("**📚 탭 안내**")
         st.caption(
-            "**FAQ생성프로그램** — AI 검색엔진(ChatGPT/Perplexity 등)의 일반 질문 답변에 인용되도록 Q&A 발행.\n\n"
-            "**블로그 포스트** — 워드프레스/티스토리/네이버에 붙여넣을 본문. SEO 메타·이미지·레퍼런스·위치 자동 구성."
+            "**📊 대시보드** · 노출 현황 / KPI  \n"
+            "**🎯 데이터 피딩** · 의사·장비·이벤트 입력  \n"
+            "**🧩 FAQ** · GEO Q&A 발행  \n"
+            "**📝 블로그** · SEO + 이미지 + 레퍼런스  \n"
+            "**🧪 시뮬레이터** · 3엔진 비교  \n"
+            "**🎨 브랜드 보이스** · 톤앤매너 설정"
         )
 
 
@@ -652,32 +645,49 @@ def main() -> None:
     SessionLocal = _bootstrap()
     _sidebar()
 
-    st.title("AEO 콘텐츠 자동 발행 프로그램")
-    st.caption(
-        "GEO/AEO SaaS — 키워드 → 의료법 통과 콘텐츠 → 복사 가능. "
-        "AI 검색엔진(ChatGPT, Perplexity, Gemini, Claude) 인용도 + 구글/네이버 SEO를 동시에 노립니다."
+    st.markdown(
+        """
+        <div style="padding:8px 0 16px 0;">
+          <div style="font-size:30px;font-weight:800;letter-spacing:-0.03em;color:#1a1a1a;">
+            AEO 콘텐츠 자동 발행 프로그램
+          </div>
+          <div style="font-size:14px;color:#666;margin-top:4px;">
+            GEO/AEO SaaS — 키워드 → 의료법 통과 콘텐츠 → 복사 가능 ·
+            AI 검색엔진 인용도 + 구글/네이버 SEO 동시 최적화
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    tab_faq, tab_blog, tab_profile = st.tabs(
+    tab_dash, tab_feed, tab_faq, tab_blog, tab_sim, tab_voice = st.tabs(
         [
-            "🧩 FAQ생성프로그램",
-            "📝 블로그 포스트 (SEO + 레퍼런스 + 이미지)",
-            "🎯 대상 정보 관리 (Data Feeding)",
+            "📊 대시보드",
+            "🎯 데이터 피딩",
+            "🧩 FAQ 생성기",
+            "📝 블로그 포스트",
+            "🧪 AI 시뮬레이터",
+            "🎨 브랜드 보이스",
         ]
     )
+    with tab_dash:
+        tenant, _ = _tenant_picker(SessionLocal, key="dash")
+        render_dashboard_tab(SessionLocal, tenant)
+    with tab_feed:
+        tenant, _ = _tenant_picker(SessionLocal, key="profile")
+        render_profile_tab(SessionLocal, tenant)
     with tab_faq:
         _faq_tab(SessionLocal)
     with tab_blog:
         _blog_tab(SessionLocal)
-    with tab_profile:
-        _profile_tab(SessionLocal)
+    with tab_sim:
+        tenant, _ = _tenant_picker(SessionLocal, key="aisim")
+        render_ai_simulator_tab(SessionLocal, tenant)
+    with tab_voice:
+        tenant, _ = _tenant_picker(SessionLocal, key="voice")
+        render_brand_voice_tab(SessionLocal, tenant)
 
     _history_section(SessionLocal)
-
-
-def _profile_tab(SessionLocal) -> None:
-    tenant, _ = _tenant_picker(SessionLocal, key="profile")
-    render_profile_tab(SessionLocal, tenant)
 
 
 if __name__ == "__main__":

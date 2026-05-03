@@ -31,11 +31,22 @@ def _fmt_date(d: Optional[datetime]) -> str:
     return d.strftime("%Y.%m.%d")
 
 
-def build_tenant_context_block(session: Session, tenant_id: int) -> str:
-    """tenant의 활성 의사/장비/이벤트를 LLM 프롬프트용 블록으로.
+def build_tenant_context_block(session: Session, tenant_id: int, include_brand_voice: bool = True) -> str:
+    """tenant의 활성 의사/장비/이벤트 + 브랜드 보이스를 LLM 프롬프트용 블록으로.
 
     빈 값이면 빈 문자열 반환 (프롬프트에 넣어도 영향 없도록).
     """
+    from src.storage.models import BrandVoice
+
+    brand_voice_block = ""
+    if include_brand_voice:
+        bv = (
+            session.query(BrandVoice)
+            .filter(BrandVoice.tenant_id == tenant_id)
+            .one_or_none()
+        )
+        if bv:
+            brand_voice_block = bv.to_prompt_block()
     doctors = (
         session.query(Doctor)
         .filter(Doctor.tenant_id == tenant_id, Doctor.is_active.is_(True))
@@ -58,10 +69,13 @@ def build_tenant_context_block(session: Session, tenant_id: int) -> str:
         if e.is_currently_running(now)
     ]
 
-    if not (doctors or equipment or events):
+    if not (doctors or equipment or events or brand_voice_block):
         return ""
 
     lines: list[str] = []
+    if brand_voice_block:
+        lines.append(brand_voice_block)
+        lines.append("")
     lines.append("## 의료기관 사실 정보 (data feeding) — 콘텐츠 작성 시 인용 권장")
 
     if doctors:
@@ -139,4 +153,84 @@ def has_active_data(session: Session, tenant_id: int) -> dict:
         "doctors": n_doctors,
         "equipment": n_equipment,
         "active_events": len(active_events),
+    }
+
+
+def calculate_health_score(session: Session, tenant_id: int) -> dict:
+    """데이터 건강 점수 — 입력 완성도 기반 0~100.
+
+    가중치:
+    - Tenant 기본 영업 정보 (주소/전화/홈페이지/네이버 플레이스): 25
+    - 의사: 활성 1명 이상 + 핵심 필드 완성 → 25, 추가 의사당 +5 (최대 35)
+    - 장비: 활성 1개 이상 + 핵심 필드 완성 → 20, 추가 +3 (최대 25)
+    - 이벤트: 진행 중 1개 이상 → 15, 추가 +2 (최대 20) — 무이벤트는 감점 없음
+    - 누락 카테고리는 0점
+
+    반환:
+    {
+        "score": int,                # 0~100
+        "doctors": (count, complete_count),
+        "equipment": (count, complete_count),
+        "events": (total, running),
+        "tenant_base_filled": int (0~4),
+    }
+    """
+    from src.storage.models import Tenant
+
+    tenant = session.get(Tenant, tenant_id)
+    score = 0.0
+
+    # Tenant 영업 정보 (25)
+    base_fields = [
+        bool(tenant.address) if tenant else False,
+        bool(tenant.phone) if tenant else False,
+        bool(tenant.homepage) if tenant else False,
+        bool(tenant.naver_place_url) if tenant else False,
+    ]
+    base_filled = sum(base_fields)
+    score += base_filled * 6.25  # 4개 × 6.25 = 25
+
+    # 의사 (max 35)
+    doctors = (
+        session.query(Doctor)
+        .filter(Doctor.tenant_id == tenant_id, Doctor.is_active.is_(True))
+        .all()
+    )
+    complete_doctors = [d for d in doctors if d.is_complete]
+    if complete_doctors:
+        score += 25 + min(10, (len(complete_doctors) - 1) * 5)
+    elif doctors:
+        score += 10  # 등록은 됐으나 미완성
+
+    # 장비 (max 25)
+    items = (
+        session.query(Equipment)
+        .filter(Equipment.tenant_id == tenant_id, Equipment.is_active.is_(True))
+        .all()
+    )
+    complete_eq = [e for e in items if e.is_complete]
+    if complete_eq:
+        score += 20 + min(5, (len(complete_eq) - 1) * 3)
+    elif items:
+        score += 8
+
+    # 이벤트 (max 20)
+    now = datetime.now(timezone.utc)
+    events_total = (
+        session.query(EventOffer)
+        .filter(EventOffer.tenant_id == tenant_id, EventOffer.is_active.is_(True))
+        .all()
+    )
+    running = [e for e in events_total if e.is_currently_running(now)]
+    if running:
+        score += 15 + min(5, (len(running) - 1) * 2)
+    elif events_total:
+        score += 5
+
+    return {
+        "score": min(100, int(round(score))),
+        "doctors": (len(doctors), len(complete_doctors)),
+        "equipment": (len(items), len(complete_eq)),
+        "events": (len(events_total), len(running)),
+        "tenant_base_filled": base_filled,
     }
