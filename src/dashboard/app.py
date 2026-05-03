@@ -43,7 +43,7 @@ from src.storage.db import create_all, get_session_factory  # noqa: E402
 from src.storage.models import GeneratedContent, Keyword, Tenant  # noqa: E402
 
 st.set_page_config(
-    page_title="MEDIMAP — GEO/AEO 콘텐츠 발행",
+    page_title="HOSPITAL — GEO/AEO 콘텐츠 발행",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -115,7 +115,7 @@ def _sidebar() -> None:
             """
             <div style="padding:8px 4px 16px 4px;">
               <div style="font-size:22px;font-weight:800;letter-spacing:-0.02em;color:#1a1a1a;">
-                🏥 MEDIMAP
+                🏥 HOSPITAL
               </div>
               <div style="font-size:12px;color:#888;margin-top:2px;letter-spacing:0.04em;">
                 GEO/AEO Content Platform

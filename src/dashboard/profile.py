@@ -17,7 +17,6 @@ from typing import Optional
 
 import streamlit as st
 
-from src.content.simulator import compare_with_and_without_feed
 from src.content.tenant_context import calculate_health_score, has_active_data
 from src.storage.models import Doctor, Equipment, EventOffer
 
@@ -513,130 +512,8 @@ def _render_health_header(SessionLocal, tenant) -> None:
             )
 
 
-# ─── AI 응답 시뮬레이터 (Before/After) ──────────────────────────
-
-
-_DEFAULT_SIM_QUESTIONS = [
-    "라식 수술 후 일주일 정도 컴퓨터를 사용해도 되나요?",
-    "강남에서 라식 잘하는 안과 추천해주세요",
-    "라식 수술 비용이 보통 얼마인가요?",
-    "각막이 얇은데 시력교정 가능한가요?",
-    "라식과 라섹 중 어떤 게 나에게 맞나요?",
-]
-
-
-def _render_simulator_section(SessionLocal, tenant) -> None:
-    st.divider()
-    st.markdown("### 🤖 AI 응답 시뮬레이터")
-    st.caption(
-        "데이터 피딩 **전/후** AI 답변 변화를 직접 확인하세요. "
-        "동일 질문을 두 번 호출 — 1회는 데이터 피딩 없이, 2회는 입력하신 의사/장비/이벤트 사실 포함."
-    )
-
-    sample_q = st.selectbox(
-        "샘플 질문",
-        _DEFAULT_SIM_QUESTIONS,
-        key=f"sim_sample_{tenant.id}",
-    )
-    custom_q = st.text_input(
-        "또는 직접 입력",
-        value="",
-        placeholder="예: 라식 수술 후 운전 가능한가요?",
-        key=f"sim_custom_{tenant.id}",
-    )
-    question = custom_q.strip() or sample_q
-
-    col_btn1, col_btn2 = st.columns([1, 4])
-    with col_btn1:
-        run = st.button("🔁 시뮬레이션", type="primary", key=f"sim_run_{tenant.id}", use_container_width=True)
-    with col_btn2:
-        st.caption(f"사용 질문: **{question}**")
-
-    if not run:
-        return
-
-    with st.spinner("AI에게 같은 질문을 두 번 던지는 중..."):
-        with SessionLocal() as session:
-            # 영업 정보를 위해 tenant를 다시 fetch
-            from src.storage.models import Tenant
-            t = session.get(Tenant, tenant.id)
-            if not t:
-                st.error("Tenant fetch 실패")
-                return
-            result = compare_with_and_without_feed(session, t, question)
-
-    before = result["before"]
-    after = result["after"]
-    metrics = result["metrics"]
-
-    if before.error or after.error:
-        st.warning(
-            f"⚠️ LLM 호출 일부 실패 (stub fallback). "
-            f"before={before.error} / after={after.error}"
-        )
-
-    col_a, col_b = st.columns(2)
-    with col_a:
-        st.markdown(
-            f"""
-            <div style="background:#fff3f3;padding:14px 18px;border-radius:12px;
-                        border:1px solid #f4cccc;height:100%;">
-              <div style="display:flex;justify-content:space-between;align-items:center;
-                          margin-bottom:10px;">
-                <span style="font-weight:700;color:#a02520;">🔴 기존 응답</span>
-                <span class="gsd-chip gsd-chip-gray">data feeding ❌</span>
-              </div>
-              <div style="font-size:13px;color:#444;line-height:1.6;
-                          white-space:pre-wrap;">{before.text}</div>
-              <div style="margin-top:12px;font-size:11px;color:#888;">
-                {before.char_count}자 · {before.elapsed_ms}ms · {before.provider}
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with col_b:
-        st.markdown(
-            f"""
-            <div style="background:#f0fbf3;padding:14px 18px;border-radius:12px;
-                        border:1px solid #c2e8cf;height:100%;">
-              <div style="display:flex;justify-content:space-between;align-items:center;
-                          margin-bottom:10px;">
-                <span style="font-weight:700;color:#1e7a3d;">🟢 최적화 응답</span>
-                <span class="gsd-chip gsd-chip-green">data feeding ✅</span>
-              </div>
-              <div style="font-size:13px;color:#222;line-height:1.6;
-                          white-space:pre-wrap;">{after.text}</div>
-              <div style="margin-top:12px;font-size:11px;color:#888;">
-                {after.char_count}자 · {after.elapsed_ms}ms · {after.provider}
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    # 성능 메트릭 4개
-    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
-    m1, m2, m3, m4 = st.columns(4)
-    char_diff = metrics["char_diff_pct"]
-    char_emoji = "📈" if char_diff > 0 else ("📉" if char_diff < 0 else "➖")
-    m1.metric("응답 길이", f"{after.char_count}자", f"{char_emoji} {char_diff:+d}%")
-
-    cite_after = metrics["cites_after"]
-    cite_before = metrics["cites_before"]
-    cite_delta = cite_after - cite_before
-    m2.metric(
-        "사실 인용 수",
-        f"{cite_after}개",
-        f"+{cite_delta}" if cite_delta >= 0 else str(cite_delta),
-    )
-
-    elapsed_after_s = after.elapsed_ms / 1000
-    m3.metric("응답 시간", f"{elapsed_after_s:.1f}초")
-
-    n_needles = len(metrics["needles"]) or 1
-    coverage = int(cite_after / n_needles * 100)
-    m4.metric("사실 커버리지", f"{coverage}%", help=f"입력된 {n_needles}개 사실 중 {cite_after}개 인용")
+# AI 응답 시뮬레이터 섹션은 별도 "🧪 AI 시뮬레이터" 탭으로 이전.
+# (데이터 피딩 페이지에서 중복되어 제거.)
 
 
 # ─── 진입점 ─────────────────────────────────────────────────────
@@ -664,5 +541,8 @@ def render_profile_tab(SessionLocal, tenant) -> None:
     with col_v:
         _render_event_card(SessionLocal, tenant.id)
 
-    # AI 응답 시뮬레이터
-    _render_simulator_section(SessionLocal, tenant)
+    # AI 응답 시뮬레이터는 별도 "🧪 AI 시뮬레이터" 탭에 있으므로 여기선 안내만
+    st.divider()
+    st.caption(
+        "💡 AI 응답을 데이터 피딩 ON/OFF로 비교해보려면 상단 **🧪 AI 시뮬레이터** 탭을 사용하세요."
+    )

@@ -2,7 +2,7 @@
 
 tenants:
   - id: 1
-    name: "BGN 밝은눈안과"
+    name: "테스트1"
     domain_category: "안과/시력교정"
     region: "서울 강남"
     address: "서울특별시 강남구 강남대로 462 (한국빌딩 6층)"
@@ -39,7 +39,7 @@ tenants:
         notes: "첫 시술자 한정. 검사료 별도. 진료의 판단에 따라 다른 시술법이 권장될 수 있습니다."
 
   - id: 2
-    name: "메디맵"
+    name: "테스트2"
     domain_category: "의료/마케팅 SaaS"
     region: "서울"
     address: "서울특별시 강남구"
