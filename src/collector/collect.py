@@ -71,7 +71,7 @@ async def collect_for_keyword(
     session_factory,
     tenant_id: int,
     keyword: Keyword,
-    engine: BaseEngine,
+    engine: BaseEngine | list[BaseEngine],
     *,
     n_samples: int = 30,
     concurrency: int = 5,
@@ -79,6 +79,7 @@ async def collect_for_keyword(
 ) -> CollectionResult:
     """키워드 1개에 대해 n_samples 비동기 수집.
 
+    ``engine`` 은 단일 BaseEngine 또는 list — 다중 엔진이면 sample 별 round-robin.
     ``session_factory`` 는 ``SessionLocal`` 같은 sessionmaker — 각 sample 마다 새 세션을
     열어 SQLite write 격리. (단일 세션에 동시 write 시 락 충돌 가능)
     """
@@ -86,7 +87,15 @@ async def collect_for_keyword(
     keyword_text = keyword.text
     target_brand = keyword.target_brand or ""
 
-    # tenant 이름이 target 으로 자주 쓰이므로 fallback 보강
+    # 단일 / 다중 엔진 정규화
+    engines: list[BaseEngine] = engine if isinstance(engine, list) else [engine]
+    if not engines:
+        return CollectionResult(
+            n_total=n_samples, n_success=0, n_failed=0,
+            error_msg="engines list 가 비어있음",
+        )
+
+    # tenant 이름이 target 으로 자주 쓰이므로 fallback 보강 + confirmed competitor 자동 로드
     with session_factory() as s:
         tenant = s.get(Tenant, tenant_id)
         if tenant is None:
@@ -96,6 +105,19 @@ async def collect_for_keyword(
             )
         if not target_brand:
             target_brand = tenant.name
+        # Phase 6: confirmed=True 경쟁사 자동 주입 (Competitor 테이블 없으면 skip)
+        confirmed_competitors: list[str] = []
+        try:
+            from src.storage.models import Competitor
+
+            confirmed_competitors = [
+                c.name for c in s.query(Competitor)
+                .filter(Competitor.tenant_id == tenant_id, Competitor.confirmed == True)  # noqa: E712
+                .all()
+            ]
+        except Exception:
+            # Competitor 테이블 미생성 (Phase 6 이전) 또는 로드 오류 — graceful
+            confirmed_competitors = []
 
     sema = asyncio.Semaphore(max(1, concurrency))
     state = {"success": 0, "failed": 0, "mentions": 0, "stopped": False, "error": None,
@@ -109,8 +131,10 @@ async def collect_for_keyword(
             if state["stopped"]:
                 return
 
+            # round-robin engine 선택
+            current_engine = engines[idx % len(engines)]
             prompt = build_prompt(keyword_text, idx)
-            projected = _estimate_query_cost(engine.name, prompt)
+            projected = _estimate_query_cost(current_engine.name, prompt)
 
             # 비용 가드 — 초과 시 stop flag 세팅
             try:
@@ -124,18 +148,18 @@ async def collect_for_keyword(
                 return
 
             try:
-                resp = await engine.query(prompt)
+                resp = await current_engine.query(prompt)
             except EngineError as e:
                 async with state_lock:
                     state["failed"] += 1
                     state["failures"].append(f"sample={idx}: {e}")
-                logger.warning("collector.engine_error", sample=idx, error=str(e))
+                logger.warning("collector.engine_error", sample=idx, error=str(e),
+                               engine=current_engine.name)
                 with session_factory() as ls:
-                    cost = projected
                     ls.add(LlmCallLog(
                         tenant_id=tenant_id,
-                        provider=engine.name,
-                        model=engine.name,
+                        provider=current_engine.name,
+                        model=current_engine.name,
                         channel="measurement",
                         keyword=keyword_text,
                         input_tokens=0,
@@ -147,24 +171,25 @@ async def collect_for_keyword(
                     ls.commit()
                 return
 
-            # Mention 추출
+            # Mention 추출 (target + alias + confirmed competitor 자동 주입)
             try:
                 mentions_extracted = extract_mentions(
                     resp.text,
                     target_brand=target_brand,
                     aliases=aliases,
+                    competitors=confirmed_competitors,
                 )
             except Exception as e:  # pragma: no cover — extractor 는 graceful 해야 함
                 logger.warning("collector.mention_extract_error", error=str(e))
                 mentions_extracted = []
 
             # DB INSERT (단일 트랜잭션)
-            actual_cost = _estimate_query_cost(engine.name, prompt)
+            actual_cost = _estimate_query_cost(current_engine.name, prompt)
             with session_factory() as ws:
                 q = Query(
                     tenant_id=tenant_id,
                     keyword_id=keyword_id,
-                    engine=engine.name,
+                    engine=current_engine.name,
                     prompt=prompt,
                     sample_index=idx,
                     cost_usd=actual_cost,
@@ -196,8 +221,8 @@ async def collect_for_keyword(
 
                 ws.add(LlmCallLog(
                     tenant_id=tenant_id,
-                    provider=engine.name,
-                    model=engine.name,
+                    provider=current_engine.name,
+                    model=current_engine.name,
                     channel="measurement",
                     keyword=keyword_text,
                     input_tokens=0,

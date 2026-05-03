@@ -1,0 +1,101 @@
+"""ClaudeEngine — Phase 6-T1.3.
+
+Anthropic Claude messages API. ``web_search_20250305`` tool 사용 시도, 실패 시 일반 호출.
+
+cited_urls:
+1. tool_use 의 web_search 결과 ``url`` 필드
+2. 응답 텍스트의 URL 정규식 폴백
+
+모델: ``claude-haiku-4-5`` 기본 (ANTHROPIC_MODEL env).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import os
+import re
+import time
+
+from src.engines.base import BaseEngine, EngineError, EngineResponse
+
+
+_DEFAULT_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
+_URL_RE = re.compile(r"https?://[\w./%~?&=#:+-]+")
+
+
+class ClaudeEngine(BaseEngine):
+    name = "claude"
+
+    def __init__(self, api_key: str, *, model: str = _DEFAULT_MODEL) -> None:
+        if not api_key:
+            raise EngineError("ANTHROPIC_API_KEY 미설정")
+        try:
+            from anthropic import AsyncAnthropic
+        except ImportError as e:  # pragma: no cover
+            raise EngineError(f"anthropic 패키지 미설치: {e}") from e
+        self._client = AsyncAnthropic(api_key=api_key)
+        self._model = model
+
+    async def query(self, prompt: str) -> EngineResponse:
+        system = (
+            "당신은 한국어로 의료/안과 정보를 정리하는 도우미입니다. "
+            "사실 기반으로 답변하고 알려진 의료기관 이름이 있다면 자연스럽게 언급하세요."
+        )
+        start = time.perf_counter()
+        try:
+            try:
+                resp = await self._client.messages.create(
+                    model=self._model,
+                    max_tokens=1024,
+                    system=system,
+                    tools=[{"type": "web_search_20250305", "name": "web_search"}],
+                    messages=[{"role": "user", "content": prompt}],
+                )
+            except Exception:
+                # tool 미지원 / 권한 없음 → 일반 호출
+                resp = await self._client.messages.create(
+                    model=self._model,
+                    max_tokens=1024,
+                    system=system,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+        except Exception as e:
+            raise EngineError(f"Claude 호출 실패: {e}") from e
+
+        latency_ms = int((time.perf_counter() - start) * 1000)
+
+        text_parts: list[str] = []
+        cited: list[str] = []
+        for block in (resp.content or []):
+            btype = getattr(block, "type", None)
+            if btype == "text":
+                text_parts.append(getattr(block, "text", "") or "")
+            elif btype == "tool_use" and getattr(block, "name", "") == "web_search":
+                tin = getattr(block, "input", {}) or {}
+                # 일부 응답은 tool result 가 별도 블록으로. 보수적으로 input 의 query/url 만 시도.
+                u = tin.get("url") if isinstance(tin, dict) else None
+                if u:
+                    cited.append(u)
+            elif btype == "tool_result":
+                # tool_result 의 content 는 list[dict] 인 경우 많음
+                tc = getattr(block, "content", None) or []
+                for item in tc if isinstance(tc, list) else []:
+                    if isinstance(item, dict):
+                        u = item.get("url")
+                        if u:
+                            cited.append(u)
+
+        text = "\n".join(p for p in text_parts if p)
+        if not text:
+            raise EngineError(f"Claude 응답 빈 본문: {resp}")
+
+        if not cited:
+            cited = list(dict.fromkeys(_URL_RE.findall(text)))[:10]
+        cited = list(dict.fromkeys(cited))[:10]
+
+        return EngineResponse(
+            text=text,
+            cited_urls=cited,
+            latency_ms=latency_ms,
+            raw_payload={"model": getattr(resp, "model", self._model)},
+        )

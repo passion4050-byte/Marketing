@@ -24,8 +24,16 @@ PRICING: dict[str, dict[str, float]] = {
     # Anthropic Claude
     "claude-haiku-4-5-20251001": {"input": 1.0, "output": 5.0},
     "claude-haiku-4-5":          {"input": 1.0, "output": 5.0},
-    # OpenAI
+    # OpenAI (Phase 6 + 콘텐츠 generator)
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+    "gpt-4o":      {"input": 2.50, "output": 10.00},
+    "openai":      {"input": 0.15, "output": 0.60},
+    # Anthropic Claude (Phase 6 + 콘텐츠 generator)
+    "claude-haiku-4-5": {"input": 1.0, "output": 5.0},
+    "claude":           {"input": 1.0, "output": 5.0},
+    "anthropic":        {"input": 1.0, "output": 5.0},
+    # Google Gemini
+    "gemini": {"input": 0.075, "output": 0.30},
     # Perplexity (검색 엔진 — Phase 4)
     "llama-3.1-sonar-small-128k-online":  {"input": 0.20, "output": 0.20},
     "llama-3.1-sonar-large-128k-online":  {"input": 1.00, "output": 1.00},

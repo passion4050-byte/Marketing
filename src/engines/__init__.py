@@ -30,7 +30,34 @@ def get_engine(provider_name: str | None = None) -> BaseEngine:
             raise EngineError("PERPLEXITY_API_KEY 미설정 — Perplexity engine 사용 불가.")
         return PerplexityEngine(api_key=key)
 
-    raise EngineError(f"알 수 없는 ENGINE_PROVIDER: {name}. (stub|perplexity)")
+    if name == "openai":
+        from src.engines.openai_engine import OpenAIEngine
+
+        key = os.getenv("OPENAI_API_KEY")
+        if not key:
+            raise EngineError("OPENAI_API_KEY 미설정 — OpenAI engine 사용 불가.")
+        return OpenAIEngine(api_key=key)
+
+    if name == "gemini":
+        from src.engines.gemini import GeminiEngine
+
+        key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+        if not key:
+            raise EngineError("GOOGLE_API_KEY 미설정 — Gemini engine 사용 불가.")
+        return GeminiEngine(api_key=key)
+
+    if name == "claude" or name == "anthropic":
+        from src.engines.claude import ClaudeEngine
+
+        key = os.getenv("ANTHROPIC_API_KEY")
+        if not key:
+            raise EngineError("ANTHROPIC_API_KEY 미설정 — Claude engine 사용 불가.")
+        return ClaudeEngine(api_key=key)
+
+    raise EngineError(
+        f"알 수 없는 ENGINE_PROVIDER: {name}. "
+        "(stub | perplexity | openai | gemini | claude)"
+    )
 
 
 __all__ = ["BaseEngine", "EngineError", "EngineResponse", "get_engine"]
