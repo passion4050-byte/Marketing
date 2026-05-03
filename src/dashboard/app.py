@@ -77,7 +77,18 @@ from src.dashboard.brand_voice_tab import render_brand_voice_tab  # noqa: E402
 from src.dashboard.dashboard_tab import render_dashboard_tab  # noqa: E402
 from src.dashboard.profile import render_profile_tab  # noqa: E402
 from src.dashboard.theme import GLOBAL_CSS, chip  # noqa: E402
-from src.dashboard.unified_publisher_tab import render_unified_publisher_tab  # noqa: E402
+
+# 통합 발행 탭 — import 실패 시 6탭으로 폴백 (Streamlit Cloud 디버깅 중)
+try:
+    from src.dashboard.unified_publisher_tab import render_unified_publisher_tab  # noqa: E402
+
+    _UNIFIED_TAB_OK = True
+    _UNIFIED_TAB_ERROR: str | None = None
+except Exception as _e:  # pragma: no cover
+    _UNIFIED_TAB_OK = False
+    _UNIFIED_TAB_ERROR = repr(_e)
+    render_unified_publisher_tab = None  # type: ignore
+
 from src.storage.db import create_all, get_session_factory  # noqa: E402
 from src.storage.models import GeneratedContent, Keyword, Tenant  # noqa: E402
 
@@ -998,17 +1009,29 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    tab_dash, tab_feed, tab_voice, tab_sim, tab_unified, tab_faq, tab_blog = st.tabs(
-        [
-            "📊 대시보드",
-            "🎯 데이터 피딩",
-            "🎨 브랜드 보이스",
-            "🧪 AI 시뮬레이터",
-            "🚀 통합 발행 (4채널)",
-            "🧩 FAQ 생성기",
-            "📝 블로그 포스트",
-        ]
-    )
+    tab_labels = [
+        "📊 대시보드",
+        "🎯 데이터 피딩",
+        "🎨 브랜드 보이스",
+        "🧪 AI 시뮬레이터",
+        "🧩 FAQ 생성기",
+        "📝 블로그 포스트",
+    ]
+    if _UNIFIED_TAB_OK:
+        tab_labels.insert(4, "🚀 통합 발행 (4채널)")
+    tabs = st.tabs(tab_labels)
+
+    if _UNIFIED_TAB_OK:
+        tab_dash, tab_feed, tab_voice, tab_sim, tab_unified, tab_faq, tab_blog = tabs
+    else:
+        tab_dash, tab_feed, tab_voice, tab_sim, tab_faq, tab_blog = tabs
+        tab_unified = None
+        # 첫 화면에서만 한 번 알림
+        st.warning(
+            f"⚠️ 통합 발행 탭이 일시 비활성 (import 실패): `{_UNIFIED_TAB_ERROR}`. "
+            f"기존 FAQ/블로그 탭으로 발행 가능."
+        )
+
     with tab_dash:
         tenant, _ = _tenant_picker(SessionLocal, key="dash")
         render_dashboard_tab(SessionLocal, tenant)
@@ -1021,9 +1044,10 @@ def main() -> None:
     with tab_sim:
         tenant, _ = _tenant_picker(SessionLocal, key="aisim")
         render_ai_simulator_tab(SessionLocal, tenant)
-    with tab_unified:
-        tenant, _ = _tenant_picker(SessionLocal, key="unified")
-        render_unified_publisher_tab(SessionLocal, tenant)
+    if tab_unified is not None and render_unified_publisher_tab is not None:
+        with tab_unified:
+            tenant, _ = _tenant_picker(SessionLocal, key="unified")
+            render_unified_publisher_tab(SessionLocal, tenant)
     with tab_faq:
         _faq_tab(SessionLocal)
     with tab_blog:
