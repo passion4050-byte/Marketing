@@ -16,7 +16,7 @@ Phase 1은 **오늘 3시간 안에 동작하는 데모 슬라이스** — 의료
 - [ ] **Phase 2: Content Pipeline 확장 (4채널 + 자동수정 루프)** — Schema.org/Blog/네이버/Instagram 템플릿 + 자동 수정 루프
 - [ ] **Phase 3: Reference Library (RAG)** — Chroma + URL 인덱싱 + tenant 격리 검색 + Content Generator 통합
 - [x] **Phase 4: Measurement Foundation (MVP-0)** — Engine 추상화 + Perplexity 1엔진 + 수집 + 멘션 추출 v1
-- [ ] **Phase 5: Analytics 강화 (MVP-1)** — 가중치 + Mann-Kendall + 이상치 + Streamlit 대시보드
+- [x] **Phase 5: Analytics 강화 (MVP-1)** — 가중치 + Mann-Kendall + 이상치 + Streamlit 대시보드
 - [ ] **Phase 6: Multi-Engine + Competitor Discovery (MVP-2)** — 4엔진 동시 + NER 후보 발견 + Sentiment
 
 ## Phase Details
@@ -134,5 +134,5 @@ Phase 1 → 2 → 3 → 4 → 5 → 6 (Phase 3과 Phase 4는 Phase 2 완료 후 
 | 2. Content Pipeline 확장 | 0/3 | Not started | - |
 | 3. Reference Library (RAG) | 0/3 | Not started | - |
 | 4. Measurement Foundation | 3/3 | ✅ Done | 14/14 tasks · 38 신규 pytest · 라이브 측정 탭 |
-| 5. Analytics 강화 | 0/3 | Planned | PLAN.md 작성 완료 — 15 tasks |
+| 5. Analytics 강화 | 3/3 | ✅ Done | 15/15 tasks · 40 신규 pytest · 시계열+CI+이상치+추세 라이브 |
 | 6. Multi-Engine + Competitor Discovery | 0/3 | Not started | - |

@@ -13,6 +13,7 @@ trafilatura>=1.12
 beautifulsoup4>=4.12
 chromadb>=0.5
 apscheduler>=3.10
+pymannkendall>=1.4
 
 # LLM providers
 google-generativeai>=0.7

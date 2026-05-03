@@ -270,14 +270,77 @@ python scripts/ingest_references.py --tenant 1 --list
 
 ---
 
+## 측정 + Analytics (Phase 4-5)
+
+AI 검색 엔진(Perplexity 등)에서 키워드별 브랜드 멘션 추이를 측정 + 통계 분석. 의료법 콘텐츠 발행이 "브랜드 인용도"를 어떻게 움직이는지 평가.
+
+### 사용 흐름
+
+1. **📡 측정 탭** 진입 → 키워드 등록 (예: "강남 라식 잘하는 곳") + 타겟 브랜드
+2. **▶️ 수집** 버튼 → StubEngine 으로 n=10 즉시 데모 (`PERPLEXITY_API_KEY` 설정 시 실 호출)
+3. **📈 키워드별 시계열** 섹션 → 30일 mention share + Wilson 95% CI 음영 + 추세 chip + 이상치 마크
+4. APScheduler 가 매일 02:00 KST 자동 수집 (Streamlit Cloud 컨테이너 안 동작)
+
+### 통계 함수
+
+| 함수 | 반환 | 용도 |
+|---|---|---|
+| `mention_share()` | `{n, share, ci_95, weighted_share, weighted_ci_95, by_brand}` | 누적 점유율 + Wilson CI |
+| `detect_trend()` | `{trend, p_value, tau, is_significant, n_points}` | Mann-Kendall 추세 검정 (pymannkendall) |
+| `detect_anomalies()` | `[AnomalyPoint]` (이동평균 ± 2σ) | 시계열 이상치 탐지 |
+| `daily_mention_share_series()` | `[DailyShare]` | DB → 일별 시계열 (누락 날짜 0 fill) |
+
+### Mention Extractor v1 → v2
+
+- **v1 (Phase 4)**: 정규화 + 한글 어절 boundary + 위치 추적. weight=1.0 고정.
+- **v2 (Phase 5)**: `weight = position_score × strength_score` (0~1)
+  - position: 응답 앞쪽 1.0, 끝쪽 0.5
+  - strength: 매치 ± 30자에 추천 동사 인접 → 1.0, 비교 표현 → 0.3, 그 외 → 0.7
+  - is_negative: 부정 컨텍스트 자동 감지
+- 시그널 키워드는 `config/mention_signals.yaml` 에서 카테고리(추천/비교/부정)별 편집 가능
+
+### 데모 시드 CLI
+
+`pymannkendall` 추세 검정이 동작하려면 7일 이상의 시계열이 필요. 즉시 시연하려면:
+
+```bash
+python scripts/seed_measurement_demo.py --tenant 1 --keyword "강남 라식 잘하는 곳"
+```
+
+→ 14일치 더미 Query/Response/Mention 생성 (7일 안정 → 7일 증가 패턴, Mann-Kendall significant 보장).
+
+### 추세 해석 가이드
+
+| Chip | 의미 | 해석 |
+|---|---|---|
+| ↑ 증가 (p<0.05) | 통계적 유의 증가 | 콘텐츠 발행 효과 + |
+| ↓ 감소 (p<0.05) | 통계적 유의 감소 | 경쟁사 대응 또는 자료 노후 |
+| → 변화 없음 | tau≈0 | 시간 더 필요 또는 효과 없음 |
+| ⏳ 데이터 부족 | n<7 | 7일 이상 누적 필요 |
+| ⚠️ 이상치 N건 | 직전 7일 평균 ± 2σ 벗어남 | 외부 이벤트(보도/리뷰) 확인 |
+
+### 환경변수
+
+| 변수 | 기본 | 설명 |
+|---|---|---|
+| `ENGINE_PROVIDER` | `stub` | `stub` \| `perplexity` |
+| `PERPLEXITY_API_KEY` | — | Perplexity 사용 시 필수 |
+| `PERPLEXITY_MODEL` | `llama-3.1-sonar-small-128k-online` | Perplexity 모델 |
+| `MAX_DAILY_USD` | `5.0` | LLM/측정 USD 한도 |
+| `MEASUREMENT_CRON_HOUR` | `2` | 자동 수집 시각 (KST) |
+| `ANOMALY_WINDOW` | `7` | 이상치 윈도우 (일) |
+| `ANOMALY_SIGMA` | `2.0` | 이상치 임계 (σ) |
+
+---
+
 ## 다음 단계 (Roadmap)
 
 상세는 [`.planning/ROADMAP.md`](.planning/ROADMAP.md).
 
 - ✅ **Phase 2** — 4채널 템플릿(Schema.org / Blog / 네이버 / Instagram) + 자동수정 + 비용 가드레일
 - ✅ **Phase 3** — Reference Library (RAG) — URL 인덱싱 → tenant 격리 검색 → 사실 기반 콘텐츠 + 출처 기록
-- **Phase 4** — Measurement Foundation: Perplexity 1엔진으로 AI 노출 측정 (MVP-0)
-- **Phase 5** — Analytics 강화: 가중치, Mann-Kendall 추세, 이상치, 대시보드
+- ✅ **Phase 4** — Measurement Foundation (MVP-0) — Engine 추상화 + Perplexity + n=30 비동기 수집 + Mention v1
+- ✅ **Phase 5** — Analytics 강화 (MVP-1) — Mention v2(가중치/sentiment) + Wilson CI + Mann-Kendall + 이상치 + 시계열 대시보드
 - **Phase 6** — 4엔진 동시 + Competitor Discovery (NER) + Sentiment
 
 ---

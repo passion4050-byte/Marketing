@@ -1,0 +1,65 @@
+# Phase 5-T1.1 — Mention Extractor v2 시그널 룰북
+#
+# 매치 위치 ± 30자 윈도우 안에 등장하면 strength_score 또는 is_negative 결정.
+# 형태소 분석은 미사용 (Phase 6 예정) — 어절/substring 매칭.
+#
+# 카테고리:
+# - recommendation: 추천/권장 동사 → strength_score = 1.0
+# - comparison:    비교 표현      → strength_score = 0.3
+# - negative:      부정 컨텍스트   → is_negative = True
+#
+# (없으면 기본 strength_score = 0.7 단순 언급)
+
+recommendation:
+  - 추천
+  - 권장
+  - 권합니다
+  - 추천합니다
+  - 추천드립니다
+  - 권해드립니다
+  - 잘하는
+  - 잘하기로
+  - 좋은
+  - 좋다고
+  - 신뢰할만한
+  - 신뢰할 수
+  - 손꼽히는
+  - 유명한
+  - 1위
+  - 베스트
+  - 인정받는
+  - 가장 좋은
+  - 만족도
+
+comparison:
+  - 보다
+  - vs
+  - VS
+  - 대비
+  - 비해
+  - 에 비해
+  - 비교하면
+  - 비교해보면
+  - 비교 대상
+  - 다른 곳
+  - 차이가
+  - 와 달리
+
+negative:
+  - 피하
+  - 피해야
+  - 조심
+  - 주의
+  - 별로
+  - 비추천
+  - 비추
+  - 후기 안 좋
+  - 후기가 안
+  - 좋지 않
+  - 추천하지 않
+  - 권하지 않
+  - 실망
+  - 부작용 많
+  - 후회
+  - 다시는
+  - 절대로 안

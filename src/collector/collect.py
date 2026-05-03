@@ -190,7 +190,7 @@ async def collect_for_keyword(
                         is_competitor=em.is_competitor,
                         position=em.position,
                         weight=em.weight,
-                        sentiment=None,
+                        sentiment="negative" if em.is_negative else None,
                         context_snippet=em.context_snippet,
                     ))
 

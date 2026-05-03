@@ -21,10 +21,16 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
+from src.parser.signals import MentionSignals, load_signals
+
 
 @dataclass
 class ExtractedMention:
-    """Mention 추출 결과 1건. v1 은 weight=1.0 고정."""
+    """Mention 추출 결과 1건.
+
+    v1: weight=1.0, is_negative=False, recommendation_strength=1.0 고정
+    v2: weight = position_score × strength_score (0~1 실수)
+    """
 
     brand: str
     position: int
@@ -32,7 +38,8 @@ class ExtractedMention:
     is_target: bool = False
     is_competitor: bool = False
     weight: float = 1.0
-    is_negative: bool = False  # Phase 5 에서 활용
+    is_negative: bool = False
+    recommendation_strength: float = 1.0  # v2: 1.0 / 0.7 / 0.3
 
 
 _BOUNDARY_LEFT = r"(?<![가-힣A-Za-z0-9])"
@@ -67,12 +74,46 @@ def _snippet(text: str, position: int, length: int, *, window: int = 30) -> str:
     return prefix + out.replace("\n", " ").strip() + suffix
 
 
+_DEFAULT_WINDOW = 30
+
+
+def _position_score(position: int, total_length: int) -> float:
+    """앞쪽일수록 1.0, 끝쪽일수록 0.5. 정의서 §4.3 공식."""
+    if total_length <= 0:
+        return 1.0
+    ratio = max(0.0, min(1.0, position / total_length))
+    return 1.0 - ratio * 0.5
+
+
+def _strength_score(text: str, position: int, match_len: int, signals: MentionSignals,
+                    *, window: int = _DEFAULT_WINDOW) -> float:
+    """매치 위치 ± window 자에서 추천/비교 키워드 검사 → 1.0 / 0.3 / 0.7."""
+    start = max(0, position - window)
+    end = min(len(text), position + match_len + window)
+    around = text[start:end]
+    if any(w in around for w in signals.recommendation):
+        return 1.0
+    if any(w in around for w in signals.comparison):
+        return 0.3
+    return 0.7
+
+
+def _is_negative(text: str, position: int, match_len: int, signals: MentionSignals,
+                 *, window: int = _DEFAULT_WINDOW) -> bool:
+    start = max(0, position - window)
+    end = min(len(text), position + match_len + window)
+    around = text[start:end]
+    return any(w in around for w in signals.negative)
+
+
 def extract_mentions(
     response_text: str,
     target_brand: str,
     *,
     aliases: list[str] | None = None,
     competitors: list[str] | None = None,
+    enable_v2: bool = True,
+    signals: MentionSignals | None = None,
 ) -> list[ExtractedMention]:
     """본문에서 target/alias/competitor 멘션 모두 추출.
 
@@ -80,6 +121,13 @@ def extract_mentions(
     - competitors 의 매치 → is_competitor=True
     - target 과 competitor 가 동일 단어면 target 우선 (의미상 맞음)
     - 같은 (brand, position) 페어는 한 번만 (alias 끼리 겹쳐도 중복 X)
+
+    v2 (기본 enable_v2=True):
+    - weight = position_score × strength_score (소수 둘째자리 round, 0~1)
+    - is_negative: 매치 ± 30자 내에 부정 시그널 등장 시 True
+
+    v1 (enable_v2=False):
+    - weight=1.0, is_negative=False, recommendation_strength=1.0 고정 (Phase 4 호환)
 
     정렬: position 오름차순 (등장 순서 그대로).
     """
@@ -92,6 +140,9 @@ def extract_mentions(
         target_terms.extend(a for a in aliases if a and a.strip())
     competitor_terms: list[str] = list(competitors or [])
 
+    sigs = signals if signals is not None else (load_signals() if enable_v2 else MentionSignals.empty())
+    text_len = len(text)
+
     found: dict[tuple[str, int], ExtractedMention] = {}
 
     def _add(term: str, *, is_target: bool, is_competitor: bool) -> None:
@@ -103,14 +154,28 @@ def extract_mentions(
             key = (term, pos)
             if key in found:
                 continue
+            mlen = len(m.group(0))
+
+            if enable_v2:
+                pos_s = _position_score(pos, text_len)
+                str_s = _strength_score(text, pos, mlen, sigs)
+                weight = round(pos_s * str_s, 2)
+                is_neg = _is_negative(text, pos, mlen, sigs)
+            else:
+                pos_s = 1.0
+                str_s = 1.0
+                weight = 1.0
+                is_neg = False
+
             found[key] = ExtractedMention(
                 brand=term,
                 position=pos,
-                context_snippet=_snippet(text, pos, len(m.group(0))),
+                context_snippet=_snippet(text, pos, mlen),
                 is_target=is_target,
                 is_competitor=is_competitor,
-                weight=1.0,
-                is_negative=False,
+                weight=weight,
+                is_negative=is_neg,
+                recommendation_strength=str_s,
             )
 
     for term in target_terms:

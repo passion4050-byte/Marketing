@@ -119,6 +119,11 @@ def render_measurement_tab(SessionLocal, tenant) -> None:
 
     st.divider()
 
+    # ─── 키워드별 시계열 (Phase 5) ─────────────────────────────
+    _render_timeseries_section(SessionLocal, tenant, kw_data)
+
+    st.divider()
+
     # ─── 최근 Response 카드 ────────────────────────────────────
     st.markdown("##### 최근 응답 (직전 30건)")
     with SessionLocal() as s:
@@ -253,3 +258,151 @@ def _run_collect_now(SessionLocal, tenant_id: int, keyword_id: int, n: int = 10)
 
 def n_total_label(n: int) -> str:
     return str(n)
+
+
+# ─── Phase 5 — 시계열 + 추세 + 이상치 ──────────────────────────
+
+
+def _render_timeseries_section(SessionLocal, tenant, kw_data) -> None:
+    """키워드별 mention share 시계열 + Wilson CI + 추세 chip + 이상치 overlay."""
+    if not kw_data:
+        return
+
+    try:
+        import altair as alt
+        import pandas as pd
+
+        from src.analytics import (
+            daily_mention_share_series,
+            detect_anomalies,
+            detect_trend,
+            mention_share,
+            wilson_ci,
+        )
+    except ImportError as _ie:  # pragma: no cover
+        st.warning(f"분석 모듈 import 실패: `{_ie}`")
+        return
+
+    st.markdown("##### 📈 키워드별 시계열 (최근 30일)")
+
+    # 키워드 선택 — kw_data: list[(id, text, brand, active)]
+    options = {f"{text} [{kid}]": kid for kid, text, _b, _a in kw_data}
+    label = st.selectbox(
+        "키워드", list(options.keys()), key="meas_ts_kw",
+    )
+    keyword_id = options[label]
+    keyword_text = label.rsplit(" [", 1)[0]
+
+    days = st.slider("표시 기간 (일)", 7, 60, 30, key="meas_ts_days")
+
+    with SessionLocal() as s:
+        series = daily_mention_share_series(s, tenant.id, keyword_id, days=days)
+        agg = mention_share(s, tenant.id, keyword_id)
+
+    if not series:
+        st.info("데이터가 없습니다. 위에서 ▶️ 수집 버튼으로 데이터를 모아보세요.")
+        return
+
+    # 시계열 → DataFrame
+    df = pd.DataFrame([
+        {
+            "day": d.day.isoformat(),
+            "share": d.share,
+            "weighted_share": d.weighted_share,
+            "n": d.n,
+        }
+        for d in series
+    ])
+
+    # Wilson CI 시계열 (각 날짜마다 n 기반)
+    df["ci_lo"] = [wilson_ci(d.share, d.n)[0] if d.n > 0 else 0.0 for d in series]
+    df["ci_hi"] = [wilson_ci(d.share, d.n)[1] if d.n > 0 else 0.0 for d in series]
+
+    # 추세 + 이상치 (n>0 인 날의 share 만)
+    nonzero = [d.share for d in series if d.n > 0]
+    trend = detect_trend(nonzero) if nonzero else {
+        "trend": "insufficient_data", "is_significant": False, "p_value": None, "tau": None,
+        "n_points": 0,
+    }
+    anomalies = detect_anomalies([d.share for d in series])
+
+    # 헤더 chip + KPI
+    col_t, col_a, col_n = st.columns(3)
+    col_t.markdown(_trend_chip_html(trend), unsafe_allow_html=True)
+    col_a.markdown(_anomaly_chip_html(len(anomalies)), unsafe_allow_html=True)
+    col_n.metric("누적 응답", agg["n"])
+
+    col_s, col_w = st.columns(2)
+    col_s.metric(
+        "단순 share", f"{agg['share']:.1%}",
+        help=f"95% CI: [{agg['ci_95'][0]:.2f}, {agg['ci_95'][1]:.2f}]",
+    )
+    col_w.metric(
+        "가중 share", f"{agg['weighted_share']:.1%}",
+        help=f"95% CI: [{agg['weighted_ci_95'][0]:.2f}, {agg['weighted_ci_95'][1]:.2f}]",
+    )
+
+    # ─── Altair line + CI 음영 + 이상치 dot ──────────────────
+    base = alt.Chart(df).encode(
+        x=alt.X("day:T", title="날짜"),
+    )
+    band = base.mark_area(opacity=0.18, color="#5b8ff9").encode(
+        y=alt.Y("ci_lo:Q", title="Mention Share"),
+        y2="ci_hi:Q",
+    )
+    line = base.mark_line(strokeWidth=2.5, color="#5b8ff9").encode(
+        y=alt.Y("share:Q", title="Mention Share"),
+    )
+    points = base.mark_circle(size=50, color="#5b8ff9").encode(
+        y="share:Q",
+    )
+    layers = [band, line, points]
+
+    if anomalies:
+        anomaly_df = pd.DataFrame([
+            {"day": series[a.index].day.isoformat(), "share": a.value}
+            for a in anomalies
+        ])
+        anomaly_layer = alt.Chart(anomaly_df).mark_point(
+            size=200, color="#a02520", filled=True, shape="diamond",
+        ).encode(x="day:T", y="share:Q")
+        layers.append(anomaly_layer)
+
+    chart = alt.layer(*layers).properties(height=320).interactive()
+    st.altair_chart(chart, use_container_width=True)
+    st.caption(
+        f"키워드 `{keyword_text}` · 가중 share = max(target weight) per response · "
+        f"이상치는 직전 7일 평균 ± 2σ 벗어난 시점."
+    )
+
+    # by_brand 테이블
+    if agg["by_brand"]:
+        with st.expander(f"브랜드별 멘션 카운트 ({len(agg['by_brand'])}개)", expanded=False):
+            for brand, count in agg["by_brand"].items():
+                st.markdown(f"- **{brand}** — {count}건")
+
+
+def _trend_chip_html(trend: dict) -> str:
+    t = trend.get("trend", "insufficient_data")
+    p = trend.get("p_value")
+    if t == "increasing":
+        return (
+            f'<span class="gsd-chip gsd-chip-green">↑ 증가 추세'
+            f'{f" (p={p:.3f})" if p is not None else ""}</span>'
+        )
+    if t == "decreasing":
+        return (
+            f'<span class="gsd-chip gsd-chip-red">↓ 감소 추세'
+            f'{f" (p={p:.3f})" if p is not None else ""}</span>'
+        )
+    if t == "no trend":
+        return '<span class="gsd-chip gsd-chip-gray">→ 변화 없음</span>'
+    return '<span class="gsd-chip gsd-chip-gray">⏳ 데이터 부족 (7일 미만)</span>'
+
+
+def _anomaly_chip_html(n: int) -> str:
+    if n == 0:
+        return '<span class="gsd-chip gsd-chip-green">✓ 이상치 없음</span>'
+    return (
+        f'<span class="gsd-chip gsd-chip-yellow">⚠️ 이상치 {n}건 (최근 14일)</span>'
+    )
