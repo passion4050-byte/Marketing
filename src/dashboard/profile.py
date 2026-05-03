@@ -532,8 +532,12 @@ def render_profile_tab(SessionLocal, tenant) -> None:
 
     st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
 
-    # 3-column 카드 — 동일 세로 크기 (gsd-equal-row CSS)
-    st.markdown('<div class="gsd-equal-row">', unsafe_allow_html=True)
+    # 3-column 카드 — 동일 세로 크기.
+    # Streamlit DOM 구조상 sibling combinator 로 다음 horizontal block 타겟팅.
+    st.markdown(
+        '<div class="gsd-equal-row" style="display:none"></div>',
+        unsafe_allow_html=True,
+    )
     col_d, col_e, col_v = st.columns(3, gap="medium")
     with col_d:
         _render_doctor_card(SessionLocal, tenant.id)
@@ -541,4 +545,22 @@ def render_profile_tab(SessionLocal, tenant) -> None:
         _render_equipment_card(SessionLocal, tenant.id)
     with col_v:
         _render_event_card(SessionLocal, tenant.id)
-    st.markdown('</div>', unsafe_allow_html=True)
+
+    # JS 폴백 — 위 sibling combinator 가 일부 Streamlit 빌드에서 안 잡히는 경우 대비.
+    # gsd-equal-row 마커의 다음 stHorizontalBlock 에 data-gsd-equal="1" 부여 → CSS 가 적용됨.
+    st.markdown(
+        """
+        <script>
+        (function() {
+          const tag = window.parent.document.querySelector('.gsd-equal-row');
+          if (!tag) return;
+          let sib = tag.nextElementSibling;
+          while (sib && !sib.matches('[data-testid="stHorizontalBlock"]')) {
+            sib = sib.nextElementSibling;
+          }
+          if (sib) sib.setAttribute('data-gsd-equal', '1');
+        })();
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )

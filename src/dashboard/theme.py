@@ -426,19 +426,43 @@ GLOBAL_CSS = f"""
   }}
 
   /* ─ Equal-height columns for 3-up cards (Phase 6.5 UX) ─
-     데이터 피딩의 의사/장비/이벤트 같은 3-column 레이아웃에서
-     컨테이너 세로 크기를 동일하게 맞춤. */
-  .gsd-equal-row > div[data-testid="column"] {{
-    display: flex;
-    flex-direction: column;
+     Streamlit 의 ``st.markdown('<div class="gsd-equal-row">')`` 는 wrapper 가 안 되고
+     빈 div 로 그려지므로, **다음 형제 (sibling)** 인 stHorizontalBlock 을 타겟팅한다.
+     (Adjacent sibling combinator ``+``) */
+  .gsd-equal-row + div[data-testid="stHorizontalBlock"] {{
+    align-items: stretch !important;
   }}
-  .gsd-equal-row > div[data-testid="column"]
-    > div[data-testid="stVerticalBlock"]
-    > div[data-testid="stVerticalBlockBorderWrapper"] {{
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 560px;
+  .gsd-equal-row + div[data-testid="stHorizontalBlock"]
+    > div[data-testid="column"] {{
+    display: flex !important;
+    flex-direction: column !important;
+  }}
+  .gsd-equal-row + div[data-testid="stHorizontalBlock"]
+    > div[data-testid="column"]
+    > div[data-testid="stVerticalBlock"] {{
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }}
+  .gsd-equal-row + div[data-testid="stHorizontalBlock"]
+    > div[data-testid="column"]
+    div[data-testid="stVerticalBlockBorderWrapper"] {{
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 600px !important;
+  }}
+  /* 최종 폴백 — markdown wrapper 가 아예 sibling 도 안 잡히는 빌드 환경 대비.
+     `gsd-equal-row` 가 들어있는 페이지의 첫 horizontal block 컨테이너를 정렬한다.
+     (data-gsd-equal 속성 hook — profile.py 가 직접 부여) */
+  div[data-gsd-equal="1"] {{ align-items: stretch !important; }}
+  div[data-gsd-equal="1"] > div[data-testid="column"] {{
+    display: flex !important; flex-direction: column !important;
+  }}
+  div[data-gsd-equal="1"] > div[data-testid="column"]
+    div[data-testid="stVerticalBlockBorderWrapper"] {{
+    flex: 1 !important; min-height: 600px !important;
+    display: flex !important; flex-direction: column !important;
   }}
 
   /* ─ Sub-tab indicator (네스티드 st.tabs) — primary 보다 옅게 ─ */
