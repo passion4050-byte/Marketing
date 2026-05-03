@@ -65,10 +65,26 @@ Vercel = 서버리스/정적 호스팅. Streamlit = 항상 켜져있는 Python �
 - 사이드바 + collapse 버튼 모두 hide 해야 완전 차단
 - 위치: `src/dashboard/theme.py` 의 GLOBAL_CSS — `section[data-testid="stSidebar"] { display: none !important; }`
 
-**탭 순서 — input → output 흐름:**
-대시보드 → 데이터 피딩 → 브랜드 보이스 → AI 시뮬레이터 → FAQ 생성기 → 블로그 포스트
+**탭 구조 (Phase 6.5 기준 — 4-탭 그룹핑):**
+1. 📊 인사이트 = 대시보드 + 측정 (sub-tabs)
+2. 🛠️ 데이터 관리 = 데이터피딩 + 참고자료 + 브랜드보이스 (sub-tabs)
+3. ✨ 콘텐츠 발행 = 통합발행 + AI 시뮬레이터 + 발행 이력 (sub-tabs)
+4. 📥 임시 저장함 = 자동 생성 큐
 
-이 결정을 되돌리려면 theme.py 의 사이드바 CSS 블록 + app.py 의 `_top_header()` 를 함께 손봐야 함.
+Phase 6.5 이전엔 9-탭 평탄 구조 (FAQ 생성기/블로그 포스트가 별도). 통합 발행 탭이 4채널 모두 흡수해 legacy FAQ/블로그 탭 ~380줄 삭제. 향후 채널 (유튜브/Threads 등) 확장 시 통합 발행에 추가.
+
+이 결정을 되돌리려면 theme.py 의 사이드바 CSS 블록 + app.py 의 `_top_header()` / `main()` 의 4-탭 라우팅을 함께 손봐야 함.
+
+---
+
+### 자동 콘텐츠 큐 (AutoContentSetting) 설계 결정 (Phase 6.5)
+
+`AutoContentSetting` 모델로 tenant 별 자동 큐 설정 (enabled / daily_count / channels) 을 DB 에 저장. `src/collector/scheduler.py` 의 `daily_auto_content_job` 이 매일 03:00 KST 에 실행해 활성 키워드 × 채널로 `GeneratedContent` 를 생성하고 `status='draft'` 로 저장.
+
+- `GeneratedContent.status` 컬럼 (`draft` / `published`) 으로 임시저장함 (`draft_queue_tab`) 과 발행 이력 (`_history_section`) 분리.
+- "🚀 발행" 버튼 → `status='published'` 전환 (사용자 검수 후).
+- **No auto-posting 원칙 유지:** 자동 큐는 **콘텐츠 생성까지만**. 외부 플랫폼 (네이버 블로그/티스토리/인스타) 자동 게시는 여전히 금지. 발행 = 사용자가 임시저장함에서 본문을 클립보드 복사하거나 status 를 published 로 전환하는 행위까지.
+- 1차 구현 한계: 키워드는 첫 활성 1개만 사용 (라운드 로빈 미구현 — Follow-up).
 
 ---
 

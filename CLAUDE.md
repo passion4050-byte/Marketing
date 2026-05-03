@@ -41,6 +41,7 @@ AI 검색엔진(Perplexity, ChatGPT, Gemini, Claude)에서 의료 도메인 브�
 - **Async I/O**: LLM 호출, HTTP, DB는 가능한 비동기 (`asyncio` + `httpx.AsyncClient`).
 - **Type hints**: 모든 public 함수에 type hint. dataclass/Pydantic 사용.
 - **No mocking DB in tests**: 통합 테스트는 SQLite 메모리 DB 실제 사용. LLM은 모킹 OK.
+- **Streamlit stale module cache 가드**: Streamlit Cloud 재배포 후 `sys.modules` 캐시로 신규 ORM 컬럼/모델이 누락된 채 실행될 수 있음. 신규 속성/모델 접근 전 `hasattr(Model, "field")` 또는 `try/except ImportError` 가드 필수. 완전 해소는 앱 reboot.
 <!-- GSD:conventions-end -->
 
 <!-- GSD:architecture-start source:ARCHITECTURE.md -->
