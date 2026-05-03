@@ -83,13 +83,14 @@ def render_dashboard_tab(SessionLocal, tenant) -> None:
             .filter(GeneratedContent.tenant_id == tenant.id)
             .count()
         )
-        recent = (
-            session.query(GeneratedContent)
+        recent_ids = [
+            r.id
+            for r in session.query(GeneratedContent.id)
             .filter(GeneratedContent.tenant_id == tenant.id)
             .order_by(GeneratedContent.created_at.desc())
             .limit(5)
             .all()
-        )
+        ]
 
     # 상단 KPI 4개
     score = health["score"]
@@ -155,20 +156,17 @@ def render_dashboard_tab(SessionLocal, tenant) -> None:
     )
     st.dataframe(engine_summary, use_container_width=True, hide_index=True)
 
-    # 최근 발행 콘텐츠
+    # 최근 발행 콘텐츠 — 각 항목 펼쳐 본문 확인/수정/재검사/복사/삭제
     st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
-    st.markdown("#### 📝 최근 발행 콘텐츠 (실데이터)")
-    if not recent:
-        st.caption("아직 발행된 콘텐츠가 없습니다. FAQ/블로그 탭에서 발행해보세요.")
+    st.markdown("#### 📝 최근 발행 콘텐츠")
+    st.caption("각 항목을 펼쳐 본문을 확인·수정하거나 의료법 재검사를 실행할 수 있습니다.")
+    if not recent_ids:
+        st.info("아직 발행된 콘텐츠가 없습니다. FAQ/블로그 탭에서 발행해보세요.")
     else:
-        for r in recent:
-            cols = st.columns([2, 4, 1, 1, 1])
-            cols[0].caption(r.created_at.strftime("%Y-%m-%d %H:%M"))
-            cols[1].markdown(f"**{r.keyword_text}**")
-            cols[2].caption(r.channel)
-            emoji = {"pass": "✅", "warn": "⚠️", "fail": "❌"}.get(r.compliance_status, "?")
-            cols[3].caption(f"{emoji} {r.compliance_status}")
-            cols[4].caption(r.llm_provider)
+        from src.dashboard.app import render_content_card
+
+        for cid in recent_ids:
+            render_content_card(SessionLocal, cid, key_prefix=f"dash_{tenant.id}")
 
     # 보고서/요약
     st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)

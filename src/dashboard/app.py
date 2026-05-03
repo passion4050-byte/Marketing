@@ -184,18 +184,9 @@ def _save_uploaded_image(uploaded) -> str:
 
 
 def _top_header() -> None:
-    """상단 헤더 — 좌측: 브랜드, 우측: LLM/비용 metadata chip.
-
-    사이드바 대체. 메타정보는 작고 옅게, 메인 콘텐츠 영역 최대화.
-    """
-    provider_name, provider_msg, ok = _provider_status()
-    chip_variant = "green" if ok else "red"
-    daily_cap = os.getenv("MAX_CONTENT_GEN_PER_DAY", "50")
-    usd_cap = os.getenv("MAX_DAILY_USD", "10.0")
-
-    # 헤더 스트립 — flex 레이아웃 (브랜드 좌, 메타 우)
+    """상단 헤더 — 브랜드만. 메타정보(LLM/비용)는 노출 제거."""
     st.markdown(
-        f"""
+        """
         <div class="gsd-app-header">
           <div class="gsd-brand">
             <div class="gsd-brand-mark">🏥</div>
@@ -204,34 +195,16 @@ def _top_header() -> None:
               <div class="gsd-brand-tag">GEO/AEO Content Platform</div>
             </div>
           </div>
-          <div class="gsd-meta-strip">
-            <span class="gsd-meta-item">
-              <span class="gsd-meta-label">LLM</span>
-              <span class="gsd-chip gsd-chip-{chip_variant}">{provider_name}</span>
-            </span>
-            <span class="gsd-meta-divider"></span>
-            <span class="gsd-meta-item">
-              <span class="gsd-meta-label">일일 한도</span>
-              <span class="gsd-meta-value">{daily_cap}건 · ${usd_cap}</span>
-            </span>
-          </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # 키 없는 stub 모드일 때만 1줄 인라인 알림 (info 박스 대신)
-    if provider_name == "stub":
-        st.markdown(
-            """
-            <div class="gsd-inline-note">
-              💡 키 없이 동작 중 — 실제 LLM 사용은 Settings → Secrets 에 <code>GOOGLE_API_KEY</code> 추가
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    elif not ok:
-        st.warning(f"`LLM_PROVIDER={provider_name}` 인데 해당 API 키가 비어있습니다.")
+    # 키 누락은 운영자에게 한 번 경고 (생성 시점에 어차피 또 막힘)
+    _, _, ok = _provider_status()
+    name = os.getenv("LLM_PROVIDER", "stub").lower()
+    if name != "stub" and not ok:
+        st.warning(f"`LLM_PROVIDER={name}` 인데 해당 API 키가 비어있습니다.")
 
 
 def _tenant_picker(SessionLocal, *, key: str) -> tuple[Tenant, list[str]]:
@@ -691,28 +664,156 @@ def _blog_tab(SessionLocal) -> None:
 # ─── 이력 ───────────────────────────────────────────────────────
 
 
+CHANNEL_LABELS = {
+    "schema_org": "🧩 FAQ JSON-LD",
+    "blog_html": "📝 블로그 (HTML)",
+    "naver_blog": "📝 네이버 블로그",
+    "instagram": "📸 인스타그램",
+}
+
+
+def render_content_card(SessionLocal, content_id: int, *, key_prefix: str = "hist") -> None:
+    """발행 이력 1건 — 확장 가능한 카드. 본문 편집 + 재검사 + 복사 + 삭제.
+
+    SessionLocal: 세션 팩토리. 쓰기 작업은 새 세션을 열어 격리.
+    content_id: GeneratedContent.id — detached 상태에서도 안전하게 재조회.
+    key_prefix: 같은 페이지에 여러 리스트가 있을 때 충돌 방지 (dash/hist 등).
+    """
+    with SessionLocal() as session:
+        c = session.get(GeneratedContent, content_id)
+        if c is None:
+            return
+        # 헤더용 데이터를 먼저 떠놓고 (expander 안에서 다시 detach)
+        header_date = c.created_at.strftime("%Y-%m-%d %H:%M")
+        header_kw = c.keyword_text
+        header_ch = CHANNEL_LABELS.get(c.channel, c.channel)
+        header_status = c.compliance_status
+        header_provider = c.llm_provider
+        body_initial = c.body
+        violations = (c.compliance_report or {}).get("violations") or []
+
+    status_emoji = {"pass": "✅", "warn": "⚠️", "fail": "❌"}.get(header_status, "•")
+    title = f"{status_emoji}  {header_kw}  ·  {header_ch}  ·  {header_date}"
+
+    state_key = f"{key_prefix}_body_{content_id}"
+    if state_key not in st.session_state:
+        st.session_state[state_key] = body_initial
+
+    with st.expander(title, expanded=False):
+        # 메타 줄
+        meta_cols = st.columns([1.2, 1, 1, 3])
+        meta_cols[0].markdown(f"**Provider** · `{header_provider}`")
+        meta_cols[1].markdown(f"**상태** · {status_emoji} {header_status}")
+        meta_cols[2].markdown(f"**위반** · {len(violations)}건")
+
+        # 위반 상세 (있을 때만)
+        if violations:
+            with st.container(border=True):
+                st.caption("⚠️ 의료법 위반/주의 항목")
+                for v in violations:
+                    sev = v.get("severity", "info")
+                    icon = {"error": "🔴", "warning": "🟡", "info": "🔵"}.get(sev, "⚪")
+                    matched = v.get("matched_text") or v.get("text", "")
+                    msg = v.get("message", "")
+                    st.markdown(f"{icon} **`{matched}`** — {msg}")
+
+        # 본문 편집기
+        st.markdown("##### ✏️ 본문 (수정 가능)")
+        edited = st.text_area(
+            "본문",
+            value=st.session_state[state_key],
+            key=f"{state_key}_input",
+            height=320,
+            label_visibility="collapsed",
+        )
+        st.session_state[state_key] = edited
+
+        # 액션 버튼
+        b1, b2, b3, b4, _ = st.columns([1, 1, 1, 1, 4])
+        save_clicked = b1.button("💾 저장", key=f"{key_prefix}_save_{content_id}", use_container_width=True)
+        recheck_clicked = b2.button("🔍 재검사", key=f"{key_prefix}_recheck_{content_id}", use_container_width=True)
+        copy_clicked = b3.button("📋 복사", key=f"{key_prefix}_copy_{content_id}", use_container_width=True)
+        delete_clicked = b4.button(
+            "🗑️ 삭제", key=f"{key_prefix}_del_{content_id}", use_container_width=True, type="secondary"
+        )
+
+        if save_clicked:
+            with SessionLocal() as session:
+                obj = session.get(GeneratedContent, content_id)
+                if obj is not None:
+                    obj.body = edited
+                    session.commit()
+                    st.success("본문이 저장되었습니다.")
+                    st.rerun()
+
+        if recheck_clicked:
+            from src.compliance.linter import lint as lint_fn
+
+            with SessionLocal() as session:
+                obj = session.get(GeneratedContent, content_id)
+                if obj is not None:
+                    report = lint_fn(session, obj.tenant_id, edited)
+                    obj.compliance_status = report.status
+                    obj.compliance_report = {
+                        "status": report.status,
+                        "violations": [
+                            {
+                                "rule_type": v.rule_type,
+                                "severity": v.severity,
+                                "matched_text": v.matched_text,
+                                "message": v.message,
+                                "position": list(v.position) if v.position else None,
+                            }
+                            for v in report.violations
+                        ],
+                    }
+                    obj.body = edited  # 재검사 시 본문도 함께 동기화
+                    session.commit()
+                    st.success(f"재검사 완료 — {report.summary()}")
+                    st.rerun()
+
+        if copy_clicked:
+            st.code(edited, language=None)
+            st.caption("👆 우상단 복사 아이콘으로 클립보드 복사")
+
+        if delete_clicked:
+            confirm_key = f"{key_prefix}_confirm_del_{content_id}"
+            st.session_state[confirm_key] = True
+
+        if st.session_state.get(f"{key_prefix}_confirm_del_{content_id}"):
+            st.warning("이 콘텐츠를 정말 삭제하시겠습니까? 되돌릴 수 없습니다.")
+            cc1, cc2, _ = st.columns([1, 1, 4])
+            if cc1.button("✅ 삭제 확정", key=f"{key_prefix}_del2_{content_id}", type="primary"):
+                with SessionLocal() as session:
+                    obj = session.get(GeneratedContent, content_id)
+                    if obj is not None:
+                        session.delete(obj)
+                        session.commit()
+                st.session_state.pop(f"{key_prefix}_confirm_del_{content_id}", None)
+                st.session_state.pop(state_key, None)
+                st.rerun()
+            if cc2.button("취소", key=f"{key_prefix}_del_cancel_{content_id}"):
+                st.session_state.pop(f"{key_prefix}_confirm_del_{content_id}", None)
+                st.rerun()
+
+
 def _history_section(SessionLocal) -> None:
     st.divider()
     st.subheader("🗂️ 최근 발행 이력")
+    st.caption("각 항목을 펼쳐 본문을 확인·수정하거나 의료법 재검사를 실행할 수 있습니다.")
     with SessionLocal() as session:
-        recent = (
-            session.query(GeneratedContent)
+        ids = [
+            r.id
+            for r in session.query(GeneratedContent.id)
             .order_by(GeneratedContent.created_at.desc())
             .limit(20)
             .all()
-        )
-        if not recent:
-            st.caption("아직 발행된 콘텐츠가 없습니다.")
-            return
-        for r in recent:
-            cols = st.columns([2, 4, 1, 1, 1, 1])
-            cols[0].caption(r.created_at.strftime("%Y-%m-%d %H:%M"))
-            cols[1].markdown(f"**{r.keyword_text}**")
-            cols[2].caption(r.channel)
-            emoji = {"pass": "✅", "warn": "⚠️", "fail": "❌"}.get(r.compliance_status, "?")
-            cols[3].caption(f"{emoji} {r.compliance_status}")
-            cols[4].caption(r.llm_provider)
-            cols[5].caption(f"수정 {r.correction_iterations}회")
+        ]
+    if not ids:
+        st.info("아직 발행된 콘텐츠가 없습니다. FAQ/블로그 탭에서 발행해보세요.")
+        return
+    for cid in ids:
+        render_content_card(SessionLocal, cid, key_prefix="hist")
 
 
 def main() -> None:
