@@ -672,8 +672,113 @@ CHANNEL_LABELS = {
 }
 
 
+def _render_readable_content(channel: str, body: str, raw: dict | None) -> None:
+    """채널별 사람이 읽기 쉬운 형태로 본문 렌더.
+
+    - schema_org: raw_qa_pairs 의 Q/A 를 카드 형태로
+    - blog_html: HTML 의 구조(h1/h2/h3/p) 를 추출해 리딩 뷰로
+    - 그 외: body 원문을 그대로 (이미 텍스트일 가능성 높음)
+    """
+    if channel == "schema_org":
+        pairs = (raw or {}).get("pairs") or []
+        if not pairs:
+            # raw 없는 구버전 데이터 — JSON-LD에서 직접 파싱 시도
+            try:
+                data = json.loads(body)
+                main = data.get("mainEntity", []) or []
+                pairs = [
+                    {"q": e.get("name", ""), "a": (e.get("acceptedAnswer") or {}).get("text", "")}
+                    for e in main
+                ]
+            except Exception:
+                pairs = []
+        if not pairs:
+            st.caption("Q&A 데이터가 없습니다.")
+            return
+        for i, p in enumerate(pairs, 1):
+            q = p.get("q", "")
+            a = p.get("a", "")
+            st.markdown(
+                f"""
+                <div style="background:#fbfbfd;border:1px solid #eee;border-radius:12px;
+                            padding:14px 18px;margin-bottom:10px;">
+                  <div style="font-size:11px;color:#888;font-weight:700;letter-spacing:0.04em;
+                              text-transform:uppercase;margin-bottom:4px;">Q{i}</div>
+                  <div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:10px;
+                              line-height:1.5;">{q}</div>
+                  <div style="font-size:11px;color:#888;font-weight:700;letter-spacing:0.04em;
+                              text-transform:uppercase;margin-bottom:4px;">A</div>
+                  <div style="font-size:14px;color:#333;line-height:1.65;
+                              white-space:pre-wrap;">{a}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        return
+
+    if channel == "blog_html":
+        # BeautifulSoup 으로 구조화 텍스트 추출 → 마크다운으로 보여주기
+        try:
+            from bs4 import BeautifulSoup
+
+            soup = BeautifulSoup(body, "html.parser")
+        except Exception:
+            st.code(body[:5000], language="html")
+            return
+
+        title_el = soup.find(["h1"])
+        if title_el:
+            st.markdown(f"### {title_el.get_text(strip=True)}")
+            title_el.decompose()
+
+        meta_el = soup.find("meta", {"name": "description"})
+        if meta_el and meta_el.get("content"):
+            st.caption(f"📝 {meta_el['content']}")
+
+        # 섹션별 텍스트
+        readable_html = []
+        for el in soup.find_all(["h2", "h3", "p", "li", "blockquote"]):
+            text = el.get_text(" ", strip=True)
+            if not text:
+                continue
+            tag = el.name
+            if tag == "h2":
+                readable_html.append(f"<h4 style='margin-top:18px;'>{text}</h4>")
+            elif tag == "h3":
+                readable_html.append(f"<h5 style='margin-top:14px;color:#444;'>{text}</h5>")
+            elif tag == "li":
+                readable_html.append(f"<div style='padding-left:18px;'>• {text}</div>")
+            elif tag == "blockquote":
+                readable_html.append(
+                    f"<div style='border-left:3px solid #5b8ff9;padding:8px 12px;"
+                    f"background:#f5f8ff;color:#444;'>{text}</div>"
+                )
+            else:
+                readable_html.append(f"<p style='line-height:1.7;color:#333;'>{text}</p>")
+
+        if not readable_html:
+            st.caption("본문에서 읽을 수 있는 텍스트를 찾지 못했습니다.")
+            return
+        st.markdown(
+            f"""
+            <div style="background:#fbfbfd;border:1px solid #eee;border-radius:12px;
+                        padding:18px 22px;font-size:14px;">
+              {"".join(readable_html)}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        return
+
+    # naver_blog 등 기타 — 텍스트로 가정하고 그대로
+    st.markdown(
+        f"<div style='white-space:pre-wrap;font-size:14px;line-height:1.7;color:#333;'>{body}</div>",
+        unsafe_allow_html=True,
+    )
+
+
 def render_content_card(SessionLocal, content_id: int, *, key_prefix: str = "hist") -> None:
-    """발행 이력 1건 — 확장 가능한 카드. 본문 편집 + 재검사 + 복사 + 삭제.
+    """발행 이력 1건 — 확장 가능한 카드. 본문 편집 + 재검사 + 복사 + 삭제 + 내용보기.
 
     SessionLocal: 세션 팩토리. 쓰기 작업은 새 세션을 열어 격리.
     content_id: GeneratedContent.id — detached 상태에서도 안전하게 재조회.
@@ -690,6 +795,8 @@ def render_content_card(SessionLocal, content_id: int, *, key_prefix: str = "his
         header_status = c.compliance_status
         header_provider = c.llm_provider
         body_initial = c.body
+        channel = c.channel
+        raw = c.raw_qa_pairs
         violations = (c.compliance_report or {}).get("violations") or []
 
     status_emoji = {"pass": "✅", "warn": "⚠️", "fail": "❌"}.get(header_status, "•")
@@ -729,13 +836,22 @@ def render_content_card(SessionLocal, content_id: int, *, key_prefix: str = "his
         st.session_state[state_key] = edited
 
         # 액션 버튼
-        b1, b2, b3, b4, _ = st.columns([1, 1, 1, 1, 4])
+        b1, b2, b3, b4, b5, _ = st.columns([1, 1, 1, 1, 1, 3])
         save_clicked = b1.button("💾 저장", key=f"{key_prefix}_save_{content_id}", use_container_width=True)
         recheck_clicked = b2.button("🔍 재검사", key=f"{key_prefix}_recheck_{content_id}", use_container_width=True)
-        copy_clicked = b3.button("📋 복사", key=f"{key_prefix}_copy_{content_id}", use_container_width=True)
-        delete_clicked = b4.button(
+        view_clicked = b3.button("📖 내용보기", key=f"{key_prefix}_view_{content_id}", use_container_width=True)
+        copy_clicked = b4.button("📋 복사", key=f"{key_prefix}_copy_{content_id}", use_container_width=True)
+        delete_clicked = b5.button(
             "🗑️ 삭제", key=f"{key_prefix}_del_{content_id}", use_container_width=True, type="secondary"
         )
+
+        view_state_key = f"{key_prefix}_view_open_{content_id}"
+        if view_clicked:
+            st.session_state[view_state_key] = not st.session_state.get(view_state_key, False)
+
+        if st.session_state.get(view_state_key):
+            st.markdown("##### 📖 내용보기")
+            _render_readable_content(channel, edited, raw)
 
         if save_clicked:
             with SessionLocal() as session:
