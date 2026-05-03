@@ -209,12 +209,73 @@ Phase 1.5 시점에 만들어진 `data/geo.db` 가 있다면 baseline 마이그�
 
 ---
 
+## Reference Library (RAG) — Phase 3
+
+운영자가 인덱싱한 참고 자료(병원 안내문/원장 칼럼/의료 가이드 URL)를 LLM 컨텍스트로 자동 주입해 **사실 기반 콘텐츠**를 생성합니다. 동일 자료 중복 차단 + tenant 격리 + 발행물에 출처 doc_id 자동 기록.
+
+### 인덱싱 — 2가지 경로
+
+**A. Streamlit "📚 참고 자료" 탭**
+- URL 입력 → Fetch + 본문 추출 → 청크 + 임베딩 → Chroma 저장
+- 텍스트 직접 붙여넣기 → 같은 파이프라인
+- 인덱스된 문서 목록에서 본문 일부 보기 / 삭제
+
+**B. CLI**
+
+```bash
+# 단일 URL
+python scripts/ingest_references.py --tenant 1 --url https://example.com/article
+
+# 텍스트 파일 (.txt / .md)
+python scripts/ingest_references.py --tenant 1 --file ./docs/clinic_intro.md
+
+# 직접 텍스트
+python scripts/ingest_references.py --tenant 1 --text "백내장은 …"
+
+# URL 배치 — 한 줄에 한 URL
+python scripts/ingest_references.py --tenant 1 --batch ./urls.txt
+
+# 인덱스 상태 확인
+python scripts/ingest_references.py --tenant 1 --list
+```
+
+### Embedding Provider 선택
+
+`EMBEDDING_PROVIDER` 환경변수 (`.env` 또는 Streamlit Secrets):
+
+| 값 | 모델 | dim | 키 필요 | 용도 |
+|---|---|---|---|---|
+| `stub` (기본) | hash 기반 결정론 | 128 | 없음 | 데모 / 단위 테스트 / 무키 fallback |
+| `gemini` | text-embedding-004 | 768 | `GOOGLE_API_KEY` | 무료 tier 권장 |
+| `openai` | text-embedding-3-small | 1536 | `OPENAI_API_KEY` | 정의서 표준 |
+
+> Stub 임베딩은 의미 유사도가 약합니다. 실제 검색 품질을 보려면 `gemini` 이상 권장.
+
+### 발행 시 RAG 사용
+
+통합 발행 탭의 "옵션" 펼침 → **📚 참고 자료(RAG) 사용** 체크박스 (기본 ON, k=5).
+
+- 활성: 키워드 → 인덱싱된 청크 top-k 가 LLM system prompt 에 자동 주입
+- 발행 결과 카드에 `📎 출처 N건` 칩 + `cited_reference_ids` doc_id 리스트 노출
+- 통합 탭 외 4개 generator 함수 (`generate_faq_content`, `generate_blog_post`, `generate_naver_blog_content`, `generate_instagram_content`) 모두 `use_rag=True, rag_k=5` 파라미터 지원
+
+발행물 DB 저장 시 `GeneratedContent.cited_reference_ids` JSON 컬럼에 인용된 `ReferenceDocument.id` 리스트가 자동 기록됩니다.
+
+### 영속성 한계
+
+- Chroma persistent dir: `./data/chroma/` (gitignored)
+- Streamlit Cloud 컨테이너 재시작 시 휘발 — SQLite 와 동일한 한계
+- 영구 보존 필요 시 Phase 4+ 에서 Supabase **pgvector** 등 외부 vector DB 로 마이그레이션
+- DB 의 `ReferenceDocument` 메타 (제목/원문/hash) 는 `DATABASE_URL` 에 Postgres 연결 시 영속
+
+---
+
 ## 다음 단계 (Roadmap)
 
 상세는 [`.planning/ROADMAP.md`](.planning/ROADMAP.md).
 
-- **Phase 2** — 4채널 템플릿(Schema.org / Blog / 네이버 / Instagram) + 자동수정 안정화
-- **Phase 3** — Reference Library (RAG) — URL 인덱싱 → tenant 격리 검색 → 사실 기반 콘텐츠
+- ✅ **Phase 2** — 4채널 템플릿(Schema.org / Blog / 네이버 / Instagram) + 자동수정 + 비용 가드레일
+- ✅ **Phase 3** — Reference Library (RAG) — URL 인덱싱 → tenant 격리 검색 → 사실 기반 콘텐츠 + 출처 기록
 - **Phase 4** — Measurement Foundation: Perplexity 1엔진으로 AI 노출 측정 (MVP-0)
 - **Phase 5** — Analytics 강화: 가중치, Mann-Kendall 추세, 이상치, 대시보드
 - **Phase 6** — 4엔진 동시 + Competitor Discovery (NER) + Sentiment

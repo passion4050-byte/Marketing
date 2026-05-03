@@ -89,6 +89,17 @@ except Exception as _e:  # pragma: no cover
     _UNIFIED_TAB_ERROR = repr(_e)
     render_unified_publisher_tab = None  # type: ignore
 
+# 참고 자료 탭 (Phase 3) — chromadb 미설치 환경 폴백
+try:
+    from src.dashboard.reference_library_tab import render_reference_library_tab  # noqa: E402
+
+    _REF_LIB_TAB_OK = True
+    _REF_LIB_TAB_ERROR: str | None = None
+except Exception as _e:  # pragma: no cover
+    _REF_LIB_TAB_OK = False
+    _REF_LIB_TAB_ERROR = repr(_e)
+    render_reference_library_tab = None  # type: ignore
+
 from src.storage.db import create_all, get_session_factory  # noqa: E402
 from src.storage.models import GeneratedContent, Keyword, Tenant  # noqa: E402
 
@@ -1009,27 +1020,44 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
+    # 베이스 탭 — 데이터 피딩 다음에 참고자료 (인덱싱 흐름) 위치
     tab_labels = [
         "📊 대시보드",
         "🎯 데이터 피딩",
+    ]
+    if _REF_LIB_TAB_OK:
+        tab_labels.append("📚 참고 자료")
+    tab_labels.extend([
         "🎨 브랜드 보이스",
         "🧪 AI 시뮬레이터",
+    ])
+    if _UNIFIED_TAB_OK:
+        tab_labels.append("🚀 통합 발행 (4채널)")
+    tab_labels.extend([
         "🧩 FAQ 생성기",
         "📝 블로그 포스트",
-    ]
-    if _UNIFIED_TAB_OK:
-        tab_labels.insert(4, "🚀 통합 발행 (4채널)")
+    ])
     tabs = st.tabs(tab_labels)
 
-    if _UNIFIED_TAB_OK:
-        tab_dash, tab_feed, tab_voice, tab_sim, tab_unified, tab_faq, tab_blog = tabs
-    else:
-        tab_dash, tab_feed, tab_voice, tab_sim, tab_faq, tab_blog = tabs
-        tab_unified = None
-        # 첫 화면에서만 한 번 알림
+    # tabs 분해 — flag 조합에 따라 동적 unpack
+    it = iter(tabs)
+    tab_dash = next(it)
+    tab_feed = next(it)
+    tab_reflib = next(it) if _REF_LIB_TAB_OK else None
+    tab_voice = next(it)
+    tab_sim = next(it)
+    tab_unified = next(it) if _UNIFIED_TAB_OK else None
+    tab_faq = next(it)
+    tab_blog = next(it)
+
+    if not _UNIFIED_TAB_OK:
         st.warning(
             f"⚠️ 통합 발행 탭이 일시 비활성 (import 실패): `{_UNIFIED_TAB_ERROR}`. "
             f"기존 FAQ/블로그 탭으로 발행 가능."
+        )
+    if not _REF_LIB_TAB_OK:
+        st.info(
+            f"ℹ️ 참고 자료 탭 비활성: `{_REF_LIB_TAB_ERROR}`. chromadb 설치 후 재시작."
         )
 
     with tab_dash:
@@ -1038,6 +1066,10 @@ def main() -> None:
     with tab_feed:
         tenant, _ = _tenant_picker(SessionLocal, key="profile")
         render_profile_tab(SessionLocal, tenant)
+    if tab_reflib is not None and render_reference_library_tab is not None:
+        with tab_reflib:
+            tenant, _ = _tenant_picker(SessionLocal, key="reflib")
+            render_reference_library_tab(SessionLocal, tenant)
     with tab_voice:
         tenant, _ = _tenant_picker(SessionLocal, key="voice")
         render_brand_voice_tab(SessionLocal, tenant)
