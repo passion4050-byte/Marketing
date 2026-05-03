@@ -100,6 +100,17 @@ except Exception as _e:  # pragma: no cover
     _REF_LIB_TAB_ERROR = repr(_e)
     render_reference_library_tab = None  # type: ignore
 
+# 측정 탭 (Phase 4) — APScheduler 미설치 환경 폴백
+try:
+    from src.dashboard.measurement_tab import render_measurement_tab  # noqa: E402
+
+    _MEASUREMENT_TAB_OK = True
+    _MEASUREMENT_TAB_ERROR: str | None = None
+except Exception as _e:  # pragma: no cover
+    _MEASUREMENT_TAB_OK = False
+    _MEASUREMENT_TAB_ERROR = repr(_e)
+    render_measurement_tab = None  # type: ignore
+
 from src.storage.db import create_all, get_session_factory  # noqa: E402
 from src.storage.models import GeneratedContent, Keyword, Tenant  # noqa: E402
 
@@ -130,6 +141,14 @@ def _bootstrap():
             seed_if_empty(session)
     except Exception as exc:  # pragma: no cover — 시드 실패가 앱 기동을 막진 않게
         print(f"[warn] auto-seed skipped: {exc}")
+
+    # Phase 4 — APScheduler 자동 수집 작업 등록 (멱등)
+    try:
+        from src.collector.scheduler import start_scheduler
+
+        start_scheduler(factory)
+    except Exception as exc:  # pragma: no cover — 스케줄 실패가 앱 기동을 막진 않게
+        print(f"[warn] scheduler start skipped: {exc}")
     return factory
 
 
@@ -1027,6 +1046,8 @@ def main() -> None:
     ]
     if _REF_LIB_TAB_OK:
         tab_labels.append("📚 참고 자료")
+    if _MEASUREMENT_TAB_OK:
+        tab_labels.append("📡 측정")
     tab_labels.extend([
         "🎨 브랜드 보이스",
         "🧪 AI 시뮬레이터",
@@ -1044,6 +1065,7 @@ def main() -> None:
     tab_dash = next(it)
     tab_feed = next(it)
     tab_reflib = next(it) if _REF_LIB_TAB_OK else None
+    tab_meas = next(it) if _MEASUREMENT_TAB_OK else None
     tab_voice = next(it)
     tab_sim = next(it)
     tab_unified = next(it) if _UNIFIED_TAB_OK else None
@@ -1059,6 +1081,10 @@ def main() -> None:
         st.info(
             f"ℹ️ 참고 자료 탭 비활성: `{_REF_LIB_TAB_ERROR}`. chromadb 설치 후 재시작."
         )
+    if not _MEASUREMENT_TAB_OK:
+        st.info(
+            f"ℹ️ 측정 탭 비활성: `{_MEASUREMENT_TAB_ERROR}`. apscheduler 설치 후 재시작."
+        )
 
     with tab_dash:
         tenant, _ = _tenant_picker(SessionLocal, key="dash")
@@ -1070,6 +1096,10 @@ def main() -> None:
         with tab_reflib:
             tenant, _ = _tenant_picker(SessionLocal, key="reflib")
             render_reference_library_tab(SessionLocal, tenant)
+    if tab_meas is not None and render_measurement_tab is not None:
+        with tab_meas:
+            tenant, _ = _tenant_picker(SessionLocal, key="meas")
+            render_measurement_tab(SessionLocal, tenant)
     with tab_voice:
         tenant, _ = _tenant_picker(SessionLocal, key="voice")
         render_brand_voice_tab(SessionLocal, tenant)

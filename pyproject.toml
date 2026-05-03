@@ -17,6 +17,7 @@ dependencies = [
     "trafilatura>=1.12",  # URL → 본문 추출 (Phase 1.5 reference fetcher)
     "beautifulsoup4>=4.12",  # 메타/이미지 태그 파싱
     "chromadb>=0.5",  # Phase 3 Reference Library (RAG vector store)
+    "apscheduler>=3.10",  # Phase 4 Measurement — daily collection scheduler
     # LLM providers (선택적 사용 — .env LLM_PROVIDER로 토글)
     "google-generativeai>=0.7",
     "anthropic>=0.40",

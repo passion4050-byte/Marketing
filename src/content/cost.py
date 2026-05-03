@@ -26,6 +26,11 @@ PRICING: dict[str, dict[str, float]] = {
     "claude-haiku-4-5":          {"input": 1.0, "output": 5.0},
     # OpenAI
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+    # Perplexity (검색 엔진 — Phase 4)
+    "llama-3.1-sonar-small-128k-online":  {"input": 0.20, "output": 0.20},
+    "llama-3.1-sonar-large-128k-online":  {"input": 1.00, "output": 1.00},
+    "sonar":       {"input": 0.20, "output": 0.20},
+    "perplexity":  {"input": 0.20, "output": 0.20},
     # Stub — 무료
     "stub":        {"input": 0.0, "output": 0.0},
 }
