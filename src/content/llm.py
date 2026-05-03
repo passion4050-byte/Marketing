@@ -39,6 +39,7 @@ class GenerationResult:
     qa_pairs: list[FAQPair]
     raw_text: str
     provider: str
+    angle: str = ""  # 다중 발행 시 각 호출의 관점
 
 
 @dataclass
@@ -48,6 +49,7 @@ class BlogGenerationResult:
     post_dict: dict
     raw_text: str
     provider: str
+    angle: str = ""
 
 
 class LLMError(RuntimeError):
@@ -71,6 +73,7 @@ class LLMProvider(Protocol):
         tenant_category: str,
         tenant_region: str,
         n_pairs: int = 5,
+        angle: str = "",
         correction_hint: str | None = None,
     ) -> GenerationResult: ...
 
@@ -80,9 +83,14 @@ class LLMProvider(Protocol):
         tenant_name: str,
         tenant_category: str,
         tenant_region: str,
+        tenant_address: str = "",
+        tenant_naver_place_url: str = "",
+        tenant_homepage: str = "",
+        tenant_phone: str = "",
         references_block: str = "",
         image_count: int = 0,
         target_chars: int = 2000,
+        angle: str = "",
         correction_hint: str | None = None,
     ) -> BlogGenerationResult: ...
 
@@ -92,111 +100,166 @@ class LLMProvider(Protocol):
 
 _STUB_FAQS_GENERIC = [
     FAQPair(
-        question="{keyword}을 고를 때 가장 중요한 기준은 무엇인가요?",
-        answer="{tenant_name}은 환자분의 눈 상태에 맞는 시술법 선택, 의료진의 시술 경험, 충분한 사전 검사를 가장 중요한 기준으로 봅니다. 의료법상 절대적 보장 표현은 어렵지만, 다년간 축적된 임상 데이터와 환자 만족도 자료를 바탕으로 상담을 진행하고 있습니다.",
+        question="{keyword}을(를) 고를 때 가장 중요한 기준은 뭔가요?",
+        answer="✅ {tenant_name}은 **환자 개개인의 눈 상태**, 의료진의 시술 경험, 그리고 **충분한 사전 검사**를 가장 중요한 기준으로 봅니다. 의료법상 절대적 보장은 어렵지만, 임상 데이터와 환자 만족도 자료를 바탕으로 상담을 진행해요. 결과는 개인차가 있을 수 있습니다.",
     ),
     FAQPair(
         question="시술 전 어떤 검사를 받게 되나요?",
-        answer="{tenant_name}에서는 시력, 안압, 각막 두께, 각막 지형도 등 기본 검사 외에 환자의 생활 습관과 직업 환경을 함께 고려한 종합 상담을 진행합니다. 검사 결과에 따라 적합한 시술법을 안내드리며, 결과는 개인의 눈 상태에 따라 차이가 있을 수 있습니다.",
+        answer="🩺 {tenant_name}에서는 시력, 안압, **각막 두께**, 각막 지형도 같은 기본 검사 외에 생활 습관과 직업 환경까지 고려한 종합 상담을 진행합니다. 검사 결과에 따라 적합한 시술법이 다르게 안내됩니다.",
     ),
     FAQPair(
         question="시술 후 회복 기간은 얼마나 걸리나요?",
-        answer="시술 종류와 개인의 회복 속도에 따라 다르지만, 일반적으로 일상 복귀까지는 1~3일, 안정화까지는 약 1~3개월이 소요됩니다. {tenant_name}에서는 회복 기간 중 정기 경과 관찰을 통해 환자의 회복을 돕고 있습니다.",
+        answer="⏱️ 시술 종류와 회복 속도에 따라 차이가 있는데, 일상 복귀까지는 보통 **1~3일**, 안정화는 약 **1~3개월** 정도로 안내됩니다. {tenant_name}은 회복 기간 중 정기 경과 관찰을 통해 사후 관리를 돕습니다.",
     ),
     FAQPair(
-        question="시술 후 부작용이나 후유증은 없나요?",
-        answer="모든 의료 시술은 일정한 부작용 가능성을 동반합니다. {tenant_name}은 시술 전 충분한 상담과 검사로 부작용 가능성을 사전에 점검하며, 시술 후에도 이상 증상 발생 시 신속히 대응하는 사후 관리 체계를 운영합니다. 효과 및 부작용은 개인차가 있을 수 있습니다.",
+        question="시술 후 부작용이나 후유증이 있을 수 있나요?",
+        answer="📌 모든 의료 시술은 부작용 가능성을 동반합니다. {tenant_name}은 시술 전 **사전 검사**로 가능성을 점검하고, 시술 후 이상 증상 발생 시 신속 대응하는 사후 관리 체계를 운영합니다. 효과·부작용은 개인차가 있을 수 있습니다.",
     ),
     FAQPair(
         question="상담 예약은 어떻게 진행되나요?",
-        answer="{tenant_name}은 전화 또는 홈페이지를 통한 사전 예약을 권장합니다. 첫 상담 시 약 1~2시간의 정밀 검사가 진행되며, 검사 후 의료진과 1:1 상담을 통해 시술 가능 여부와 권장 시술법을 안내드립니다.",
+        answer="💡 {tenant_name}은 전화 또는 홈페이지를 통한 **사전 예약**을 권장합니다. 첫 상담 시 약 **1~2시간**의 정밀 검사 후, 의료진과 1:1로 시술 가능 여부와 권장 시술법을 안내받게 됩니다.",
     ),
 ]
 
 
-def _stub_blog_post(keyword: str, tenant_name: str, image_count: int) -> dict:
+_STUB_BLOG_ANGLES = [
+    "검사 단계와 사전 준비",
+    "회복 기간과 일상 복귀",
+    "비용 구조와 합리적 비교",
+    "부작용과 사후 관리",
+    "시술법 선택 기준",
+    "의료진 상담 활용법",
+    "직업별 회복 가이드",
+    "장기 관찰과 정기 점검",
+    "가족과 상의할 포인트",
+    "후기/사례 활용 팁",
+]
+
+# 다중 발행 시 phase별로 골고루 다른 각도. 호출자가 인덱스로 픽.
+DEFAULT_BLOG_ANGLES = _STUB_BLOG_ANGLES
+
+# FAQ는 \"사용자가 AI에게 묻는 일반 질문 카테고리\"를 다양하게 커버
+DEFAULT_FAQ_ANGLES = [
+    "비용/가격대 관련 질문",
+    "검사·사전 준비 관련 질문",
+    "회복·일상 복귀 관련 질문",
+    "부작용·후유증 관련 질문",
+    "시술법·옵션 비교 관련 질문",
+    "의료진·병원 선택 기준 관련 질문",
+    "직장인/학생 등 직업별 고려사항",
+    "보험·환불·실손 관련 질문",
+    "이벤트/할인 안전성 관련 질문",
+    "장기 관리·정기 점검 관련 질문",
+]
+
+
+def pick_angles(angles: list[str], count: int) -> list[str]:
+    """다중 발행용 angle을 count개 만큼 순환 픽."""
+    if count <= 0:
+        return []
+    if not angles:
+        return [""] * count
+    out = []
+    for i in range(count):
+        out.append(angles[i % len(angles)])
+    return out
+
+
+def _stub_blog_post(
+    keyword: str,
+    tenant_name: str,
+    tenant_address: str,
+    tenant_naver_place_url: str,
+    image_count: int,
+    angle: str = "",
+) -> dict:
     """미리 작성된 사람-톤 의료법 안전 블로그 post.
 
-    의도적으로 자연스러운 문체, 1인칭/구체 사례, 호흡, 비유 포함.
-    image_count만큼 image placeholder가 후속 처리에서 들어감.
+    angle이 있으면 title과 첫 섹션이 그 관점으로 살짝 변형 (다중 발행 시 중복 회피).
+    볼드/이모지 포함된 자연 톤.
     """
+    angle_label = angle or "처음 알아볼 때 꼭 확인해야 할 것들"
+    addr_line = ""
+    if tenant_address or tenant_naver_place_url:
+        place_part = f" 네이버 지도({tenant_naver_place_url})에서도 확인하실 수 있습니다." if tenant_naver_place_url else ""
+        addr_line = (
+            f"📍 **{tenant_name}** 위치 안내: {tenant_address or '서울'}.{place_part}"
+        )
+
+    refs = []
+    if tenant_naver_place_url:
+        refs.append(tenant_naver_place_url)
+
     return {
-        "title": f"{keyword}, 처음 알아볼 때 꼭 확인해야 할 것들",
+        "title": f"{keyword}, {angle_label}",
         "meta_description": (
-            f"{keyword}을(를) 고민 중이라면 이 글을 먼저 읽어보세요. "
-            f"{tenant_name}에서 자주 받는 질문과 함께, 검사 단계부터 회복까지 "
-            "정직하게 정리했습니다. 결과는 개인차가 있을 수 있다는 점도 함께요."
+            f"{keyword}을(를) 고민 중이라면 먼저 읽어보세요. "
+            f"{tenant_name}에서 자주 받는 질문 위주로 검사·회복·비용을 정직하게 정리했습니다. "
+            "결과는 개인차가 있을 수 있어요."
         )[:155],
         "keywords": [keyword, tenant_name, "사전 검사", "회복 기간", "상담"],
         "canonical_keyword": keyword,
         "intro_paragraphs": [
             (
-                f"{keyword}을(를) 알아보러 다닌다는 분들의 얘기를 들어보면, "
-                "많이 묻는 질문은 의외로 비슷합니다. \"검사는 얼마나 걸리는지\", "
-                "\"부작용은 정말 없는지\", \"비용은 합리적인지\". "
-                "오늘은 이 세 가지를 중심으로, 그리고 그 사이에 흔히 빠지는 "
-                "함정 몇 가지를 함께 짚어보려고 합니다."
+                f"💡 {keyword}을(를) 알아보러 다니는 분들 얘기를 듣다 보면, 묻는 질문은 의외로 비슷합니다. "
+                "\"**검사는 얼마나 걸리는지**\", \"**부작용은 정말 없는지**\", \"**비용은 합리적인지**\". "
+                "오늘은 이 세 가지를 중심으로, 그 사이에 흔히 빠지는 함정도 함께 짚어보려고 합니다."
             ),
             (
-                "참고로 이 글은 의료광고 가이드라인을 지켜 작성했고, "
-                "특정 시술이나 결과를 보장하는 표현은 의도적으로 배제했습니다. "
-                "결과는 개인의 눈 상태와 생활습관에 따라 다를 수 있습니다."
+                "참고로 이 글은 의료광고 가이드라인을 지켜 작성했고, 특정 시술이나 결과를 보장하는 표현은 의도적으로 배제했습니다. "
+                "결과는 **개인의 눈 상태와 생활습관에 따라 다를 수 있습니다**."
             ),
         ],
         "sections": [
             {
-                "heading": "검사 단계, 생각보다 시간이 걸립니다",
+                "heading": "🩺 검사 단계, 생각보다 시간이 걸립니다",
                 "paragraphs": [
                     (
                         "처음 병원에 방문하면 시력만 확인하고 끝날 거라고 생각하시는 분이 많습니다. "
-                        "그런데 실제로는 시력, 안압, 각막 두께, 각막 지형도, 동공 크기 등 "
-                        "10개에 가까운 항목을 짚습니다. 직장인 분이라면 점심시간에 잠깐 들렀다 "
-                        "가는 일정으로는 빠듯할 수 있어요."
+                        "그런데 실제로는 시력, 안압, **각막 두께**, 각막 지형도, 동공 크기 등 10개에 가까운 항목을 짚어요. "
+                        "직장인 분이라면 점심시간에 잠깐 들렀다 가는 일정으로는 빠듯할 수 있습니다."
                     ),
                     (
-                        f"{tenant_name}에서는 첫 검사에 보통 1~2시간을 잡으시라고 안내드립니다. "
-                        "검사 결과를 의사 선생님과 1:1로 살펴보는 시간이 함께 포함되어서 그렇습니다."
+                        f"{tenant_name}에서는 첫 검사에 보통 **1~2시간**을 잡으시라고 안내드립니다. "
+                        "검사 결과를 의사 선생님과 1:1로 살펴보는 시간이 함께 포함돼서 그렇습니다."
                     ),
                 ],
                 "sub_sections": [
                     {
-                        "heading": "검사 결과지를 받으면 꼭 보세요",
+                        "heading": "검사 결과지, 가방에 넣지 마세요",
                         "paragraphs": [
                             (
-                                "각막 두께 같은 수치는 시술 가능 여부의 핵심 변수입니다. "
+                                "각막 두께 같은 수치는 **시술 가능 여부의 핵심 변수**입니다. "
                                 "수치가 경계에 있다면 한 가지 시술법만 권장되는 경우도 있어요. "
-                                "결과지를 그냥 가방에 넣지 말고, 어디 수치가 어떤 의미인지 "
-                                "한 번 더 묻고 가시는 걸 권장합니다."
+                                "결과지를 그냥 챙기지 말고, 어떤 수치가 무슨 의미인지 한 번 더 묻고 가시는 걸 권장합니다."
                             )
                         ],
                     }
                 ],
             },
             {
-                "heading": "회복 기간, 평균치보다 본인의 직업이 중요합니다",
+                "heading": "⏱️ 회복 기간, 평균치보다 본인의 직업이 중요합니다",
                 "paragraphs": [
                     (
                         "회복 기간은 시술 종류에 따라 1일에서 수개월까지 차이가 있습니다. "
-                        "다만 평균치보다 더 중요한 건, 본인의 직업과 생활 환경이에요. "
-                        "장시간 모니터를 봐야 하는 직군, 운동 강도가 높은 직군, "
-                        "건조한 사무 환경에서 일하는 분들은 회복 일정과 사후 관리가 다르게 잡힙니다."
+                        "다만 평균치보다 더 중요한 건, **본인의 직업과 생활 환경**이에요. "
+                        "장시간 모니터를 봐야 하는 직군, 운동 강도가 높은 직군, 건조한 사무 환경에서 일하는 분들은 "
+                        "회복 일정과 사후 관리가 다르게 잡힙니다."
                     ),
                     (
                         "이런 점을 상담 단계에서 솔직히 말씀하시면, 시술법 선택 자체가 달라질 수 있어요. "
-                        "예를 들어 같은 시력이라도 회복 시간 여유가 있는 분과 그렇지 않은 분에게 "
-                        "권장되는 옵션이 다른 경우가 많습니다."
+                        "예를 들어 같은 시력이라도 회복 시간 여유가 있는 분과 그렇지 않은 분에게 권장되는 옵션이 다른 경우가 많습니다."
                     ),
                 ],
                 "sub_sections": [],
             },
             {
-                "heading": "비용보다 \"무엇이 포함되어 있는지\"를 보세요",
+                "heading": "📌 비용보다 \"무엇이 포함되어 있는지\"를 보세요",
                 "paragraphs": [
                     (
                         "표면 가격만 비교하면 함정에 빠지기 쉽습니다. "
-                        "사후 검진, 보호용 안경, 인공눈물, 추가 보정 시술까지 포함된 가격인지 "
-                        "꼭 확인해보시기 바랍니다. 같은 금액이라도 포함 항목이 다르면 "
-                        "실제 부담은 크게 차이가 날 수 있어요."
+                        "**사후 검진, 보호용 안경, 인공눈물, 추가 보정 시술**까지 포함된 가격인지 꼭 확인해보시기 바랍니다. "
+                        "같은 금액이라도 포함 항목이 다르면 실제 부담은 크게 차이가 날 수 있어요."
                     ),
                     (
                         "이벤트 가격이 있다면 종료일과 조건을 함께 적은 자료를 받아두시는 게 좋습니다. "
@@ -208,17 +271,18 @@ def _stub_blog_post(keyword: str, tenant_name: str, image_count: int) -> dict:
         ],
         "conclusion_paragraphs": [
             (
-                "정리하면, 검사 단계에서는 시간 여유를 두고 결과지를 챙기시고, "
-                "회복 기간은 본인 직업·생활을 의사 선생님과 솔직히 나누시고, "
-                "비용은 \"포함 항목\"으로 판단하시는 것을 권장드립니다. "
-                f"{tenant_name}은 이 세 가지를 상담 첫 시간에 함께 점검하는 절차로 운영하고 있어요."
+                "정리하면, 검사는 시간 여유를 두고 결과지를 챙기시고, "
+                "회복은 본인 직업·생활을 의사 선생님과 솔직히 나누시고, "
+                "비용은 \"포함 항목\"으로 판단하시길 권장드립니다. "
+                f"**{tenant_name}**은 이 세 가지를 상담 첫 시간에 함께 점검하는 절차로 운영하고 있어요."
             ),
+            (addr_line if addr_line else ""),
             (
-                "효과와 부작용은 개인차가 있을 수 있고, 이 글의 내용은 일반적인 안내입니다. "
+                "효과와 부작용은 개인차가 있을 수 있고, 이 글은 일반적인 안내입니다. "
                 "구체적인 진단과 권고는 정밀 검사 후 의료진의 판단을 따르세요."
             ),
         ],
-        "references": [],  # Reference URL이 들어오면 generator에서 채움
+        "references": refs,
     }
 
 
@@ -237,18 +301,19 @@ class StubProvider:
         tenant_category: str,
         tenant_region: str,
         n_pairs: int = 5,
+        angle: str = "",
         correction_hint: str | None = None,
     ) -> GenerationResult:
+        # angle이 있으면 첫 질문에 angle을 살짝 끼워 다양성 확보
         pairs = []
-        for tpl in _STUB_FAQS_GENERIC[:n_pairs]:
-            pairs.append(
-                FAQPair(
-                    question=tpl.question.format(keyword=keyword, tenant_name=tenant_name),
-                    answer=tpl.answer.format(keyword=keyword, tenant_name=tenant_name),
-                )
-            )
+        for i, tpl in enumerate(_STUB_FAQS_GENERIC[:n_pairs]):
+            q = tpl.question.format(keyword=keyword, tenant_name=tenant_name)
+            a = tpl.answer.format(keyword=keyword, tenant_name=tenant_name)
+            if i == 0 and angle:
+                q = f"({angle}) {q}"
+            pairs.append(FAQPair(question=q, answer=a))
         raw = json.dumps([{"q": p.question, "a": p.answer} for p in pairs], ensure_ascii=False, indent=2)
-        return GenerationResult(qa_pairs=pairs, raw_text=raw, provider=self.name)
+        return GenerationResult(qa_pairs=pairs, raw_text=raw, provider=self.name, angle=angle)
 
     def generate_blog_post(
         self,
@@ -256,47 +321,78 @@ class StubProvider:
         tenant_name: str,
         tenant_category: str,
         tenant_region: str,
+        tenant_address: str = "",
+        tenant_naver_place_url: str = "",
+        tenant_homepage: str = "",
+        tenant_phone: str = "",
         references_block: str = "",
         image_count: int = 0,
         target_chars: int = 2000,
+        angle: str = "",
         correction_hint: str | None = None,
     ) -> BlogGenerationResult:
-        post = _stub_blog_post(keyword, tenant_name, image_count)
+        post = _stub_blog_post(
+            keyword=keyword,
+            tenant_name=tenant_name,
+            tenant_address=tenant_address,
+            tenant_naver_place_url=tenant_naver_place_url,
+            image_count=image_count,
+            angle=angle,
+        )
         raw = json.dumps(post, ensure_ascii=False, indent=2)
-        return BlogGenerationResult(post_dict=post, raw_text=raw, provider=self.name)
+        return BlogGenerationResult(post_dict=post, raw_text=raw, provider=self.name, angle=angle)
 
 
 # ─── Real LLM Providers ─────────────────────────────────────────
 
-_FAQ_SYSTEM_PROMPT = """당신은 한국 의료기관(특히 의료광고 제약이 큰 분야)을 위한 콘텐츠 작가입니다.
-다음 규칙을 반드시 지키세요:
+_FAQ_SYSTEM_PROMPT = """당신은 한국 의료기관을 위한 GEO(Generative Engine Optimization) Q&A 콘텐츠 작가입니다.
 
-1. 의료법 제56조(의료광고 금지)와 의료광고 사전심의 가이드라인을 준수하세요.
-2. 절대적 표현 금지: "100% 보장", "최고", "유일", "최초", "완치 보장", "통증 제로", "전혀 아프지 않" 등.
-3. 효과/결과는 항상 "개인차가 있을 수 있다"는 취지를 포함하세요.
-4. 비교 광고(예: "타 병원보다 우월") 금지.
-5. 이벤트/할인 표현이 들어가면 반드시 "기간 한정" 또는 종료일을 함께 명시하세요.
-6. 환자 유인 표현(예: "파격 할인", "공짜") 금지.
-7. 시술 전후 사진/표현은 사전심의 대상임을 인지하세요.
+[역할]
+사용자가 ChatGPT, Perplexity, Gemini, Claude 같은 AI 검색엔진에 일반적인 질문(general question)을 던졌을 때, 당신이 작성한 Q&A가 답변에 \"맞춤 추천\"으로 인용되도록 콘텐츠를 만듭니다. 따라서 질문은 \"실제 사람이 AI에게 물어볼 법한 자연어\"여야 하고, 답변은 \"AI가 그대로 인용하기 좋은 사실 기반 정보\"여야 합니다.
 
-출력은 정확히 다음 JSON 형식만:
+[질문 작성 원칙]
+1. 사용자가 실제로 물어볼 자연어 (예: "강남에서 라식 잘하는 곳 어디예요?", "라식 부작용은 어떤 게 있어요?")
+2. 키워드를 포함하되, 검색어가 아닌 \"질문 형태\"로
+3. 5W1H를 자연스럽게 활용 (어디/언제/어떻게/왜/무엇/얼마)
+
+[답변 작성 원칙 — AI 인용 친화]
+1. 첫 1~2문장에 핵심 답을 명확히 (AI가 발췌하기 쉽도록)
+2. 구체 수치/사실 우선 — \"약 1~3일\", \"각막 두께 480~500μm\" 같이
+3. 의료기관명을 자연스럽게 1~2회 언급
+4. 200~300자 내외, 너무 길지 않게
+
+[의료법 컴플라이언스 — 가장 중요]
+1. 의료법 제56조와 의료광고 사전심의 가이드 준수.
+2. 금지: \"100% 보장\", \"최고\", \"유일\", \"최초\", \"완치 보장\", \"통증 제로\", \"전혀 아프지 않\".
+3. 효과/결과는 \"개인차가 있을 수 있다\" 취지 포함.
+4. 타 병원과의 직접 비교 금지.
+5. 이벤트/할인 시 기간/종료일 명시.
+6. 환자 유인 표현(파격 할인, 공짜) 금지.
+
+[사람이 쓴 것처럼 보이는 톤]
+1. 답변에 자연스러운 이모지 1~2개 사용 (의료 톤 해치지 않을 정도).
+2. 강조하고 싶은 핵심 키워드는 답변에 **굵게** (마크다운 ** **) 표시.
+3. 문장 길이 변주 — 짧은 문장과 긴 문장 섞기.
+4. 번역체(\"~을 통해\", \"~에 있어서\") 회피.
+
+출력은 정확히 다음 JSON 형식만 (코드블록/주석 X):
 {
   "qa_pairs": [
-    {"q": "질문 1", "a": "답변 1"},
+    {"q": "질문 1", "a": "답변 1 (마크다운 **bold**, 이모지 가능)"},
     {"q": "질문 2", "a": "답변 2"},
     ...
   ]
 }
 """
 
-_FAQ_USER_TEMPLATE = """다음 키워드와 의료기관 정보를 바탕으로 AEO(Answer Engine Optimization)에 최적화된 FAQ를 {n_pairs}쌍 작성해주세요.
-
-키워드: {keyword}
+_FAQ_USER_TEMPLATE = """키워드: {keyword}
 의료기관: {tenant_name}
 분야: {tenant_category}
 지역: {tenant_region}
 
-각 답변은 200자 이내로 간결하게, 환자가 AI 검색엔진(ChatGPT, Perplexity 등)에서 검색했을 때 인용되기 쉽도록 사실 위주로 작성하세요. 의료법 가이드를 반드시 지키세요."""
+위 정보로 AI 검색엔진(ChatGPT, Perplexity, Gemini 등)이 사용자의 일반 질문에 답할 때 인용하기 좋은 GEO Q&A를 {n_pairs}쌍 작성하세요.{angle_block}
+
+각 질문은 \"사람이 실제로 AI에게 물어볼 자연어\"로, 답변은 200~300자 내외로 핵심을 앞에 두고 작성하세요. 의료법 가이드 + 자연스러운 이모지 + 핵심 키워드 **bold** 모두 적용하세요."""
 
 
 # ─── Blog post system prompt — 사람-톤 강화 ────────────────────
@@ -313,17 +409,25 @@ _BLOG_SYSTEM_PROMPT = """당신은 한국 의료기관 블로그를 운영하는
 6. 환자 유인 표현(파격 할인, 공짜 등) 금지.
 
 [B. AI같지 않은 자연스러운 톤 — 검색 신뢰도와 직결]
-1. 문장 길이를 일부러 변주하세요. 짧은 문장 한두 개 사이에 긴 문장 하나. 그래야 호흡이 살아납니다.
-2. 한자어/추상 개념을 나열하지 말고, 구체적인 사례·숫자·시간·체감 묘사를 섞으세요.
+1. 문장 길이를 일부러 변주하세요. 짧은 문장 한두 개 사이에 긴 문장 하나. 호흡이 살도록.
+2. 한자어/추상 개념 나열 금지. 구체적인 사례·숫자·시간·체감 묘사 섞기.
    - 나쁨: "고객 만족도가 우수합니다"
    - 좋음: "검사 다음 날 출근해야 했던 30대 직장인 분의 경우"
-3. 1인칭("저희"/"환자분들") 또는 2인칭("이런 분이라면") 표현을 자연스럽게 사용.
-4. \"~을 통해\", \"~에 있어서\", \"~에 대한\" 같은 번역체 표현 회피.
-5. 문장 첫머리를 매번 \"또한\", \"따라서\"로 시작하지 않기.
-6. 작은 솔직함 한 줄(예: "그런데 사실 이게 더 중요해요") 같은 자연스러운 감정/판단 끼우기.
-7. 항목 나열할 때 4개 이상이면 둘로 쪼개거나 단락으로 풀기. 모든 글이 똑같은 bullet 패턴이 되지 않도록.
+3. 1인칭(\"저희\")/2인칭(\"이런 분이라면\") 자연스럽게.
+4. 번역체(\"~을 통해\", \"~에 있어서\", \"~에 대한\") 회피.
+5. 매번 \"또한\", \"따라서\"로 시작하지 않기.
+6. 작은 솔직함(\"사실 이게 더 중요해요\") 끼우기.
+7. 4개 이상 나열은 단락으로 풀기.
 
-[C. SEO 구조]
+[C. 가독성 — 사람 글의 리듬]
+1. **핵심 키워드/문장은 마크다운 볼드 처리**: `**핵심 표현**` 형태로. 한 단락에 1~2회.
+   - 예: \"검사는 **각막 두께**가 핵심입니다.\"
+2. **이모지를 자연스럽게**: 1단락에 0~1개. 의료 톤을 해치지 않는 선에서.
+   - 적절: ✅ 📌 💡 🩺 👀 ⏱️ 🏥
+   - 부적절: 너무 가벼운 😂 🥹 💯 (의료 신뢰도↓)
+3. 단락 길이 다양하게 — 한 문장짜리 단락도 OK.
+
+[D. SEO 구조]
 1. title: 키워드 포함, 30~60자.
 2. meta_description: 150자 이내, 검색결과에 노출되는 요약.
 3. h2(sections): 3~5개. 각 섹션 200~600자.
@@ -331,16 +435,23 @@ _BLOG_SYSTEM_PROMPT = """당신은 한국 의료기관 블로그를 운영하는
 5. 키워드는 자연스럽게 본문 전체에 분포 (1~2% 밀도).
 6. 결론(conclusion_paragraphs)은 핵심 3가지를 한 번 더 정리.
 
-[D. Reference 자료가 주어진 경우]
-1. 자료의 사실/수치를 인용하되, 표현은 본 글의 톤으로 다시 쓰기.
-2. 한 자료를 통째로 옮기지 말고 \"여러 자료의 공통점/차이점\"을 정리.
-3. 인용한 URL은 references 배열에 모두 넣으세요.
+[E. 영업 정보 — 본문 끝부분에 자연 노출]
+의료기관 정보(이름/주소/지역/네이버 플레이스 URL)가 user 메시지에 주어집니다.
+본문 마지막 섹션 또는 conclusion 직전에 \"위치/연락 안내\"를 자연 노출하세요.
+- 주소를 \"강남대로 462에 위치한\" 같은 자연스러운 문장으로 통합
+- 네이버 플레이스 URL이 있으면 \"네이버 지도\"로 안내한다는 표현 (URL은 references에도 추가)
+- 광고 톤 회피, 정보 톤 유지
 
-[E. 이미지 — image_count > 0인 경우]
+[F. Reference 자료가 주어진 경우]
+1. 자료의 사실/수치를 인용하되, 본 글 톤으로 다시 쓰기.
+2. 한 자료 통째 복사 금지. \"여러 자료의 공통점/차이점\" 정리.
+3. 인용한 URL을 references 배열에 모두 포함.
+
+[G. 이미지 — image_count > 0인 경우]
 1. \"after_section\"으로 어느 H2 섹션 뒤에 배치할지 결정.
-2. 본문 흐름에 맞춰 alt 텍스트(50~100자) 자동 생성.
-3. 캡션(caption)은 짧게 1줄.
-4. 사진 src는 호출 측에서 채우므로 빈 문자열 \"\"로 두세요.
+2. alt 텍스트(50~100자)는 본문 흐름에 맞춰.
+3. 캡션 1줄.
+4. src는 빈 문자열 \"\"로.
 
 출력은 정확히 다음 JSON 형식만 (코드 블록/주석 X):
 {
@@ -348,7 +459,7 @@ _BLOG_SYSTEM_PROMPT = """당신은 한국 의료기관 블로그를 운영하는
   "meta_description": "...",
   "keywords": ["...", "..."],
   "canonical_keyword": "...",
-  "intro_paragraphs": ["...", "..."],
+  "intro_paragraphs": ["...단락에 **bold** 와 자연스러운 이모지 ✅ 등 포함...", "..."],
   "sections": [
     {
       "heading": "...",
@@ -357,7 +468,7 @@ _BLOG_SYSTEM_PROMPT = """당신은 한국 의료기관 블로그를 운영하는
     }
   ],
   "conclusion_paragraphs": ["..."],
-  "references": ["https://..."],
+  "references": ["https://...", "naver_place_url 있으면 여기에"],
   "images": [
     {"src": "", "alt": "...", "caption": "...", "after_section": 1}
   ]
@@ -370,19 +481,36 @@ def _build_blog_user_prompt(
     tenant_name: str,
     tenant_category: str,
     tenant_region: str,
-    references_block: str,
-    image_count: int,
-    target_chars: int,
-    correction_hint: str | None,
+    tenant_address: str = "",
+    tenant_naver_place_url: str = "",
+    tenant_homepage: str = "",
+    tenant_phone: str = "",
+    references_block: str = "",
+    image_count: int = 0,
+    target_chars: int = 2000,
+    angle: str = "",
+    correction_hint: str | None = None,
 ) -> str:
     parts = [
         f"키워드: {keyword}",
         f"의료기관: {tenant_name}",
         f"분야: {tenant_category}",
         f"지역: {tenant_region}",
-        f"목표 본문 길이: 약 {target_chars}자 (네이버 블로그 가이드 1500~2500자 권장)",
-        f"포함 이미지 수: {image_count}",
     ]
+    if tenant_address:
+        parts.append(f"주소: {tenant_address}")
+    if tenant_naver_place_url:
+        parts.append(f"네이버 플레이스: {tenant_naver_place_url}")
+    if tenant_homepage:
+        parts.append(f"홈페이지: {tenant_homepage}")
+    if tenant_phone:
+        parts.append(f"전화: {tenant_phone}")
+    parts.append(f"목표 본문 길이: 약 {target_chars}자 (네이버 블로그 가이드 1500~2500자 권장)")
+    parts.append(f"포함 이미지 수: {image_count}")
+
+    if angle:
+        parts.append(f"\n[이번 글의 관점/소주제]\n{angle}\n같은 키워드라도 이 관점으로 차별화된 글을 작성하세요.")
+
     if references_block:
         parts.append("\n" + references_block)
         parts.append(
@@ -397,6 +525,12 @@ def _build_blog_user_prompt(
             f"\n이미지 {image_count}개를 본문에 자연스럽게 배치할 alt + caption + after_section을 제안하세요. "
             "src는 빈 문자열로 두세요."
         )
+
+    parts.append(
+        "\n[필수] 본문에 **마크다운 볼드** 와 자연스러운 이모지를 포함하세요. "
+        "본문 마지막 섹션이나 결론 직전에 위치/연락 안내를 자연 노출하세요. "
+        "네이버 플레이스 URL이 주어졌다면 references 배열에 포함하세요."
+    )
 
     if correction_hint:
         parts.append("\n--- 이전 출력 수정 요청 ---")
@@ -448,14 +582,21 @@ def _build_user_prompt(
     tenant_category: str,
     tenant_region: str,
     n_pairs: int,
-    correction_hint: str | None,
+    angle: str = "",
+    correction_hint: str | None = None,
 ) -> str:
+    angle_block = ""
+    if angle:
+        angle_block = (
+            f"\n\n[이번 발행의 관점/소주제]\n{angle}\n같은 키워드라도 이 관점으로 차별화된 Q&A를 만드세요."
+        )
     prompt = _FAQ_USER_TEMPLATE.format(
         keyword=keyword,
         tenant_name=tenant_name,
         tenant_category=tenant_category,
         tenant_region=tenant_region,
         n_pairs=n_pairs,
+        angle_block=angle_block,
     )
     if correction_hint:
         prompt += f"\n\n--- 이전 출력 수정 요청 ---\n{correction_hint}\n반드시 위반을 모두 제거하고 다시 작성하세요."
@@ -488,10 +629,12 @@ class GeminiProvider:
         tenant_category: str,
         tenant_region: str,
         n_pairs: int = 5,
+        angle: str = "",
         correction_hint: str | None = None,
     ) -> GenerationResult:
         prompt = _build_user_prompt(
-            keyword, tenant_name, tenant_category, tenant_region, n_pairs, correction_hint
+            keyword, tenant_name, tenant_category, tenant_region, n_pairs,
+            angle=angle, correction_hint=correction_hint,
         )
         try:
             resp = self._faq_model.generate_content(prompt)
@@ -499,7 +642,7 @@ class GeminiProvider:
         except Exception as e:
             raise LLMError(f"Gemini 호출 실패: {e}") from e
         pairs = _parse_qa_json(raw)
-        return GenerationResult(qa_pairs=pairs, raw_text=raw, provider=self.name)
+        return GenerationResult(qa_pairs=pairs, raw_text=raw, provider=self.name, angle=angle)
 
     def generate_blog_post(
         self,
@@ -507,20 +650,30 @@ class GeminiProvider:
         tenant_name: str,
         tenant_category: str,
         tenant_region: str,
+        tenant_address: str = "",
+        tenant_naver_place_url: str = "",
+        tenant_homepage: str = "",
+        tenant_phone: str = "",
         references_block: str = "",
         image_count: int = 0,
         target_chars: int = 2000,
+        angle: str = "",
         correction_hint: str | None = None,
     ) -> BlogGenerationResult:
         prompt = _build_blog_user_prompt(
-            keyword,
-            tenant_name,
-            tenant_category,
-            tenant_region,
-            references_block,
-            image_count,
-            target_chars,
-            correction_hint,
+            keyword=keyword,
+            tenant_name=tenant_name,
+            tenant_category=tenant_category,
+            tenant_region=tenant_region,
+            tenant_address=tenant_address,
+            tenant_naver_place_url=tenant_naver_place_url,
+            tenant_homepage=tenant_homepage,
+            tenant_phone=tenant_phone,
+            references_block=references_block,
+            image_count=image_count,
+            target_chars=target_chars,
+            angle=angle,
+            correction_hint=correction_hint,
         )
         try:
             resp = self._blog_model.generate_content(prompt)
@@ -528,7 +681,7 @@ class GeminiProvider:
         except Exception as e:
             raise LLMError(f"Gemini 호출 실패: {e}") from e
         post = _parse_blog_json(raw)
-        return BlogGenerationResult(post_dict=post, raw_text=raw, provider=self.name)
+        return BlogGenerationResult(post_dict=post, raw_text=raw, provider=self.name, angle=angle)
 
 
 class AnthropicProvider:
@@ -549,10 +702,12 @@ class AnthropicProvider:
         tenant_category: str,
         tenant_region: str,
         n_pairs: int = 5,
+        angle: str = "",
         correction_hint: str | None = None,
     ) -> GenerationResult:
         prompt = _build_user_prompt(
-            keyword, tenant_name, tenant_category, tenant_region, n_pairs, correction_hint
+            keyword, tenant_name, tenant_category, tenant_region, n_pairs,
+            angle=angle, correction_hint=correction_hint,
         )
         try:
             msg = self._client.messages.create(
@@ -565,7 +720,7 @@ class AnthropicProvider:
         except Exception as e:
             raise LLMError(f"Anthropic 호출 실패: {e}") from e
         pairs = _parse_qa_json(raw)
-        return GenerationResult(qa_pairs=pairs, raw_text=raw, provider=self.name)
+        return GenerationResult(qa_pairs=pairs, raw_text=raw, provider=self.name, angle=angle)
 
     def generate_blog_post(
         self,
@@ -573,20 +728,30 @@ class AnthropicProvider:
         tenant_name: str,
         tenant_category: str,
         tenant_region: str,
+        tenant_address: str = "",
+        tenant_naver_place_url: str = "",
+        tenant_homepage: str = "",
+        tenant_phone: str = "",
         references_block: str = "",
         image_count: int = 0,
         target_chars: int = 2000,
+        angle: str = "",
         correction_hint: str | None = None,
     ) -> BlogGenerationResult:
         prompt = _build_blog_user_prompt(
-            keyword,
-            tenant_name,
-            tenant_category,
-            tenant_region,
-            references_block,
-            image_count,
-            target_chars,
-            correction_hint,
+            keyword=keyword,
+            tenant_name=tenant_name,
+            tenant_category=tenant_category,
+            tenant_region=tenant_region,
+            tenant_address=tenant_address,
+            tenant_naver_place_url=tenant_naver_place_url,
+            tenant_homepage=tenant_homepage,
+            tenant_phone=tenant_phone,
+            references_block=references_block,
+            image_count=image_count,
+            target_chars=target_chars,
+            angle=angle,
+            correction_hint=correction_hint,
         )
         try:
             msg = self._client.messages.create(
@@ -599,7 +764,7 @@ class AnthropicProvider:
         except Exception as e:
             raise LLMError(f"Anthropic 호출 실패: {e}") from e
         post = _parse_blog_json(raw)
-        return BlogGenerationResult(post_dict=post, raw_text=raw, provider=self.name)
+        return BlogGenerationResult(post_dict=post, raw_text=raw, provider=self.name, angle=angle)
 
 
 class OpenAIProvider:
@@ -620,10 +785,12 @@ class OpenAIProvider:
         tenant_category: str,
         tenant_region: str,
         n_pairs: int = 5,
+        angle: str = "",
         correction_hint: str | None = None,
     ) -> GenerationResult:
         prompt = _build_user_prompt(
-            keyword, tenant_name, tenant_category, tenant_region, n_pairs, correction_hint
+            keyword, tenant_name, tenant_category, tenant_region, n_pairs,
+            angle=angle, correction_hint=correction_hint,
         )
         try:
             resp = self._client.chat.completions.create(
@@ -638,7 +805,7 @@ class OpenAIProvider:
         except Exception as e:
             raise LLMError(f"OpenAI 호출 실패: {e}") from e
         pairs = _parse_qa_json(raw)
-        return GenerationResult(qa_pairs=pairs, raw_text=raw, provider=self.name)
+        return GenerationResult(qa_pairs=pairs, raw_text=raw, provider=self.name, angle=angle)
 
     def generate_blog_post(
         self,
@@ -646,20 +813,30 @@ class OpenAIProvider:
         tenant_name: str,
         tenant_category: str,
         tenant_region: str,
+        tenant_address: str = "",
+        tenant_naver_place_url: str = "",
+        tenant_homepage: str = "",
+        tenant_phone: str = "",
         references_block: str = "",
         image_count: int = 0,
         target_chars: int = 2000,
+        angle: str = "",
         correction_hint: str | None = None,
     ) -> BlogGenerationResult:
         prompt = _build_blog_user_prompt(
-            keyword,
-            tenant_name,
-            tenant_category,
-            tenant_region,
-            references_block,
-            image_count,
-            target_chars,
-            correction_hint,
+            keyword=keyword,
+            tenant_name=tenant_name,
+            tenant_category=tenant_category,
+            tenant_region=tenant_region,
+            tenant_address=tenant_address,
+            tenant_naver_place_url=tenant_naver_place_url,
+            tenant_homepage=tenant_homepage,
+            tenant_phone=tenant_phone,
+            references_block=references_block,
+            image_count=image_count,
+            target_chars=target_chars,
+            angle=angle,
+            correction_hint=correction_hint,
         )
         try:
             resp = self._client.chat.completions.create(
@@ -674,7 +851,7 @@ class OpenAIProvider:
         except Exception as e:
             raise LLMError(f"OpenAI 호출 실패: {e}") from e
         post = _parse_blog_json(raw)
-        return BlogGenerationResult(post_dict=post, raw_text=raw, provider=self.name)
+        return BlogGenerationResult(post_dict=post, raw_text=raw, provider=self.name, angle=angle)
 
 
 # ─── Factory ────────────────────────────────────────────────────

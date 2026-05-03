@@ -121,6 +121,7 @@ def generate_faq_content(
     n_pairs: int = 5,
     max_corrections: int = 3,
     provider: Optional[LLMProvider] = None,
+    angle: str = "",
     save: bool = True,
 ) -> ContentResult:
     """키워드 → FAQ 생성 → 의료법 린트 → 자동수정 루프 → JSON-LD."""
@@ -154,6 +155,7 @@ def generate_faq_content(
             tenant_category=tenant.domain_category,
             tenant_region=tenant.region,
             n_pairs=n_pairs,
+            angle=angle,
             correction_hint=correction_hint,
         )
         joined = _join_for_lint(last_result.qa_pairs)
@@ -244,6 +246,7 @@ def generate_blog_post(
     target_chars: int = 2000,
     max_corrections: int = 3,
     provider: Optional[LLMProvider] = None,
+    angle: str = "",
     save: bool = True,
 ) -> BlogResult:
     """키워드 + (선택) 참조 URL + (선택) 이미지 → SEO 친화적 블로그 post.
@@ -296,9 +299,14 @@ def generate_blog_post(
             tenant_name=tenant.name,
             tenant_category=tenant.domain_category,
             tenant_region=tenant.region,
+            tenant_address=tenant.address or "",
+            tenant_naver_place_url=tenant.naver_place_url or "",
+            tenant_homepage=tenant.homepage or "",
+            tenant_phone=tenant.phone or "",
             references_block=references_block,
             image_count=image_count,
             target_chars=target_chars,
+            angle=angle,
             correction_hint=correction_hint,
         )
         # LLM이 제안한 image 메타와 사용자 업로드 src를 매핑
@@ -323,7 +331,18 @@ def generate_blog_post(
         # references는 fetch한 URL을 자동으로 channel에 넣어줌
         if references and not post_dict.get("references"):
             post_dict["references"] = [r.url for r in references]
+        # 네이버 플레이스 URL은 references에도 자동 추가 (LLM이 누락 시)
+        if tenant.naver_place_url and tenant.naver_place_url not in (post_dict.get("references") or []):
+            existing = post_dict.get("references") or []
+            existing.append(tenant.naver_place_url)
+            post_dict["references"] = existing
         last_post = post_from_dict(post_dict, images=merged_images)
+        # 영업 정보 주입 (렌더 시 위치 블록에 사용)
+        last_post.tenant_name = tenant.name
+        last_post.tenant_address = tenant.address or ""
+        last_post.tenant_naver_place_url = tenant.naver_place_url or ""
+        last_post.tenant_phone = tenant.phone or ""
+        last_post.tenant_homepage = tenant.homepage or ""
 
         joined = _join_blog_for_lint(last_post)
         last_report = lint(session, tenant_id, joined)

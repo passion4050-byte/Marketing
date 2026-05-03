@@ -33,6 +33,10 @@ class Tenant(Base):
     domain_category: Mapped[str] = mapped_column(String(100))
     region: Mapped[str] = mapped_column(String(100))
     business_model: Mapped[str] = mapped_column(Text, default="")
+    address: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
+    naver_place_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    homepage: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     keywords: Mapped[list["Keyword"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")

@@ -168,3 +168,68 @@ def test_render_body_escapes_html():
     assert "<script>" not in body
     assert "&lt;script&gt;" in body
     assert "A &amp; B &lt; C" in body
+
+
+def test_markdown_bold_renders_to_strong():
+    post = BlogPost(
+        title="제목",
+        meta_description="",
+        keywords=[],
+        intro_paragraphs=["**핵심**은 검사 단계입니다."],
+        sections=[BlogSection(heading="섹션", paragraphs=["**또 하나**의 포인트"], sub_sections=[])],
+        conclusion_paragraphs=[],
+    )
+    body = render_body(post)
+    assert "<strong>핵심</strong>" in body
+    assert "<strong>또 하나</strong>" in body
+    assert "**" not in body  # 마크다운 마커는 모두 변환됨
+
+
+def test_emoji_passes_through():
+    post = BlogPost(
+        title="제목",
+        meta_description="",
+        keywords=[],
+        intro_paragraphs=["✅ 체크 포인트 🩺 의료"],
+        sections=[],
+        conclusion_paragraphs=[],
+    )
+    body = render_body(post)
+    assert "✅" in body and "🩺" in body
+
+
+def test_location_block_rendered_when_tenant_address_present():
+    post = BlogPost(
+        title="제목",
+        meta_description="",
+        keywords=[],
+        intro_paragraphs=[],
+        sections=[],
+        conclusion_paragraphs=[],
+        tenant_name="BGN 밝은눈안과",
+        tenant_address="서울 강남구 강남대로 462",
+        tenant_naver_place_url="https://map.naver.com/p/entry/place/1109883085",
+        tenant_phone="1588-3989",
+    )
+    body = render_body(post)
+    assert "BGN 밝은눈안과" in body
+    assert "강남대로 462" in body
+    assert "https://map.naver.com/p/entry/place/1109883085" in body
+    assert 'rel="noopener"' in body
+    assert "1588-3989" in body
+
+
+def test_naver_plain_strips_markdown_keeps_emoji():
+    post = BlogPost(
+        title="**제목** 입니다",
+        meta_description="",
+        keywords=["라식"],
+        intro_paragraphs=["✅ **핵심** 내용"],
+        sections=[BlogSection(heading="🩺 검사", paragraphs=["**중요**합니다"], sub_sections=[])],
+        conclusion_paragraphs=[],
+    )
+    out = render_naver_blog_plain(post)
+    assert "**" not in out  # 마크다운 ** 제거
+    assert "✅" in out and "🩺" in out
+    assert "핵심" in out
+    assert "#라식" in out

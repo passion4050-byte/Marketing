@@ -1,18 +1,16 @@
-"""Streamlit 데모 UI — Phase 1 + Phase 1.5.
+"""Streamlit 데모 UI — Phase 1 + Phase 1.5 + UI 개편.
 
-실행:
-    streamlit run src/dashboard/app.py
+탭 구성:
+- FAQ생성프로그램 — GEO general question 매칭 Q&A. 1~10 발행, 각 발행마다 복사.
+- 블로그 포스트 — SEO + 레퍼런스 + 이미지 + 사람-톤. 1~10 발행, 각 글마다 복사.
 
-모드:
-- FAQ Schema.org JSON-LD : 기존 데모 (자사 사이트 <head> 삽입용)
-- Blog Post (SEO + 레퍼런스 + 이미지) : 사람-톤 블로그 글, 워드프레스/네이버 붙여넣기
-
-API 키 없이도 stub 프로바이더로 즉시 동작.
+실행: streamlit run src/dashboard/app.py
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import sys
 from pathlib import Path
@@ -24,10 +22,17 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT))
 load_dotenv(ROOT / ".env")
 
-# 경로 셋업 후 임포트 (E402 무시)
 from src.content.generator import generate_blog_post, generate_faq_content  # noqa: E402
-from src.content.llm import CostGuardrailExceeded, LLMError, get_provider  # noqa: E402
+from src.content.llm import (  # noqa: E402
+    DEFAULT_BLOG_ANGLES,
+    DEFAULT_FAQ_ANGLES,
+    CostGuardrailExceeded,
+    LLMError,
+    get_provider,
+    pick_angles,
+)
 from src.content.templates.blog_html import ImageSlot  # noqa: E402
+from src.content.templates.schema_org import faq_page_script_tag  # noqa: E402
 from src.storage.db import create_all, get_session_factory  # noqa: E402
 from src.storage.models import GeneratedContent, Keyword, Tenant  # noqa: E402
 
@@ -35,6 +40,36 @@ st.set_page_config(
     page_title="GEO/AEO SaaS — 메디맵 데모",
     page_icon="🏥",
     layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# ─── 글로벌 스타일 ───────────────────────────────────────────────
+st.markdown(
+    """
+    <style>
+      .stApp { background: #fbfbfd; }
+      h1, h2, h3 { letter-spacing: -0.02em; }
+      .gsd-chip {
+        display: inline-block; padding: 2px 10px; border-radius: 999px;
+        font-size: 12px; font-weight: 600; margin-right: 6px;
+      }
+      .gsd-chip-green { background:#e6f6ea; color:#1e7a3d; }
+      .gsd-chip-yellow { background:#fff4d6; color:#a36100; }
+      .gsd-chip-red { background:#fbe5e3; color:#a02520; }
+      .gsd-chip-blue { background:#e7eefb; color:#1d50a8; }
+      .gsd-chip-gray { background:#eef0f3; color:#555; }
+      .gsd-card {
+        background: white; border-radius: 12px; padding: 16px 20px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04); border: 1px solid #eee;
+        margin-bottom: 12px;
+      }
+      .gsd-section-title {
+        font-size: 13px; font-weight: 700; color:#666; text-transform: uppercase;
+        letter-spacing: 0.05em; margin: 8px 0 4px 0;
+      }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
 UPLOADS_DIR = ROOT / "data" / "uploads"
@@ -47,34 +82,35 @@ def _bootstrap():
     return get_session_factory()
 
 
-def _provider_status() -> tuple[str, str]:
+def _provider_status() -> tuple[str, str, bool]:
     name = os.getenv("LLM_PROVIDER", "stub").lower()
     if name == "stub":
-        return name, "🟢 키 불필요. 미리 작성된 의료법 안전 콘텐츠 반환."
+        return name, "키 불필요. 미리 작성된 의료법 안전 콘텐츠 반환.", True
     if name == "gemini":
         ok = bool(os.getenv("GOOGLE_API_KEY"))
-        return name, ("🟢 GOOGLE_API_KEY 감지" if ok else "🔴 GOOGLE_API_KEY 미설정")
+        return name, "GOOGLE_API_KEY 감지" if ok else "GOOGLE_API_KEY 미설정", ok
     if name == "anthropic":
         ok = bool(os.getenv("ANTHROPIC_API_KEY"))
-        return name, ("🟢 ANTHROPIC_API_KEY 감지" if ok else "🔴 ANTHROPIC_API_KEY 미설정")
+        return name, "ANTHROPIC_API_KEY 감지" if ok else "ANTHROPIC_API_KEY 미설정", ok
     if name == "openai":
         ok = bool(os.getenv("OPENAI_API_KEY"))
-        return name, ("🟢 OPENAI_API_KEY 감지" if ok else "🔴 OPENAI_API_KEY 미설정")
-    return name, f"🔴 알 수 없는 프로바이더: {name}"
+        return name, "OPENAI_API_KEY 감지" if ok else "OPENAI_API_KEY 미설정", ok
+    return name, f"알 수 없는 프로바이더: {name}", False
 
 
-def _render_compliance(report) -> None:
-    summary = report.summary()
-    status_emoji = {"pass": "✅", "warn": "⚠️", "fail": "❌"}.get(report.status, "?")
-    if report.status == "pass":
-        st.success(f"{status_emoji} Compliance: {summary}")
-    elif report.status == "warn":
-        st.warning(f"{status_emoji} Compliance: {summary}")
-    else:
-        st.error(f"{status_emoji} Compliance: {summary}")
+def _compliance_chip(report) -> str:
+    s = report.status
+    if s == "pass":
+        return f'<span class="gsd-chip gsd-chip-green">✅ {report.summary()}</span>'
+    if s == "warn":
+        return f'<span class="gsd-chip gsd-chip-yellow">⚠️ {report.summary()}</span>'
+    return f'<span class="gsd-chip gsd-chip-red">❌ {report.summary()}</span>'
 
+
+def _render_compliance_inline(report) -> None:
+    st.markdown(_compliance_chip(report), unsafe_allow_html=True)
     if report.violations:
-        with st.expander(f"위반 항목 {len(report.violations)}개 보기", expanded=report.status != "pass"):
+        with st.expander(f"위반 {len(report.violations)}개 보기", expanded=False):
             for v in report.violations:
                 sev_color = {"error": "🔴", "warning": "🟡", "info": "🔵"}.get(v.severity, "⚪")
                 st.markdown(
@@ -84,279 +120,256 @@ def _render_compliance(report) -> None:
 
 
 def _save_uploaded_image(uploaded) -> str:
-    """업로드된 이미지를 ./data/uploads/에 저장하고 상대 경로 반환."""
     raw = uploaded.read()
     digest = hashlib.sha1(raw).hexdigest()[:12]
     ext = Path(uploaded.name).suffix.lower() or ".jpg"
     out = UPLOADS_DIR / f"{digest}{ext}"
     if not out.exists():
         out.write_bytes(raw)
-    # CMS에 붙여넣을 때 사용자가 자기 서버 경로로 교체할 수 있도록 상대 경로
     return f"./data/uploads/{out.name}"
 
 
 def _sidebar() -> None:
     with st.sidebar:
         st.markdown("## 🏥 GEO/AEO SaaS")
-        st.caption("메디맵 — Phase 1 / 1.5 Demo")
+        st.caption("메디맵 — Phase 1.5 Demo")
 
-        provider_name, provider_msg = _provider_status()
-        st.markdown(f"### LLM Provider: `{provider_name}`")
+        provider_name, provider_msg, ok = _provider_status()
+        chip_color = "green" if ok else "red"
+        st.markdown(
+            f"### Provider: <span class='gsd-chip gsd-chip-{chip_color}'>{provider_name}</span>",
+            unsafe_allow_html=True,
+        )
         st.caption(provider_msg)
 
         if provider_name == "stub":
             st.info(
-                "💡 키 없이 즉시 동작 모드입니다. 진짜 LLM을 쓰려면 "
-                "`.env`의 `LLM_PROVIDER`를 `gemini`로 바꾸고 "
-                "[Google AI Studio](https://aistudio.google.com/apikey)에서 무료 키를 발급받아 "
-                "`GOOGLE_API_KEY=`에 입력 후 앱을 재실행하세요."
+                "💡 키 없이 동작 모드입니다. 진짜 LLM을 쓰려면 `.env`의 `LLM_PROVIDER`를 `gemini`로 바꾸고 "
+                "[Google AI Studio](https://aistudio.google.com/apikey)에서 무료 키 발급 후 재실행하세요."
             )
+        elif not ok:
+            st.warning(f"`.env`의 `LLM_PROVIDER={provider_name}` 인데 해당 API 키가 비어있습니다.")
 
         st.divider()
-        st.markdown("### 비용 가드레일")
+        st.markdown("### 📊 비용 가드레일")
         st.caption(
-            f"하루 한도: {os.getenv('MAX_CONTENT_GEN_PER_DAY', '50')}건  \n"
+            f"하루 한도: **{os.getenv('MAX_CONTENT_GEN_PER_DAY', '50')}건**  \n"
             f"최대 일일 USD: ${os.getenv('MAX_DAILY_USD', '10.0')}"
         )
 
         st.divider()
-        st.markdown("### 모드 안내")
+        st.markdown("### 📚 모드 안내")
         st.caption(
-            "**FAQ JSON-LD** — 자사 사이트 `<head>`에 넣어 AI 검색엔진의 답변 노출 ↑\n\n"
-            "**블로그 포스트** — 워드프레스/티스토리/네이버에 붙여넣을 본문. SEO 메타·이미지·레퍼런스 자동 구성."
+            "**FAQ생성프로그램** — AI 검색엔진(ChatGPT/Perplexity 등)의 일반 질문 답변에 인용되도록 Q&A 발행.\n\n"
+            "**블로그 포스트** — 워드프레스/티스토리/네이버에 붙여넣을 본문. SEO 메타·이미지·레퍼런스·위치 자동 구성."
         )
+
+
+def _tenant_picker(SessionLocal, *, key: str) -> tuple[Tenant, list[str]]:
+    """대상(Tenant) 드롭다운 + sample keywords 리스트 반환."""
+    with SessionLocal() as session:
+        tenants = session.query(Tenant).order_by(Tenant.id).all()
+        if not tenants:
+            st.error("대상(Tenant) 없음. 터미널에서 `python scripts/init_db.py` 실행하세요.")
+            st.stop()
+
+        labels = {f"{t.id}. {t.name} — {t.domain_category} ({t.region})": t for t in tenants}
+        selected = st.selectbox("대상", list(labels.keys()), key=f"{key}_tenant")
+        tenant = labels[selected]
+
+        sample_keywords = (
+            session.query(Keyword)
+            .filter(Keyword.tenant_id == tenant.id, Keyword.is_active.is_(True))
+            .all()
+        )
+        # detached object — Streamlit이 다른 세션에서 안전하게 쓸 수 있도록 dict 변환
+        tenant_data = type("T", (), {
+            "id": tenant.id,
+            "name": tenant.name,
+            "domain_category": tenant.domain_category,
+            "region": tenant.region,
+            "address": tenant.address or "",
+            "naver_place_url": tenant.naver_place_url or "",
+            "phone": tenant.phone or "",
+            "homepage": tenant.homepage or "",
+        })()
+        sample_texts = [k.text for k in sample_keywords]
+        return tenant_data, sample_texts
+
+
+def _tenant_info_card(tenant) -> None:
+    """대상 정보 카드 — 영업 정보 미리보기."""
+    bits = []
+    if tenant.address:
+        bits.append(f"📍 {tenant.address}")
+    if tenant.phone:
+        bits.append(f"☎ {tenant.phone}")
+    if tenant.homepage:
+        bits.append(f"🌐 [{tenant.homepage}]({tenant.homepage})")
+    if tenant.naver_place_url:
+        bits.append(f"🗺️ [네이버 플레이스]({tenant.naver_place_url})")
+    if not bits:
+        return
+    with st.container(border=True):
+        st.markdown("**대상 정보** (콘텐츠 끝부분에 자연 노출)")
+        st.markdown(" · ".join(bits))
+
+
+# ─── FAQ 탭 ─────────────────────────────────────────────────────
+
+
+def _render_faq_card(idx: int, result, total: int) -> None:
+    """1개 FAQ 결과 카드 — 미리보기 + JSON-LD 복사."""
+    with st.container(border=True):
+        col_h1, col_h2 = st.columns([3, 1])
+        with col_h1:
+            st.markdown(f"### 📦 발행 {idx} / {total}")
+            if result.qa_pairs:
+                first_q = result.qa_pairs[0].question[:60]
+                st.caption(f"첫 질문: {first_q}…")
+        with col_h2:
+            st.markdown(_compliance_chip(result.compliance), unsafe_allow_html=True)
+
+        st.caption(
+            f"Provider {result.provider} · FAQ {len(result.qa_pairs)}쌍 · "
+            f"자동수정 {result.iterations}회 · 저장 ID {result.saved_id or '—'}"
+        )
+
+        tab_p, tab_j = st.tabs(["📋 Q&A 미리보기", "🧩 JSON-LD (복사)"])
+        with tab_p:
+            for i, p in enumerate(result.qa_pairs, 1):
+                st.markdown(f"**Q{i}.** {p.question}")
+                st.markdown(p.answer)
+                st.divider()
+        with tab_j:
+            st.caption("자사 사이트 `<head>`에 그대로 붙여넣으세요. 우측 상단 복사 아이콘 활용.")
+            st.code(result.json_ld_script, language="html")
+
+        if result.compliance.violations:
+            with st.expander(f"⚠️ Compliance 위반 {len(result.compliance.violations)}개"):
+                for v in result.compliance.violations:
+                    sev = {"error": "🔴", "warning": "🟡", "info": "🔵"}.get(v.severity, "⚪")
+                    st.markdown(f"{sev} `{v.matched_text}` — {v.message}")
 
 
 def _faq_tab(SessionLocal) -> None:
-    with SessionLocal() as session:
-        tenants = session.query(Tenant).order_by(Tenant.id).all()
-        if not tenants:
-            st.error("Tenant 없음. `python scripts/init_db.py` 실행.")
-            return
+    st.markdown("##### 🎯 GEO Q&A 발행 — AI 검색엔진 답변 인용 노리기")
+    st.caption(
+        "사용자가 AI에게 일반 질문(예: \"강남 라식 어디가 좋아?\")을 했을 때, "
+        "당신의 Q&A가 답변에 \"맞춤 추천\"으로 인용되도록 콘텐츠를 발행합니다."
+    )
 
-        col_a, col_b = st.columns([1, 2])
-        with col_a:
-            tenant_options = {f"{t.id}. {t.name} ({t.domain_category})": t for t in tenants}
-            selected_label = st.selectbox("Tenant", list(tenant_options.keys()), key="faq_tenant")
-            tenant = tenant_options[selected_label]
+    tenant, sample_texts = _tenant_picker(SessionLocal, key="faq")
+    _tenant_info_card(tenant)
 
-        with col_b:
-            sample_keywords = (
-                session.query(Keyword)
-                .filter(Keyword.tenant_id == tenant.id, Keyword.is_active.is_(True))
-                .all()
-            )
-            sample_texts = [k.text for k in sample_keywords]
-            keyword = st.text_input(
-                "키워드",
-                value=sample_texts[0] if sample_texts else "",
-                placeholder="예: 강남 라식 잘하는 곳",
-                key="faq_keyword",
-            )
-
-        col_c, col_d, col_e = st.columns([1, 1, 1])
-        with col_c:
-            n_pairs = st.number_input("FAQ 개수", 3, 10, 5, 1, key="faq_n")
-        with col_d:
-            max_corrections = st.number_input("최대 자동수정", 0, 5, 3, 1, key="faq_corr")
-        with col_e:
-            st.write("")
-            st.write("")
-            run = st.button("✨ FAQ 생성", type="primary", use_container_width=True, key="faq_run")
-
-        st.divider()
-
-        if run:
-            if not keyword.strip():
-                st.warning("키워드를 입력하세요.")
-                return
-            try:
-                provider = get_provider()
-            except LLMError as e:
-                st.error(f"❌ {e}")
-                return
-
-            with st.spinner(f"`{provider.name}`으로 FAQ 생성 중..."):
-                try:
-                    result = generate_faq_content(
-                        session,
-                        tenant_id=tenant.id,
-                        keyword=keyword.strip(),
-                        n_pairs=int(n_pairs),
-                        max_corrections=int(max_corrections),
-                        provider=provider,
-                        save=True,
-                    )
-                except CostGuardrailExceeded as e:
-                    st.error(f"⛔ {e}")
-                    return
-                except LLMError as e:
-                    st.error(f"❌ {e}")
-                    return
-
-            st.subheader("결과")
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Provider", result.provider)
-            c2.metric("FAQ 쌍", len(result.qa_pairs))
-            c3.metric("자동수정 반복", f"{result.iterations}회")
-            c4.metric("저장 ID", result.saved_id or "—")
-
-            _render_compliance(result.compliance)
-
-            tab_p, tab_j = st.tabs(["📋 FAQ 미리보기", "🧩 JSON-LD (복사용)"])
-            with tab_p:
-                for i, p in enumerate(result.qa_pairs, 1):
-                    with st.container(border=True):
-                        st.markdown(f"**Q{i}. {p.question}**")
-                        st.write(p.answer)
-            with tab_j:
-                st.caption("자사 사이트 `<head>`에 그대로 붙여넣으세요.")
-                st.code(result.json_ld_script, language="html")
-
-
-def _blog_tab(SessionLocal) -> None:
-    with SessionLocal() as session:
-        tenants = session.query(Tenant).order_by(Tenant.id).all()
-        if not tenants:
-            st.error("Tenant 없음. `python scripts/init_db.py` 실행.")
-            return
-
-        col_a, col_b = st.columns([1, 2])
-        with col_a:
-            tenant_options = {f"{t.id}. {t.name} ({t.domain_category})": t for t in tenants}
-            selected_label = st.selectbox("Tenant", list(tenant_options.keys()), key="blog_tenant")
-            tenant = tenant_options[selected_label]
-        with col_b:
-            sample_keywords = (
-                session.query(Keyword)
-                .filter(Keyword.tenant_id == tenant.id, Keyword.is_active.is_(True))
-                .all()
-            )
-            sample_texts = [k.text for k in sample_keywords]
-            keyword = st.text_input(
-                "키워드",
-                value=sample_texts[0] if sample_texts else "",
-                placeholder="예: 강남 라식 잘하는 곳",
-                key="blog_keyword",
-            )
-
-        st.markdown("#### 📚 참고 URL (data feeding) — 줄바꿈으로 여러 개")
-        ref_urls_text = st.text_area(
-            "참고 URL",
-            placeholder=(
-                "https://example.com/article1\n"
-                "https://blog.example.com/related"
-            ),
-            height=100,
-            key="blog_refs",
-            label_visibility="collapsed",
-            help=(
-                "URL을 입력하면 시스템이 본문/제목/메타를 추출해 LLM 컨텍스트에 주입합니다. "
-                "AI는 자료의 사실을 활용하되 본 글의 톤으로 다시 씁니다."
-            ),
+    keyword = st.text_input(
+        "키워드",
+        value=sample_texts[0] if sample_texts else "",
+        placeholder="예: 강남 라식 잘하는 곳",
+        key="faq_keyword",
+        help="AI 검색엔진에 노출시키고 싶은 핵심 키워드/주제",
+    )
+    if sample_texts:
+        st.caption(
+            "💡 샘플: " + " · ".join(f"`{s}`" for s in sample_texts[:5])
         )
 
-        st.markdown("#### 🖼️ 이미지 첨부 — 본문 흐름에 맞춰 자동 배치")
-        uploaded = st.file_uploader(
-            "이미지 업로드",
-            accept_multiple_files=True,
-            type=["png", "jpg", "jpeg", "webp", "gif"],
-            key="blog_images",
-            label_visibility="collapsed",
-            help="업로드된 이미지는 ./data/uploads/에 저장되고, AI가 alt 텍스트와 배치 위치를 자동 제안합니다.",
+    col_c, col_d, col_e, col_f = st.columns([1, 1, 1, 1])
+    with col_c:
+        daily_count = st.slider(
+            "일일 발행 개수",
+            1, 10, 1, 1,
+            key="faq_daily",
+            help="오늘 발행할 FAQ 콘텐츠 개수. 각각 다른 관점/소주제로 자동 차별화.",
         )
-        if uploaded:
-            st.caption(f"{len(uploaded)}개 이미지 업로드 — AI가 본문 섹션 사이에 배치합니다.")
+    with col_d:
+        n_pairs = st.number_input("Q&A 쌍/콘텐츠", 3, 10, 5, 1, key="faq_n")
+    with col_e:
+        max_corrections = st.number_input("자동수정 최대", 0, 5, 3, 1, key="faq_corr")
+    with col_f:
+        st.write("")
+        st.write("")
+        run = st.button("✨ FAQ 발행", type="primary", use_container_width=True, key="faq_run")
 
-        col_c, col_d, col_e = st.columns([1, 1, 1])
-        with col_c:
-            target_chars = st.number_input(
-                "목표 본문 길이 (자)", 800, 4000, 2000, 100, key="blog_chars"
-            )
-        with col_d:
-            max_corrections = st.number_input("최대 자동수정", 0, 5, 3, 1, key="blog_corr")
-        with col_e:
-            st.write("")
-            st.write("")
-            run = st.button("✨ 블로그 생성", type="primary", use_container_width=True, key="blog_run")
+    st.divider()
 
-        st.divider()
+    if not run:
+        return
 
-        if not run:
-            return
+    if not keyword.strip():
+        st.warning("키워드를 입력하세요.")
+        return
 
-        if not keyword.strip():
-            st.warning("키워드를 입력하세요.")
-            return
+    try:
+        provider = get_provider()
+    except LLMError as e:
+        st.error(f"❌ {e}")
+        return
 
-        try:
-            provider = get_provider()
-        except LLMError as e:
-            st.error(f"❌ {e}")
-            return
+    angles = pick_angles(DEFAULT_FAQ_ANGLES, daily_count) if daily_count > 1 else [""]
+    progress = st.progress(0.0, text=f"발행 1/{daily_count} 시작...")
+    results = []
 
-        # 이미지 저장 + ImageSlot 생성
-        image_slots: list[ImageSlot] = []
-        if uploaded:
-            for i, up in enumerate(uploaded, 1):
-                src = _save_uploaded_image(up)
-                image_slots.append(
-                    ImageSlot(
-                        src=src,
-                        alt=f"이미지 {i} (AI가 본문 컨텍스트로 자동 작성 예정)",
-                        caption=None,
-                        after_section=i,
-                    )
-                )
-
-        ref_urls = [u for u in ref_urls_text.splitlines() if u.strip()]
-
-        with st.spinner(
-            f"`{provider.name}`으로 블로그 생성 중... "
-            f"(레퍼런스 {len(ref_urls)}개 fetch + LLM 호출 + 의료법 린트)"
-        ):
+    with SessionLocal() as session:
+        for i, angle in enumerate(angles, 1):
+            progress.progress((i - 1) / daily_count, text=f"발행 {i}/{daily_count} — {angle or '기본 관점'} ...")
             try:
-                result = generate_blog_post(
+                r = generate_faq_content(
                     session,
                     tenant_id=tenant.id,
                     keyword=keyword.strip(),
-                    reference_urls=ref_urls,
-                    images=image_slots,
-                    target_chars=int(target_chars),
+                    n_pairs=int(n_pairs),
                     max_corrections=int(max_corrections),
                     provider=provider,
+                    angle=angle,
                     save=True,
                 )
+                results.append(r)
             except CostGuardrailExceeded as e:
                 st.error(f"⛔ {e}")
+                progress.empty()
                 return
             except LLMError as e:
-                st.error(f"❌ {e}")
-                return
+                st.error(f"❌ {i}번째 발행 LLM 오류: {e}")
+                continue
             except Exception as e:
                 st.exception(e)
-                return
+                continue
+        progress.progress(1.0, text=f"발행 {daily_count}개 완료 ✓")
 
-        st.subheader("결과")
-        c1, c2, c3, c4, c5 = st.columns(5)
-        c1.metric("Provider", result.provider)
-        c2.metric("본문 길이", f"{result.post.total_word_count():,}자")
-        c3.metric("섹션", len(result.post.sections))
-        c4.metric("레퍼런스", len(result.references))
-        c5.metric("자동수정", f"{result.iterations}회")
+    progress.empty()
 
-        _render_compliance(result.compliance)
+    if not results:
+        st.error("발행된 결과가 없습니다.")
+        return
 
-        tab_preview, tab_meta, tab_body, tab_full, tab_naver, tab_refs, tab_history = st.tabs(
-            [
-                "📋 미리보기",
-                "🏷️ SEO 메타 (head용)",
-                "📝 본문 HTML (CMS 붙여넣기)",
-                "📄 완성 HTML (단독 페이지)",
-                "📱 네이버 블로그 평문",
-                "📚 참고 자료",
-                "🔁 자동수정 이력",
-            ]
+    pass_count = sum(1 for r in results if r.passed)
+    st.success(f"✅ {len(results)}개 발행 완료 · 의료법 통과 {pass_count}개 / 검수권장 {len(results) - pass_count}개")
+
+    for idx, r in enumerate(results, 1):
+        _render_faq_card(idx, r, total=len(results))
+
+
+# ─── 블로그 탭 ──────────────────────────────────────────────────
+
+
+def _render_blog_card(idx: int, result, total: int) -> None:
+    with st.container(border=True):
+        col_h1, col_h2 = st.columns([3, 1])
+        with col_h1:
+            st.markdown(f"### 📰 발행 {idx} / {total} — {result.post.title}")
+            st.caption(result.post.meta_description[:120] + ("…" if len(result.post.meta_description) > 120 else ""))
+        with col_h2:
+            st.markdown(_compliance_chip(result.compliance), unsafe_allow_html=True)
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("길이", f"{result.post.total_word_count():,}자")
+        c2.metric("섹션", len(result.post.sections))
+        c3.metric("레퍼런스", len(result.references))
+        c4.metric("자동수정", f"{result.iterations}회")
+
+        tab_preview, tab_meta, tab_body, tab_full, tab_naver, tab_refs = st.tabs(
+            ["📋 미리보기", "🏷️ SEO 메타", "📝 본문 HTML (복사)", "📄 완성 HTML (복사)", "📱 네이버 평문 (복사)", "📚 참고/위치"]
         )
 
         with tab_preview:
@@ -365,16 +378,15 @@ def _blog_tab(SessionLocal) -> None:
                 st.caption(result.post.meta_description)
             st.divider()
             for p in result.post.intro_paragraphs:
-                st.write(p)
+                st.markdown(p)
             for i, sec in enumerate(result.post.sections, 1):
                 st.markdown(f"### {sec.heading}")
                 for p in sec.paragraphs:
-                    st.write(p)
+                    st.markdown(p)
                 for sub in sec.sub_sections:
                     st.markdown(f"#### {sub.heading}")
                     for p in sub.paragraphs:
-                        st.write(p)
-                # 섹션 뒤 이미지 미리보기
+                        st.markdown(p)
                 for img in [im for im in result.post.images if im.after_section == i]:
                     img_path = ROOT / img.src.lstrip("./")
                     if img_path.exists():
@@ -384,7 +396,14 @@ def _blog_tab(SessionLocal) -> None:
             if result.post.conclusion_paragraphs:
                 st.markdown("### 마치며")
                 for p in result.post.conclusion_paragraphs:
-                    st.write(p)
+                    st.markdown(p)
+            if result.post.tenant_name or result.post.tenant_address:
+                with st.container(border=True):
+                    st.markdown(f"**📍 {result.post.tenant_name}**")
+                    if result.post.tenant_address:
+                        st.markdown(f"주소: {result.post.tenant_address}")
+                    if result.post.tenant_naver_place_url:
+                        st.markdown(f"네이버 지도: [{result.post.tenant_naver_place_url}]({result.post.tenant_naver_place_url})")
             if result.post.keywords:
                 st.caption("🏷️ " + " ".join(f"#{k}" for k in result.post.keywords))
 
@@ -397,53 +416,201 @@ def _blog_tab(SessionLocal) -> None:
             st.code(result.body_html, language="html")
 
         with tab_full:
-            st.caption("로컬에 저장하면 단독 페이지로 미리보기 가능. 브라우저에서 열어 SEO 메타 확인.")
+            st.caption("로컬에 저장 → 브라우저에서 열어 단독 미리보기 가능.")
             st.code(result.full_html, language="html")
 
         with tab_naver:
-            st.caption("네이버 블로그 에디터에 붙여넣으세요. HTML 미지원이라 평문 + 이모지 + 해시태그.")
+            st.caption("네이버 블로그 에디터에 붙여넣으세요. 평문 + 이모지 + 해시태그.")
             st.code(result.naver_plain, language=None)
 
         with tab_refs:
-            if not result.references:
-                st.caption("참조 URL이 입력되지 않았습니다.")
-            else:
+            if result.references:
+                st.markdown("**참고 자료 (data feeding)**")
                 for r in result.references:
                     with st.container(border=True):
                         st.markdown(f"**[{r.title}]({r.url})**")
                         st.caption(f"본문 {r.char_count:,}자 추출")
                         if r.description:
                             st.write(r.description)
-                        with st.expander("본문 미리보기 (앞 1000자)"):
-                            st.write(r.body[:1000] + ("..." if len(r.body) > 1000 else ""))
-
-        with tab_history:
-            if not result.correction_history:
-                st.info("자동수정 시도 없음.")
+                        with st.expander("본문 미리보기"):
+                            st.write(r.body[:600] + ("…" if len(r.body) > 600 else ""))
             else:
-                for i, rep in enumerate(result.correction_history):
-                    st.markdown(f"#### Attempt {i}")
-                    st.markdown(f"- 상태: **{rep.status}** ({rep.summary()})")
-                    if rep.violations:
-                        for v in rep.violations:
-                            st.markdown(
-                                f"  - [{v.severity}] `{v.matched_text}` — {v.message}"
-                            )
+                st.caption("입력된 참고 URL 없음.")
+
+            if result.post.tenant_naver_place_url or result.post.tenant_address:
+                st.markdown("**위치 안내 (본문 끝에 자동 노출)**")
+                with st.container(border=True):
+                    if result.post.tenant_address:
+                        st.markdown(f"📍 {result.post.tenant_address}")
+                    if result.post.tenant_naver_place_url:
+                        st.markdown(f"🗺️ [{result.post.tenant_naver_place_url}]({result.post.tenant_naver_place_url})")
+                    if result.post.tenant_phone:
+                        st.markdown(f"☎ {result.post.tenant_phone}")
+                    if result.post.tenant_homepage:
+                        st.markdown(f"🌐 [{result.post.tenant_homepage}]({result.post.tenant_homepage})")
+
+        if result.compliance.violations:
+            with st.expander(f"⚠️ Compliance 위반 {len(result.compliance.violations)}개"):
+                for v in result.compliance.violations:
+                    sev = {"error": "🔴", "warning": "🟡", "info": "🔵"}.get(v.severity, "⚪")
+                    st.markdown(f"{sev} `{v.matched_text}` — {v.message}")
 
 
-def _history_section(SessionLocal, tenant_filter: int | None = None) -> None:
+def _blog_tab(SessionLocal) -> None:
+    st.markdown("##### 📝 SEO 블로그 발행 — 사람-톤 + 레퍼런스 + 이미지 + 위치 자동")
+    st.caption(
+        "키워드 + 참고 URL + 이미지 → 의료법 통과한 사람-톤 블로그 글. "
+        "워드프레스/티스토리/네이버 에디터에 그대로 붙여넣기."
+    )
+
+    tenant, sample_texts = _tenant_picker(SessionLocal, key="blog")
+    _tenant_info_card(tenant)
+
+    keyword = st.text_input(
+        "키워드",
+        value=sample_texts[0] if sample_texts else "",
+        placeholder="예: 강남 라식 잘하는 곳",
+        key="blog_keyword",
+    )
+    if sample_texts:
+        st.caption("💡 샘플: " + " · ".join(f"`{s}`" for s in sample_texts[:5]))
+
+    st.markdown('<div class="gsd-section-title">📚 참고 URL — Data feeding</div>', unsafe_allow_html=True)
+    ref_urls_text = st.text_area(
+        "참고 URL",
+        placeholder="https://example.com/article1\nhttps://blog.example.com/related",
+        height=90,
+        key="blog_refs",
+        label_visibility="collapsed",
+        help="URL을 입력하면 시스템이 본문/제목/메타를 추출해 LLM 컨텍스트에 주입합니다. AI는 자료를 인용하되 본 글의 톤으로 다시 씁니다.",
+    )
+
+    st.markdown('<div class="gsd-section-title">🖼️ 이미지 첨부 — 본문 흐름에 자동 배치</div>', unsafe_allow_html=True)
+    uploaded = st.file_uploader(
+        "이미지 업로드",
+        accept_multiple_files=True,
+        type=["png", "jpg", "jpeg", "webp", "gif"],
+        key="blog_images",
+        label_visibility="collapsed",
+        help="업로드된 이미지는 ./data/uploads/에 저장되고, AI가 alt 텍스트와 배치 위치를 자동 제안합니다.",
+    )
+    if uploaded:
+        st.caption(f"✅ {len(uploaded)}개 업로드. AI가 본문 섹션 사이에 배치합니다.")
+
+    col_c, col_d, col_e, col_f = st.columns([1, 1, 1, 1])
+    with col_c:
+        daily_count = st.slider(
+            "일일 발행 개수",
+            1, 10, 1, 1,
+            key="blog_daily",
+            help="오늘 발행할 블로그 글 개수. 각각 다른 관점/소주제로 자동 차별화.",
+        )
+    with col_d:
+        target_chars = st.number_input("목표 본문 길이 (자)", 800, 4000, 2000, 100, key="blog_chars")
+    with col_e:
+        max_corrections = st.number_input("자동수정 최대", 0, 5, 3, 1, key="blog_corr")
+    with col_f:
+        st.write("")
+        st.write("")
+        run = st.button("✨ 블로그 발행", type="primary", use_container_width=True, key="blog_run")
+
     st.divider()
-    st.subheader("최근 생성 이력")
+
+    if not run:
+        return
+    if not keyword.strip():
+        st.warning("키워드를 입력하세요.")
+        return
+
+    try:
+        provider = get_provider()
+    except LLMError as e:
+        st.error(f"❌ {e}")
+        return
+
+    # 이미지 저장
+    image_slots: list[ImageSlot] = []
+    if uploaded:
+        for i, up in enumerate(uploaded, 1):
+            src = _save_uploaded_image(up)
+            image_slots.append(
+                ImageSlot(
+                    src=src,
+                    alt=f"이미지 {i} — AI가 본문 컨텍스트로 alt 작성 예정",
+                    caption=None,
+                    after_section=i,
+                )
+            )
+
+    ref_urls = [u for u in ref_urls_text.splitlines() if u.strip()]
+    angles = pick_angles(DEFAULT_BLOG_ANGLES, daily_count) if daily_count > 1 else [""]
+
+    progress = st.progress(0.0, text=f"발행 1/{daily_count} 시작...")
+    results = []
+
     with SessionLocal() as session:
-        q = session.query(GeneratedContent).order_by(GeneratedContent.created_at.desc()).limit(15)
-        if tenant_filter:
-            q = q.filter(GeneratedContent.tenant_id == tenant_filter)
-        recent = q.all()
+        for i, angle in enumerate(angles, 1):
+            progress.progress(
+                (i - 1) / daily_count,
+                text=f"발행 {i}/{daily_count} — {angle or '기본 관점'} (참고 {len(ref_urls)}개 · 이미지 {len(image_slots)}개)...",
+            )
+            try:
+                r = generate_blog_post(
+                    session,
+                    tenant_id=tenant.id,
+                    keyword=keyword.strip(),
+                    reference_urls=ref_urls,
+                    images=image_slots,
+                    target_chars=int(target_chars),
+                    max_corrections=int(max_corrections),
+                    provider=provider,
+                    angle=angle,
+                    save=True,
+                )
+                results.append(r)
+            except CostGuardrailExceeded as e:
+                st.error(f"⛔ {e}")
+                progress.empty()
+                return
+            except LLMError as e:
+                st.error(f"❌ {i}번째 발행 오류: {e}")
+                continue
+            except Exception as e:
+                st.exception(e)
+                continue
+        progress.progress(1.0, text=f"발행 {daily_count}개 완료 ✓")
+
+    progress.empty()
+
+    if not results:
+        st.error("발행된 결과가 없습니다.")
+        return
+
+    pass_count = sum(1 for r in results if r.passed)
+    st.success(f"✅ {len(results)}개 발행 완료 · 의료법 통과 {pass_count}개 / 검수권장 {len(results) - pass_count}개")
+
+    for idx, r in enumerate(results, 1):
+        _render_blog_card(idx, r, total=len(results))
+
+
+# ─── 이력 ───────────────────────────────────────────────────────
+
+
+def _history_section(SessionLocal) -> None:
+    st.divider()
+    st.subheader("🗂️ 최근 발행 이력")
+    with SessionLocal() as session:
+        recent = (
+            session.query(GeneratedContent)
+            .order_by(GeneratedContent.created_at.desc())
+            .limit(20)
+            .all()
+        )
         if not recent:
-            st.caption("아직 생성된 콘텐츠가 없습니다.")
+            st.caption("아직 발행된 콘텐츠가 없습니다.")
             return
         for r in recent:
-            cols = st.columns([2, 3, 1, 1, 1, 1])
+            cols = st.columns([2, 4, 1, 1, 1, 1])
             cols[0].caption(r.created_at.strftime("%Y-%m-%d %H:%M"))
             cols[1].markdown(f"**{r.keyword_text}**")
             cols[2].caption(r.channel)
@@ -457,16 +624,18 @@ def main() -> None:
     SessionLocal = _bootstrap()
     _sidebar()
 
-    st.title("AEO 콘텐츠 자동 생성기")
+    st.title("AEO 콘텐츠 자동 발행 프로그램")
     st.caption(
-        "키워드 + (선택) 참고 URL + (선택) 이미지 → 의료법 통과한 콘텐츠 → 복사 가능. "
-        "AI 검색엔진(ChatGPT, Perplexity 등) 인용도 + 검색 SEO를 동시에 노립니다."
+        "GEO/AEO SaaS — 키워드 → 의료법 통과 콘텐츠 → 복사 가능. "
+        "AI 검색엔진(ChatGPT, Perplexity, Gemini, Claude) 인용도 + 구글/네이버 SEO를 동시에 노립니다."
     )
 
-    mode_tab_faq, mode_tab_blog = st.tabs(["🧩 FAQ Schema.org JSON-LD", "📝 블로그 포스트 (SEO + 이미지 + 레퍼런스)"])
-    with mode_tab_faq:
+    tab_faq, tab_blog = st.tabs(
+        ["🧩 FAQ생성프로그램", "📝 블로그 포스트 (SEO + 레퍼런스 + 이미지)"]
+    )
+    with tab_faq:
         _faq_tab(SessionLocal)
-    with mode_tab_blog:
+    with tab_blog:
         _blog_tab(SessionLocal)
 
     _history_section(SessionLocal)

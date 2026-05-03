@@ -13,6 +13,7 @@ LLM이 생성하는 블로그 글 구조화 결과를 받아 워드프레스/티
 from __future__ import annotations
 
 import html
+import re
 from dataclasses import dataclass, field
 from typing import Iterable, Optional
 
@@ -53,6 +54,12 @@ class BlogPost:
     references: list[str] = field(default_factory=list)  # 출처 URL 목록
     images: list[ImageSlot] = field(default_factory=list)
     canonical_keyword: str = ""
+    # 영업 정보 — 본문 끝에 자연 노출 (Phase 1.5)
+    tenant_name: str = ""
+    tenant_address: str = ""
+    tenant_naver_place_url: str = ""
+    tenant_phone: str = ""
+    tenant_homepage: str = ""
 
     def total_word_count(self) -> int:
         """대략 글자 수 — 네이버 블로그 1500~2500자 가이드 체크용."""
@@ -69,12 +76,29 @@ def _e(s: str) -> str:
     return html.escape(s, quote=True)
 
 
+_BOLD_RE = re.compile(r"\*\*([^*\n]+?)\*\*")
+_ITALIC_RE = re.compile(r"(?<![\*])\*([^*\n]+?)\*(?![\*])")
+
+
+def _md_to_html_inline(text: str) -> str:
+    """**bold** → <strong>, *italic* → <em>. 나머지는 escape.
+
+    안전하게: 모든 텍스트를 escape한 뒤, escape된 마크다운 마커만 다시 태그로.
+    """
+    escaped = _e(text)
+    # ** ... ** → <strong>...</strong>
+    escaped = re.sub(r"\*\*([^*\n]+?)\*\*", r"<strong>\1</strong>", escaped)
+    # * ... * → <em>...</em>  (단, **를 이미 처리한 뒤이므로 단일 * 만 매치)
+    escaped = re.sub(r"(?<![\*])\*([^*\n]+?)\*(?![\*])", r"<em>\1</em>", escaped)
+    return escaped
+
+
 def _para_html(p: str) -> str:
     # 줄바꿈 보존 — 의미 단위마다 빈 줄 있으면 단락 분리
     parts = [seg for seg in p.split("\n\n") if seg.strip()]
     if not parts:
         return ""
-    return "\n".join(f"<p>{_e(seg.strip())}</p>" for seg in parts)
+    return "\n".join(f"<p>{_md_to_html_inline(seg.strip())}</p>" for seg in parts)
 
 
 def _image_html(img: ImageSlot) -> str:
@@ -104,12 +128,39 @@ def render_meta_block(post: BlogPost, site_url: Optional[str] = None) -> str:
     return "\n".join(meta)
 
 
+def _location_block_html(post: BlogPost) -> str:
+    """병원 위치/연락 안내 블록. 자연 톤 + 네이버 플레이스 링크."""
+    if not (post.tenant_name or post.tenant_address or post.tenant_naver_place_url):
+        return ""
+    lines = ['<aside class="location-info" style="margin:24px 0;padding:16px 20px;border-left:4px solid #ddd;background:#fafafa;">']
+    lines.append(f"<p><strong>📍 {_e(post.tenant_name) if post.tenant_name else '위치 안내'}</strong></p>")
+    if post.tenant_address:
+        lines.append(f"<p>주소: {_e(post.tenant_address)}</p>")
+    if post.tenant_naver_place_url:
+        lines.append(
+            f'<p>네이버 지도: '
+            f'<a href="{_e(post.tenant_naver_place_url)}" rel="noopener" target="_blank">'
+            f'{_e(post.tenant_naver_place_url)}</a></p>'
+        )
+    bits = []
+    if post.tenant_phone:
+        bits.append(f"전화 {_e(post.tenant_phone)}")
+    if post.tenant_homepage:
+        bits.append(
+            f'홈페이지 <a href="{_e(post.tenant_homepage)}" rel="noopener" target="_blank">{_e(post.tenant_homepage)}</a>'
+        )
+    if bits:
+        lines.append("<p>" + " · ".join(bits) + "</p>")
+    lines.append("</aside>")
+    return "\n".join(lines)
+
+
 def render_body(post: BlogPost) -> str:
     """페이지 <body> 안에 들어갈 본문 블록."""
     parts: list[str] = []
 
-    # H1 — 페이지에 H1이 이미 있으면 사용자가 제거.
-    parts.append(f"<h1>{_e(post.title)}</h1>")
+    # H1
+    parts.append(f"<h1>{_md_to_html_inline(post.title)}</h1>")
 
     # Intro
     for p in post.intro_paragraphs:
@@ -121,11 +172,11 @@ def render_body(post: BlogPost) -> str:
         images_by_section.setdefault(img.after_section, []).append(img)
 
     for i, sec in enumerate(post.sections, 1):
-        parts.append(f"<h2>{_e(sec.heading)}</h2>")
+        parts.append(f"<h2>{_md_to_html_inline(sec.heading)}</h2>")
         for p in sec.paragraphs:
             parts.append(_para_html(p))
         for sub in sec.sub_sections:
-            parts.append(f"<h3>{_e(sub.heading)}</h3>")
+            parts.append(f"<h3>{_md_to_html_inline(sub.heading)}</h3>")
             for p in sub.paragraphs:
                 parts.append(_para_html(p))
         # 섹션 뒤 이미지
@@ -137,6 +188,11 @@ def render_body(post: BlogPost) -> str:
         parts.append("<h2>마치며</h2>")
         for p in post.conclusion_paragraphs:
             parts.append(_para_html(p))
+
+    # 위치/연락 안내 (자연 톤)
+    loc = _location_block_html(post)
+    if loc:
+        parts.append(loc)
 
     # References
     if post.references:
@@ -167,30 +223,41 @@ def render_cms_paste(post: BlogPost) -> str:
     return render_body(post)
 
 
-def render_naver_blog_plain(post: BlogPost) -> str:
-    """네이버 블로그 평문 — HTML 미지원. 단락 + 해시태그.
+def _strip_md(text: str) -> str:
+    """네이버 평문용: 마크다운 ** 제거 (이모지는 유지)."""
+    text = re.sub(r"\*\*([^*\n]+?)\*\*", r"\1", text)
+    text = re.sub(r"(?<![\*])\*([^*\n]+?)\*(?![\*])", r"\1", text)
+    return text
 
-    1500~2500자 가이드 체크는 호출 측에서.
+
+def render_naver_blog_plain(post: BlogPost) -> str:
+    """네이버 블로그 평문 — HTML 미지원. 단락 + 이모지 + 해시태그.
+
+    bold 마크다운 ** 는 제거 (네이버 평문에선 불필요), 이모지는 유지.
     """
     out: list[str] = []
-    out.append(f"# {post.title}\n")
+    out.append(f"# {_strip_md(post.title)}\n")
     if post.meta_description:
-        out.append(f"💡 {post.meta_description}\n")
+        out.append(f"💡 {_strip_md(post.meta_description)}\n")
     for p in post.intro_paragraphs:
-        out.append(p.strip())
+        out.append(_strip_md(p.strip()))
         out.append("")
 
     for i, sec in enumerate(post.sections, 1):
-        out.append(f"📌 {sec.heading}")
+        # 섹션 heading에 이미 이모지 있을 수 있음
+        head = _strip_md(sec.heading)
+        if not any(ch in head for ch in "📌🩺⏱️✅💡📍🏥👀"):
+            head = f"📌 {head}"
+        out.append(head)
         out.append("")
         for p in sec.paragraphs:
-            out.append(p.strip())
+            out.append(_strip_md(p.strip()))
             out.append("")
         for sub in sec.sub_sections:
-            out.append(f"   ▸ {sub.heading}")
+            out.append(f"   ▸ {_strip_md(sub.heading)}")
             out.append("")
             for p in sub.paragraphs:
-                out.append(p.strip())
+                out.append(_strip_md(p.strip()))
                 out.append("")
         for img in (i_ for i_ in post.images if i_.after_section == i):
             out.append(f"[이미지: {img.alt}]")
@@ -200,8 +267,23 @@ def render_naver_blog_plain(post: BlogPost) -> str:
         out.append("✅ 마치며")
         out.append("")
         for p in post.conclusion_paragraphs:
-            out.append(p.strip())
+            out.append(_strip_md(p.strip()))
             out.append("")
+
+    # 위치 안내 (자연 톤)
+    if post.tenant_name or post.tenant_address or post.tenant_naver_place_url:
+        out.append("📍 위치 안내")
+        if post.tenant_name:
+            out.append(post.tenant_name)
+        if post.tenant_address:
+            out.append(f"주소: {post.tenant_address}")
+        if post.tenant_naver_place_url:
+            out.append(f"네이버 지도: {post.tenant_naver_place_url}")
+        if post.tenant_phone:
+            out.append(f"전화: {post.tenant_phone}")
+        if post.tenant_homepage:
+            out.append(f"홈페이지: {post.tenant_homepage}")
+        out.append("")
 
     if post.keywords:
         out.append("")

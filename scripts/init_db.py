@@ -48,6 +48,10 @@ def _seed_tenants(session) -> None:
                 domain_category=entry["domain_category"],
                 region=entry["region"],
                 business_model=entry.get("business_model", ""),
+                address=entry.get("address") or None,
+                naver_place_url=entry.get("naver_place_url") or None,
+                phone=entry.get("phone") or None,
+                homepage=entry.get("homepage") or None,
             )
             session.add(tenant)
             print(f"[+] tenant 생성: {tenant.name}")
@@ -56,6 +60,10 @@ def _seed_tenants(session) -> None:
             tenant.domain_category = entry["domain_category"]
             tenant.region = entry["region"]
             tenant.business_model = entry.get("business_model", "")
+            tenant.address = entry.get("address") or None
+            tenant.naver_place_url = entry.get("naver_place_url") or None
+            tenant.phone = entry.get("phone") or None
+            tenant.homepage = entry.get("homepage") or None
             print(f"[~] tenant 업데이트: {tenant.name}")
 
         # Sample keywords (Phase 1 시드)
