@@ -157,6 +157,37 @@ pytest
 
 ---
 
+## 데이터베이스 마이그레이션 (Alembic — Phase 2 도입)
+
+`scripts/init_db.py` 가 내부적으로 `alembic upgrade head` 를 호출하므로 평소엔 신경쓸 일 없음. 다음 케이스만 별도 절차:
+
+### 기존 production SQLite 가 이미 있는 경우 (1회성 baseline 표식)
+
+Phase 1.5 시점에 만들어진 `data/geo.db` 가 있다면 baseline 마이그레이션 적용 전에 한 번:
+
+```bash
+.venv/Scripts/alembic stamp head    # macOS/Linux: source .venv/bin/activate; alembic stamp head
+```
+
+이 절차로 기존 데이터(GeneratedContent 등) 손실 없이 alembic 이 "이미 head 상태" 로 인식. 이후엔 `alembic upgrade head` 만 호출.
+
+### 신규 마이그레이션 작성
+
+모델 변경 시:
+
+```bash
+.venv/Scripts/alembic revision --autogenerate -m "변경_설명"
+.venv/Scripts/alembic upgrade head
+```
+
+빈 마이그레이션이 생성되면 production DB 가 이미 같은 스키마인 것 — 임시 빈 DB(`DATABASE_URL=sqlite:///./data/_tmp.db`)로 다시 autogenerate 해서 차이를 캡처.
+
+### Streamlit Cloud 배포 시
+
+`scripts/init_db.py` 호출 또는 부트스트랩에서 `alembic.command.upgrade(cfg, "head")` 가 자동 실행. Postgres(Supabase) 사용 시 `DATABASE_URL` secret 만 추가하면 동일 마이그레이션이 적용됨.
+
+---
+
 ## 배포 (Streamlit Community Cloud)
 
 이미 https://blogkey.streamlit.app 에 배포되어 있습니다. 본인 계정으로 새 인스턴스를 띄우려면:

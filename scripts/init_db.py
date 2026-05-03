@@ -28,7 +28,7 @@ sys.path.insert(0, str(ROOT))
 
 from datetime import datetime, time, timezone  # noqa: E402
 
-from src.storage.db import create_all, drop_all, get_session_factory  # noqa: E402
+from src.storage.db import drop_all, get_session_factory  # noqa: E402
 from src.storage.models import (  # noqa: E402
     ComplianceRule,
     Doctor,
@@ -241,16 +241,27 @@ def _seed_rules(session) -> None:
     print(f"[+] tenant {tenant_id} compliance 룰 {len(rules)}개 시드")
 
 
+def _run_alembic_upgrade() -> None:
+    """Alembic upgrade head — Phase 2-T1.5 기점으로 create_all() 대체."""
+    from alembic import command
+    from alembic.config import Config
+
+    cfg = Config(str(ROOT / "alembic.ini"))
+    command.upgrade(cfg, "head")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="DB 초기화 + sample seed")
     parser.add_argument("--reset", action="store_true", help="drop_all 후 재생성 (개발용)")
     args = parser.parse_args()
 
     if args.reset:
-        print("[!] DB drop_all → create_all")
+        print("[!] DB drop_all → alembic upgrade head")
         drop_all()
-    create_all()
-    print("[+] 스키마 생성 완료")
+
+    print("[+] alembic upgrade head 실행 중...")
+    _run_alembic_upgrade()
+    print("[+] 스키마/마이그레이션 적용 완료")
 
     factory = get_session_factory()
     with factory() as session:
