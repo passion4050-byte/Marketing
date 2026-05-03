@@ -237,17 +237,81 @@ GLOBAL_CSS = f"""
     border-color: {Colors.PRIMARY_DARK};
   }}
 
-  /* ─ Inputs ─ */
+  /* ─ Inputs — 브랜드 컬러 윤곽선으로 가시성 강화 ─ */
+  div[data-baseweb="input"],
+  div[data-baseweb="textarea"],
+  div[data-baseweb="select"] > div {{
+    border-radius: {Radius.SM} !important;
+    border: 1.5px solid rgba(91, 143, 249, 0.35) !important;
+    background: {Colors.WHITE} !important;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  }}
+  div[data-baseweb="input"]:hover,
+  div[data-baseweb="textarea"]:hover,
+  div[data-baseweb="select"] > div:hover {{
+    border-color: rgba(91, 143, 249, 0.6) !important;
+  }}
+  div[data-baseweb="input"]:focus-within,
+  div[data-baseweb="textarea"]:focus-within,
+  div[data-baseweb="select"]:focus-within > div {{
+    border-color: {Colors.PRIMARY} !important;
+    box-shadow: 0 0 0 3px rgba(91, 143, 249, 0.15) !important;
+  }}
+  /* 내부 input/textarea 자체의 보더는 제거 (이중 보더 방지) */
   div[data-baseweb="input"] input,
-  div[data-baseweb="textarea"] textarea,
-  div[data-baseweb="select"] {{
+  div[data-baseweb="textarea"] textarea {{
+    border: none !important;
+    border-radius: {Radius.SM} !important;
+    background: transparent !important;
+  }}
+
+  /* ─ Containers (st.container(border=True)) — 브랜드 컬러 윤곽선 ─ */
+  /* Streamlit 신/구 selector 모두 커버 */
+  div[data-testid="stVerticalBlockBorderWrapper"],
+  div[data-testid="stContainer"] > div[style*="border"],
+  div[data-testid="stContainer"] > div[class*="block-container"] {{
+    border-radius: {Radius.MD} !important;
+    border: 1.5px solid rgba(91, 143, 249, 0.32) !important;
+    background: {Colors.WHITE} !important;
+    box-shadow: 0 1px 3px rgba(91, 143, 249, 0.04);
+  }}
+
+  /* ─ Expander — 윤곽선 강조 ─ */
+  div[data-testid="stExpander"] {{
+    border-radius: {Radius.MD} !important;
+    border: 1.5px solid rgba(91, 143, 249, 0.32) !important;
+    background: {Colors.WHITE} !important;
+    overflow: hidden;
+  }}
+  div[data-testid="stExpander"] details summary {{
+    background: rgba(91, 143, 249, 0.04) !important;
+  }}
+  div[data-testid="stExpander"] details[open] summary {{
+    border-bottom: 1px solid rgba(91, 143, 249, 0.18) !important;
+  }}
+
+  /* ─ File uploader — 윤곽선 강조 ─ */
+  div[data-testid="stFileUploader"] section,
+  div[data-testid="stFileUploaderDropzone"] {{
+    border: 1.5px dashed rgba(91, 143, 249, 0.42) !important;
+    border-radius: {Radius.MD} !important;
+    background: rgba(91, 143, 249, 0.03) !important;
+  }}
+  div[data-testid="stFileUploader"] section:hover,
+  div[data-testid="stFileUploaderDropzone"]:hover {{
+    border-color: {Colors.PRIMARY} !important;
+    background: rgba(91, 143, 249, 0.06) !important;
+  }}
+
+  /* ─ Number input / slider 컨테이너도 동일 처리 ─ */
+  div[data-testid="stNumberInput"] > div > div {{
     border-radius: {Radius.SM} !important;
   }}
 
-  /* ─ Containers (border=True) ─ */
-  div[data-testid="stContainer"] > div[style*="border: 1px solid"] {{
-    border-radius: {Radius.MD} !important;
-    border-color: {Colors.GRAY_200} !important;
+  /* ─ Radio / Checkbox 그룹 컨테이너 ─ */
+  div[data-testid="stRadio"] > div,
+  div[data-testid="stCheckbox"] > label {{
+    border-radius: {Radius.SM};
   }}
 
   /* ─ Metrics ─ */
