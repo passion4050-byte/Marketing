@@ -33,6 +33,7 @@ from src.content.llm import (
     check_daily_budget,
     get_provider,
 )
+from src.content.tenant_context import build_tenant_context_block
 from src.content.templates.blog_html import (
     BlogPost,
     ImageSlot,
@@ -134,6 +135,9 @@ def generate_faq_content(
     if provider is None:
         provider = get_provider()
 
+    # 활성 의사/장비/이벤트 → LLM 컨텍스트 블록
+    tenant_data_block = build_tenant_context_block(session, tenant_id)
+
     correction_hint: Optional[str] = None
     correction_history: list[ComplianceReport] = []
     last_result: Optional[GenerationResult] = None
@@ -148,6 +152,7 @@ def generate_faq_content(
             keyword=keyword,
             attempt=attempt,
             provider=provider.name,
+            has_tenant_data=bool(tenant_data_block),
         )
         last_result = provider.generate_faq(
             keyword=keyword,
@@ -156,6 +161,7 @@ def generate_faq_content(
             tenant_region=tenant.region,
             n_pairs=n_pairs,
             angle=angle,
+            tenant_data_block=tenant_data_block,
             correction_hint=correction_hint,
         )
         joined = _join_for_lint(last_result.qa_pairs)
@@ -274,6 +280,9 @@ def generate_blog_post(
 
     references_block = references_to_context_block(references) if references else ""
 
+    # 활성 의사/장비/이벤트 → LLM 컨텍스트 블록
+    tenant_data_block = build_tenant_context_block(session, tenant_id)
+
     image_count = len(images) if images else 0
 
     correction_hint: Optional[str] = None
@@ -304,6 +313,7 @@ def generate_blog_post(
             tenant_homepage=tenant.homepage or "",
             tenant_phone=tenant.phone or "",
             references_block=references_block,
+            tenant_data_block=tenant_data_block,
             image_count=image_count,
             target_chars=target_chars,
             angle=angle,

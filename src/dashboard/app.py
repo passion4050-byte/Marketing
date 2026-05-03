@@ -33,6 +33,8 @@ from src.content.llm import (  # noqa: E402
 )
 from src.content.templates.blog_html import ImageSlot  # noqa: E402
 from src.content.templates.schema_org import faq_page_script_tag  # noqa: E402
+from src.content.tenant_context import has_active_data  # noqa: E402
+from src.dashboard.profile import render_profile_tab  # noqa: E402
 from src.storage.db import create_all, get_session_factory  # noqa: E402
 from src.storage.models import GeneratedContent, Keyword, Tenant  # noqa: E402
 
@@ -197,8 +199,8 @@ def _tenant_picker(SessionLocal, *, key: str) -> tuple[Tenant, list[str]]:
         return tenant_data, sample_texts
 
 
-def _tenant_info_card(tenant) -> None:
-    """대상 정보 카드 — 영업 정보 미리보기."""
+def _tenant_info_card(SessionLocal, tenant) -> None:
+    """대상 정보 카드 — 영업 정보 + 데이터 피딩 상태 미리보기."""
     bits = []
     if tenant.address:
         bits.append(f"📍 {tenant.address}")
@@ -208,11 +210,37 @@ def _tenant_info_card(tenant) -> None:
         bits.append(f"🌐 [{tenant.homepage}]({tenant.homepage})")
     if tenant.naver_place_url:
         bits.append(f"🗺️ [네이버 플레이스]({tenant.naver_place_url})")
-    if not bits:
+
+    with SessionLocal() as session:
+        counts = has_active_data(session, tenant.id)
+
+    chips = []
+    if counts["doctors"] > 0:
+        chips.append(f'<span class="gsd-chip gsd-chip-blue">👁️ 의사 {counts["doctors"]}명</span>')
+    else:
+        chips.append('<span class="gsd-chip gsd-chip-gray">👁️ 의사 미입력</span>')
+    if counts["equipment"] > 0:
+        chips.append(f'<span class="gsd-chip gsd-chip-blue">🩻 장비 {counts["equipment"]}개</span>')
+    else:
+        chips.append('<span class="gsd-chip gsd-chip-gray">🩻 장비 미입력</span>')
+    if counts["active_events"] > 0:
+        chips.append(f'<span class="gsd-chip gsd-chip-green">🏷️ 진행 이벤트 {counts["active_events"]}개</span>')
+    else:
+        chips.append('<span class="gsd-chip gsd-chip-gray">🏷️ 진행 이벤트 없음</span>')
+
+    if not (bits or chips):
         return
+
     with st.container(border=True):
-        st.markdown("**대상 정보** (콘텐츠 끝부분에 자연 노출)")
-        st.markdown(" · ".join(bits))
+        st.markdown("**대상 정보** (콘텐츠 끝부분에 자연 노출 + LLM 컨텍스트로 주입)")
+        if bits:
+            st.markdown(" · ".join(bits))
+        st.markdown(" ".join(chips), unsafe_allow_html=True)
+        if counts["doctors"] == 0 and counts["equipment"] == 0 and counts["active_events"] == 0:
+            st.caption(
+                "💡 **데이터 피딩 권장** — 위 `🎯 대상 정보 관리` 탭에서 의사/장비/이벤트를 입력하면 "
+                "콘텐츠 품질이 크게 올라갑니다."
+            )
 
 
 # ─── FAQ 탭 ─────────────────────────────────────────────────────
@@ -260,7 +288,7 @@ def _faq_tab(SessionLocal) -> None:
     )
 
     tenant, sample_texts = _tenant_picker(SessionLocal, key="faq")
-    _tenant_info_card(tenant)
+    _tenant_info_card(SessionLocal, tenant)
 
     keyword = st.text_input(
         "키워드",
@@ -464,7 +492,7 @@ def _blog_tab(SessionLocal) -> None:
     )
 
     tenant, sample_texts = _tenant_picker(SessionLocal, key="blog")
-    _tenant_info_card(tenant)
+    _tenant_info_card(SessionLocal, tenant)
 
     keyword = st.text_input(
         "키워드",
@@ -630,15 +658,26 @@ def main() -> None:
         "AI 검색엔진(ChatGPT, Perplexity, Gemini, Claude) 인용도 + 구글/네이버 SEO를 동시에 노립니다."
     )
 
-    tab_faq, tab_blog = st.tabs(
-        ["🧩 FAQ생성프로그램", "📝 블로그 포스트 (SEO + 레퍼런스 + 이미지)"]
+    tab_faq, tab_blog, tab_profile = st.tabs(
+        [
+            "🧩 FAQ생성프로그램",
+            "📝 블로그 포스트 (SEO + 레퍼런스 + 이미지)",
+            "🎯 대상 정보 관리 (Data Feeding)",
+        ]
     )
     with tab_faq:
         _faq_tab(SessionLocal)
     with tab_blog:
         _blog_tab(SessionLocal)
+    with tab_profile:
+        _profile_tab(SessionLocal)
 
     _history_section(SessionLocal)
+
+
+def _profile_tab(SessionLocal) -> None:
+    tenant, _ = _tenant_picker(SessionLocal, key="profile")
+    render_profile_tab(SessionLocal, tenant)
 
 
 if __name__ == "__main__":

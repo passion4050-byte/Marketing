@@ -74,6 +74,7 @@ class LLMProvider(Protocol):
         tenant_region: str,
         n_pairs: int = 5,
         angle: str = "",
+        tenant_data_block: str = "",
         correction_hint: str | None = None,
     ) -> GenerationResult: ...
 
@@ -88,6 +89,7 @@ class LLMProvider(Protocol):
         tenant_homepage: str = "",
         tenant_phone: str = "",
         references_block: str = "",
+        tenant_data_block: str = "",
         image_count: int = 0,
         target_chars: int = 2000,
         angle: str = "",
@@ -302,6 +304,7 @@ class StubProvider:
         tenant_region: str,
         n_pairs: int = 5,
         angle: str = "",
+        tenant_data_block: str = "",
         correction_hint: str | None = None,
     ) -> GenerationResult:
         # angle이 있으면 첫 질문에 angle을 살짝 끼워 다양성 확보
@@ -326,6 +329,7 @@ class StubProvider:
         tenant_homepage: str = "",
         tenant_phone: str = "",
         references_block: str = "",
+        tenant_data_block: str = "",
         image_count: int = 0,
         target_chars: int = 2000,
         angle: str = "",
@@ -486,6 +490,7 @@ def _build_blog_user_prompt(
     tenant_homepage: str = "",
     tenant_phone: str = "",
     references_block: str = "",
+    tenant_data_block: str = "",
     image_count: int = 0,
     target_chars: int = 2000,
     angle: str = "",
@@ -511,13 +516,16 @@ def _build_blog_user_prompt(
     if angle:
         parts.append(f"\n[이번 글의 관점/소주제]\n{angle}\n같은 키워드라도 이 관점으로 차별화된 글을 작성하세요.")
 
+    if tenant_data_block:
+        parts.append("\n" + tenant_data_block)
+
     if references_block:
         parts.append("\n" + references_block)
         parts.append(
             "\n위 참고 자료의 사실을 활용하되, 자료를 통째로 옮기지 말고 본 글의 톤으로 다시 쓰세요. "
             "참고한 URL은 references 배열에 모두 포함하세요."
         )
-    else:
+    elif not tenant_data_block:
         parts.append("\n참고 자료 없음 — 도메인 일반 지식 + 의료법 안전 표현으로 작성하세요.")
 
     if image_count > 0:
@@ -583,6 +591,7 @@ def _build_user_prompt(
     tenant_region: str,
     n_pairs: int,
     angle: str = "",
+    tenant_data_block: str = "",
     correction_hint: str | None = None,
 ) -> str:
     angle_block = ""
@@ -598,6 +607,13 @@ def _build_user_prompt(
         n_pairs=n_pairs,
         angle_block=angle_block,
     )
+    if tenant_data_block:
+        prompt += "\n\n" + tenant_data_block
+        prompt += (
+            "\n\n[중요] 위 \"의료기관 사실 정보\"를 답변에 적극 인용하세요. "
+            "추상적 표현 대신 의사명/장비명/이벤트 정보 같은 구체 사실을 언급하면 "
+            "AI 검색엔진이 인용할 가능성이 크게 올라갑니다."
+        )
     if correction_hint:
         prompt += f"\n\n--- 이전 출력 수정 요청 ---\n{correction_hint}\n반드시 위반을 모두 제거하고 다시 작성하세요."
     return prompt
@@ -630,11 +646,12 @@ class GeminiProvider:
         tenant_region: str,
         n_pairs: int = 5,
         angle: str = "",
+        tenant_data_block: str = "",
         correction_hint: str | None = None,
     ) -> GenerationResult:
         prompt = _build_user_prompt(
             keyword, tenant_name, tenant_category, tenant_region, n_pairs,
-            angle=angle, correction_hint=correction_hint,
+            angle=angle, tenant_data_block=tenant_data_block, correction_hint=correction_hint,
         )
         try:
             resp = self._faq_model.generate_content(prompt)
@@ -655,6 +672,7 @@ class GeminiProvider:
         tenant_homepage: str = "",
         tenant_phone: str = "",
         references_block: str = "",
+        tenant_data_block: str = "",
         image_count: int = 0,
         target_chars: int = 2000,
         angle: str = "",
@@ -670,6 +688,7 @@ class GeminiProvider:
             tenant_homepage=tenant_homepage,
             tenant_phone=tenant_phone,
             references_block=references_block,
+            tenant_data_block=tenant_data_block,
             image_count=image_count,
             target_chars=target_chars,
             angle=angle,
@@ -703,11 +722,12 @@ class AnthropicProvider:
         tenant_region: str,
         n_pairs: int = 5,
         angle: str = "",
+        tenant_data_block: str = "",
         correction_hint: str | None = None,
     ) -> GenerationResult:
         prompt = _build_user_prompt(
             keyword, tenant_name, tenant_category, tenant_region, n_pairs,
-            angle=angle, correction_hint=correction_hint,
+            angle=angle, tenant_data_block=tenant_data_block, correction_hint=correction_hint,
         )
         try:
             msg = self._client.messages.create(
@@ -733,6 +753,7 @@ class AnthropicProvider:
         tenant_homepage: str = "",
         tenant_phone: str = "",
         references_block: str = "",
+        tenant_data_block: str = "",
         image_count: int = 0,
         target_chars: int = 2000,
         angle: str = "",
@@ -748,6 +769,7 @@ class AnthropicProvider:
             tenant_homepage=tenant_homepage,
             tenant_phone=tenant_phone,
             references_block=references_block,
+            tenant_data_block=tenant_data_block,
             image_count=image_count,
             target_chars=target_chars,
             angle=angle,
@@ -786,11 +808,12 @@ class OpenAIProvider:
         tenant_region: str,
         n_pairs: int = 5,
         angle: str = "",
+        tenant_data_block: str = "",
         correction_hint: str | None = None,
     ) -> GenerationResult:
         prompt = _build_user_prompt(
             keyword, tenant_name, tenant_category, tenant_region, n_pairs,
-            angle=angle, correction_hint=correction_hint,
+            angle=angle, tenant_data_block=tenant_data_block, correction_hint=correction_hint,
         )
         try:
             resp = self._client.chat.completions.create(
@@ -818,6 +841,7 @@ class OpenAIProvider:
         tenant_homepage: str = "",
         tenant_phone: str = "",
         references_block: str = "",
+        tenant_data_block: str = "",
         image_count: int = 0,
         target_chars: int = 2000,
         angle: str = "",
@@ -833,6 +857,7 @@ class OpenAIProvider:
             tenant_homepage=tenant_homepage,
             tenant_phone=tenant_phone,
             references_block=references_block,
+            tenant_data_block=tenant_data_block,
             image_count=image_count,
             target_chars=target_chars,
             angle=angle,

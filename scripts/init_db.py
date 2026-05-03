@@ -26,8 +26,17 @@ if hasattr(sys.stdout, "reconfigure"):
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from datetime import datetime, time, timezone  # noqa: E402
+
 from src.storage.db import create_all, drop_all, get_session_factory  # noqa: E402
-from src.storage.models import ComplianceRule, Keyword, Tenant  # noqa: E402
+from src.storage.models import (  # noqa: E402
+    ComplianceRule,
+    Doctor,
+    Equipment,
+    EventOffer,
+    Keyword,
+    Tenant,
+)
 
 load_dotenv(ROOT / ".env")
 
@@ -75,6 +84,118 @@ def _seed_tenants(session) -> None:
             )
             if existing is None:
                 session.add(Keyword(tenant_id=tenant.id, text=kw, is_active=True))
+
+        # Doctors / Equipment / Events 시드 (Phase 1.5 — Data Feeding)
+        _seed_doctors(session, tenant.id, entry.get("doctors", []) or [])
+        _seed_equipment(session, tenant.id, entry.get("equipment", []) or [])
+        _seed_events(session, tenant.id, entry.get("events", []) or [])
+
+
+def _to_aware_date(s):
+    if s is None:
+        return None
+    if isinstance(s, datetime):
+        return s if s.tzinfo else s.replace(tzinfo=timezone.utc)
+    if isinstance(s, str):
+        # YYYY-MM-DD
+        try:
+            d = datetime.strptime(s, "%Y-%m-%d")
+        except ValueError:
+            d = datetime.fromisoformat(s)
+        return d.replace(tzinfo=timezone.utc)
+    # date object
+    return datetime.combine(s, time.min, tzinfo=timezone.utc)
+
+
+def _seed_doctors(session, tenant_id: int, items: list) -> None:
+    if not items:
+        return
+    # idempotent — name 기준 upsert
+    for it in items:
+        existing = (
+            session.query(Doctor)
+            .filter(Doctor.tenant_id == tenant_id, Doctor.name == it["name"])
+            .one_or_none()
+        )
+        if existing is None:
+            session.add(
+                Doctor(
+                    tenant_id=tenant_id,
+                    name=it["name"],
+                    specialty=it.get("specialty") or None,
+                    education_career=it.get("education_career") or None,
+                    certifications=it.get("certifications") or None,
+                    is_active=it.get("is_active", True),
+                )
+            )
+        else:
+            existing.specialty = it.get("specialty") or None
+            existing.education_career = it.get("education_career") or None
+            existing.certifications = it.get("certifications") or None
+            existing.is_active = it.get("is_active", True)
+    print(f"[+] tenant {tenant_id} 의사 {len(items)}명 시드")
+
+
+def _seed_equipment(session, tenant_id: int, items: list) -> None:
+    if not items:
+        return
+    for it in items:
+        existing = (
+            session.query(Equipment)
+            .filter(Equipment.tenant_id == tenant_id, Equipment.name == it["name"])
+            .one_or_none()
+        )
+        if existing is None:
+            session.add(
+                Equipment(
+                    tenant_id=tenant_id,
+                    name=it["name"],
+                    manufacturer=it.get("manufacturer") or None,
+                    description=it.get("description") or None,
+                    features=it.get("features") or None,
+                    is_active=it.get("is_active", True),
+                )
+            )
+        else:
+            existing.manufacturer = it.get("manufacturer") or None
+            existing.description = it.get("description") or None
+            existing.features = it.get("features") or None
+            existing.is_active = it.get("is_active", True)
+    print(f"[+] tenant {tenant_id} 장비 {len(items)}개 시드")
+
+
+def _seed_events(session, tenant_id: int, items: list) -> None:
+    if not items:
+        return
+    for it in items:
+        existing = (
+            session.query(EventOffer)
+            .filter(EventOffer.tenant_id == tenant_id, EventOffer.name == it["name"])
+            .one_or_none()
+        )
+        ps = _to_aware_date(it.get("period_start"))
+        pe = _to_aware_date(it.get("period_end"))
+        if existing is None:
+            session.add(
+                EventOffer(
+                    tenant_id=tenant_id,
+                    name=it["name"],
+                    regular_price=it.get("regular_price"),
+                    discount_price=it.get("discount_price"),
+                    period_start=ps,
+                    period_end=pe,
+                    notes=it.get("notes") or None,
+                    is_active=it.get("is_active", True),
+                )
+            )
+        else:
+            existing.regular_price = it.get("regular_price")
+            existing.discount_price = it.get("discount_price")
+            existing.period_start = ps
+            existing.period_end = pe
+            existing.notes = it.get("notes") or None
+            existing.is_active = it.get("is_active", True)
+    print(f"[+] tenant {tenant_id} 이벤트 {len(items)}개 시드")
 
 
 def _seed_rules(session) -> None:

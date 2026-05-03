@@ -14,6 +14,29 @@ tenants:
       - "강남 라식 잘하는 곳"
       - "라섹 회복 기간"
       - "렌즈삽입술 부작용"
+    doctors:
+      - name: "김시력"
+        specialty: "라식/라섹 전문의"
+        education_career: |
+          연세대학교 의과대학 졸업
+          세브란스병원 안과 전문의
+          시력교정술 15년 경력
+        certifications: "안과 전문의, 굴절교정 전문의"
+    equipment:
+      - name: "아마리스 레드 1050RS"
+        manufacturer: "SCHWIND"
+        description: |
+          최첨단 엑시머 레이저 장비
+          스마트펄스 기술 탑재
+          안전하고 정밀한 시력교정
+        features: "라식, 라섹, 스마일 라식"
+    events:
+      - name: "스마일 라식 특별 할인"
+        regular_price: 2500000
+        discount_price: 1890000
+        period_start: "2026-02-01"
+        period_end: "2026-08-31"
+        notes: "첫 시술자 한정. 검사료 별도. 진료의 판단에 따라 다른 시술법이 권장될 수 있습니다."
 
   - id: 2
     name: "메디맵"
