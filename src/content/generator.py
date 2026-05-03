@@ -1,0 +1,397 @@
+"""콘텐츠 생성 파이프라인. 정의서 §5.3.1 + Phase 1.5 확장.
+
+흐름 (FAQ):
+1. cost guardrail 사전 체크
+2. LLM provider로 FAQ 생성
+3. 합쳐서 의료법 린트
+4. 위반 시 LLM에 위반 요약 전달 → 재호출 (최대 max_corrections회)
+5. 통과(또는 max 도달) 시 JSON-LD 변환 + DB 저장 + 결과 반환
+
+흐름 (Blog post — Phase 1.5):
+1. cost guardrail
+2. (옵션) reference URL fetch → 본문 추출 → context block
+3. LLM에 context block + image 메타 → 블로그 JSON 출력
+4. 의료법 린트 (intro + sections + conclusion 합본)
+5. 위반 시 자동수정 루프
+6. 이미지 src 매핑 + HTML 렌더링 + DB 저장
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Optional
+
+import structlog
+from sqlalchemy.orm import Session
+
+from src.compliance.linter import ComplianceReport, lint
+from src.content.llm import (
+    BlogGenerationResult,
+    FAQPair,
+    GenerationResult,
+    LLMProvider,
+    check_daily_budget,
+    get_provider,
+)
+from src.content.templates.blog_html import (
+    BlogPost,
+    ImageSlot,
+    post_from_dict,
+    render_body,
+    render_full_html,
+    render_meta_block,
+    render_naver_blog_plain,
+)
+from src.content.templates.schema_org import faq_page_script_tag
+from src.reference.fetcher import (
+    Reference,
+    fetch_many,
+    references_to_context_block,
+)
+from src.storage.models import GeneratedContent, Tenant
+
+logger = structlog.get_logger(__name__)
+
+
+@dataclass
+class ContentResult:
+    qa_pairs: list[FAQPair]
+    json_ld_script: str
+    compliance: ComplianceReport
+    iterations: int
+    provider: str
+    saved_id: Optional[int] = None
+    correction_history: list[ComplianceReport] = field(default_factory=list)
+
+    @property
+    def passed(self) -> bool:
+        return self.compliance.status == "pass"
+
+    @property
+    def safe_to_use(self) -> bool:
+        """error 위반이 없으면 사용 가능 (warn은 검수 권장)."""
+        return not self.compliance.has_errors()
+
+
+@dataclass
+class BlogResult:
+    post: BlogPost
+    body_html: str  # CMS 붙여넣기용
+    full_html: str  # 미리보기용 완성 HTML
+    meta_block: str  # <head>용 메타 + OG
+    naver_plain: str  # 네이버 블로그 평문
+    references: list[Reference]
+    compliance: ComplianceReport
+    iterations: int
+    provider: str
+    saved_id: Optional[int] = None
+    correction_history: list[ComplianceReport] = field(default_factory=list)
+
+    @property
+    def passed(self) -> bool:
+        return self.compliance.status == "pass"
+
+    @property
+    def safe_to_use(self) -> bool:
+        return not self.compliance.has_errors()
+
+
+def _join_for_lint(pairs: list[FAQPair]) -> str:
+    """모든 Q+A를 하나의 텍스트로 합쳐 린트."""
+    return "\n".join(f"Q: {p.question}\nA: {p.answer}" for p in pairs)
+
+
+def _violations_to_correction_hint(report: ComplianceReport) -> str:
+    """위반 목록을 LLM에게 전달할 자연어 hint로."""
+    if not report.violations:
+        return ""
+    lines = ["다음 위반 사항을 모두 제거하여 다시 작성하세요:"]
+    for v in report.violations:
+        lines.append(
+            f"- [{v.severity.upper()}] '{v.matched_text}' → {v.message}"
+        )
+    return "\n".join(lines)
+
+
+def generate_faq_content(
+    session: Session,
+    tenant_id: int,
+    keyword: str,
+    *,
+    n_pairs: int = 5,
+    max_corrections: int = 3,
+    provider: Optional[LLMProvider] = None,
+    save: bool = True,
+) -> ContentResult:
+    """키워드 → FAQ 생성 → 의료법 린트 → 자동수정 루프 → JSON-LD."""
+    tenant = session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise ValueError(f"tenant {tenant_id} not found. scripts/init_db.py 먼저 실행.")
+
+    check_daily_budget(session, tenant_id)
+
+    if provider is None:
+        provider = get_provider()
+
+    correction_hint: Optional[str] = None
+    correction_history: list[ComplianceReport] = []
+    last_result: Optional[GenerationResult] = None
+    last_report: Optional[ComplianceReport] = None
+    iterations = 0
+
+    for attempt in range(max_corrections + 1):  # 초기 호출 + 수정 max_corrections회
+        iterations = attempt
+        logger.info(
+            "generator.attempt",
+            tenant_id=tenant_id,
+            keyword=keyword,
+            attempt=attempt,
+            provider=provider.name,
+        )
+        last_result = provider.generate_faq(
+            keyword=keyword,
+            tenant_name=tenant.name,
+            tenant_category=tenant.domain_category,
+            tenant_region=tenant.region,
+            n_pairs=n_pairs,
+            correction_hint=correction_hint,
+        )
+        joined = _join_for_lint(last_result.qa_pairs)
+        last_report = lint(session, tenant_id, joined)
+        correction_history.append(last_report)
+
+        if last_report.status == "pass":
+            logger.info("generator.passed", attempt=attempt, summary=last_report.summary())
+            break
+
+        if not last_report.has_errors() and last_report.status == "warn":
+            # warning만 있는 경우 — 한 번은 수정 시도
+            if attempt < max_corrections:
+                correction_hint = _violations_to_correction_hint(last_report)
+                continue
+            logger.info("generator.warn_accepted", attempt=attempt)
+            break
+
+        # error 있음 — 재시도
+        if attempt < max_corrections:
+            correction_hint = _violations_to_correction_hint(last_report)
+            logger.info("generator.retry", attempt=attempt, summary=last_report.summary())
+            continue
+
+        # max_corrections 소진했지만 여전히 fail
+        logger.warning("generator.max_corrections_exhausted", summary=last_report.summary())
+        break
+
+    assert last_result is not None and last_report is not None  # for type checker
+
+    json_ld = faq_page_script_tag(last_result.qa_pairs)
+
+    saved_id = None
+    if save:
+        gc = GeneratedContent(
+            tenant_id=tenant_id,
+            keyword_text=keyword,
+            channel="schema_org",
+            body=json_ld,
+            raw_qa_pairs={"pairs": [{"q": p.question, "a": p.answer} for p in last_result.qa_pairs]},
+            compliance_status=last_report.status,
+            compliance_report=last_report.to_dict(),
+            llm_provider=last_result.provider,
+            correction_iterations=iterations,
+        )
+        session.add(gc)
+        session.flush()  # id 확보
+        saved_id = gc.id
+        session.commit()
+
+    return ContentResult(
+        qa_pairs=last_result.qa_pairs,
+        json_ld_script=json_ld,
+        compliance=last_report,
+        iterations=iterations,
+        provider=last_result.provider,
+        saved_id=saved_id,
+        correction_history=correction_history,
+    )
+
+
+# ─── Blog Post (Phase 1.5) ───────────────────────────────────
+
+
+def _join_blog_for_lint(post: BlogPost) -> str:
+    """블로그 post의 모든 텍스트를 합쳐 린트 대상 문자열로."""
+    parts: list[str] = []
+    parts.append(post.title)
+    parts.append(post.meta_description)
+    parts.extend(post.intro_paragraphs)
+    for sec in post.sections:
+        parts.append(sec.heading)
+        parts.extend(sec.paragraphs)
+        for sub in sec.sub_sections:
+            parts.append(sub.heading)
+            parts.extend(sub.paragraphs)
+    parts.extend(post.conclusion_paragraphs)
+    return "\n".join(parts)
+
+
+def generate_blog_post(
+    session: Session,
+    tenant_id: int,
+    keyword: str,
+    *,
+    reference_urls: Optional[list[str]] = None,
+    images: Optional[list[ImageSlot]] = None,
+    target_chars: int = 2000,
+    max_corrections: int = 3,
+    provider: Optional[LLMProvider] = None,
+    save: bool = True,
+) -> BlogResult:
+    """키워드 + (선택) 참조 URL + (선택) 이미지 → SEO 친화적 블로그 post.
+
+    images는 src/alt/caption/after_section 정보. LLM이 alt/after_section을
+    제안하면 호출 측에서 src를 채워 BlogPost에 매핑.
+    """
+    tenant = session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise ValueError(f"tenant {tenant_id} not found.")
+
+    check_daily_budget(session, tenant_id)
+
+    if provider is None:
+        provider = get_provider()
+
+    # 1. References fetch
+    references: list[Reference] = []
+    if reference_urls:
+        clean_urls = [u.strip() for u in reference_urls if u and u.strip()]
+        if clean_urls:
+            logger.info("blog.fetching_references", count=len(clean_urls))
+            references = fetch_many(clean_urls)
+            logger.info("blog.fetched", got=len(references))
+
+    references_block = references_to_context_block(references) if references else ""
+
+    image_count = len(images) if images else 0
+
+    correction_hint: Optional[str] = None
+    correction_history: list[ComplianceReport] = []
+    last_result: Optional[BlogGenerationResult] = None
+    last_report: Optional[ComplianceReport] = None
+    last_post: Optional[BlogPost] = None
+    iterations = 0
+
+    for attempt in range(max_corrections + 1):
+        iterations = attempt
+        logger.info(
+            "blog.attempt",
+            tenant_id=tenant_id,
+            keyword=keyword,
+            attempt=attempt,
+            provider=provider.name,
+            n_refs=len(references),
+            n_images=image_count,
+        )
+        last_result = provider.generate_blog_post(
+            keyword=keyword,
+            tenant_name=tenant.name,
+            tenant_category=tenant.domain_category,
+            tenant_region=tenant.region,
+            references_block=references_block,
+            image_count=image_count,
+            target_chars=target_chars,
+            correction_hint=correction_hint,
+        )
+        # LLM이 제안한 image 메타와 사용자 업로드 src를 매핑
+        post_dict = dict(last_result.post_dict)
+        llm_images = post_dict.get("images") or []
+        merged_images: list[ImageSlot] = []
+        if images:
+            for i, user_img in enumerate(images):
+                # LLM이 제안한 메타가 있으면 alt/after_section/caption 채택
+                meta = llm_images[i] if i < len(llm_images) else {}
+                alt = (meta.get("alt") or "").strip() or user_img.alt
+                caption = (meta.get("caption") or "").strip() or user_img.caption
+                after = int(meta.get("after_section") or user_img.after_section or (i + 1))
+                merged_images.append(
+                    ImageSlot(
+                        src=user_img.src,
+                        alt=alt or f"이미지 {i + 1}",
+                        caption=caption,
+                        after_section=after,
+                    )
+                )
+        # references는 fetch한 URL을 자동으로 channel에 넣어줌
+        if references and not post_dict.get("references"):
+            post_dict["references"] = [r.url for r in references]
+        last_post = post_from_dict(post_dict, images=merged_images)
+
+        joined = _join_blog_for_lint(last_post)
+        last_report = lint(session, tenant_id, joined)
+        correction_history.append(last_report)
+
+        if last_report.status == "pass":
+            logger.info("blog.passed", attempt=attempt, summary=last_report.summary())
+            break
+
+        if not last_report.has_errors() and last_report.status == "warn":
+            if attempt < max_corrections:
+                correction_hint = _violations_to_correction_hint(last_report)
+                continue
+            logger.info("blog.warn_accepted", attempt=attempt)
+            break
+
+        if attempt < max_corrections:
+            correction_hint = _violations_to_correction_hint(last_report)
+            logger.info("blog.retry", attempt=attempt, summary=last_report.summary())
+            continue
+
+        logger.warning("blog.max_corrections_exhausted", summary=last_report.summary())
+        break
+
+    assert last_result is not None and last_report is not None and last_post is not None
+
+    body_html = render_body(last_post)
+    meta_block = render_meta_block(last_post)
+    full_html = render_full_html(last_post)
+    naver_plain = render_naver_blog_plain(last_post)
+
+    saved_id = None
+    if save:
+        gc = GeneratedContent(
+            tenant_id=tenant_id,
+            keyword_text=keyword,
+            channel="blog_html",
+            body=body_html,
+            raw_qa_pairs={
+                "title": last_post.title,
+                "meta_description": last_post.meta_description,
+                "keywords": last_post.keywords,
+                "char_count": last_post.total_word_count(),
+                "n_sections": len(last_post.sections),
+                "n_images": len(last_post.images),
+                "references": [r.url for r in references],
+            },
+            cited_reference_ids=None,
+            compliance_status=last_report.status,
+            compliance_report=last_report.to_dict(),
+            llm_provider=last_result.provider,
+            correction_iterations=iterations,
+        )
+        session.add(gc)
+        session.flush()
+        saved_id = gc.id
+        session.commit()
+
+    return BlogResult(
+        post=last_post,
+        body_html=body_html,
+        full_html=full_html,
+        meta_block=meta_block,
+        naver_plain=naver_plain,
+        references=references,
+        compliance=last_report,
+        iterations=iterations,
+        provider=last_result.provider,
+        saved_id=saved_id,
+        correction_history=correction_history,
+    )

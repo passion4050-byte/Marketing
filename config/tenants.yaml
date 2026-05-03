@@ -1,0 +1,23 @@
+# Sample tenants. scripts/init_db.py 가 이 파일을 읽어 시드한다.
+#
+# 사용자가 메디맵 본인 정보로 교체 가능. 추가 tenant는 아래 형식대로 append.
+
+tenants:
+  - id: 1
+    name: "BGN 밝은눈안과"
+    domain_category: "안과/시력교정"
+    region: "서울 강남"
+    business_model: "라식/라섹/렌즈삽입술 전문 안과. 30~40대 직장인 타겟. 연 시술 건수 약 1만 건."
+    sample_keywords:
+      - "강남 라식 잘하는 곳"
+      - "라섹 회복 기간"
+      - "렌즈삽입술 부작용"
+
+  - id: 2
+    name: "메디맵"
+    domain_category: "의료/마케팅 SaaS"
+    region: "서울"
+    business_model: "안과/치과 등 의료 광고를 SaaS로 자동화. AEO/GEO 최적화 + 의료법 컴플라이언스 차별점."
+    sample_keywords:
+      - "병원 마케팅 자동화"
+      - "AEO 최적화"
