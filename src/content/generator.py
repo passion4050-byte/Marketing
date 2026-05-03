@@ -24,7 +24,11 @@ from typing import Optional
 import structlog
 from sqlalchemy.orm import Session
 
-from src.compliance.linter import ComplianceReport, lint
+from src.compliance.linter import ComplianceReport, lint, lint_for_channel
+from src.content.cost import (
+    check_daily_usd_budget as _check_daily_usd_budget,
+    estimate_call_cost_usd,
+)
 from src.content.llm import (
     BlogGenerationResult,
     FAQPair,
@@ -63,7 +67,7 @@ from src.reference.fetcher import (
     fetch_many,
     references_to_context_block,
 )
-from src.storage.models import GeneratedContent, Tenant
+from src.storage.models import GeneratedContent, LlmCallLog, Tenant
 
 logger = structlog.get_logger(__name__)
 
@@ -111,6 +115,40 @@ class BlogResult:
         return not self.compliance.has_errors()
 
 
+def _log_llm_call(
+    session: Session,
+    tenant_id: int,
+    *,
+    provider: str,
+    model: str,
+    channel: str,
+    keyword: str,
+    input_tokens: int = 0,
+    output_tokens: int = 0,
+    status: str = "success",
+    error_msg: str | None = None,
+) -> None:
+    """LLM 호출 1건 LlmCallLog INSERT — Phase 2-T3.2.
+
+    토큰 정보가 없으면(현재 Stub/일부 provider) 0 으로 기록 — cost_usd 계산도 0.
+    """
+    cost = estimate_call_cost_usd(model or provider, input_tokens, output_tokens)
+    log = LlmCallLog(
+        tenant_id=tenant_id,
+        provider=provider,
+        model=model or provider,
+        channel=channel,
+        keyword=keyword,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        cost_usd=cost,
+        status=status,
+        error_msg=error_msg,
+    )
+    session.add(log)
+    session.commit()
+
+
 def _join_for_lint(pairs: list[FAQPair]) -> str:
     """모든 Q+A를 하나의 텍스트로 합쳐 린트."""
     return "\n".join(f"Q: {p.question}\nA: {p.answer}" for p in pairs)
@@ -145,6 +183,7 @@ def generate_faq_content(
         raise ValueError(f"tenant {tenant_id} not found. scripts/init_db.py 먼저 실행.")
 
     check_daily_budget(session, tenant_id)
+    _check_daily_usd_budget(session, tenant_id)
 
     if provider is None:
         provider = get_provider()
@@ -178,8 +217,13 @@ def generate_faq_content(
             tenant_data_block=tenant_data_block,
             correction_hint=correction_hint,
         )
+        _log_llm_call(
+            session, tenant_id,
+            provider=last_result.provider, model=last_result.provider,
+            channel="schema_org", keyword=keyword,
+        )
         joined = _join_for_lint(last_result.qa_pairs)
-        last_report = lint(session, tenant_id, joined)
+        last_report = lint_for_channel(session, tenant_id, "schema_org", joined)
         correction_history.append(last_report)
 
         if last_report.status == "pass":
@@ -279,6 +323,7 @@ def generate_blog_post(
         raise ValueError(f"tenant {tenant_id} not found.")
 
     check_daily_budget(session, tenant_id)
+    _check_daily_usd_budget(session, tenant_id)
 
     if provider is None:
         provider = get_provider()
@@ -333,6 +378,11 @@ def generate_blog_post(
             angle=angle,
             correction_hint=correction_hint,
         )
+        _log_llm_call(
+            session, tenant_id,
+            provider=last_result.provider, model=last_result.provider,
+            channel="blog_html", keyword=keyword,
+        )
         # LLM이 제안한 image 메타와 사용자 업로드 src를 매핑
         post_dict = dict(last_result.post_dict)
         llm_images = post_dict.get("images") or []
@@ -369,7 +419,7 @@ def generate_blog_post(
         last_post.tenant_homepage = tenant.homepage or ""
 
         joined = _join_blog_for_lint(last_post)
-        last_report = lint(session, tenant_id, joined)
+        last_report = lint_for_channel(session, tenant_id, "blog_html", joined)
         correction_history.append(last_report)
 
         if last_report.status == "pass":
@@ -495,6 +545,7 @@ def generate_naver_blog_content(
 ) -> NaverBlogResult:
     """네이버 블로그 평문 발행 — 자동수정 루프 포함."""
     check_daily_budget(session, tenant_id)
+    _check_daily_usd_budget(session, tenant_id)
     provider = provider or get_provider()
 
     tenant = session.get(Tenant, tenant_id)
@@ -526,6 +577,11 @@ def generate_naver_blog_content(
             angle=angle,
             correction_hint=correction_hint,
         )
+        _log_llm_call(
+            session, tenant_id,
+            provider=result.provider, model=result.provider,
+            channel="naver_blog", keyword=keyword,
+        )
         last_result = result
         post = naver_from_dict(
             result.post_dict,
@@ -537,7 +593,7 @@ def generate_naver_blog_content(
         last_post = post
 
         text = _join_naver_for_lint(post)
-        report = lint(session, tenant_id, text)
+        report = lint_for_channel(session, tenant_id, "naver_blog", text)
         last_report = report
         history.append({"iteration": iterations, "status": report.status, "n_violations": len(report.violations)})
 
@@ -595,6 +651,7 @@ def generate_instagram_content(
 ) -> InstagramResult:
     """Instagram 캡션 발행 — 자동수정 루프 포함. body 200~300자 + 해시태그 5~10."""
     check_daily_budget(session, tenant_id)
+    _check_daily_usd_budget(session, tenant_id)
     provider = provider or get_provider()
 
     tenant = session.get(Tenant, tenant_id)
@@ -621,12 +678,17 @@ def generate_instagram_content(
             angle=angle,
             correction_hint=correction_hint,
         )
+        _log_llm_call(
+            session, tenant_id,
+            provider=result.provider, model=result.provider,
+            channel="instagram", keyword=keyword,
+        )
         last_result = result
         cap = instagram_from_dict(result.caption_dict)
         last_cap = cap
 
         text = _join_instagram_for_lint(cap)
-        report = lint(session, tenant_id, text)
+        report = lint_for_channel(session, tenant_id, "instagram", text)
         last_report = report
         history.append({"iteration": iterations, "status": report.status, "n_violations": len(report.violations)})
 

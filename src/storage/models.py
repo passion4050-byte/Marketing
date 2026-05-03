@@ -248,6 +248,31 @@ class BrandVoice(Base):
         return "\n".join(lines)
 
 
+# ─── LLM Call Log (Phase 2-T3.2 — 비용 추적) ──────────────────
+
+
+class LlmCallLog(Base):
+    """LLM 호출 1건 로그 — USD 가드레일 + 운영 모니터링용.
+
+    `src/content/generator.py` 가 LLM 호출 직후 1행 INSERT.
+    """
+
+    __tablename__ = "llm_call_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"))
+    called_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, index=True)
+    provider: Mapped[str] = mapped_column(String(20))     # stub | gemini | anthropic | openai
+    model: Mapped[str] = mapped_column(String(100))       # 예: gemini-2.5-flash
+    channel: Mapped[str] = mapped_column(String(50))      # schema_org | blog_html | naver_blog | instagram
+    keyword: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    status: Mapped[str] = mapped_column(String(20), default="success")  # success | error | guardrail
+    error_msg: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
 # ─── Reference Document (Phase 3 RAG 가 사용 — Phase 2 에서 모델만 정의) ──
 
 

@@ -130,6 +130,26 @@ def lint(session: Session, tenant_id: int, text: str) -> ComplianceReport:
     return lint_with_rules(text, rules)
 
 
+def lint_for_channel(
+    session: Session, tenant_id: int, channel: str, text: str
+) -> ComplianceReport:
+    """채널별 린트 — Phase 2-T3.3 (CMP-05 완성).
+
+    DB 의 default 룰 + tenants.yaml 의 channel-specific 룰을 머지해 적용.
+    같은 (tenant_id, rule_type, pattern) 키가 양쪽에 있으면 yaml 이 오버라이드.
+    """
+    from src.storage.tenant_loader import load_channel_rules, merge_rules
+
+    db_rules = (
+        session.query(ComplianceRule)
+        .filter(ComplianceRule.tenant_id == tenant_id, ComplianceRule.is_active.is_(True))
+        .all()
+    )
+    yaml_rules = load_channel_rules(tenant_id, channel)
+    merged = merge_rules(db_rules, yaml_rules)
+    return lint_with_rules(text, merged)
+
+
 def lint_with_rules(text: str, rules: list[ComplianceRule]) -> ComplianceReport:
     """DB 의존 없이 in-memory 룰로 린트 (테스트/단독 호출용)."""
     violations: list[Violation] = []

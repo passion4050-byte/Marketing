@@ -40,6 +40,10 @@ from src.storage.models import (  # noqa: E402
 
 load_dotenv(ROOT / ".env")
 
+from src.observability.logging_config import configure_logging  # noqa: E402
+
+configure_logging()
+
 TENANTS_YAML = ROOT / "config" / "tenants.yaml"
 RULES_YAML = ROOT / "config" / "compliance_rules" / "default.yaml"
 

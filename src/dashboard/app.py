@@ -49,6 +49,11 @@ def _hydrate_env_from_secrets() -> None:
 
 _hydrate_env_from_secrets()
 
+from src.observability.logging_config import configure_logging  # noqa: E402
+
+# 진입부에서 1회 — JSON/console 포맷은 LOG_FORMAT 환경변수
+configure_logging()
+
 from src.content.generator import generate_blog_post, generate_faq_content  # noqa: E402
 from src.content.llm import (  # noqa: E402
     DEFAULT_BLOG_ANGLES,

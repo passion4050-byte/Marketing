@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-05-03)
 
 ## Current Position
 
-Phase: 2 of 6 (Content Pipeline 확장 — Planning 완료)
-Plan: PLAN.md 작성 완료, 실행 대기
-Status: Planning done — `.planning/phases/02-content-pipeline-expansion/PLAN.md` (3 sub-plans, 20 atomic tasks)
-Last activity: 2026-05-03 — Phase 2 plan 생성 (gsd-planner 통과)
+Phase: 2 of 6 (Content Pipeline 확장 — 완료)
+Plan: 02-01, 02-02, 02-03 모두 완료 (20/20 task)
+Status: 4채널 파이프라인 + Alembic + USD 가드레일 + 단위 테스트 + structlog 가동
+Last activity: 2026-05-03 — Phase 2 전체 완료, pytest 66/66 통과
 
-Progress: [██░░░░░░░░] 20% (Phase 1 + 1.5 완료, Phase 2 plan 작성됨, 실행 대기)
+Progress: [████░░░░░░] 33% (Phase 1, 1.5, 2 완료. Phase 3~6 남음)
 
 **완료된 산출물:**
 - src/storage: 멀티테넌트 SQLAlchemy 모델 (Tenant, ComplianceRule, Keyword, GeneratedContent)

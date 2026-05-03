@@ -25,6 +25,7 @@ EXPECTED_TABLES = {
     "event_offers",
     "brand_voices",
     "reference_documents",
+    "llm_call_logs",
 }
 
 
@@ -58,13 +59,15 @@ def test_alembic_downgrade_round_trip(tmp_path):
     try:
         command.upgrade(cfg, "head")
         tables_after_up = _list_tables(str(db))
+        assert "llm_call_logs" in tables_after_up
         assert "reference_documents" in tables_after_up
 
-        # downgrade 1 step — reference_documents 만 사라져야 함
+        # downgrade 1 step — 가장 최근 마이그레이션 (llm_call_logs) 만 사라져야 함
         command.downgrade(cfg, "-1")
         tables_after_down = _list_tables(str(db))
-        assert "reference_documents" not in tables_after_down
-        # baseline 의 다른 테이블은 보존
+        assert "llm_call_logs" not in tables_after_down
+        # 이전 마이그레이션의 테이블은 보존
+        assert "reference_documents" in tables_after_down
         assert "tenants" in tables_after_down
     finally:
         os.environ.pop("DATABASE_URL", None)
