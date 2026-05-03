@@ -521,10 +521,10 @@ def _render_health_header(SessionLocal, tenant) -> None:
 
 def render_profile_tab(SessionLocal, tenant) -> None:
     """대상 정보 관리 탭 본체. 호출자(app.py)가 tenant 선택 후 호출."""
-    st.markdown("### 데이터 입력 & AI 최적화")
+    st.markdown("### 🎯 데이터 피딩")
     st.caption(
         f"AI가 **{tenant.name}**을(를) 더 잘 이해하도록 정보를 입력해주세요. "
-        "여기 입력한 의사/장비/이벤트는 FAQ·블로그 발행 시 LLM 컨텍스트로 자동 주입됩니다."
+        "여기 입력한 의사/장비/이벤트는 콘텐츠 발행 시 LLM 컨텍스트로 자동 주입됩니다."
     )
 
     # 헤더: 데이터 건강 점수 + KPI 카드
@@ -532,7 +532,8 @@ def render_profile_tab(SessionLocal, tenant) -> None:
 
     st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
 
-    # 3-column 카드
+    # 3-column 카드 — 동일 세로 크기 (gsd-equal-row CSS)
+    st.markdown('<div class="gsd-equal-row">', unsafe_allow_html=True)
     col_d, col_e, col_v = st.columns(3, gap="medium")
     with col_d:
         _render_doctor_card(SessionLocal, tenant.id)
@@ -540,9 +541,4 @@ def render_profile_tab(SessionLocal, tenant) -> None:
         _render_equipment_card(SessionLocal, tenant.id)
     with col_v:
         _render_event_card(SessionLocal, tenant.id)
-
-    # AI 응답 시뮬레이터는 별도 "🧪 AI 시뮬레이터" 탭에 있으므로 여기선 안내만
-    st.divider()
-    st.caption(
-        "💡 AI 응답을 데이터 피딩 ON/OFF로 비교해보려면 상단 **🧪 AI 시뮬레이터** 탭을 사용하세요."
-    )
+    st.markdown('</div>', unsafe_allow_html=True)

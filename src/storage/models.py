@@ -114,6 +114,8 @@ class GeneratedContent(Base):
     compliance_report: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     llm_provider: Mapped[str] = mapped_column(String(20), default="stub")
     correction_iterations: Mapped[int] = mapped_column(Integer, default=0)
+    # Phase 6.5 — published | draft (자동 생성 큐). 기본값은 published (수동 발행).
+    status: Mapped[str] = mapped_column(String(20), default="published")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     tenant: Mapped[Tenant] = relationship(back_populates="generated_contents")
@@ -351,6 +353,28 @@ class Mention(Base):
 
 
 # ─── Competitor (Phase 6 — MVP-2) ────────────────────────────────
+
+
+class AutoContentSetting(Base):
+    """자동 콘텐츠 생성 설정 — Phase 6.5.
+
+    매일 활성 키워드 × 채널 조합으로 ``draft`` 상태의 콘텐츠를 자동 생성한다.
+    tenant 별 1행 (UNIQUE).
+    """
+
+    __tablename__ = "auto_content_settings"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", name="uq_auto_setting_tenant"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    daily_count: Mapped[int] = mapped_column(Integer, default=2)  # 1~10
+    channels: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    # channels: ["schema_org","blog_html","naver_blog","instagram"] subset, default all
+    last_run_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 
 
 class Competitor(Base):

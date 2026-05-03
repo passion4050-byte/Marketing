@@ -30,6 +30,7 @@ EXPECTED_TABLES = {
     "responses",
     "mentions",
     "competitors",
+    "auto_content_settings",
 }
 
 
@@ -67,10 +68,13 @@ def test_alembic_downgrade_round_trip(tmp_path):
         assert "reference_documents" in tables_after_up
         assert {"queries", "responses", "mentions", "competitors"}.issubset(tables_after_up)
 
-        # downgrade 1 step — 가장 최근 마이그레이션 (add_competitor) 만 사라져야 함
-        command.downgrade(cfg, "-1")
+        # downgrade — 최근 3 마이그레이션을 차례로 내려 competitors / auto_content_settings 모두 제거
+        command.downgrade(cfg, "-1")  # add_auto_content_setting 제거
+        command.downgrade(cfg, "-1")  # add_generated_content_status 제거 (status column)
+        command.downgrade(cfg, "-1")  # add_competitor 제거
         tables_after_down = _list_tables(str(db))
         assert "competitors" not in tables_after_down
+        assert "auto_content_settings" not in tables_after_down
         # 이전 마이그레이션의 measurement 테이블은 보존
         assert "queries" in tables_after_down
         assert "responses" in tables_after_down

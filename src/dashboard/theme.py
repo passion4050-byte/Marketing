@@ -424,6 +424,79 @@ GLOBAL_CSS = f"""
     background: {Colors.WHITE};
     padding: 8px;
   }}
+
+  /* ─ Equal-height columns for 3-up cards (Phase 6.5 UX) ─
+     데이터 피딩의 의사/장비/이벤트 같은 3-column 레이아웃에서
+     컨테이너 세로 크기를 동일하게 맞춤. */
+  .gsd-equal-row > div[data-testid="column"] {{
+    display: flex;
+    flex-direction: column;
+  }}
+  .gsd-equal-row > div[data-testid="column"]
+    > div[data-testid="stVerticalBlock"]
+    > div[data-testid="stVerticalBlockBorderWrapper"] {{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 560px;
+  }}
+
+  /* ─ Sub-tab indicator (네스티드 st.tabs) — primary 보다 옅게 ─ */
+  div[data-baseweb="tab-panel"] div[data-baseweb="tab-list"] {{
+    border-bottom: 1px solid {Colors.GRAY_200};
+    margin-bottom: 14px;
+  }}
+  div[data-baseweb="tab-panel"] button[data-baseweb="tab"] {{
+    padding: 8px 16px !important;
+    font-size: 13px !important;
+  }}
+
+  /* ─ Premium section card — 그라데이션 + 미세 그림자 (Phase 6.5) ─ */
+  .gsd-section-card {{
+    background: linear-gradient(180deg, {Colors.WHITE} 0%, {Colors.GRAY_50} 100%);
+    border: 1px solid rgba(91, 143, 249, 0.18);
+    border-radius: {Radius.LG};
+    padding: 22px 24px;
+    box-shadow: 0 2px 8px rgba(91, 143, 249, 0.06);
+    margin-bottom: 18px;
+  }}
+  .gsd-section-card-title {{
+    font-size: 16px;
+    font-weight: 700;
+    color: {Colors.GRAY_900};
+    margin: 0 0 4px 0;
+    letter-spacing: -0.01em;
+  }}
+  .gsd-section-card-desc {{
+    font-size: 12px;
+    color: {Colors.GRAY_500};
+    margin-bottom: 14px;
+    line-height: 1.5;
+  }}
+
+  /* ─ Empty-state illustration (Phase 6.5) ─ */
+  .gsd-empty-state {{
+    text-align: center;
+    padding: 48px 24px;
+    background: {Colors.WHITE};
+    border: 1.5px dashed rgba(91, 143, 249, 0.26);
+    border-radius: {Radius.LG};
+    color: {Colors.GRAY_500};
+  }}
+  .gsd-empty-state-icon {{
+    font-size: 36px;
+    margin-bottom: 12px;
+  }}
+  .gsd-empty-state-title {{
+    font-size: 15px;
+    font-weight: 700;
+    color: {Colors.GRAY_700};
+    margin-bottom: 6px;
+  }}
+  .gsd-empty-state-desc {{
+    font-size: 12px;
+    line-height: 1.6;
+  }}
 </style>
 """
 

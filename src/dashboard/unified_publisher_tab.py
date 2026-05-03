@@ -60,7 +60,10 @@ def render_unified_publisher_tab(SessionLocal, tenant) -> None:
         return
 
     st.markdown("### 콘텐츠 발행 (통합)")
-    st.caption("채널 1개 선택 → 의료법 통과 콘텐츠 1~5건 일괄 발행 + 복사 가능.")
+    st.caption(
+        "채널 1개 선택 → 의료법 통과 콘텐츠 1~5건 일괄 발행 + 복사 가능. "
+        "키워드는 데이터 관리 → 측정 탭에서 등록한 활성 키워드 중 선택."
+    )
 
     channel_label = st.selectbox(
         "채널",
@@ -69,8 +72,39 @@ def render_unified_publisher_tab(SessionLocal, tenant) -> None:
     )
     channel = next(k for k, v in CHANNELS.items() if v == channel_label)
 
+    # 등록된 활성 키워드 로드 — 드롭다운 + 직접 입력 옵션
+    from src.storage.models import Keyword
+
+    with SessionLocal() as s:
+        kw_rows = (
+            s.query(Keyword)
+            .filter(Keyword.tenant_id == tenant.id, Keyword.is_active == True)  # noqa: E712
+            .order_by(Keyword.id.desc())
+            .all()
+        )
+        kw_options = [k.text for k in kw_rows]
+
     col_kw, col_n = st.columns([3, 1])
-    keyword = col_kw.text_input("키워드", placeholder="예: 강남 라식 잘하는 곳", key="unified_kw")
+    if kw_options:
+        with col_kw:
+            CUSTOM = "✏️ 직접 입력"
+            choice = st.selectbox(
+                "키워드", kw_options + [CUSTOM], key="unified_kw_choice",
+            )
+            if choice == CUSTOM:
+                keyword = st.text_input(
+                    "키워드 직접 입력",
+                    placeholder="예: 강남 라식 잘하는 곳",
+                    key="unified_kw_custom",
+                    label_visibility="collapsed",
+                )
+            else:
+                keyword = choice
+    else:
+        keyword = col_kw.text_input(
+            "키워드", placeholder="예: 강남 라식 잘하는 곳", key="unified_kw",
+            help="등록된 활성 키워드가 없습니다 — 데이터 관리 → 측정 탭에서 등록 권장.",
+        )
     count = col_n.slider("발행 개수", 1, 5, 1, key="unified_count")
 
     # 채널별 옵션

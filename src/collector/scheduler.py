@@ -25,6 +25,11 @@ _DEFAULT_CRON_MIN = int(os.getenv("MEASUREMENT_CRON_MIN", "0"))
 _DEFAULT_TZ = os.getenv("MEASUREMENT_TZ", "Asia/Seoul")
 _JOB_ID = "daily_measurement"
 
+# 자동 콘텐츠 큐 — 새벽 3시 (측정 1시간 후) 활성 키워드 × N 채널 → status="draft"
+_CONTENT_CRON_HOUR = int(os.getenv("AUTO_CONTENT_CRON_HOUR", "3"))
+_CONTENT_CRON_MIN = int(os.getenv("AUTO_CONTENT_CRON_MIN", "0"))
+_CONTENT_JOB_ID = "daily_auto_content"
+
 _scheduler: Any = None  # BackgroundScheduler 인스턴스 (lazy init)
 
 
@@ -100,6 +105,15 @@ def start_scheduler(session_factory) -> Any:
         replace_existing=True,
         misfire_grace_time=3600,
     )
+    sched.add_job(
+        func=daily_auto_content_job,
+        args=[session_factory],
+        trigger=CronTrigger(hour=_CONTENT_CRON_HOUR, minute=_CONTENT_CRON_MIN),
+        id=_CONTENT_JOB_ID,
+        name="Daily auto content draft generation",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
     sched.start()
     _scheduler = sched
     logger.info(
@@ -109,6 +123,111 @@ def start_scheduler(session_factory) -> Any:
         tz=_DEFAULT_TZ,
     )
     return sched
+
+
+def daily_auto_content_job(session_factory) -> dict:
+    """활성 ``AutoContentSetting`` 마다 ``daily_count`` 만큼 ``draft`` 콘텐츠 생성.
+
+    - 1차: tenant 별 첫 활성 키워드만 사용 (간단/안정 우선)
+    - 2차: AutoContentSetting.channels 의 각 채널을 round-robin 으로 daily_count 채움
+    - 결과물은 ``GeneratedContent.status="draft"`` — 사용자가 임시 저장함에서 검수 후 publish
+    """
+    from datetime import datetime as _dt, timezone as _tz
+
+    from src.storage.models import (
+        AutoContentSetting,
+        Keyword,
+    )
+
+    summary = {"tenants": 0, "drafts": 0, "errors": 0}
+    default_channels = ["schema_org", "blog_html", "naver_blog", "instagram"]
+
+    with session_factory() as s:
+        settings = s.query(AutoContentSetting).filter(
+            AutoContentSetting.enabled == True  # noqa: E712
+        ).all()
+        plans = [
+            (
+                st.tenant_id,
+                int(st.daily_count or 1),
+                list(st.channels) if st.channels else list(default_channels),
+            )
+            for st in settings
+        ]
+
+    for tenant_id, daily_count, channels in plans:
+        with session_factory() as s:
+            kw = (
+                s.query(Keyword)
+                .filter(Keyword.tenant_id == tenant_id, Keyword.is_active == True)  # noqa: E712
+                .order_by(Keyword.id)
+                .first()
+            )
+            if kw is None:
+                continue
+            keyword_text = kw.text
+
+        summary["tenants"] += 1
+        ch_cycle = channels or default_channels
+        for i in range(daily_count):
+            channel = ch_cycle[i % len(ch_cycle)]
+            try:
+                _generate_draft(session_factory, tenant_id, keyword_text, channel)
+                summary["drafts"] += 1
+            except Exception as e:  # pragma: no cover
+                logger.error(
+                    "scheduler.auto_content_error",
+                    tenant_id=tenant_id, channel=channel, error=str(e),
+                )
+                summary["errors"] += 1
+
+        with session_factory() as s:
+            st_row = (
+                s.query(AutoContentSetting)
+                .filter(AutoContentSetting.tenant_id == tenant_id)
+                .first()
+            )
+            if st_row is not None:
+                st_row.last_run_at = _dt.now(_tz.utc)
+                s.commit()
+
+    logger.info("scheduler.auto_content_complete", **summary)
+    return summary
+
+
+def _generate_draft(session_factory, tenant_id: int, keyword: str, channel: str) -> None:
+    """1건 자동 생성 → status='draft' 로 저장. 실패 시 raise.
+
+    generator 가 default status='published' 로 저장하므로 직후 update 한다.
+    """
+    from src.content.generator import (
+        generate_blog_post,
+        generate_faq_content,
+        generate_instagram_content,
+        generate_naver_blog_content,
+    )
+    from src.storage.models import GeneratedContent
+
+    saved_id: int | None = None
+    with session_factory() as s:
+        if channel == "schema_org":
+            r = generate_faq_content(s, tenant_id=tenant_id, keyword=keyword, save=True)
+        elif channel == "blog_html":
+            r = generate_blog_post(s, tenant_id=tenant_id, keyword=keyword, save=True)
+        elif channel == "naver_blog":
+            r = generate_naver_blog_content(s, tenant_id=tenant_id, keyword=keyword, save=True)
+        elif channel == "instagram":
+            r = generate_instagram_content(s, tenant_id=tenant_id, keyword=keyword, save=True)
+        else:
+            return
+        saved_id = getattr(r, "saved_id", None)
+
+    if saved_id is not None:
+        with session_factory() as s:
+            obj = s.get(GeneratedContent, saved_id)
+            if obj is not None:
+                obj.status = "draft"
+                s.commit()
 
 
 def stop_scheduler() -> None:

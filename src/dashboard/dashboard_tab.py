@@ -156,17 +156,8 @@ def render_dashboard_tab(SessionLocal, tenant) -> None:
     )
     st.dataframe(engine_summary, use_container_width=True, hide_index=True)
 
-    # 최근 발행 콘텐츠 — 각 항목 펼쳐 본문 확인/수정/재검사/복사/삭제
-    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
-    st.markdown("#### 📝 최근 발행 콘텐츠")
-    st.caption("각 항목을 펼쳐 본문을 확인·수정하거나 의료법 재검사를 실행할 수 있습니다.")
-    if not recent_ids:
-        st.info("아직 발행된 콘텐츠가 없습니다. FAQ/블로그 탭에서 발행해보세요.")
-    else:
-        from src.dashboard.app import render_content_card
-
-        for cid in recent_ids:
-            render_content_card(SessionLocal, cid, key_prefix=f"dash_{tenant.id}")
+    # 최근 발행 콘텐츠 카드 노출은 '✨ 콘텐츠 발행 → 발행 이력' 서브탭에서 통합 관리.
+    # 대시보드에는 KPI / 차트 / 종합 보고만 노출 — 사용자 요청에 따라 발행 이력 제거.
 
     # 보고서/요약
     st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
@@ -215,6 +206,6 @@ def _generate_summary(tenant, health: dict, total_published: int) -> str:
 
     chunks.append(f"누적 발행 콘텐츠는 <b>{total_published}건</b>입니다.")
     if total_published == 0:
-        chunks.append("FAQ 또는 블로그 탭에서 첫 콘텐츠를 발행해보세요.")
+        chunks.append("**✨ 콘텐츠 발행** 탭에서 첫 콘텐츠를 발행해보세요.")
 
     return " ".join(chunks)
