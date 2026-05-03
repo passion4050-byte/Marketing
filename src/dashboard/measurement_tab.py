@@ -119,6 +119,11 @@ def render_measurement_tab(SessionLocal, tenant) -> None:
 
     st.divider()
 
+    # ─── 경쟁사 후보 검수 (Phase 6) ────────────────────────────
+    _render_competitor_section(SessionLocal, tenant)
+
+    st.divider()
+
     # ─── 키워드별 시계열 (Phase 5) ─────────────────────────────
     _render_timeseries_section(SessionLocal, tenant, kw_data)
 
@@ -380,6 +385,112 @@ def _render_timeseries_section(SessionLocal, tenant, kw_data) -> None:
         with st.expander(f"브랜드별 멘션 카운트 ({len(agg['by_brand'])}개)", expanded=False):
             for brand, count in agg["by_brand"].items():
                 st.markdown(f"- **{brand}** — {count}건")
+
+
+def _render_competitor_section(SessionLocal, tenant) -> None:
+    """🎯 경쟁사 후보 검수 섹션 — discover_competitors() 결과를 카드로 노출.
+
+    승인 → confirmed=True INSERT (다음 수집부터 Mention 자동 인식).
+    거절 → confirmed=False INSERT (다음 discover 호출 때 제외).
+    confirmed=True 인 경쟁사는 별도 list 로 + 삭제 버튼.
+    """
+    try:
+        from src.analytics.competitor import discover_competitors
+        from src.storage.models import Competitor
+    except ImportError as _ie:  # pragma: no cover
+        st.warning(f"경쟁사 모듈 import 실패: `{_ie}`")
+        return
+
+    st.markdown("##### 🎯 경쟁사 후보 검수")
+    st.caption(
+        "AI 응답에서 자동 발견된 의료기관 후보입니다. 승인하면 다음 수집부터 "
+        "멘션으로 자동 인식되어 비교 분석에 포함됩니다."
+    )
+
+    # 후보 + confirmed 목록 동시 조회
+    with SessionLocal() as s:
+        candidates = discover_competitors(s, tenant.id)
+        confirmed = (
+            s.query(Competitor)
+            .filter(Competitor.tenant_id == tenant.id, Competitor.confirmed == True)  # noqa: E712
+            .order_by(Competitor.first_seen_at.desc())
+            .all()
+        )
+        confirmed_data = [(c.id, c.name, c.discovery_source, c.first_seen_at) for c in confirmed]
+
+    # 후보 카드
+    if not candidates:
+        st.info(
+            "⚪ 임계 통과한 후보가 없습니다 — 응답 ≥ 3개 + 키워드 ≥ 2개 가 필요합니다. "
+            "(이미 등록되었거나, 자기 브랜드는 자동 제외)"
+        )
+    else:
+        for cand in candidates:
+            with st.container(border=True):
+                head_l, head_r = st.columns([4, 2])
+                head_l.markdown(
+                    f"**{cand.name}** — 멘션 `{cand.mention_count}` · "
+                    f"응답 `{cand.response_count}` · 키워드 `{cand.keyword_count}`"
+                )
+                first = cand.first_seen.strftime("%Y-%m-%d") if cand.first_seen else "—"
+                head_r.caption(f"최초 등장 {first}")
+
+                if cand.sample_snippets:
+                    snippet = cand.sample_snippets[0]
+                    if len(snippet) > 180:
+                        snippet = snippet[:180] + "…"
+                    st.markdown(
+                        f"<div style='padding:8px 12px;background:#fafafa;border-radius:6px;"
+                        f"font-size:12px;color:#555;'>“…{snippet}…”</div>",
+                        unsafe_allow_html=True,
+                    )
+
+                col_y, col_n = st.columns(2)
+                if col_y.button(
+                    "✅ 승인", key=f"comp_approve_{cand.name}", use_container_width=True
+                ):
+                    with SessionLocal() as ws:
+                        ws.add(Competitor(
+                            tenant_id=tenant.id,
+                            name=cand.name,
+                            aliases=None,
+                            discovery_source="ai_response",
+                            confirmed=True,
+                            first_seen_at=cand.first_seen,
+                        ))
+                        ws.commit()
+                    st.success(f"승인: {cand.name}")
+                    st.rerun()
+                if col_n.button(
+                    "❌ 거절", key=f"comp_reject_{cand.name}", use_container_width=True
+                ):
+                    with SessionLocal() as ws:
+                        ws.add(Competitor(
+                            tenant_id=tenant.id,
+                            name=cand.name,
+                            aliases=None,
+                            discovery_source="ai_response",
+                            confirmed=False,
+                            first_seen_at=cand.first_seen,
+                        ))
+                        ws.commit()
+                    st.info(f"거절: {cand.name} (다음 후보 풀에서 제외)")
+                    st.rerun()
+
+    # 확정 경쟁사 목록
+    if confirmed_data:
+        with st.expander(f"✅ 확정 경쟁사 ({len(confirmed_data)}개)", expanded=False):
+            for cid, name, source, first_seen in confirmed_data:
+                col_n, col_s, col_d = st.columns([3, 2, 1])
+                col_n.markdown(f"**{name}**")
+                col_s.caption(
+                    f"`{source}` · {first_seen.strftime('%Y-%m-%d') if first_seen else '—'}"
+                )
+                if col_d.button("🗑️", key=f"comp_del_{cid}", use_container_width=True):
+                    with SessionLocal() as ws:
+                        ws.query(Competitor).filter(Competitor.id == cid).delete()
+                        ws.commit()
+                    st.rerun()
 
 
 def _trend_chip_html(trend: dict) -> str:

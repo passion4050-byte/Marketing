@@ -348,3 +348,29 @@ class Mention(Base):
     sentiment: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # Phase 6
     context_snippet: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+# ─── Competitor (Phase 6 — MVP-2) ────────────────────────────────
+
+
+class Competitor(Base):
+    """경쟁사 후보 + 확정 마스터 — discover_competitors() 가 후보를 INSERT,
+    사용자가 측정 탭에서 승인하면 confirmed=True 로 업데이트된다.
+
+    confirmed=True 인 row 만 분석/share 비교에 사용된다.
+    """
+
+    __tablename__ = "competitors"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_competitor_tenant_name"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(200))
+    aliases: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)  # list[str]
+    discovery_source: Mapped[str] = mapped_column(String(30), default="manual")
+    # discovery_source ∈ {manual, ai_response, category_match}
+    confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
