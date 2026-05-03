@@ -49,10 +49,16 @@ def _hydrate_env_from_secrets() -> None:
 
 _hydrate_env_from_secrets()
 
-from src.observability.logging_config import configure_logging  # noqa: E402
+# 로깅 설정 — 실패해도 앱이 죽지 않도록 try/except (Phase 2-T3.7 방어)
+try:
+    from src.observability.logging_config import configure_logging  # noqa: E402
 
-# 진입부에서 1회 — JSON/console 포맷은 LOG_FORMAT 환경변수
-configure_logging()
+    configure_logging()
+except Exception as _e:  # pragma: no cover
+    import logging
+
+    logging.basicConfig(level=logging.INFO)
+    logging.warning("configure_logging skipped: %s", _e)
 
 from src.content.generator import generate_blog_post, generate_faq_content  # noqa: E402
 from src.content.llm import (  # noqa: E402

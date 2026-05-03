@@ -42,22 +42,38 @@ def configure_logging(level: str | None = None, json_format: bool | None = None)
         level=getattr(logging, log_level, logging.INFO),
     )
 
-    processors: list = [
-        structlog.contextvars.merge_contextvars,
-        structlog.processors.add_log_level,
-        structlog.processors.TimeStamper(fmt="iso", utc=True),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-    ]
-    if json_format:
-        processors.append(structlog.processors.JSONRenderer(ensure_ascii=False))
-    else:
-        processors.append(structlog.dev.ConsoleRenderer(colors=True))
+    # structlog 버전마다 일부 API 시그니처가 달라 방어적으로 import + 구성
+    try:
+        processors: list = [
+            structlog.contextvars.merge_contextvars,
+            structlog.processors.add_log_level,
+            structlog.processors.TimeStamper(fmt="iso", utc=True),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+        ]
+        if json_format:
+            processors.append(structlog.processors.JSONRenderer(ensure_ascii=False))
+        else:
+            processors.append(structlog.dev.ConsoleRenderer(colors=True))
 
-    structlog.configure(
-        processors=processors,
-        wrapper_class=structlog.make_filtering_bound_logger(getattr(logging, log_level, logging.INFO)),
-        logger_factory=structlog.PrintLoggerFactory(file=sys.stdout),
-        cache_logger_on_first_use=True,
-    )
+        kwargs: dict = {
+            "processors": processors,
+            "cache_logger_on_first_use": True,
+        }
+        # 일부 구버전은 make_filtering_bound_logger 미지원
+        if hasattr(structlog, "make_filtering_bound_logger"):
+            kwargs["wrapper_class"] = structlog.make_filtering_bound_logger(
+                getattr(logging, log_level, logging.INFO)
+            )
+        # 일부 구버전은 PrintLoggerFactory 시그니처 다름
+        if hasattr(structlog, "PrintLoggerFactory"):
+            try:
+                kwargs["logger_factory"] = structlog.PrintLoggerFactory(file=sys.stdout)
+            except TypeError:
+                kwargs["logger_factory"] = structlog.PrintLoggerFactory()
+
+        structlog.configure(**kwargs)
+    except Exception:
+        # 어떤 이유로든 실패하면 stdlib logging 만 활성 — 앱 기동 우선
+        pass
     _CONFIGURED = True
