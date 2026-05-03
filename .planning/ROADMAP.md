@@ -133,6 +133,6 @@ Phase 1 → 2 → 3 → 4 → 5 → 6 (Phase 3과 Phase 4는 Phase 2 완료 후 
 | 1. Demo Slice (Compliance + FAQ JSON-LD) | 0/3 | Not started | - |
 | 2. Content Pipeline 확장 | 0/3 | Not started | - |
 | 3. Reference Library (RAG) | 0/3 | Not started | - |
-| 4. Measurement Foundation | 0/3 | Not started | - |
+| 4. Measurement Foundation | 0/3 | Planned | PLAN.md 작성 완료 — 14 tasks |
 | 5. Analytics 강화 | 0/3 | Not started | - |
 | 6. Multi-Engine + Competitor Discovery | 0/3 | Not started | - |
