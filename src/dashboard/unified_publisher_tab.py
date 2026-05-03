@@ -13,20 +13,10 @@ import json
 
 import streamlit as st
 
-from src.content.generator import (
-    generate_blog_post as gen_blog_post,
-    generate_faq_content,
-    generate_instagram_content,
-    generate_naver_blog_content,
-)
-from src.content.llm import (
-    DEFAULT_BLOG_ANGLES,
-    DEFAULT_FAQ_ANGLES,
-    CostGuardrailExceeded,
-    LLMError,
-    pick_angles,
-)
-from src.content.templates.schema_org import faq_page_script_tag
+# NOTE: src.content.* imports are deferred into render_unified_publisher_tab() below.
+# 이유: Streamlit Cloud 의 일부 빌드 캐시 환경에서 generator 모듈 네임스페이스 등록이
+#       지연돼 모듈-레벨 import 가 ImportError 로 떨어지는 사례가 관측됨.
+#       함수 안에서 import 하면 매 발행 시마다 fresh 로 해석되어 영향이 없다.
 
 CHANNELS = {
     "schema_org": "🧩 Schema.org FAQ JSON-LD",
@@ -46,6 +36,29 @@ def _compliance_chip_html(report) -> str:
 
 
 def render_unified_publisher_tab(SessionLocal, tenant) -> None:
+    # Lazy import — Streamlit Cloud 캐시/네임스페이스 이슈 회피.
+    try:
+        from src.content.generator import (
+            generate_blog_post as gen_blog_post,
+            generate_faq_content,
+            generate_instagram_content,
+            generate_naver_blog_content,
+        )
+        from src.content.llm import (
+            DEFAULT_BLOG_ANGLES,
+            DEFAULT_FAQ_ANGLES,
+            CostGuardrailExceeded,
+            LLMError,
+            pick_angles,
+        )
+    except ImportError as _ie:  # pragma: no cover
+        st.error(
+            f"콘텐츠 모듈 import 실패: `{_ie}`. "
+            "Streamlit Cloud 의 빌드 캐시가 stale 상태일 수 있습니다. "
+            "Manage app → Reboot app 으로 재시작해 주세요."
+        )
+        return
+
     st.markdown("### 콘텐츠 발행 (통합)")
     st.caption("채널 1개 선택 → 의료법 통과 콘텐츠 1~5건 일괄 발행 + 복사 가능.")
 
