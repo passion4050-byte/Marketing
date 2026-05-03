@@ -22,6 +22,33 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT))
 load_dotenv(ROOT / ".env")
 
+
+def _hydrate_env_from_secrets() -> None:
+    """Streamlit Cloud secrets → 환경변수로 흘려보내 기존 os.getenv 코드 재사용."""
+    try:
+        secrets = st.secrets  # 없으면 StreamlitSecretNotFoundError
+    except Exception:
+        return
+    for key in (
+        "LLM_PROVIDER",
+        "GOOGLE_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "DATABASE_URL",
+        "APP_PASSWORD",
+        "MAX_DAILY_USD",
+        "MAX_CONTENT_GEN_PER_DAY",
+    ):
+        try:
+            val = secrets.get(key)
+        except Exception:
+            val = None
+        if val and not os.environ.get(key):
+            os.environ[key] = str(val)
+
+
+_hydrate_env_from_secrets()
+
 from src.content.generator import generate_blog_post, generate_faq_content  # noqa: E402
 from src.content.llm import (  # noqa: E402
     DEFAULT_BLOG_ANGLES,
@@ -59,7 +86,54 @@ UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 @st.cache_resource
 def _bootstrap():
     create_all()
-    return get_session_factory()
+    factory = get_session_factory()
+    # Streamlit Cloud처럼 컨테이너 재시작 = SQLite 휘발 환경에서
+    # 자동으로 sample tenants/rules 시드 (idempotent — 이미 있으면 NOOP).
+    try:
+        from src.storage.seed import seed_if_empty
+
+        with factory() as session:
+            seed_if_empty(session)
+    except Exception as exc:  # pragma: no cover — 시드 실패가 앱 기동을 막진 않게
+        print(f"[warn] auto-seed skipped: {exc}")
+    return factory
+
+
+def _check_password() -> bool:
+    """공개 URL에서 demo 보호용 비밀번호 게이트.
+
+    APP_PASSWORD 환경변수(또는 st.secrets) 가 비어 있으면 게이트 비활성.
+    """
+    expected = os.getenv("APP_PASSWORD", "").strip()
+    if not expected:
+        return True
+
+    if st.session_state.get("_auth_ok"):
+        return True
+
+    st.markdown(
+        """
+        <div style="max-width:380px;margin:80px auto 0 auto;text-align:center;">
+          <div style="font-size:32px;font-weight:800;letter-spacing:-0.03em;">🔒 HOSPITAL</div>
+          <div style="font-size:14px;color:#666;margin:6px 0 28px 0;">
+            GEO/AEO Content Platform — 비공개 데모
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    col_l, col_c, col_r = st.columns([1, 2, 1])
+    with col_c:
+        with st.form("login_form", clear_on_submit=False):
+            pw = st.text_input("비밀번호", type="password", placeholder="데모 비밀번호 입력")
+            submitted = st.form_submit_button("입장", type="primary", use_container_width=True)
+        if submitted:
+            if pw == expected:
+                st.session_state["_auth_ok"] = True
+                st.rerun()
+            else:
+                st.error("비밀번호가 올바르지 않습니다.")
+    return False
 
 
 def _provider_status() -> tuple[str, str, bool]:
@@ -642,6 +716,8 @@ def _history_section(SessionLocal) -> None:
 
 
 def main() -> None:
+    if not _check_password():
+        st.stop()
     SessionLocal = _bootstrap()
     _sidebar()
 
