@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-05-03)
 
 ## Current Position
 
-Phase: 1.5 of 6 (Demo Slice + SEO Blog 확장)
-Plan: 6 of 6 (Phase 1.5까지 완료)
-Status: Demo running — http://localhost:8501
-Last activity: 2026-05-03 — Phase 1 + Phase 1.5 데모 슬라이스 완성. Streamlit 동작 확인.
+Phase: 2 of 6 (Content Pipeline 확장 — Planning 완료)
+Plan: PLAN.md 작성 완료, 실행 대기
+Status: Planning done — `.planning/phases/02-content-pipeline-expansion/PLAN.md` (3 sub-plans, 20 atomic tasks)
+Last activity: 2026-05-03 — Phase 2 plan 생성 (gsd-planner 통과)
 
-Progress: [██░░░░░░░░] 20% (Phase 1 + 1.5 완료, Phase 2~6 남음)
+Progress: [██░░░░░░░░] 20% (Phase 1 + 1.5 완료, Phase 2 plan 작성됨, 실행 대기)
 
 **완료된 산출물:**
 - src/storage: 멀티테넌트 SQLAlchemy 모델 (Tenant, ComplianceRule, Keyword, GeneratedContent)
