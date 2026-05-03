@@ -67,6 +67,11 @@ from src.reference.fetcher import (
     fetch_many,
     references_to_context_block,
 )
+from src.reference.retriever import (
+    cited_document_ids,
+    format_references_block,
+    retrieve,
+)
 from src.storage.models import GeneratedContent, LlmCallLog, Tenant
 
 logger = structlog.get_logger(__name__)
@@ -149,6 +154,42 @@ def _log_llm_call(
     session.commit()
 
 
+def _build_rag_context(
+    session: Session,
+    tenant_id: int,
+    keyword: str,
+    *,
+    use_rag: bool,
+    rag_k: int,
+) -> tuple[str, list[int]]:
+    """RAG 활성 시 retriever 호출 → (references_block, cited_document_ids).
+
+    오류/빈 결과 시 ("", []) 로 graceful 처리.
+    """
+    if not use_rag or rag_k <= 0:
+        return "", []
+    try:
+        chunks = retrieve(session, tenant_id, keyword, k=rag_k)
+    except Exception as e:  # pragma: no cover — graceful: RAG 실패 시 발행은 진행
+        logger.warning("rag.retrieve_failed", error=repr(e), tenant_id=tenant_id)
+        return "", []
+    if not chunks:
+        return "", []
+    block = format_references_block(chunks)
+    ids = cited_document_ids(chunks)
+    logger.info("rag.context_built", tenant_id=tenant_id, n_chunks=len(chunks), n_docs=len(ids))
+    return block, ids
+
+
+def _augment_tenant_block(tenant_data_block: str, references_block: str) -> str:
+    """tenant 정보 + 참고자료를 한 블록으로 결합 (provider 시그니처 무변경 패스스루)."""
+    if not references_block:
+        return tenant_data_block
+    if not tenant_data_block:
+        return references_block
+    return f"{tenant_data_block}\n\n{references_block}"
+
+
 def _join_for_lint(pairs: list[FAQPair]) -> str:
     """모든 Q+A를 하나의 텍스트로 합쳐 린트."""
     return "\n".join(f"Q: {p.question}\nA: {p.answer}" for p in pairs)
@@ -176,8 +217,13 @@ def generate_faq_content(
     provider: Optional[LLMProvider] = None,
     angle: str = "",
     save: bool = True,
+    use_rag: bool = True,
+    rag_k: int = 5,
 ) -> ContentResult:
-    """키워드 → FAQ 생성 → 의료법 린트 → 자동수정 루프 → JSON-LD."""
+    """키워드 → FAQ 생성 → 의료법 린트 → 자동수정 루프 → JSON-LD.
+
+    use_rag=True 면 Phase 3 retriever 가 keyword 로 top-k 청크를 가져와 LLM 컨텍스트에 주입.
+    """
     tenant = session.get(Tenant, tenant_id)
     if tenant is None:
         raise ValueError(f"tenant {tenant_id} not found. scripts/init_db.py 먼저 실행.")
@@ -189,7 +235,11 @@ def generate_faq_content(
         provider = get_provider()
 
     # 활성 의사/장비/이벤트 → LLM 컨텍스트 블록
-    tenant_data_block = build_tenant_context_block(session, tenant_id)
+    base_tenant_data = build_tenant_context_block(session, tenant_id)
+    rag_block, cited_ids = _build_rag_context(
+        session, tenant_id, keyword, use_rag=use_rag, rag_k=rag_k
+    )
+    tenant_data_block = _augment_tenant_block(base_tenant_data, rag_block)
 
     correction_hint: Optional[str] = None
     correction_history: list[ComplianceReport] = []
@@ -260,6 +310,7 @@ def generate_faq_content(
             channel="schema_org",
             body=json_ld,
             raw_qa_pairs={"pairs": [{"q": p.question, "a": p.answer} for p in last_result.qa_pairs]},
+            cited_reference_ids=cited_ids or None,
             compliance_status=last_report.status,
             compliance_report=last_report.to_dict(),
             llm_provider=last_result.provider,
@@ -312,6 +363,8 @@ def generate_blog_post(
     provider: Optional[LLMProvider] = None,
     angle: str = "",
     save: bool = True,
+    use_rag: bool = True,
+    rag_k: int = 5,
 ) -> BlogResult:
     """키워드 + (선택) 참조 URL + (선택) 이미지 → SEO 친화적 블로그 post.
 
@@ -340,7 +393,18 @@ def generate_blog_post(
     references_block = references_to_context_block(references) if references else ""
 
     # 활성 의사/장비/이벤트 → LLM 컨텍스트 블록
-    tenant_data_block = build_tenant_context_block(session, tenant_id)
+    base_tenant_data = build_tenant_context_block(session, tenant_id)
+
+    # Phase 3 RAG retrieval — keyword 로 인덱싱된 청크 가져와서 references_block 에 보강
+    rag_block, cited_ids = _build_rag_context(
+        session, tenant_id, keyword, use_rag=use_rag, rag_k=rag_k
+    )
+    if rag_block:
+        # 기존 fetch references 와 RAG references 를 한 블록으로 합침
+        references_block = (
+            f"{references_block}\n\n{rag_block}".strip() if references_block else rag_block
+        )
+    tenant_data_block = base_tenant_data
 
     image_count = len(images) if images else 0
 
@@ -464,7 +528,7 @@ def generate_blog_post(
                 "n_images": len(last_post.images),
                 "references": [r.url for r in references],
             },
-            cited_reference_ids=None,
+            cited_reference_ids=cited_ids or None,
             compliance_status=last_report.status,
             compliance_report=last_report.to_dict(),
             llm_provider=last_result.provider,
@@ -542,6 +606,8 @@ def generate_naver_blog_content(
     max_corrections: int = 3,
     provider: LLMProvider | None = None,
     save: bool = True,
+    use_rag: bool = True,
+    rag_k: int = 5,
 ) -> NaverBlogResult:
     """네이버 블로그 평문 발행 — 자동수정 루프 포함."""
     check_daily_budget(session, tenant_id)
@@ -552,7 +618,11 @@ def generate_naver_blog_content(
     if tenant is None:
         raise ValueError(f"Unknown tenant_id: {tenant_id}")
 
-    tenant_data_block = build_tenant_context_block(session, tenant_id)
+    base_tenant_data = build_tenant_context_block(session, tenant_id)
+    rag_block, cited_ids = _build_rag_context(
+        session, tenant_id, keyword, use_rag=use_rag, rag_k=rag_k
+    )
+    tenant_data_block = _augment_tenant_block(base_tenant_data, rag_block)
 
     last_post: Optional[NaverBlogPost] = None
     last_report: Optional[ComplianceReport] = None
@@ -618,7 +688,7 @@ def generate_naver_blog_content(
                 "hashtags": last_post.hashtags,
                 "image_count": last_post.image_count,
             },
-            cited_reference_ids=None,
+            cited_reference_ids=cited_ids or None,
             compliance_status=last_report.status,
             compliance_report=last_report.to_dict(),
             llm_provider=last_result.provider,
@@ -648,6 +718,8 @@ def generate_instagram_content(
     max_corrections: int = 3,
     provider: LLMProvider | None = None,
     save: bool = True,
+    use_rag: bool = True,
+    rag_k: int = 5,
 ) -> InstagramResult:
     """Instagram 캡션 발행 — 자동수정 루프 포함. body 200~300자 + 해시태그 5~10."""
     check_daily_budget(session, tenant_id)
@@ -658,7 +730,11 @@ def generate_instagram_content(
     if tenant is None:
         raise ValueError(f"Unknown tenant_id: {tenant_id}")
 
-    tenant_data_block = build_tenant_context_block(session, tenant_id)
+    base_tenant_data = build_tenant_context_block(session, tenant_id)
+    rag_block, cited_ids = _build_rag_context(
+        session, tenant_id, keyword, use_rag=use_rag, rag_k=rag_k
+    )
+    tenant_data_block = _augment_tenant_block(base_tenant_data, rag_block)
 
     last_cap: Optional[InstagramCaption] = None
     last_report: Optional[ComplianceReport] = None
@@ -717,7 +793,7 @@ def generate_instagram_content(
                 "length_ok": len_ok,
                 "hashtag_count_ok": tag_ok,
             },
-            cited_reference_ids=None,
+            cited_reference_ids=cited_ids or None,
             compliance_status=last_report.status,
             compliance_report=last_report.to_dict(),
             llm_provider=last_result.provider,
