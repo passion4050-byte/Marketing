@@ -73,7 +73,7 @@ st.set_page_config(
     page_title="HOSPITAL — GEO/AEO 콘텐츠 발행",
     page_icon="🏥",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 # ─── 글로벌 디자인 시스템 ────────────────────────────────────────
@@ -183,55 +183,55 @@ def _save_uploaded_image(uploaded) -> str:
     return f"./data/uploads/{out.name}"
 
 
-def _sidebar() -> None:
-    with st.sidebar:
+def _top_header() -> None:
+    """상단 헤더 — 좌측: 브랜드, 우측: LLM/비용 metadata chip.
+
+    사이드바 대체. 메타정보는 작고 옅게, 메인 콘텐츠 영역 최대화.
+    """
+    provider_name, provider_msg, ok = _provider_status()
+    chip_variant = "green" if ok else "red"
+    daily_cap = os.getenv("MAX_CONTENT_GEN_PER_DAY", "50")
+    usd_cap = os.getenv("MAX_DAILY_USD", "10.0")
+
+    # 헤더 스트립 — flex 레이아웃 (브랜드 좌, 메타 우)
+    st.markdown(
+        f"""
+        <div class="gsd-app-header">
+          <div class="gsd-brand">
+            <div class="gsd-brand-mark">🏥</div>
+            <div>
+              <div class="gsd-brand-name">HOSPITAL</div>
+              <div class="gsd-brand-tag">GEO/AEO Content Platform</div>
+            </div>
+          </div>
+          <div class="gsd-meta-strip">
+            <span class="gsd-meta-item">
+              <span class="gsd-meta-label">LLM</span>
+              <span class="gsd-chip gsd-chip-{chip_variant}">{provider_name}</span>
+            </span>
+            <span class="gsd-meta-divider"></span>
+            <span class="gsd-meta-item">
+              <span class="gsd-meta-label">일일 한도</span>
+              <span class="gsd-meta-value">{daily_cap}건 · ${usd_cap}</span>
+            </span>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # 키 없는 stub 모드일 때만 1줄 인라인 알림 (info 박스 대신)
+    if provider_name == "stub":
         st.markdown(
             """
-            <div style="padding:8px 4px 16px 4px;">
-              <div style="font-size:22px;font-weight:800;letter-spacing:-0.02em;color:#1a1a1a;">
-                🏥 HOSPITAL
-              </div>
-              <div style="font-size:12px;color:#888;margin-top:2px;letter-spacing:0.04em;">
-                GEO/AEO Content Platform
-              </div>
+            <div class="gsd-inline-note">
+              💡 키 없이 동작 중 — 실제 LLM 사용은 Settings → Secrets 에 <code>GOOGLE_API_KEY</code> 추가
             </div>
             """,
             unsafe_allow_html=True,
         )
-
-        provider_name, provider_msg, ok = _provider_status()
-        chip_color = "green" if ok else "red"
-        st.markdown(
-            f"**LLM Provider** &nbsp; {chip(provider_name, chip_color)}",
-            unsafe_allow_html=True,
-        )
-        st.caption(provider_msg)
-
-        if provider_name == "stub":
-            st.info(
-                "💡 키 없이 동작 모드입니다. `.env`에서 `LLM_PROVIDER=gemini`로 바꾸고 "
-                "[Google AI Studio](https://aistudio.google.com/apikey)에서 무료 키 발급 후 재실행."
-            )
-        elif not ok:
-            st.warning(f"`LLM_PROVIDER={provider_name}` 인데 해당 API 키가 비어있습니다.")
-
-        st.divider()
-        st.markdown("**📊 비용 가드레일**")
-        st.caption(
-            f"하루 한도: **{os.getenv('MAX_CONTENT_GEN_PER_DAY', '50')}건**  \n"
-            f"일일 한도 USD: **${os.getenv('MAX_DAILY_USD', '10.0')}**"
-        )
-
-        st.divider()
-        st.markdown("**📚 탭 안내**")
-        st.caption(
-            "**📊 대시보드** · 노출 현황 / KPI  \n"
-            "**🎯 데이터 피딩** · 의사·장비·이벤트 입력  \n"
-            "**🧩 FAQ** · GEO Q&A 발행  \n"
-            "**📝 블로그** · SEO + 이미지 + 레퍼런스  \n"
-            "**🧪 시뮬레이터** · 3엔진 비교  \n"
-            "**🎨 브랜드 보이스** · 톤앤매너 설정"
-        )
+    elif not ok:
+        st.warning(f"`LLM_PROVIDER={provider_name}` 인데 해당 API 키가 비어있습니다.")
 
 
 def _tenant_picker(SessionLocal, *, key: str) -> tuple[Tenant, list[str]]:
@@ -719,31 +719,27 @@ def main() -> None:
     if not _check_password():
         st.stop()
     SessionLocal = _bootstrap()
-    _sidebar()
+    _top_header()
 
+    # 페이지 타이틀 — 헤더 바로 아래, 컴팩트하게
     st.markdown(
         """
-        <div style="padding:8px 0 16px 0;">
-          <div style="font-size:30px;font-weight:800;letter-spacing:-0.03em;color:#1a1a1a;">
-            AEO 콘텐츠 자동 발행 프로그램
-          </div>
-          <div style="font-size:14px;color:#666;margin-top:4px;">
-            GEO/AEO SaaS — 키워드 → 의료법 통과 콘텐츠 → 복사 가능 ·
-            AI 검색엔진 인용도 + 구글/네이버 SEO 동시 최적화
-          </div>
+        <div class="gsd-page-title">
+          <h1>AEO 콘텐츠 자동 발행</h1>
+          <p>키워드 → 의료법 통과 콘텐츠 → 복사 가능 · AI 검색 인용도 + 구글/네이버 SEO 동시 최적화</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    tab_dash, tab_feed, tab_faq, tab_blog, tab_sim, tab_voice = st.tabs(
+    tab_dash, tab_feed, tab_voice, tab_sim, tab_faq, tab_blog = st.tabs(
         [
             "📊 대시보드",
             "🎯 데이터 피딩",
+            "🎨 브랜드 보이스",
+            "🧪 AI 시뮬레이터",
             "🧩 FAQ 생성기",
             "📝 블로그 포스트",
-            "🧪 AI 시뮬레이터",
-            "🎨 브랜드 보이스",
         ]
     )
     with tab_dash:
@@ -752,16 +748,16 @@ def main() -> None:
     with tab_feed:
         tenant, _ = _tenant_picker(SessionLocal, key="profile")
         render_profile_tab(SessionLocal, tenant)
+    with tab_voice:
+        tenant, _ = _tenant_picker(SessionLocal, key="voice")
+        render_brand_voice_tab(SessionLocal, tenant)
+    with tab_sim:
+        tenant, _ = _tenant_picker(SessionLocal, key="aisim")
+        render_ai_simulator_tab(SessionLocal, tenant)
     with tab_faq:
         _faq_tab(SessionLocal)
     with tab_blog:
         _blog_tab(SessionLocal)
-    with tab_sim:
-        tenant, _ = _tenant_picker(SessionLocal, key="aisim")
-        render_ai_simulator_tab(SessionLocal, tenant)
-    with tab_voice:
-        tenant, _ = _tenant_picker(SessionLocal, key="voice")
-        render_brand_voice_tab(SessionLocal, tenant)
 
     _history_section(SessionLocal)
 

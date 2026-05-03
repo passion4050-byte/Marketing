@@ -80,22 +80,143 @@ GLOBAL_CSS = f"""
   /* ─ Top toolbar / hide deploy button (clean look) ─ */
   div[data-testid="stToolbar"] {{ display: none; }}
 
-  /* ─ Tabs ─ */
-  div[data-baseweb="tab-list"] {{ gap: 4px; }}
+  /* ─ Sidebar — 완전 숨김 (메타정보는 상단 헤더로 이동) ─ */
+  section[data-testid="stSidebar"] {{ display: none !important; }}
+  button[data-testid="stSidebarCollapseButton"],
+  button[kind="header"][data-testid="baseButton-header"] {{ display: none !important; }}
+
+  /* 메인 컨테이너 좌우 여백 확보 — 사이드바 제거에 따른 조정 */
+  section.main > div.block-container {{
+    padding-top: 1.5rem !important;
+    padding-left: 3rem !important;
+    padding-right: 3rem !important;
+    max-width: 1400px !important;
+  }}
+
+  /* ─ Top App Header (사이드바 대체) ─ */
+  .gsd-app-header {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    background: {Colors.WHITE};
+    border: 1px solid {Colors.GRAY_200};
+    border-radius: {Radius.MD};
+    margin-bottom: 18px;
+  }}
+  .gsd-brand {{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }}
+  .gsd-brand-mark {{
+    font-size: 26px;
+    line-height: 1;
+  }}
+  .gsd-brand-name {{
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: {Colors.GRAY_900};
+    line-height: 1.1;
+  }}
+  .gsd-brand-tag {{
+    font-size: 11px;
+    color: {Colors.GRAY_400};
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }}
+  .gsd-meta-strip {{
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }}
+  .gsd-meta-item {{
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }}
+  .gsd-meta-label {{
+    font-size: 11px;
+    color: {Colors.GRAY_400};
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }}
+  .gsd-meta-value {{
+    font-size: 12px;
+    color: {Colors.GRAY_700};
+    font-weight: 600;
+  }}
+  .gsd-meta-divider {{
+    width: 1px;
+    height: 16px;
+    background: {Colors.GRAY_200};
+  }}
+  .gsd-inline-note {{
+    background: {Colors.INFO_LIGHT};
+    color: {Colors.INFO};
+    padding: 8px 14px;
+    border-radius: {Radius.SM};
+    font-size: 12px;
+    margin-bottom: 14px;
+    border: 1px solid rgba(29, 80, 168, 0.12);
+  }}
+  .gsd-inline-note code {{
+    background: rgba(255,255,255,0.6);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+  }}
+
+  /* ─ Page title block ─ */
+  .gsd-page-title {{
+    margin: 4px 0 22px 0;
+  }}
+  .gsd-page-title h1 {{
+    font-size: 28px !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.03em !important;
+    color: {Colors.GRAY_900} !important;
+    margin: 0 !important;
+    line-height: 1.2 !important;
+  }}
+  .gsd-page-title p {{
+    font-size: 13px;
+    color: {Colors.GRAY_500};
+    margin: 6px 0 0 0;
+    line-height: 1.5;
+  }}
+
+  /* ─ Tabs — 큰 클릭 영역, 명확한 active ─ */
+  div[data-baseweb="tab-list"] {{
+    gap: 2px;
+    border-bottom: 1px solid {Colors.GRAY_200};
+    margin-bottom: 18px;
+  }}
   button[data-baseweb="tab"] {{
     border-radius: {Radius.SM} {Radius.SM} 0 0 !important;
-    padding: 10px 18px !important;
+    padding: 12px 20px !important;
     font-weight: 600 !important;
+    font-size: 14px !important;
+    color: {Colors.GRAY_500} !important;
+    border: none !important;
+    background: transparent !important;
+    transition: color 0.12s ease, background 0.12s ease !important;
+  }}
+  button[data-baseweb="tab"]:hover {{
+    color: {Colors.GRAY_900} !important;
+    background: {Colors.GRAY_100} !important;
   }}
   button[data-baseweb="tab"][aria-selected="true"] {{
     background: {Colors.PRIMARY_LIGHT} !important;
     color: {Colors.PRIMARY_DARK} !important;
   }}
-
-  /* ─ Sidebar polish ─ */
-  section[data-testid="stSidebar"] {{
-    background: {Colors.WHITE};
-    border-right: 1px solid {Colors.GRAY_200};
+  /* active 탭 하단 인디케이터 두껍게 */
+  div[data-baseweb="tab-highlight"] {{
+    background-color: {Colors.PRIMARY} !important;
+    height: 3px !important;
   }}
 
   /* ─ Buttons ─ */
