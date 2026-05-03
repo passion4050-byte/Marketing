@@ -23,8 +23,14 @@ _ALL_CHANNELS = list(_CHANNEL_LABELS.keys())
 
 
 def _ensure_setting(SessionLocal, tenant_id: int):
-    """tenant 별 AutoContentSetting 1행 보장 (없으면 생성)."""
-    from src.storage.models import AutoContentSetting
+    """tenant 별 AutoContentSetting 1행 보장 (없으면 생성).
+
+    stale module cache 에서 AutoContentSetting 모델 자체가 없을 수 있어 ImportError 가드.
+    """
+    try:
+        from src.storage.models import AutoContentSetting
+    except ImportError:
+        return None
 
     with SessionLocal() as s:
         row = (
@@ -54,9 +60,19 @@ def _ensure_setting(SessionLocal, tenant_id: int):
 
 def _render_setting_card(SessionLocal, tenant) -> None:
     """자동 생성 설정 — 활성/비활성, 일일 개수, 채널 선택."""
-    from src.storage.models import AutoContentSetting
+    try:
+        from src.storage.models import AutoContentSetting
+    except ImportError:
+        st.warning(
+            "⚠️ 자동 콘텐츠 설정 모델이 아직 로드되지 않았습니다. "
+            "Streamlit Cloud → Manage app → Reboot app 후 다시 시도해 주세요."
+        )
+        return
 
     setting = _ensure_setting(SessionLocal, tenant.id)
+    if setting is None:
+        st.warning("자동 콘텐츠 설정 로드 실패 — 앱 재시작이 필요합니다.")
+        return
 
     with st.container(border=True):
         st.markdown("##### ⚙️ 자동 콘텐츠 생성 설정")
@@ -164,9 +180,19 @@ def _render_setting_card(SessionLocal, tenant) -> None:
 
 
 def _render_queue(SessionLocal, tenant) -> None:
-    """status='draft' 인 콘텐츠 list."""
+    """status='draft' 인 콘텐츠 list.
+
+    stale module cache 에서 status 가 없으면 빈 큐로 노출 (없는 게 안전).
+    """
     from src.dashboard.app import render_content_card
     from src.storage.models import GeneratedContent
+
+    if not hasattr(GeneratedContent, "status"):
+        st.warning(
+            "⚠️ 자동 콘텐츠 큐 기능이 활성화되려면 앱 재시작이 필요합니다. "
+            "Streamlit Cloud → Manage app → Reboot app 을 눌러주세요."
+        )
+        return
 
     with SessionLocal() as session:
         rows = (

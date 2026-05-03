@@ -605,14 +605,21 @@ def render_content_card(SessionLocal, content_id: int, *, key_prefix: str = "his
 
 
 def _history_section(SessionLocal, tenant_id: int | None = None) -> None:
-    """발행 이력 — status='published' 만 (자동 생성 draft 는 임시저장함에서)."""
+    """발행 이력 — status='published' 만 (자동 생성 draft 는 임시저장함에서).
+
+    Streamlit Cloud 의 stale module cache 환경에서는 ``GeneratedContent.status`` 가
+    아직 없을 수 있으므로 hasattr 가드. 컬럼 없으면 status 필터 skip (전체 노출).
+    """
     st.divider()
     st.subheader("🗂️ 최근 발행 이력")
     st.caption("각 항목을 펼쳐 본문을 확인·수정하거나 의료법 재검사를 실행할 수 있습니다.")
     with SessionLocal() as session:
-        q = session.query(GeneratedContent.id).filter(
-            GeneratedContent.status == "published"
-        )
+        q = session.query(GeneratedContent.id)
+        if hasattr(GeneratedContent, "status"):
+            try:
+                q = q.filter(GeneratedContent.status == "published")
+            except Exception:
+                pass
         if tenant_id is not None:
             q = q.filter(GeneratedContent.tenant_id == tenant_id)
         ids = [r.id for r in q.order_by(GeneratedContent.created_at.desc()).limit(20).all()]

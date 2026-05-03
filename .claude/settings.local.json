@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"./.venv/Scripts/python.exe\" -c \"from src.dashboard.app import _history_section; from src.dashboard.draft_queue_tab import render_draft_queue_tab; print\\('OK'\\)\")",
+      "Bash(\"./.venv/Scripts/python.exe\" -m pytest --tb=short -q)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
+    ]
+  }
+}
