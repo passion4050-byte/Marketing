@@ -160,7 +160,8 @@ def render_measurement_tab(SessionLocal, tenant) -> None:
                 "created_at": r.created_at,
                 "mentions": [
                     {"brand": m.brand, "is_target": m.is_target, "is_competitor": m.is_competitor,
-                     "position": m.position, "snippet": m.context_snippet}
+                     "position": m.position, "snippet": m.context_snippet,
+                     "sentiment": m.sentiment or "neutral"}
                     for m in mentions
                 ],
             })
@@ -205,6 +206,17 @@ def render_measurement_tab(SessionLocal, tenant) -> None:
             )
 
             if mentions:
+                # sentiment 분포 chip — Phase 6
+                pos_n = sum(1 for m in mentions if m["sentiment"] == "positive")
+                neg_n = sum(1 for m in mentions if m["sentiment"] == "negative")
+                neu_n = sum(1 for m in mentions if m["sentiment"] == "neutral")
+                if pos_n + neg_n + neu_n > 0:
+                    st.markdown(
+                        f'<span class="gsd-chip gsd-chip-green">🟢 긍정 {pos_n}</span> '
+                        f'<span class="gsd-chip gsd-chip-gray">⚪ 중립 {neu_n}</span> '
+                        f'<span class="gsd-chip gsd-chip-red">🔴 부정 {neg_n}</span>',
+                        unsafe_allow_html=True,
+                    )
                 with st.expander(f"멘션 상세 ({len(mentions)}건)", expanded=False):
                     for m in mentions:
                         kind = (
@@ -212,8 +224,14 @@ def render_measurement_tab(SessionLocal, tenant) -> None:
                             else "🔵 경쟁사" if m["is_competitor"]
                             else "•"
                         )
+                        sent_chip = {
+                            "positive": '<span class="gsd-chip gsd-chip-green">긍정</span>',
+                            "negative": '<span class="gsd-chip gsd-chip-red">부정</span>',
+                            "neutral":  '<span class="gsd-chip gsd-chip-gray">중립</span>',
+                        }.get(m["sentiment"], "")
                         st.markdown(
-                            f"{kind} **{m['brand']}** (위치 {m['position']}) — _{m['snippet']}_"
+                            f"{kind} **{m['brand']}** {sent_chip} (위치 {m['position']}) — _{m['snippet']}_",
+                            unsafe_allow_html=True,
                         )
 
             if item["cited_urls"]:
@@ -278,12 +296,14 @@ def _render_timeseries_section(SessionLocal, tenant, kw_data) -> None:
         import pandas as pd
 
         from src.analytics import (
+            competitor_share,
             daily_mention_share_series,
             detect_anomalies,
             detect_trend,
             mention_share,
             wilson_ci,
         )
+        from src.storage.models import Competitor
     except ImportError as _ie:  # pragma: no cover
         st.warning(f"분석 모듈 import 실패: `{_ie}`")
         return
@@ -347,6 +367,13 @@ def _render_timeseries_section(SessionLocal, tenant, kw_data) -> None:
         help=f"95% CI: [{agg['weighted_ci_95'][0]:.2f}, {agg['weighted_ci_95'][1]:.2f}]",
     )
 
+    # sentiment 분포 KPI — Phase 6
+    if agg.get("n", 0) > 0:
+        col_p, col_n2, col_neu = st.columns(3)
+        col_p.metric("🟢 긍정 share", f"{agg.get('positive_share', 0.0):.1%}")
+        col_n2.metric("🔴 부정 share", f"{agg.get('negative_share', 0.0):.1%}")
+        col_neu.metric("⚪ 중립 share", f"{agg.get('neutral_share', 0.0):.1%}")
+
     # ─── Altair line + CI 음영 + 이상치 dot ──────────────────
     base = alt.Chart(df).encode(
         x=alt.X("day:T", title="날짜"),
@@ -385,6 +412,35 @@ def _render_timeseries_section(SessionLocal, tenant, kw_data) -> None:
         with st.expander(f"브랜드별 멘션 카운트 ({len(agg['by_brand'])}개)", expanded=False):
             for brand, count in agg["by_brand"].items():
                 st.markdown(f"- **{brand}** — {count}건")
+
+    # ─── 경쟁사 비교 차트 — Phase 6-T3.4 ────────────────────
+    with SessionLocal() as cs:
+        confirmed = (
+            cs.query(Competitor)
+            .filter(Competitor.tenant_id == tenant.id, Competitor.confirmed == True)  # noqa: E712
+            .all()
+        )
+        confirmed_names = [c.name for c in confirmed]
+
+    if confirmed_names:
+        st.markdown("##### 🆚 경쟁사 비교")
+        rows = [{"브랜드": tenant.name + " (자기)", "share": agg.get("share", 0.0)}]
+        with SessionLocal() as cs:
+            for cname in confirmed_names:
+                cshr = competitor_share(cs, tenant.id, keyword_id, cname)
+                rows.append({"브랜드": cname, "share": cshr["share"]})
+        comp_df = pd.DataFrame(rows)
+        comp_chart = (
+            alt.Chart(comp_df)
+            .mark_bar(color="#5b8ff9")
+            .encode(
+                x=alt.X("share:Q", axis=alt.Axis(format=".0%"), title="Mention Share"),
+                y=alt.Y("브랜드:N", sort="-x"),
+                tooltip=[alt.Tooltip("브랜드:N"), alt.Tooltip("share:Q", format=".1%")],
+            )
+            .properties(height=max(120, 30 * len(rows)))
+        )
+        st.altair_chart(comp_chart, use_container_width=True)
 
 
 def _render_competitor_section(SessionLocal, tenant) -> None:

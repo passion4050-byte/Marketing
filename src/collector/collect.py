@@ -215,7 +215,10 @@ async def collect_for_keyword(
                         is_competitor=em.is_competitor,
                         position=em.position,
                         weight=em.weight,
-                        sentiment="negative" if em.is_negative else None,
+                        # Phase 6: positive | negative | neutral. v1 fallback "negative" if is_negative.
+                        sentiment=getattr(em, "sentiment", None) or (
+                            "negative" if em.is_negative else "neutral"
+                        ),
                         context_snippet=em.context_snippet,
                     ))
 

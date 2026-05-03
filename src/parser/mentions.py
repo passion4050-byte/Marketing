@@ -21,6 +21,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
+from src.parser.sentiment import classify_sentiment
 from src.parser.signals import MentionSignals, load_signals
 
 
@@ -28,8 +29,8 @@ from src.parser.signals import MentionSignals, load_signals
 class ExtractedMention:
     """Mention 추출 결과 1건.
 
-    v1: weight=1.0, is_negative=False, recommendation_strength=1.0 고정
-    v2: weight = position_score × strength_score (0~1 실수)
+    v1: weight=1.0, is_negative=False, recommendation_strength=1.0, sentiment="neutral"
+    v2: weight = position_score × strength_score (0~1), sentiment ∈ {positive,negative,neutral}
     """
 
     brand: str
@@ -40,6 +41,7 @@ class ExtractedMention:
     weight: float = 1.0
     is_negative: bool = False
     recommendation_strength: float = 1.0  # v2: 1.0 / 0.7 / 0.3
+    sentiment: str = "neutral"  # Phase 6: positive | negative | neutral
 
 
 _BOUNDARY_LEFT = r"(?<![가-힣A-Za-z0-9])"
@@ -161,11 +163,13 @@ def extract_mentions(
                 str_s = _strength_score(text, pos, mlen, sigs)
                 weight = round(pos_s * str_s, 2)
                 is_neg = _is_negative(text, pos, mlen, sigs)
+                sentiment = classify_sentiment(text, pos, mlen, sigs)
             else:
                 pos_s = 1.0
                 str_s = 1.0
                 weight = 1.0
                 is_neg = False
+                sentiment = "neutral"
 
             found[key] = ExtractedMention(
                 brand=term,
@@ -176,6 +180,7 @@ def extract_mentions(
                 weight=weight,
                 is_negative=is_neg,
                 recommendation_strength=str_s,
+                sentiment=sentiment,
             )
 
     for term in target_terms:

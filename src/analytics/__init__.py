@@ -10,11 +10,12 @@
 from src.analytics.anomaly import AnomalyPoint, detect_anomalies
 from src.analytics.series import DailyShare, daily_mention_share_series
 from src.analytics.trend import detect_trend
-from src.analytics.visibility import mention_share, wilson_ci
+from src.analytics.visibility import competitor_share, mention_share, wilson_ci
 
 __all__ = [
     "AnomalyPoint",
     "DailyShare",
+    "competitor_share",
     "daily_mention_share_series",
     "detect_anomalies",
     "detect_trend",
