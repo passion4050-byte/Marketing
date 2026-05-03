@@ -352,11 +352,7 @@ def _render_event_card(SessionLocal, tenant_id: int) -> None:
             badge_color = "optimized" if running else "pending"
             badge_label = "진행 중" if running else "예정/종료"
             badge = _status_chip(badge_color, badge_label)
-            with st.expander(
-                f"{ev.name} · "
-                f"{(ev.regular_price or 0):,}원 → {(ev.discount_price or 0):,}원",
-                expanded=False,
-            ):
+            with st.expander(ev.name, expanded=False):
                 st.markdown(badge, unsafe_allow_html=True)
                 with st.form(f"ev_edit_{ev.id}"):
                     name = st.text_input("이벤트 이름", value=ev.name, key=f"v_name_{ev.id}")
