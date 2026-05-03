@@ -329,10 +329,24 @@ GLOBAL_CSS = f"""
   div[data-testid="stButton"] > button[kind="primary"] {{
     background: {Colors.PRIMARY};
     border-color: {Colors.PRIMARY};
+    color: {Colors.WHITE} !important;
   }}
   div[data-testid="stButton"] > button[kind="primary"]:hover {{
     background: {Colors.PRIMARY_DARK};
     border-color: {Colors.PRIMARY_DARK};
+  }}
+  /* 선택된 (disabled primary) 버튼 — 텍스트 흰색 유지, opacity 살짝만 낮춤 */
+  div[data-testid="stButton"] > button[kind="primary"]:disabled,
+  div[data-testid="stButton"] > button[kind="primary"][disabled] {{
+    background: {Colors.PRIMARY} !important;
+    border-color: {Colors.PRIMARY} !important;
+    color: {Colors.WHITE} !important;
+    opacity: 0.92 !important;
+    cursor: default !important;
+  }}
+  div[data-testid="stButton"] > button[kind="primary"]:disabled *,
+  div[data-testid="stButton"] > button[kind="primary"][disabled] * {{
+    color: {Colors.WHITE} !important;
   }}
 
   /* ─ Inputs — 브랜드 컬러 윤곽선으로 가시성 강화 ─ */
