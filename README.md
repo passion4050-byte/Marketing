@@ -2,6 +2,8 @@
 
 AI 검색엔진(Perplexity / ChatGPT / Gemini / Claude)에서 의료 도메인 브랜드 노출을 측정하고, AI에 인용되도록 최적화된 콘텐츠를 자동 생성하는 멀티테넌트 SaaS.
 
+🌐 **라이브 데모:** https://blogkey.streamlit.app (비공개 — 비밀번호 필요)
+
 > 본 저장소는 **Phase 1 데모 슬라이스**가 동작하는 상태입니다 — 의료법 컴플라이언스 린터 + FAQ Schema.org JSON-LD 생성기. 풀스코프(MVP-0 ~ MVP-3)는 [`.planning/SPEC-v2.md`](.planning/SPEC-v2.md), 로드맵은 [`.planning/ROADMAP.md`](.planning/ROADMAP.md) 참조.
 
 ---
@@ -152,6 +154,27 @@ pytest
 핵심 모듈:
 - `tests/test_linter.py` — 9개 케이스 (룰 타입별, 위반 집계, position)
 - `tests/test_generator.py` — 4개 케이스 (stub 통과, DB 영속화, 모르는 tenant, 린트 호출)
+
+---
+
+## 배포 (Streamlit Community Cloud)
+
+이미 https://blogkey.streamlit.app 에 배포되어 있습니다. 본인 계정으로 새 인스턴스를 띄우려면:
+
+1. **GitHub** — 이 리포를 fork (또는 본인 리포로 복제)
+2. **Streamlit Cloud** — https://share.streamlit.io → `Create app` → 본인 리포 선택
+   - Main file path: `src/dashboard/app.py`
+   - Branch: `main`
+3. **Secrets** (Advanced settings → Secrets):
+   ```toml
+   LLM_PROVIDER = "gemini"          # 또는 "stub"
+   GOOGLE_API_KEY = "키"
+   APP_PASSWORD = "데모비밀번호"
+   ```
+   템플릿: [`.streamlit/secrets.toml.example`](.streamlit/secrets.toml.example)
+4. **Deploy** 클릭 → 2~3분 후 URL 발급
+
+> 컨테이너 재시작 시 SQLite 가 휘발돼도 [`src/storage/seed.py`](src/storage/seed.py) 의 `seed_if_empty()` 가 매 부트마다 자동으로 sample tenants/rules 를 다시 채웁니다. 운영 데이터를 영속화하려면 `DATABASE_URL` secret 에 Postgres URL (예: Supabase) 를 추가하세요.
 
 ---
 
