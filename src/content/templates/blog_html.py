@@ -233,6 +233,11 @@ def _strip_md(text: str) -> str:
 def render_naver_blog_plain(post: BlogPost) -> str:
     """네이버 블로그 평문 — HTML 미지원. 단락 + 이모지 + 해시태그.
 
+    .. deprecated:: Phase 2-T2.1
+       네이버 평문은 이제 독립 채널입니다 — `src/content/templates/naver_blog.py` 의
+       `render_naver_plain()` 사용. 본 함수는 기존 `blog_html` 발행물의 보조 출력으로만
+       유지되며 향후 제거됩니다.
+
     bold 마크다운 ** 는 제거 (네이버 평문에선 불필요), 이모지는 유지.
     """
     out: list[str] = []

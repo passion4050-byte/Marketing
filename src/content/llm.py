@@ -52,6 +52,26 @@ class BlogGenerationResult:
     angle: str = ""
 
 
+@dataclass
+class NaverBlogGenerationResult:
+    """네이버 블로그 평문 — Phase 2-T2.3."""
+
+    post_dict: dict   # naver_blog.post_from_dict() 가 받는 schema
+    raw_text: str
+    provider: str
+    angle: str = ""
+
+
+@dataclass
+class InstagramGenerationResult:
+    """Instagram 캡션 — Phase 2-T2.3."""
+
+    caption_dict: dict  # instagram.post_from_dict() 가 받는 schema
+    raw_text: str
+    provider: str
+    angle: str = ""
+
+
 class LLMError(RuntimeError):
     pass
 
@@ -95,6 +115,33 @@ class LLMProvider(Protocol):
         angle: str = "",
         correction_hint: str | None = None,
     ) -> BlogGenerationResult: ...
+
+    def generate_naver_blog(
+        self,
+        keyword: str,
+        tenant_name: str,
+        tenant_category: str,
+        tenant_region: str,
+        tenant_address: str = "",
+        tenant_naver_place_url: str = "",
+        tenant_phone: str = "",
+        tenant_data_block: str = "",
+        image_count: int = 0,
+        target_chars: int = 2000,
+        angle: str = "",
+        correction_hint: str | None = None,
+    ) -> NaverBlogGenerationResult: ...
+
+    def generate_instagram(
+        self,
+        keyword: str,
+        tenant_name: str,
+        tenant_category: str,
+        tenant_region: str,
+        tenant_data_block: str = "",
+        angle: str = "",
+        correction_hint: str | None = None,
+    ) -> InstagramGenerationResult: ...
 
 
 # ─── Stub Provider (키 없이 즉시 동작) ──────────────────────────
@@ -346,6 +393,127 @@ class StubProvider:
         raw = json.dumps(post, ensure_ascii=False, indent=2)
         return BlogGenerationResult(post_dict=post, raw_text=raw, provider=self.name, angle=angle)
 
+    def generate_naver_blog(
+        self,
+        keyword: str,
+        tenant_name: str,
+        tenant_category: str,
+        tenant_region: str,
+        tenant_address: str = "",
+        tenant_naver_place_url: str = "",
+        tenant_phone: str = "",
+        tenant_data_block: str = "",
+        image_count: int = 0,
+        target_chars: int = 2000,
+        angle: str = "",
+        correction_hint: str | None = None,
+    ) -> NaverBlogGenerationResult:
+        post = _stub_naver_blog(
+            keyword=keyword,
+            tenant_name=tenant_name,
+            image_count=image_count,
+            angle=angle,
+        )
+        raw = json.dumps(post, ensure_ascii=False, indent=2)
+        return NaverBlogGenerationResult(post_dict=post, raw_text=raw, provider=self.name, angle=angle)
+
+    def generate_instagram(
+        self,
+        keyword: str,
+        tenant_name: str,
+        tenant_category: str,
+        tenant_region: str,
+        tenant_data_block: str = "",
+        angle: str = "",
+        correction_hint: str | None = None,
+    ) -> InstagramGenerationResult:
+        cap = _stub_instagram_caption(
+            keyword=keyword,
+            tenant_name=tenant_name,
+            angle=angle,
+        )
+        raw = json.dumps(cap, ensure_ascii=False, indent=2)
+        return InstagramGenerationResult(caption_dict=cap, raw_text=raw, provider=self.name, angle=angle)
+
+
+# ─── Stub Naver/Instagram 견본 ───────────────────────────────
+
+
+def _stub_naver_blog(keyword: str, tenant_name: str, image_count: int, angle: str = "") -> dict:
+    """미리 작성된 의료법 안전 + 사람-톤 네이버 블로그 견본.
+
+    1500~2500자 범위, 이모지 헤더, 위치/해시태그.
+    """
+    angle_label = angle or "처음 알아볼 때 꼭 확인해야 할 것들"
+    intro = [
+        f"안녕하세요, 오늘은 {keyword}을(를) 고민 중이신 분들을 위해 평소 자주 받는 질문들을 정리해 봤습니다.",
+        f"개인적으로 {tenant_name}에서 상담 받으면서 느낀 점, 그리고 검사·회복까지의 흐름을 솔직하게 적어볼게요.",
+    ]
+    sections = [
+        {
+            "heading": "💡 1. 어떤 검사부터 받게 되나요?",
+            "paragraphs": [
+                f"{keyword} 시술을 결정하기 전에는 **사전 검사**가 정말 중요해요.",
+                "시력, 안압, 각막 두께, 각막 지형도 같은 기본 검사 외에 직업·생활 환경까지 고려한 종합 상담이 진행됩니다.",
+                f"{tenant_name}에서는 검사 결과지를 직접 보면서 의료진과 1:1로 시술 가능 여부를 확인할 수 있었습니다.",
+            ],
+        },
+        {
+            "heading": "🩺 2. 회복 기간은 얼마나 걸리는 편인가요?",
+            "paragraphs": [
+                f"({angle_label}) 시술 종류에 따라 차이가 있는데, 일상 복귀까지는 보통 **1~3일**, 안정화는 약 **1~3개월** 정도로 안내됩니다.",
+                "직장인이라면 휴가 일정에 맞춰 시기를 조율하시는 분들이 많아요. 회복 기간 중에는 정기 경과 관찰을 받는 게 좋습니다.",
+                "효과나 회복 속도는 개인차가 있을 수 있으니 진료의 판단을 우선해주세요.",
+            ],
+        },
+        {
+            "heading": "📌 3. 부작용·후유증 가능성은요?",
+            "paragraphs": [
+                "모든 의료 시술은 부작용 가능성을 동반합니다. 가장 안전한 방법은 **사전 검사**를 통해 가능성을 미리 점검하는 것이에요.",
+                f"{tenant_name}에서는 시술 후 이상 증상이 발생하면 신속히 대응할 수 있도록 사후 관리 체계를 운영하고 있습니다.",
+            ],
+        },
+        {
+            "heading": "🗓️ 4. 상담 예약은 어떻게 하나요?",
+            "paragraphs": [
+                f"전화 또는 홈페이지를 통한 **사전 예약**을 권장합니다.",
+                "첫 상담 시에는 약 1~2시간의 정밀 검사 후, 의료진과 함께 시술 가능 여부와 권장 시술법을 안내받게 됩니다.",
+            ],
+        },
+    ]
+    conclusion = [
+        f"{keyword}을(를) 고민하실 때, 가장 중요한 건 본인의 눈 상태에 맞는 시술을 선택하는 것입니다.",
+        "후기보다는 **정밀 검사 결과**를 우선하고, 필요하면 두 번 상담받는 것도 좋아요. 이 글이 결정에 도움이 되셨으면 합니다.",
+    ]
+    hashtags = [keyword, f"{tenant_name}", "안과", "라식", "라섹", "시력교정", "강남안과"]
+    return {
+        "title": f"{keyword}, {angle_label}",
+        "intro": intro,
+        "sections": sections,
+        "conclusion": conclusion,
+        "hashtags": hashtags,
+        "image_count": image_count or 3,
+    }
+
+
+def _stub_instagram_caption(keyword: str, tenant_name: str, angle: str = "") -> dict:
+    """미리 작성된 Instagram 캡션 견본 — 200~300자 + 5~10 해시태그."""
+    angle_label = angle or "처음 시작하시는 분들께"
+    hook = f"{keyword} 고민 중이라면? 👀 ({angle_label})"
+    body = (
+        f"많은 분들이 후기부터 찾아보시지만, 실제로 가장 중요한 건 **사전 검사** 결과예요. "
+        f"{tenant_name}에서는 검사 결과를 직접 보면서 1:1 상담을 받을 수 있습니다. "
+        f"개인차가 있으니 본인의 눈 상태에 맞는 시술을 우선 확인해보세요. 🩺"
+    )
+    cta = "DM 또는 프로필 링크로 상담 예약 가능합니다 💌"
+    hashtags = [keyword, "안과", "시력교정", "라식", "라섹", "강남안과", f"{tenant_name}"]
+    return {
+        "hook": hook,
+        "body": body,
+        "cta": cta,
+        "hashtags": hashtags,
+    }
+
 
 # ─── Real LLM Providers ─────────────────────────────────────────
 
@@ -478,6 +646,175 @@ _BLOG_SYSTEM_PROMPT = """당신은 한국 의료기관 블로그를 운영하는
   ]
 }
 """
+
+
+# ─── Naver Blog system prompt — Phase 2-T2.4 ─────────────────
+
+_NAVER_SYSTEM_PROMPT = """당신은 한국 네이버 블로그를 운영하는 의료기관 마케팅 카피라이터입니다.
+네이버 SmartEditor 에 그대로 붙여넣을 평문(plain text) 으로 글을 씁니다 — HTML/마크다운 사용 금지.
+
+[A. 의료법 컴플라이언스 — 가장 중요]
+1. 절대표현 금지: "100% 보장", "최고", "유일", "최초", "완치", "통증 제로".
+2. 효과/결과는 "개인차가 있을 수 있다" 자연 포함.
+3. 타 병원과의 직접 비교 금지.
+4. 이벤트/할인은 기간(시작~종료일) 또는 "기간 한정" 명시.
+5. 환자 유인 표현(파격 할인, 공짜) 금지.
+
+[B. 네이버 검색 SEO 톤]
+1. 본문은 1500~2500자. 너무 짧으면 검색 노출 약함, 너무 길면 이탈.
+2. 사람-톤 — 1인칭("저희"), 2인칭("이런 분이라면"), 일상 표현.
+3. 각 섹션 시작은 이모지 헤더(💡 🩺 📌 🗓️ ✅ ⏱️ 등) + 짧은 H2 같은 한 줄.
+4. 번역체("~을 통해", "~에 있어서") 회피.
+5. 짧은 문장과 긴 문장 호흡 변주.
+6. 4개 이상 나열은 단락으로 풀기.
+
+[C. 이미지 placeholder]
+1. image_count 가 N이면 본문 흐름에 맞춰 [이미지1] ~ [이미지N] 자연스럽게 배치.
+2. 도입부 직후 1개, 짝수 섹션 뒤에 나머지 분배 권장.
+
+[D. 위치 안내 + 해시태그]
+1. 본문 끝(마무리 다음)에 병원명/주소/네이버 플레이스 URL 자연 언급.
+2. 마지막 줄에 해시태그 5~10개. # 없이 단어만 (renderer 가 # 붙임).
+
+출력은 정확히 다음 JSON 형식만 (코드 블록/주석 X):
+{
+  "title": "...",
+  "intro": ["도입 단락1", "도입 단락2"],
+  "sections": [
+    {"heading": "💡 1. ...", "paragraphs": ["단락1", "단락2"]},
+    {"heading": "🩺 2. ...", "paragraphs": ["단락1", "단락2"]}
+  ],
+  "conclusion": ["마무리 단락"],
+  "hashtags": ["키워드1", "병원명", "지역명", "..."],
+  "image_count": 3
+}
+"""
+
+
+# ─── Instagram system prompt — Phase 2-T2.4 ──────────────────
+
+_INSTAGRAM_SYSTEM_PROMPT = """당신은 한국 의료기관 Instagram 운영 담당자입니다.
+짧고 임팩트 있는 캡션을 작성합니다.
+
+[A. 의료법 — 짧을수록 위험]
+1. 절대표현 금지(100%, 최고, 완치, 즉시 효과 등).
+2. 효과/결과 언급 시 짧게라도 "개인차" 또는 "사례에 따라" 표현.
+3. 타 병원 비교 금지, 환자 유인 표현 금지.
+4. 가격/이벤트 언급 시 기간 명시 (캡션 길이 제약 있어도 생략 X).
+
+[B. 캡션 길이/구조]
+1. body 영역은 200~300자(한글 1자=1, 이모지 1자=1) — 너무 짧으면 정보 X, 너무 길면 "더보기" 잘림.
+2. hook(첫 1줄): 호기심·질문·공감으로 시작. 일반적인 의료 광고 톤 X.
+3. body: 핵심 메시지 1~2개 압축. 이모지 적절히.
+4. cta: 마지막에 행동 유도 ("DM", "프로필 링크", "예약 문의" 등).
+5. 해시태그: 5~10개. # 없이 단어만 (renderer 가 # 붙임).
+
+[C. 톤]
+1. 친근, 솔직, 작은 이모지.
+2. 1인칭/2인칭 자연스럽게.
+3. 의학용어 남발 금지 — 일상어로 전환.
+
+출력은 정확히 다음 JSON 형식만 (코드 블록/주석 X):
+{
+  "hook": "강남에서 라식 고민 중이라면? 👀",
+  "body": "본문 200~300자 (해시태그 제외)",
+  "cta": "DM 으로 상담 받아보세요 💌",
+  "hashtags": ["키워드", "병원명", "..."]
+}
+"""
+
+
+def _build_naver_user_prompt(
+    keyword: str,
+    tenant_name: str,
+    tenant_category: str,
+    tenant_region: str,
+    tenant_address: str = "",
+    tenant_naver_place_url: str = "",
+    tenant_phone: str = "",
+    tenant_data_block: str = "",
+    image_count: int = 0,
+    target_chars: int = 2000,
+    angle: str = "",
+    correction_hint: str | None = None,
+) -> str:
+    parts = [
+        f"키워드: {keyword}",
+        f"의료기관: {tenant_name}",
+        f"분야: {tenant_category}",
+        f"지역: {tenant_region}",
+    ]
+    if tenant_address:
+        parts.append(f"주소: {tenant_address}")
+    if tenant_naver_place_url:
+        parts.append(f"네이버 플레이스: {tenant_naver_place_url}")
+    if tenant_phone:
+        parts.append(f"전화: {tenant_phone}")
+    parts.append(f"이미지 갯수: {image_count} (이 만큼 [이미지N] placeholder 배치)")
+    parts.append(f"목표 본문 글자 수: {target_chars} (1500~2500 권장)")
+    if angle:
+        parts.append(f"각도/관점: {angle}")
+    if tenant_data_block:
+        parts.append("\n--- 의료기관 사실 정보 (인용 권장) ---")
+        parts.append(tenant_data_block)
+    if correction_hint:
+        parts.append("\n--- 직전 위반 수정 가이드 ---")
+        parts.append(correction_hint)
+    parts.append("\n위 정보를 바탕으로 네이버 블로그 평문 JSON 한 개를 생성하세요.")
+    return "\n".join(parts)
+
+
+def _build_instagram_user_prompt(
+    keyword: str,
+    tenant_name: str,
+    tenant_category: str,
+    tenant_region: str,
+    tenant_data_block: str = "",
+    angle: str = "",
+    correction_hint: str | None = None,
+) -> str:
+    parts = [
+        f"키워드: {keyword}",
+        f"의료기관: {tenant_name}",
+        f"분야: {tenant_category}",
+        f"지역: {tenant_region}",
+    ]
+    if angle:
+        parts.append(f"각도/관점: {angle}")
+    if tenant_data_block:
+        parts.append("\n--- 의료기관 사실 정보 (인용 권장) ---")
+        parts.append(tenant_data_block)
+    if correction_hint:
+        parts.append("\n--- 직전 위반 수정 가이드 ---")
+        parts.append(correction_hint)
+    parts.append("\n위 정보를 바탕으로 Instagram 캡션 JSON 한 개를 생성하세요. body 는 반드시 200~300자.")
+    return "\n".join(parts)
+
+
+def _parse_naver_json(raw: str) -> dict:
+    """LLM raw text → dict. 실패 시 빈 schema 반환."""
+    try:
+        # JSON 외 텍스트 제거 시도
+        s = raw.strip()
+        start = s.find("{")
+        end = s.rfind("}")
+        if start >= 0 and end > start:
+            s = s[start : end + 1]
+        return json.loads(s)
+    except Exception:
+        return {"title": "", "intro": [], "sections": [], "conclusion": [], "hashtags": [], "image_count": 0}
+
+
+def _parse_instagram_json(raw: str) -> dict:
+    try:
+        s = raw.strip()
+        start = s.find("{")
+        end = s.rfind("}")
+        if start >= 0 and end > start:
+            s = s[start : end + 1]
+        return json.loads(s)
+    except Exception:
+        return {"hook": "", "body": "", "cta": "", "hashtags": []}
 
 
 def _build_blog_user_prompt(
@@ -637,6 +974,12 @@ class GeminiProvider:
         self._blog_model = genai.GenerativeModel(
             model_name=model, system_instruction=_BLOG_SYSTEM_PROMPT
         )
+        self._naver_model = genai.GenerativeModel(
+            model_name=model, system_instruction=_NAVER_SYSTEM_PROMPT
+        )
+        self._instagram_model = genai.GenerativeModel(
+            model_name=model, system_instruction=_INSTAGRAM_SYSTEM_PROMPT
+        )
 
     def generate_faq(
         self,
@@ -701,6 +1044,61 @@ class GeminiProvider:
             raise LLMError(f"Gemini 호출 실패: {e}") from e
         post = _parse_blog_json(raw)
         return BlogGenerationResult(post_dict=post, raw_text=raw, provider=self.name, angle=angle)
+
+    def generate_naver_blog(
+        self,
+        keyword: str,
+        tenant_name: str,
+        tenant_category: str,
+        tenant_region: str,
+        tenant_address: str = "",
+        tenant_naver_place_url: str = "",
+        tenant_phone: str = "",
+        tenant_data_block: str = "",
+        image_count: int = 0,
+        target_chars: int = 2000,
+        angle: str = "",
+        correction_hint: str | None = None,
+    ) -> NaverBlogGenerationResult:
+        prompt = _build_naver_user_prompt(
+            keyword=keyword, tenant_name=tenant_name,
+            tenant_category=tenant_category, tenant_region=tenant_region,
+            tenant_address=tenant_address, tenant_naver_place_url=tenant_naver_place_url,
+            tenant_phone=tenant_phone, tenant_data_block=tenant_data_block,
+            image_count=image_count, target_chars=target_chars,
+            angle=angle, correction_hint=correction_hint,
+        )
+        try:
+            resp = self._naver_model.generate_content(prompt)
+            raw = resp.text or ""
+        except Exception as e:
+            raise LLMError(f"Gemini 호출 실패: {e}") from e
+        post = _parse_naver_json(raw)
+        return NaverBlogGenerationResult(post_dict=post, raw_text=raw, provider=self.name, angle=angle)
+
+    def generate_instagram(
+        self,
+        keyword: str,
+        tenant_name: str,
+        tenant_category: str,
+        tenant_region: str,
+        tenant_data_block: str = "",
+        angle: str = "",
+        correction_hint: str | None = None,
+    ) -> InstagramGenerationResult:
+        prompt = _build_instagram_user_prompt(
+            keyword=keyword, tenant_name=tenant_name,
+            tenant_category=tenant_category, tenant_region=tenant_region,
+            tenant_data_block=tenant_data_block,
+            angle=angle, correction_hint=correction_hint,
+        )
+        try:
+            resp = self._instagram_model.generate_content(prompt)
+            raw = resp.text or ""
+        except Exception as e:
+            raise LLMError(f"Gemini 호출 실패: {e}") from e
+        cap = _parse_instagram_json(raw)
+        return InstagramGenerationResult(caption_dict=cap, raw_text=raw, provider=self.name, angle=angle)
 
 
 class AnthropicProvider:
@@ -787,6 +1185,71 @@ class AnthropicProvider:
             raise LLMError(f"Anthropic 호출 실패: {e}") from e
         post = _parse_blog_json(raw)
         return BlogGenerationResult(post_dict=post, raw_text=raw, provider=self.name, angle=angle)
+
+    def generate_naver_blog(
+        self,
+        keyword: str,
+        tenant_name: str,
+        tenant_category: str,
+        tenant_region: str,
+        tenant_address: str = "",
+        tenant_naver_place_url: str = "",
+        tenant_phone: str = "",
+        tenant_data_block: str = "",
+        image_count: int = 0,
+        target_chars: int = 2000,
+        angle: str = "",
+        correction_hint: str | None = None,
+    ) -> NaverBlogGenerationResult:
+        prompt = _build_naver_user_prompt(
+            keyword=keyword, tenant_name=tenant_name,
+            tenant_category=tenant_category, tenant_region=tenant_region,
+            tenant_address=tenant_address, tenant_naver_place_url=tenant_naver_place_url,
+            tenant_phone=tenant_phone, tenant_data_block=tenant_data_block,
+            image_count=image_count, target_chars=target_chars,
+            angle=angle, correction_hint=correction_hint,
+        )
+        try:
+            msg = self._client.messages.create(
+                model=self._model,
+                system=_NAVER_SYSTEM_PROMPT,
+                max_tokens=4096,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            raw = "".join(b.text for b in msg.content if hasattr(b, "text"))
+        except Exception as e:
+            raise LLMError(f"Anthropic 호출 실패: {e}") from e
+        post = _parse_naver_json(raw)
+        return NaverBlogGenerationResult(post_dict=post, raw_text=raw, provider=self.name, angle=angle)
+
+    def generate_instagram(
+        self,
+        keyword: str,
+        tenant_name: str,
+        tenant_category: str,
+        tenant_region: str,
+        tenant_data_block: str = "",
+        angle: str = "",
+        correction_hint: str | None = None,
+    ) -> InstagramGenerationResult:
+        prompt = _build_instagram_user_prompt(
+            keyword=keyword, tenant_name=tenant_name,
+            tenant_category=tenant_category, tenant_region=tenant_region,
+            tenant_data_block=tenant_data_block,
+            angle=angle, correction_hint=correction_hint,
+        )
+        try:
+            msg = self._client.messages.create(
+                model=self._model,
+                system=_INSTAGRAM_SYSTEM_PROMPT,
+                max_tokens=1024,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            raw = "".join(b.text for b in msg.content if hasattr(b, "text"))
+        except Exception as e:
+            raise LLMError(f"Anthropic 호출 실패: {e}") from e
+        cap = _parse_instagram_json(raw)
+        return InstagramGenerationResult(caption_dict=cap, raw_text=raw, provider=self.name, angle=angle)
 
 
 class OpenAIProvider:
@@ -877,6 +1340,75 @@ class OpenAIProvider:
             raise LLMError(f"OpenAI 호출 실패: {e}") from e
         post = _parse_blog_json(raw)
         return BlogGenerationResult(post_dict=post, raw_text=raw, provider=self.name, angle=angle)
+
+    def generate_naver_blog(
+        self,
+        keyword: str,
+        tenant_name: str,
+        tenant_category: str,
+        tenant_region: str,
+        tenant_address: str = "",
+        tenant_naver_place_url: str = "",
+        tenant_phone: str = "",
+        tenant_data_block: str = "",
+        image_count: int = 0,
+        target_chars: int = 2000,
+        angle: str = "",
+        correction_hint: str | None = None,
+    ) -> NaverBlogGenerationResult:
+        prompt = _build_naver_user_prompt(
+            keyword=keyword, tenant_name=tenant_name,
+            tenant_category=tenant_category, tenant_region=tenant_region,
+            tenant_address=tenant_address, tenant_naver_place_url=tenant_naver_place_url,
+            tenant_phone=tenant_phone, tenant_data_block=tenant_data_block,
+            image_count=image_count, target_chars=target_chars,
+            angle=angle, correction_hint=correction_hint,
+        )
+        try:
+            resp = self._client.chat.completions.create(
+                model=self._model,
+                messages=[
+                    {"role": "system", "content": _NAVER_SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+                response_format={"type": "json_object"},
+            )
+            raw = resp.choices[0].message.content or ""
+        except Exception as e:
+            raise LLMError(f"OpenAI 호출 실패: {e}") from e
+        post = _parse_naver_json(raw)
+        return NaverBlogGenerationResult(post_dict=post, raw_text=raw, provider=self.name, angle=angle)
+
+    def generate_instagram(
+        self,
+        keyword: str,
+        tenant_name: str,
+        tenant_category: str,
+        tenant_region: str,
+        tenant_data_block: str = "",
+        angle: str = "",
+        correction_hint: str | None = None,
+    ) -> InstagramGenerationResult:
+        prompt = _build_instagram_user_prompt(
+            keyword=keyword, tenant_name=tenant_name,
+            tenant_category=tenant_category, tenant_region=tenant_region,
+            tenant_data_block=tenant_data_block,
+            angle=angle, correction_hint=correction_hint,
+        )
+        try:
+            resp = self._client.chat.completions.create(
+                model=self._model,
+                messages=[
+                    {"role": "system", "content": _INSTAGRAM_SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+                response_format={"type": "json_object"},
+            )
+            raw = resp.choices[0].message.content or ""
+        except Exception as e:
+            raise LLMError(f"OpenAI 호출 실패: {e}") from e
+        cap = _parse_instagram_json(raw)
+        return InstagramGenerationResult(caption_dict=cap, raw_text=raw, provider=self.name, angle=angle)
 
 
 # ─── Factory ────────────────────────────────────────────────────

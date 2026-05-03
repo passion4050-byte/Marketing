@@ -29,7 +29,9 @@ from src.content.llm import (
     BlogGenerationResult,
     FAQPair,
     GenerationResult,
+    InstagramGenerationResult,
     LLMProvider,
+    NaverBlogGenerationResult,
     check_daily_budget,
     get_provider,
 )
@@ -42,6 +44,18 @@ from src.content.templates.blog_html import (
     render_full_html,
     render_meta_block,
     render_naver_blog_plain,
+)
+from src.content.templates.instagram import (
+    InstagramCaption,
+    post_from_dict as instagram_from_dict,
+    render_instagram_caption,
+    validate_hashtags as ig_validate_hashtags,
+    validate_length as ig_validate_length,
+)
+from src.content.templates.naver_blog import (
+    NaverBlogPost,
+    post_from_dict as naver_from_dict,
+    render_naver_plain,
 )
 from src.content.templates.schema_org import faq_page_script_tag
 from src.reference.fetcher import (
@@ -423,4 +437,242 @@ def generate_blog_post(
         provider=last_result.provider,
         saved_id=saved_id,
         correction_history=correction_history,
+    )
+
+
+# ─── Phase 2-T2.5 — 네이버 블로그 평문 / Instagram 캡션 ──────────
+
+
+@dataclass
+class NaverBlogResult:
+    post: NaverBlogPost
+    plain_text: str
+    compliance: ComplianceReport
+    iterations: int
+    provider: str
+    saved_id: Optional[int]
+    correction_history: list[dict] = field(default_factory=list)
+
+
+@dataclass
+class InstagramResult:
+    caption: InstagramCaption
+    rendered: str
+    compliance: ComplianceReport
+    iterations: int
+    provider: str
+    saved_id: Optional[int]
+    char_count: int
+    hashtag_count: int
+    correction_history: list[dict] = field(default_factory=list)
+
+
+def _join_naver_for_lint(post: NaverBlogPost) -> str:
+    parts = [post.title]
+    parts.extend(post.intro)
+    for s in post.sections:
+        parts.append(s.heading)
+        parts.extend(s.paragraphs)
+    parts.extend(post.conclusion)
+    return "\n".join(p for p in parts if p)
+
+
+def _join_instagram_for_lint(cap: InstagramCaption) -> str:
+    return "\n".join([cap.hook, cap.body, cap.cta])
+
+
+def generate_naver_blog_content(
+    session: Session,
+    tenant_id: int,
+    keyword: str,
+    *,
+    target_chars: int = 2000,
+    image_count: int = 0,
+    angle: str = "",
+    max_corrections: int = 3,
+    provider: LLMProvider | None = None,
+    save: bool = True,
+) -> NaverBlogResult:
+    """네이버 블로그 평문 발행 — 자동수정 루프 포함."""
+    check_daily_budget(session, tenant_id)
+    provider = provider or get_provider()
+
+    tenant = session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise ValueError(f"Unknown tenant_id: {tenant_id}")
+
+    tenant_data_block = build_tenant_context_block(session, tenant_id)
+
+    last_post: Optional[NaverBlogPost] = None
+    last_report: Optional[ComplianceReport] = None
+    last_result: Optional[NaverBlogGenerationResult] = None
+    iterations = 0
+    correction_hint: Optional[str] = None
+    history: list[dict] = []
+
+    for _ in range(max_corrections + 1):
+        iterations += 1
+        result = provider.generate_naver_blog(
+            keyword=keyword,
+            tenant_name=tenant.name,
+            tenant_category=tenant.domain_category,
+            tenant_region=tenant.region,
+            tenant_address=tenant.address or "",
+            tenant_naver_place_url=tenant.naver_place_url or "",
+            tenant_phone=tenant.phone or "",
+            tenant_data_block=tenant_data_block,
+            image_count=image_count,
+            target_chars=target_chars,
+            angle=angle,
+            correction_hint=correction_hint,
+        )
+        last_result = result
+        post = naver_from_dict(
+            result.post_dict,
+            tenant_name=tenant.name,
+            tenant_address=tenant.address or "",
+            tenant_naver_place_url=tenant.naver_place_url or "",
+            tenant_phone=tenant.phone or "",
+        )
+        last_post = post
+
+        text = _join_naver_for_lint(post)
+        report = lint(session, tenant_id, text)
+        last_report = report
+        history.append({"iteration": iterations, "status": report.status, "n_violations": len(report.violations)})
+
+        if report.status == "pass" or report.status == "warn":
+            break
+        correction_hint = _violations_to_correction_hint(report)
+
+    assert last_post is not None and last_report is not None and last_result is not None
+    plain = render_naver_plain(last_post)
+
+    saved_id = None
+    if save:
+        gc = GeneratedContent(
+            tenant_id=tenant_id,
+            keyword_text=keyword,
+            channel="naver_blog",
+            body=plain,
+            raw_qa_pairs={
+                "title": last_post.title,
+                "char_count": last_post.char_count(),
+                "n_sections": len(last_post.sections),
+                "hashtags": last_post.hashtags,
+                "image_count": last_post.image_count,
+            },
+            cited_reference_ids=None,
+            compliance_status=last_report.status,
+            compliance_report=last_report.to_dict(),
+            llm_provider=last_result.provider,
+            correction_iterations=iterations - 1,
+        )
+        session.add(gc)
+        session.commit()
+        saved_id = gc.id
+
+    return NaverBlogResult(
+        post=last_post,
+        plain_text=plain,
+        compliance=last_report,
+        iterations=iterations,
+        provider=last_result.provider,
+        saved_id=saved_id,
+        correction_history=history,
+    )
+
+
+def generate_instagram_content(
+    session: Session,
+    tenant_id: int,
+    keyword: str,
+    *,
+    angle: str = "",
+    max_corrections: int = 3,
+    provider: LLMProvider | None = None,
+    save: bool = True,
+) -> InstagramResult:
+    """Instagram 캡션 발행 — 자동수정 루프 포함. body 200~300자 + 해시태그 5~10."""
+    check_daily_budget(session, tenant_id)
+    provider = provider or get_provider()
+
+    tenant = session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise ValueError(f"Unknown tenant_id: {tenant_id}")
+
+    tenant_data_block = build_tenant_context_block(session, tenant_id)
+
+    last_cap: Optional[InstagramCaption] = None
+    last_report: Optional[ComplianceReport] = None
+    last_result: Optional[InstagramGenerationResult] = None
+    iterations = 0
+    correction_hint: Optional[str] = None
+    history: list[dict] = []
+
+    for _ in range(max_corrections + 1):
+        iterations += 1
+        result = provider.generate_instagram(
+            keyword=keyword,
+            tenant_name=tenant.name,
+            tenant_category=tenant.domain_category,
+            tenant_region=tenant.region,
+            tenant_data_block=tenant_data_block,
+            angle=angle,
+            correction_hint=correction_hint,
+        )
+        last_result = result
+        cap = instagram_from_dict(result.caption_dict)
+        last_cap = cap
+
+        text = _join_instagram_for_lint(cap)
+        report = lint(session, tenant_id, text)
+        last_report = report
+        history.append({"iteration": iterations, "status": report.status, "n_violations": len(report.violations)})
+
+        if report.status == "pass" or report.status == "warn":
+            break
+        correction_hint = _violations_to_correction_hint(report)
+
+    assert last_cap is not None and last_report is not None and last_result is not None
+    rendered = render_instagram_caption(last_cap)
+    len_ok, char_count = ig_validate_length(last_cap)
+    tag_ok, tag_count = ig_validate_hashtags(last_cap)
+
+    saved_id = None
+    if save:
+        gc = GeneratedContent(
+            tenant_id=tenant_id,
+            keyword_text=keyword,
+            channel="instagram",
+            body=rendered,
+            raw_qa_pairs={
+                "hook": last_cap.hook,
+                "body": last_cap.body,
+                "cta": last_cap.cta,
+                "hashtags": last_cap.hashtags,
+                "char_count": char_count,
+                "length_ok": len_ok,
+                "hashtag_count_ok": tag_ok,
+            },
+            cited_reference_ids=None,
+            compliance_status=last_report.status,
+            compliance_report=last_report.to_dict(),
+            llm_provider=last_result.provider,
+            correction_iterations=iterations - 1,
+        )
+        session.add(gc)
+        session.commit()
+        saved_id = gc.id
+
+    return InstagramResult(
+        caption=last_cap,
+        rendered=rendered,
+        compliance=last_report,
+        iterations=iterations,
+        provider=last_result.provider,
+        saved_id=saved_id,
+        char_count=char_count,
+        hashtag_count=tag_count,
+        correction_history=history,
     )

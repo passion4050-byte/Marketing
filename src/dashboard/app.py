@@ -66,6 +66,7 @@ from src.dashboard.brand_voice_tab import render_brand_voice_tab  # noqa: E402
 from src.dashboard.dashboard_tab import render_dashboard_tab  # noqa: E402
 from src.dashboard.profile import render_profile_tab  # noqa: E402
 from src.dashboard.theme import GLOBAL_CSS, chip  # noqa: E402
+from src.dashboard.unified_publisher_tab import render_unified_publisher_tab  # noqa: E402
 from src.storage.db import create_all, get_session_factory  # noqa: E402
 from src.storage.models import GeneratedContent, Keyword, Tenant  # noqa: E402
 
@@ -667,8 +668,8 @@ def _blog_tab(SessionLocal) -> None:
 CHANNEL_LABELS = {
     "schema_org": "🧩 FAQ JSON-LD",
     "blog_html": "📝 블로그 (HTML)",
-    "naver_blog": "📝 네이버 블로그",
-    "instagram": "📸 인스타그램",
+    "naver_blog": "📰 네이버 블로그",
+    "instagram": "📸 Instagram",
 }
 
 
@@ -770,7 +771,44 @@ def _render_readable_content(channel: str, body: str, raw: dict | None) -> None:
         )
         return
 
-    # naver_blog 등 기타 — 텍스트로 가정하고 그대로
+    if channel == "naver_blog":
+        # raw_qa_pairs 에 title/char_count/n_sections/hashtags/image_count
+        meta = raw or {}
+        if meta.get("title"):
+            st.markdown(f"### {meta['title']}")
+        col_a, col_b, col_c = st.columns(3)
+        col_a.metric("글자수", meta.get("char_count", 0))
+        col_b.metric("섹션", meta.get("n_sections", 0))
+        col_c.metric("이미지", meta.get("image_count", 0))
+        st.markdown(
+            f"<div style='white-space:pre-wrap;font-size:14px;line-height:1.7;color:#333;"
+            f"background:#fbfbfd;border:1px solid #eee;border-radius:12px;padding:16px 18px;'>{body}</div>",
+            unsafe_allow_html=True,
+        )
+        if meta.get("hashtags"):
+            tags = " ".join(f"#{t.lstrip('#')}" for t in meta["hashtags"])
+            st.caption(f"🏷️ {tags}")
+        return
+
+    if channel == "instagram":
+        meta = raw or {}
+        col_a, col_b = st.columns(2)
+        col_a.metric("본문 글자수", meta.get("char_count", 0),
+                     delta="OK" if meta.get("length_ok") else "범위 밖", delta_color="off")
+        col_b.metric("해시태그", len(meta.get("hashtags") or []),
+                     delta="OK" if meta.get("hashtag_count_ok") else "범위 밖", delta_color="off")
+        if meta.get("hook"):
+            st.markdown(f"**Hook:** {meta['hook']}")
+        if meta.get("body"):
+            st.markdown(f"**Body:** {meta['body']}")
+        if meta.get("cta"):
+            st.markdown(f"**CTA:** {meta['cta']}")
+        if meta.get("hashtags"):
+            tags = " ".join(f"#{t.lstrip('#')}" for t in meta["hashtags"])
+            st.caption(f"🏷️ {tags}")
+        return
+
+    # 기타 — 텍스트 그대로
     st.markdown(
         f"<div style='white-space:pre-wrap;font-size:14px;line-height:1.7;color:#333;'>{body}</div>",
         unsafe_allow_html=True,
@@ -949,12 +987,13 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    tab_dash, tab_feed, tab_voice, tab_sim, tab_faq, tab_blog = st.tabs(
+    tab_dash, tab_feed, tab_voice, tab_sim, tab_unified, tab_faq, tab_blog = st.tabs(
         [
             "📊 대시보드",
             "🎯 데이터 피딩",
             "🎨 브랜드 보이스",
             "🧪 AI 시뮬레이터",
+            "🚀 통합 발행 (4채널)",
             "🧩 FAQ 생성기",
             "📝 블로그 포스트",
         ]
@@ -971,6 +1010,9 @@ def main() -> None:
     with tab_sim:
         tenant, _ = _tenant_picker(SessionLocal, key="aisim")
         render_ai_simulator_tab(SessionLocal, tenant)
+    with tab_unified:
+        tenant, _ = _tenant_picker(SessionLocal, key="unified")
+        render_unified_publisher_tab(SessionLocal, tenant)
     with tab_faq:
         _faq_tab(SessionLocal)
     with tab_blog:
