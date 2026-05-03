@@ -20,7 +20,7 @@ AI 검색엔진(Perplexity, ChatGPT, Gemini, Claude)에서 의료 도메인 브�
 - **Web Crawling:** `httpx` + `trafilatura`
 - **DB:** SQLite → PostgreSQL 마이그레이션 가능 (tenant_id 컬럼 처음부터)
 - **Scheduler:** APScheduler → Celery+Redis
-- **Dashboard:** Streamlit → React+FastAPI (MVP-5)
+- **Dashboard:** Streamlit (배포: Streamlit Community Cloud) → React+FastAPI (MVP-5)
 - **통계:** `scipy.stats`, `pymannkendall`
 - **NER (한국어):** `kiwipiepy` + 룰베이스
 - **Env:** `python-dotenv`
@@ -81,6 +81,33 @@ src/
 
 No project skills found. Add skills to any of: `.claude/skills/`, `.agents/skills/`, `.cursor/skills/`, or `.github/skills/` with a `SKILL.md` index file.
 <!-- GSD:skills-end -->
+
+<!-- GSD:deployment-start -->
+## Deployment
+
+- **플랫폼:** Streamlit Community Cloud (무료 tier)
+- **라이브 URL:** https://blogkey.streamlit.app (비공개 — `APP_PASSWORD` 게이트)
+- **GitHub:** https://github.com/passion4050-byte/Marketing (private)
+- **브랜치:** `main` (master → main 리브랜드 완료)
+- **자동 재배포:** main 브랜치 push 시 1~2분 내 Streamlit Cloud 가 자동 빌드
+
+**배포 산출물:**
+- `requirements.txt` — Streamlit Cloud 가 읽는 의존성 목록 (pyproject.toml 미러)
+- `.streamlit/config.toml` — 테마 + 서버 설정
+- `.streamlit/secrets.toml.example` — 시크릿 템플릿 (실 파일은 gitignored)
+- `.python-version` — Python 3.12 핀
+- `src/storage/seed.py` — `seed_if_empty()` 가 부트스트랩 시 호출돼 SQLite 휘발 대응
+
+**Streamlit Cloud Secrets (앱 설정 → Secrets 탭):**
+- `LLM_PROVIDER` — `gemini` | `anthropic` | `openai` | `stub`
+- `GOOGLE_API_KEY` (또는 `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`)
+- `APP_PASSWORD` — 데모 비밀번호 게이트
+- `DATABASE_URL` (선택) — Supabase Postgres 등 영속 DB 사용 시
+
+**시크릿 hydration:** `src/dashboard/app.py` 의 `_hydrate_env_from_secrets()` 가 `st.secrets` 를 `os.environ` 으로 흘려보내 기존 `os.getenv()` 코드가 변경 없이 동작.
+
+**최초 배포 자동화 (재실행 불필요):** `tools/deploy_github.py` — GitHub Device Flow OAuth → private 리포 생성 → master→main 리브랜드 → 첫 푸시 → 토큰 strip. 일반 재배포는 `git push origin main` 만으로 충분.
+<!-- GSD:deployment-end -->
 
 <!-- GSD:workflow-start source:GSD defaults -->
 ## GSD Workflow Enforcement

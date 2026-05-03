@@ -6,6 +6,10 @@
 # Streamlit secrets (실 키 보관 파일 — 절대 커밋 금지)
 .streamlit/secrets.toml
 
+# GitHub OAuth 임시 산출물
+.gh_token
+.gh_device.json
+
 # Python
 __pycache__/
 *.py[cod]
