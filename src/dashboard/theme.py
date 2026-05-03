@@ -93,39 +93,137 @@ GLOBAL_CSS = f"""
     max-width: 1400px !important;
   }}
 
-  /* ─ Top App Header (사이드바 대체) ─ */
+  /* ─ Top App Header — Premium SaaS look (Phase 6.5) ─
+     좌: 그라데이션 마크 + ECG-pulse 아이콘 + 워드마크 + tagline
+     우: LIVE pulse dot + 오늘 날짜 pill
+     상단 2px 그라데이션 액센트 라인 + 미세 그림자. */
   .gsd-app-header {{
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 20px;
-    background: {Colors.WHITE};
-    border: 1px solid {Colors.GRAY_200};
-    border-radius: {Radius.MD};
-    margin-bottom: 18px;
+    padding: 18px 24px;
+    background: linear-gradient(135deg, {Colors.WHITE} 0%, #f5f8ff 100%);
+    border: 1px solid rgba(91, 143, 249, 0.16);
+    border-radius: 14px;
+    margin-bottom: 22px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(91, 143, 249, 0.05),
+                0 1px 0 rgba(255, 255, 255, 0.6) inset;
+  }}
+  .gsd-app-header::before {{
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg,
+      {Colors.PRIMARY} 0%,
+      {Colors.PURPLE} 45%,
+      {Colors.PRIMARY} 90%,
+      transparent 100%);
+    background-size: 200% 100%;
+    animation: gsd-accent-flow 8s linear infinite;
+  }}
+  @keyframes gsd-accent-flow {{
+    0% {{ background-position: 0% 50%; }}
+    100% {{ background-position: 200% 50%; }}
   }}
   .gsd-brand {{
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
   }}
   .gsd-brand-mark {{
-    font-size: 26px;
-    line-height: 1;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, {Colors.PRIMARY} 0%, {Colors.PURPLE} 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow:
+      0 6px 14px rgba(91, 143, 249, 0.32),
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.06);
+    transition: transform 0.18s cubic-bezier(.2,.8,.2,1),
+                box-shadow 0.18s ease;
+  }}
+  .gsd-brand-mark svg {{
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.18));
+  }}
+  .gsd-app-header:hover .gsd-brand-mark {{
+    transform: translateY(-1px) scale(1.04);
+    box-shadow:
+      0 8px 20px rgba(91, 143, 249, 0.44),
+      inset 0 1px 0 rgba(255, 255, 255, 0.32);
   }}
   .gsd-brand-name {{
-    font-size: 18px;
+    font-size: 23px;
     font-weight: 800;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.045em;
     color: {Colors.GRAY_900};
-    line-height: 1.1;
+    line-height: 1;
+    background: linear-gradient(180deg, {Colors.GRAY_900} 0%, #2a2d3a 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }}
   .gsd-brand-tag {{
-    font-size: 11px;
+    font-size: 10.5px;
     color: {Colors.GRAY_400};
-    letter-spacing: 0.06em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-    margin-top: 2px;
+    margin-top: 6px;
+    font-weight: 600;
+  }}
+  .gsd-header-status {{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 14px 8px 12px;
+    background: rgba(91, 143, 249, 0.06);
+    border: 1px solid rgba(91, 143, 249, 0.14);
+    border-radius: 999px;
+  }}
+  .gsd-live-dot {{
+    width: 7px;
+    height: 7px;
+    background: {Colors.SUCCESS};
+    border-radius: 50%;
+    position: relative;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 2px rgba(30, 122, 61, 0.18);
+  }}
+  .gsd-live-dot::after {{
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    background: rgba(30, 122, 61, 0.32);
+    animation: gsd-live-pulse 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }}
+  @keyframes gsd-live-pulse {{
+    0%   {{ transform: scale(1);   opacity: 0.7; }}
+    100% {{ transform: scale(2.3); opacity: 0; }}
+  }}
+  .gsd-live-text {{
+    font-size: 10.5px;
+    font-weight: 800;
+    color: {Colors.SUCCESS};
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }}
+  .gsd-status-divider {{
+    width: 1px;
+    height: 12px;
+    background: rgba(91, 143, 249, 0.22);
+  }}
+  .gsd-status-date {{
+    font-size: 11px;
+    font-weight: 600;
+    color: {Colors.GRAY_500};
+    letter-spacing: 0.03em;
+    font-variant-numeric: tabular-nums;
   }}
   .gsd-meta-strip {{
     display: flex;

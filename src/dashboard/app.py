@@ -216,16 +216,36 @@ def _render_compliance_inline(report) -> None:
 
 
 def _top_header() -> None:
-    """상단 헤더 — 브랜드만. 메타정보(LLM/비용)는 노출 제거."""
+    """상단 헤더 — Premium SaaS 디자인 (Phase 6.5).
+
+    좌: 그라데이션 마크 + ECG-pulse SVG + 워드마크 + tagline
+    우: LIVE pulse + 오늘 날짜 pill
+    """
+    from datetime import datetime
+
+    today = datetime.now().strftime("%Y. %m. %d")
     st.markdown(
-        """
+        f"""
         <div class="gsd-app-header">
           <div class="gsd-brand">
-            <div class="gsd-brand-mark">🏥</div>
+            <div class="gsd-brand-mark">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                   xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M2.5 12 H6.5 L8.2 7.2 L11.7 17.5 L13.7 12 H21.5"
+                      stroke="white" stroke-width="2.2"
+                      stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </div>
             <div>
               <div class="gsd-brand-name">HOSPITAL</div>
-              <div class="gsd-brand-tag">GEO/AEO Content Platform</div>
+              <div class="gsd-brand-tag">GEO · AEO Content Platform</div>
             </div>
+          </div>
+          <div class="gsd-header-status">
+            <span class="gsd-live-dot" aria-hidden="true"></span>
+            <span class="gsd-live-text">LIVE</span>
+            <span class="gsd-status-divider"></span>
+            <span class="gsd-status-date">{today}</span>
           </div>
         </div>
         """,

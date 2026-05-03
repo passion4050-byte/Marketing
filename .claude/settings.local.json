@@ -5,7 +5,8 @@
       "Bash(\"./.venv/Scripts/python.exe\" -m pytest --tb=short -q)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(\"./.venv/Scripts/python.exe\" -c \"from src.dashboard.app import _top_header; print\\('OK'\\)\")"
     ]
   }
 }
