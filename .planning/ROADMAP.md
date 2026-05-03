@@ -135,4 +135,4 @@ Phase 1 → 2 → 3 → 4 → 5 → 6 (Phase 3과 Phase 4는 Phase 2 완료 후 
 | 3. Reference Library (RAG) | 0/3 | Not started | - |
 | 4. Measurement Foundation | 3/3 | ✅ Done | 14/14 tasks · 38 신규 pytest · 라이브 측정 탭 |
 | 5. Analytics 강화 | 3/3 | ✅ Done | 15/15 tasks · 40 신규 pytest · 시계열+CI+이상치+추세 라이브 |
-| 6. Multi-Engine + Competitor Discovery | 0/3 | Not started | - |
+| 6. Multi-Engine + Competitor Discovery | 0/3 | Planned | PLAN.md 작성 완료 — 17 tasks |
