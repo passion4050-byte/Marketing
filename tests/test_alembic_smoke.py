@@ -26,6 +26,9 @@ EXPECTED_TABLES = {
     "brand_voices",
     "reference_documents",
     "llm_call_logs",
+    "queries",
+    "responses",
+    "mentions",
 }
 
 
@@ -61,12 +64,16 @@ def test_alembic_downgrade_round_trip(tmp_path):
         tables_after_up = _list_tables(str(db))
         assert "llm_call_logs" in tables_after_up
         assert "reference_documents" in tables_after_up
+        assert {"queries", "responses", "mentions"}.issubset(tables_after_up)
 
-        # downgrade 1 step — 가장 최근 마이그레이션 (llm_call_logs) 만 사라져야 함
+        # downgrade 1 step — 가장 최근 마이그레이션 (measurement_tables) 만 사라져야 함
         command.downgrade(cfg, "-1")
         tables_after_down = _list_tables(str(db))
-        assert "llm_call_logs" not in tables_after_down
+        assert "queries" not in tables_after_down
+        assert "responses" not in tables_after_down
+        assert "mentions" not in tables_after_down
         # 이전 마이그레이션의 테이블은 보존
+        assert "llm_call_logs" in tables_after_down
         assert "reference_documents" in tables_after_down
         assert "tenants" in tables_after_down
     finally:

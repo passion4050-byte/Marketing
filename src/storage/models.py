@@ -299,3 +299,52 @@ class ReferenceDocument(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     tenant: Mapped[Tenant] = relationship(back_populates="reference_documents")
+
+
+# ─── Measurement (Phase 4 — MVP-0) ───────────────────────────────
+
+
+class Query(Base):
+    """검색 엔진 호출 1회 = Query 1행. 같은 키워드의 n=30 샘플은 Query 30행."""
+
+    __tablename__ = "queries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"))
+    keyword_id: Mapped[int] = mapped_column(ForeignKey("keywords.id", ondelete="CASCADE"))
+    engine: Mapped[str] = mapped_column(String(50))  # perplexity | stub | openai_search | ...
+    prompt: Mapped[str] = mapped_column(Text)
+    sample_index: Mapped[int] = mapped_column(Integer, default=0)
+    cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class Response(Base):
+    """엔진의 raw 응답. text + cited_urls + latency."""
+
+    __tablename__ = "responses"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    query_id: Mapped[int] = mapped_column(ForeignKey("queries.id", ondelete="CASCADE"))
+    raw_text: Mapped[str] = mapped_column(Text)
+    cited_urls: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # list[str] 형식
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class Mention(Base):
+    """Response 본문에서 추출된 브랜드 멘션 1건."""
+
+    __tablename__ = "mentions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    response_id: Mapped[int] = mapped_column(ForeignKey("responses.id", ondelete="CASCADE"))
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"))
+    brand: Mapped[str] = mapped_column(String(200))
+    is_target: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_competitor: Mapped[bool] = mapped_column(Boolean, default=False)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    weight: Mapped[float] = mapped_column(Float, default=1.0)  # v1=1.0, Phase 5 에서 0~1 가중치
+    sentiment: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # Phase 6
+    context_snippet: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
