@@ -66,7 +66,14 @@ def _render_doctor_card(SessionLocal, tenant_id: int) -> None:
 
     with st.container(border=True):
         st.markdown(
-            f"### 👁️ 의사 자격 정보 &nbsp; {chip}",
+            f"""
+            <div style="display:flex; align-items:center; gap:10px;
+                        flex-wrap:nowrap; margin:0 0 4px 0;">
+              <h3 style="margin:0; font-size:18px; font-weight:700;
+                         letter-spacing:-0.02em; white-space:nowrap;">👁️ 의사 자격 정보</h3>
+              {chip}
+            </div>
+            """,
             unsafe_allow_html=True,
         )
         st.caption("LLM이 콘텐츠에 의사명/경력을 인용하도록.")
@@ -194,7 +201,14 @@ def _render_equipment_card(SessionLocal, tenant_id: int) -> None:
 
     with st.container(border=True):
         st.markdown(
-            f"### 🩻 의료 장비 &nbsp; {chip}",
+            f"""
+            <div style="display:flex; align-items:center; gap:10px;
+                        flex-wrap:nowrap; margin:0 0 4px 0;">
+              <h3 style="margin:0; font-size:18px; font-weight:700;
+                         letter-spacing:-0.02em; white-space:nowrap;">🩻 의료 장비</h3>
+              {chip}
+            </div>
+            """,
             unsafe_allow_html=True,
         )
         st.caption("콘텐츠가 실제 장비 모델명을 언급하도록.")
@@ -321,7 +335,14 @@ def _render_event_card(SessionLocal, tenant_id: int) -> None:
 
     with st.container(border=True):
         st.markdown(
-            f"### 🏷️ 이벤트 가격 &nbsp; {chip}",
+            f"""
+            <div style="display:flex; align-items:center; gap:10px;
+                        flex-wrap:nowrap; margin:0 0 4px 0;">
+              <h3 style="margin:0; font-size:18px; font-weight:700;
+                         letter-spacing:-0.02em; white-space:nowrap;">🏷️ 이벤트 가격</h3>
+              {chip}
+            </div>
+            """,
             unsafe_allow_html=True,
         )
         st.caption("진행 중인 이벤트가 콘텐츠 끝에 자연 노출 (의료법 종료일 자동 반영).")
