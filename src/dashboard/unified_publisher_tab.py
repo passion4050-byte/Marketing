@@ -85,6 +85,20 @@ def render_unified_publisher_tab(SessionLocal, tenant) -> None:
             image_count = 0
         max_corrections = st.slider("자동수정 최대 횟수", 0, 5, 3, key="unified_corr")
 
+        st.divider()
+        col_rag, col_k = st.columns([2, 3])
+        use_rag = col_rag.checkbox(
+            "📚 참고 자료(RAG) 사용",
+            value=True,
+            key="unified_use_rag",
+            help="인덱싱된 참고 자료에서 키워드 관련 청크를 LLM 컨텍스트로 주입.",
+        )
+        rag_k = col_k.slider(
+            "참고 청크 개수 (k)", 1, 10, 5,
+            key="unified_rag_k",
+            disabled=not use_rag,
+        )
+
     if st.button("✨ 발행", type="primary", disabled=not keyword, use_container_width=True):
         angles = pick_angles(angle_pool, count)
         with SessionLocal() as session:
@@ -95,23 +109,27 @@ def render_unified_publisher_tab(SessionLocal, tenant) -> None:
                         r = generate_faq_content(
                             session, tenant_id=tenant.id, keyword=keyword,
                             n_pairs=5, max_corrections=max_corrections, angle=angle,
+                            use_rag=use_rag, rag_k=rag_k,
                         )
                     elif channel == "blog_html":
                         r = gen_blog_post(
                             session, tenant_id=tenant.id, keyword=keyword,
                             target_chars=target_chars, image_count=image_count,
                             max_corrections=max_corrections, angle=angle,
+                            use_rag=use_rag, rag_k=rag_k,
                         )
                     elif channel == "naver_blog":
                         r = generate_naver_blog_content(
                             session, tenant_id=tenant.id, keyword=keyword,
                             target_chars=target_chars, image_count=image_count,
                             max_corrections=max_corrections, angle=angle,
+                            use_rag=use_rag, rag_k=rag_k,
                         )
                     elif channel == "instagram":
                         r = generate_instagram_content(
                             session, tenant_id=tenant.id, keyword=keyword,
                             max_corrections=max_corrections, angle=angle,
+                            use_rag=use_rag, rag_k=rag_k,
                         )
                     else:
                         st.error(f"알 수 없는 채널: {channel}")
@@ -140,13 +158,20 @@ def render_unified_publisher_tab(SessionLocal, tenant) -> None:
 
 def _render_result_card(idx: int, channel: str, r, *, total: int) -> None:
     label = CHANNELS[channel]
+    cited_ids = getattr(r, "cited_reference_ids", None) or []
     with st.container(border=True):
         head_l, head_r = st.columns([3, 2])
         head_l.markdown(f"#### {label} · #{idx}/{total}")
-        head_r.markdown(_compliance_chip_html(r.compliance), unsafe_allow_html=True)
+        head_chips = _compliance_chip_html(r.compliance)
+        if cited_ids:
+            head_chips += (
+                f' <span class="gsd-chip gsd-chip-blue">📎 출처 {len(cited_ids)}건</span>'
+            )
+        head_r.markdown(head_chips, unsafe_allow_html=True)
         st.caption(
             f"Provider: `{r.provider}` · 자동수정 {r.iterations - 1}회"
             + (f" · saved_id={r.saved_id}" if getattr(r, "saved_id", None) else "")
+            + (f" · 참고 doc_ids={cited_ids}" if cited_ids else "")
         )
 
         if channel == "schema_org":

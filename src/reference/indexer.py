@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 
 import structlog
@@ -111,7 +111,7 @@ def index_text(
         content_hash=content_hash,
         raw_text=text,
         chunk_count=0,
-        indexed_at=datetime.utcnow(),
+        indexed_at=datetime.now(timezone.utc).replace(tzinfo=None),
     )
     session.add(doc)
     session.flush()  # doc.id 확보

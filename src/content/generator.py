@@ -86,6 +86,7 @@ class ContentResult:
     provider: str
     saved_id: Optional[int] = None
     correction_history: list[ComplianceReport] = field(default_factory=list)
+    cited_reference_ids: list[int] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:
@@ -110,6 +111,7 @@ class BlogResult:
     provider: str
     saved_id: Optional[int] = None
     correction_history: list[ComplianceReport] = field(default_factory=list)
+    cited_reference_ids: list[int] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:
@@ -329,6 +331,7 @@ def generate_faq_content(
         provider=last_result.provider,
         saved_id=saved_id,
         correction_history=correction_history,
+        cited_reference_ids=cited_ids,
     )
 
 
@@ -551,6 +554,7 @@ def generate_blog_post(
         provider=last_result.provider,
         saved_id=saved_id,
         correction_history=correction_history,
+        cited_reference_ids=cited_ids,
     )
 
 
@@ -566,6 +570,7 @@ class NaverBlogResult:
     provider: str
     saved_id: Optional[int]
     correction_history: list[dict] = field(default_factory=list)
+    cited_reference_ids: list[int] = field(default_factory=list)
 
 
 @dataclass
@@ -579,6 +584,7 @@ class InstagramResult:
     char_count: int
     hashtag_count: int
     correction_history: list[dict] = field(default_factory=list)
+    cited_reference_ids: list[int] = field(default_factory=list)
 
 
 def _join_naver_for_lint(post: NaverBlogPost) -> str:
@@ -706,6 +712,7 @@ def generate_naver_blog_content(
         provider=last_result.provider,
         saved_id=saved_id,
         correction_history=history,
+        cited_reference_ids=cited_ids,
     )
 
 
@@ -813,4 +820,5 @@ def generate_instagram_content(
         char_count=char_count,
         hashtag_count=tag_count,
         correction_history=history,
+        cited_reference_ids=cited_ids,
     )
