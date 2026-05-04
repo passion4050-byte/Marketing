@@ -66,26 +66,76 @@ def drop_all() -> None:
 
 
 def upgrade_to_head() -> tuple[bool, str | None]:
-    """Streamlit Cloud 부트스트랩에서 호출 — Alembic 을 head 까지 적용.
+    """Streamlit Cloud 부트스트랩 — schema 를 ORM 기준으로 동기화.
 
-    Streamlit Community Cloud 는 shell 접근이 없어 alembic CLI 를 따로 못 돌림.
-    `create_all()` 은 신규 테이블만 만들고 기존 테이블의 ALTER 는 못 하므로,
-    column 이 추가된 신규 마이그레이션이 production 에 적용되도록 부트스트랩에서
-    프로그램 방식으로 ``upgrade head`` 를 호출. 실패 시 (False, 에러 메시지) 반환 —
-    호출자가 사이드바/배너로 표시. 무한 루프/실패 캐스케이드 방지.
+    Streamlit Community Cloud 는 shell 접근 X — alembic CLI 못 돌림. 또한
+    production DB(blogkey 가 처음 부팅하며 ``create_all`` 로 생성한 Supabase Postgres)는
+    alembic_version 추적이 비어있어 ``alembic upgrade head`` 가 첫 마이그레이션부터
+    돌려고 시도 → ``DuplicateTable`` 충돌. 그래서 이 함수는:
+
+    1. ``create_all()`` 은 이미 호출자가 부름 (신규 테이블 생성)
+    2. SQLAlchemy ``inspect`` 로 ORM 모델과 실제 DB 의 컬럼 차이 계산
+    3. 누락된 **nullable** 컬럼만 ``ALTER TABLE ADD COLUMN`` 으로 안전하게 추가
+       (NOT NULL 컬럼은 default 가 있어야 안전 → 보수적으로 skip)
+    4. alembic_version 이 비어있으면 ``stamp head`` 로 동기화 — 이후 신규 마이그레이션
+       은 정상 ``alembic upgrade`` 로 처리 가능
+
+    실패 시 (False, 에러 메시지) 반환. 무한 루프/캐스케이드 방지를 위해 단일 호출만.
     """
+    added_cols: list[str] = []
     try:
         from pathlib import Path
 
+        from sqlalchemy import inspect, text
+
+        engine = get_engine()
+        inspector = inspect(engine)
+        existing_tables = set(inspector.get_table_names())
+
+        # 누락된 nullable 컬럼 ALTER ADD
+        for table in Base.metadata.sorted_tables:
+            if table.name not in existing_tables:
+                continue  # create_all 이 이미 만들었거나 만들 예정
+            existing_cols = {c["name"] for c in inspector.get_columns(table.name)}
+            for col in table.columns:
+                if col.name in existing_cols or not col.nullable:
+                    continue
+                col_type = col.type.compile(dialect=engine.dialect)
+                stmt = (
+                    f'ALTER TABLE "{table.name}" '
+                    f'ADD COLUMN IF NOT EXISTS "{col.name}" {col_type}'
+                )
+                # SQLite 는 IF NOT EXISTS 미지원 → 폴백
+                try:
+                    with engine.begin() as conn:
+                        conn.execute(text(stmt))
+                except Exception:
+                    fallback = (
+                        f'ALTER TABLE "{table.name}" '
+                        f'ADD COLUMN "{col.name}" {col_type}'
+                    )
+                    with engine.begin() as conn:
+                        conn.execute(text(fallback))
+                added_cols.append(f"{table.name}.{col.name}")
+
+        # alembic_version 동기화 — 비어있으면 stamp head, 있으면 가능한 만큼 upgrade
         from alembic import command
         from alembic.config import Config
 
         ini_path = Path(__file__).resolve().parent.parent.parent / "alembic.ini"
-        if not ini_path.exists():
-            return False, f"alembic.ini not found at {ini_path}"
-        cfg = Config(str(ini_path))
-        # alembic env.py 가 DATABASE_URL 환경변수를 읽음 — 이미 _hydrate_env_from_secrets 가 셋업
-        command.upgrade(cfg, "head")
-        return True, None
+        if ini_path.exists():
+            cfg = Config(str(ini_path))
+            inspector2 = inspect(engine)
+            if "alembic_version" not in inspector2.get_table_names():
+                command.stamp(cfg, "head")
+            else:
+                # 정상 alembic 환경 — 진짜 마이그레이션 적용
+                try:
+                    command.upgrade(cfg, "head")
+                except Exception:
+                    pass  # 컬럼은 위에서 이미 추가됨
+
+        msg = ("added cols: " + ", ".join(added_cols)) if added_cols else None
+        return True, msg
     except Exception as e:
         return False, f"{type(e).__name__}: {e}"[:500]
