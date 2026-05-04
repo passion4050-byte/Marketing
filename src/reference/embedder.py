@@ -62,25 +62,28 @@ class GeminiEmbedder:
 
     def __init__(self, api_key: str, model: str = "text-embedding-004"):
         try:
-            import google.generativeai as genai
+            from google import genai
+            from google.genai import types as genai_types
         except ImportError as e:
-            raise EmbedderError("google-generativeai 미설치") from e
-        genai.configure(api_key=api_key)
-        self._genai = genai
+            raise EmbedderError("google-genai 미설치") from e
+        self._client = genai.Client(api_key=api_key)
+        self._types = genai_types
         self._model = model
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
         out: list[list[float]] = []
+        cfg = self._types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
         for t in texts:
             try:
-                resp = self._genai.embed_content(
-                    model=f"models/{self._model}",
-                    content=t,
-                    task_type="RETRIEVAL_DOCUMENT",
+                result = self._client.models.embed_content(
+                    model=self._model,
+                    contents=t,
+                    config=cfg,
                 )
-                emb = resp["embedding"] if isinstance(resp, dict) else resp.embedding
+                # google-genai: result.embeddings 는 list[ContentEmbedding] — .values 로 float list
+                emb = result.embeddings[0].values
                 out.append(list(emb))
             except Exception as e:
                 raise EmbedderError(f"Gemini embed 실패: {e}") from e

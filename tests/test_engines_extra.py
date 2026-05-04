@@ -141,6 +141,8 @@ def test_claude_engine_parses_text_blocks(monkeypatch):
 
 
 def test_gemini_engine_parses_text_and_grounding(monkeypatch):
+    """google-genai SDK — client.aio.models.generate_content 를 mock."""
+
     class MockResp:
         text = "BGN 안과를 추천드립니다. 참고: https://example.com/g"
 
@@ -152,29 +154,45 @@ def test_gemini_engine_parses_text_and_grounding(monkeypatch):
 
         candidates = [_Cand()]
 
-    class MockModel:
-        def __init__(self, *a, **kw):
-            pass
-
-        def generate_content(self, prompt):
+    class MockAioModels:
+        @staticmethod
+        async def generate_content(**kwargs):
             return MockResp()
 
-    import sys
-    import types
+    class MockAio:
+        models = MockAioModels()
 
-    fake = types.ModuleType("google")
-    fake_genai = types.ModuleType("google.generativeai")
-    fake_genai.configure = lambda *a, **kw: None
-    fake_genai.GenerativeModel = MockModel
-    fake.generativeai = fake_genai
-    sys.modules["google"] = fake
-    sys.modules["google.generativeai"] = fake_genai
-
-    import importlib
+    class MockClient:
+        def __init__(self, *a, **kw):
+            self.aio = MockAio()
 
     import src.engines.gemini as gm
 
-    importlib.reload(gm)
+    monkeypatch.setattr(gm, "_DEFAULT_MODEL", "gemini-2.5-flash", raising=False)
+
+    # __init__ 안의 from google import genai 를 흡수 — 가짜 모듈 트리 주입
+    import sys
+    import types as _t
+
+    fake_google = _t.ModuleType("google")
+    fake_genai = _t.ModuleType("google.genai")
+    fake_genai_types = _t.ModuleType("google.genai.types")
+
+    # types 는 GenerateContentConfig / Tool / GoogleSearch 만 있으면 충분 (실제 호출 안 됨)
+    class _Stub:
+        def __init__(self, *a, **kw):
+            pass
+
+    fake_genai_types.GenerateContentConfig = _Stub
+    fake_genai_types.Tool = _Stub
+    fake_genai_types.GoogleSearch = _Stub
+    fake_genai.Client = MockClient
+    fake_genai.types = fake_genai_types
+    fake_google.genai = fake_genai
+
+    sys.modules["google"] = fake_google
+    sys.modules["google.genai"] = fake_genai
+    sys.modules["google.genai.types"] = fake_genai_types
 
     eng = gm.GeminiEngine(api_key="test-key")
     result = asyncio.run(eng.query("강남 라식"))

@@ -964,22 +964,31 @@ class GeminiProvider:
 
     def __init__(self, api_key: str, model: str = "gemini-2.5-flash"):
         try:
-            import google.generativeai as genai
+            from google import genai
+            from google.genai import types as genai_types
         except ImportError as e:
-            raise LLMError("google-generativeai 미설치. `pip install google-generativeai`") from e
-        genai.configure(api_key=api_key)
-        self._faq_model = genai.GenerativeModel(
-            model_name=model, system_instruction=_FAQ_SYSTEM_PROMPT
+            raise LLMError("google-genai 미설치. `pip install google-genai`") from e
+        self._client = genai.Client(api_key=api_key)
+        self._types = genai_types
+        self._model = model
+        self._faq_config = genai_types.GenerateContentConfig(
+            system_instruction=_FAQ_SYSTEM_PROMPT
         )
-        self._blog_model = genai.GenerativeModel(
-            model_name=model, system_instruction=_BLOG_SYSTEM_PROMPT
+        self._blog_config = genai_types.GenerateContentConfig(
+            system_instruction=_BLOG_SYSTEM_PROMPT
         )
-        self._naver_model = genai.GenerativeModel(
-            model_name=model, system_instruction=_NAVER_SYSTEM_PROMPT
+        self._naver_config = genai_types.GenerateContentConfig(
+            system_instruction=_NAVER_SYSTEM_PROMPT
         )
-        self._instagram_model = genai.GenerativeModel(
-            model_name=model, system_instruction=_INSTAGRAM_SYSTEM_PROMPT
+        self._instagram_config = genai_types.GenerateContentConfig(
+            system_instruction=_INSTAGRAM_SYSTEM_PROMPT
         )
+
+    def _generate(self, prompt: str, config) -> str:
+        resp = self._client.models.generate_content(
+            model=self._model, contents=prompt, config=config
+        )
+        return resp.text or ""
 
     def generate_faq(
         self,
@@ -997,8 +1006,7 @@ class GeminiProvider:
             angle=angle, tenant_data_block=tenant_data_block, correction_hint=correction_hint,
         )
         try:
-            resp = self._faq_model.generate_content(prompt)
-            raw = resp.text or ""
+            raw = self._generate(prompt, self._faq_config)
         except Exception as e:
             raise LLMError(f"Gemini 호출 실패: {e}") from e
         pairs = _parse_qa_json(raw)
@@ -1038,8 +1046,7 @@ class GeminiProvider:
             correction_hint=correction_hint,
         )
         try:
-            resp = self._blog_model.generate_content(prompt)
-            raw = resp.text or ""
+            raw = self._generate(prompt, self._blog_config)
         except Exception as e:
             raise LLMError(f"Gemini 호출 실패: {e}") from e
         post = _parse_blog_json(raw)
@@ -1069,8 +1076,7 @@ class GeminiProvider:
             angle=angle, correction_hint=correction_hint,
         )
         try:
-            resp = self._naver_model.generate_content(prompt)
-            raw = resp.text or ""
+            raw = self._generate(prompt, self._naver_config)
         except Exception as e:
             raise LLMError(f"Gemini 호출 실패: {e}") from e
         post = _parse_naver_json(raw)
@@ -1093,8 +1099,7 @@ class GeminiProvider:
             angle=angle, correction_hint=correction_hint,
         )
         try:
-            resp = self._instagram_model.generate_content(prompt)
-            raw = resp.text or ""
+            raw = self._generate(prompt, self._instagram_config)
         except Exception as e:
             raise LLMError(f"Gemini 호출 실패: {e}") from e
         cap = _parse_instagram_json(raw)

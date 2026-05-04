@@ -14,7 +14,7 @@ AI 검색엔진(Perplexity, ChatGPT, Gemini, Claude)에서 의료 도메인 브�
 ## Technology Stack
 
 - **언어:** Python 3.11+
-- **LLM SDK:** `openai`, `anthropic`, `google-generativeai`, Perplexity REST
+- **LLM SDK:** `openai`, `anthropic`, `google-genai` (구 `google-generativeai` 에서 마이그레이션 — Phase 6.5), Perplexity REST
 - **Embedding:** `text-embedding-3-small` (OpenAI)
 - **Vector DB:** `chromadb` (로컬 파일)
 - **Web Crawling:** `httpx` + `trafilatura`

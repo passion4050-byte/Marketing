@@ -20,7 +20,7 @@ dependencies = [
     "apscheduler>=3.10",  # Phase 4 Measurement — daily collection scheduler
     "pymannkendall>=1.4",  # Phase 5 Analytics — Mann-Kendall 추세 검정
     # LLM providers (선택적 사용 — .env LLM_PROVIDER로 토글)
-    "google-generativeai>=0.7",
+    "google-genai>=1.0",
     "anthropic>=0.40",
     "openai>=1.50",
 ]

@@ -98,14 +98,24 @@ Phase 6.5 이전엔 9-탭 평탄 구조 (FAQ 생성기/블로그 포스트가 �
 
 ---
 
-## Gemini SDK Deprecation (TODO)
+## Gemini SDK 마이그레이션 (2026-05-04 완료)
 
-`google-generativeai` 패키지는 deprecated. 신규 `google-genai` SDK 로 마이그레이션 필요. 영향 파일:
-- `requirements.txt` — 패키지명 교체
-- `src/content/llm.py` — `GeminiProvider` 클래스 (`genai.Client` 방식으로 변경)
-- `src/content/simulator.py` — Gemini 호출
+`google-generativeai` (deprecated) → `google-genai` 1.0+ 전환 완료.
 
-다음 세션 P1 작업.
+**API 변경 패턴:**
+- `genai.configure(api_key)` + `genai.GenerativeModel(...).generate_content(...)` (구)
+- `genai.Client(api_key).models.generate_content(model=..., contents=..., config=GenerateContentConfig(...))` (신)
+- async: `client.aio.models.generate_content(...)` 네이티브 지원 — `asyncio.to_thread` wrap 불필요해짐
+- embed: `client.models.embed_content(model=..., contents=..., config=EmbedContentConfig(...))` → `result.embeddings[0].values`
+
+**영향 파일 (모두 마이그레이션):**
+- `src/engines/gemini.py` — GeminiEngine (Phase 6 검색 엔진) — async 직접 사용
+- `src/content/llm.py` — GeminiProvider 4 채널 (`_generate` 헬퍼로 통합)
+- `src/content/simulator.py` — `_simulate_gemini`
+- `src/reference/embedder.py` — GeminiEmbedder (RAG)
+- `requirements.txt` / `pyproject.toml` — `google-generativeai>=0.7` → `google-genai>=1.0`
+
+**Streamlit Cloud 재배포:** push 후 자동 빌드. 첫 부팅 시 `pip install google-genai` 가 캐시 미스 → 1-2분 추가.
 
 ---
 

@@ -118,14 +118,18 @@ def _simulate_stub(question: str, tenant: Tenant, with_feed: bool) -> str:
 
 
 def _simulate_gemini(prompt: str) -> str:
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types
 
     key = os.getenv("GOOGLE_API_KEY")
     if not key:
         raise RuntimeError("GOOGLE_API_KEY 미설정")
-    genai.configure(api_key=key)
-    model = genai.GenerativeModel("gemini-2.5-flash", system_instruction=_SIMULATOR_SYSTEM)
-    resp = model.generate_content(prompt)
+    client = genai.Client(api_key=key)
+    resp = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt,
+        config=types.GenerateContentConfig(system_instruction=_SIMULATOR_SYSTEM),
+    )
     return resp.text or ""
 
 

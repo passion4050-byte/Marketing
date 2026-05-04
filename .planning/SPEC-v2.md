@@ -73,7 +73,7 @@
 | 영역 | 선택 | 비고 |
 |------|------|------|
 | 언어 | Python 3.11+ | |
-| LLM SDK | `openai`, `anthropic`, `google-generativeai`, Perplexity REST | |
+| LLM SDK | `openai`, `anthropic`, `google-genai`, Perplexity REST | Phase 6.5: `google-generativeai` (deprecated) → `google-genai` 1.0+ 마이그레이션 완료 |
 | Embedding | `text-embedding-3-small` (OpenAI) | 한국어 성능 OK, 비용 저렴 |
 | Vector DB | `chromadb` (로컬 파일) | MVP는 가벼움. 운영은 Qdrant 고려 |
 | Web Crawling | `httpx` + `trafilatura` | URL → 본문 추출 |

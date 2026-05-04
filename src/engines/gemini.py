@@ -1,6 +1,6 @@
-"""GeminiEngine — Phase 6-T1.2.
+"""GeminiEngine — Phase 6-T1.2 (Phase 6.5: ``google-genai`` SDK 마이그레이션).
 
-Google Gemini API 를 사용해 의료/안과 정보를 답변. ``google-generativeai`` 라이브러리.
+Google Gemini API 를 사용해 의료/안과 정보를 답변. 신규 ``google-genai`` 라이브러리.
 
 cited_urls 추출 시도 순서:
 1. ``response.candidates[0].grounding_metadata.grounding_chunks[].web.uri`` (Search Grounding)
@@ -12,7 +12,6 @@ cited_urls 추출 시도 순서:
 
 from __future__ import annotations
 
-import asyncio
 import os
 import re
 import time
@@ -31,18 +30,19 @@ class GeminiEngine(BaseEngine):
         if not api_key:
             raise EngineError("GOOGLE_API_KEY 미설정")
         try:
-            import google.generativeai as genai
+            from google import genai
+            from google.genai import types as genai_types
         except ImportError as e:  # pragma: no cover
-            raise EngineError(f"google-generativeai 미설치: {e}") from e
-        genai.configure(api_key=api_key)
-        self._genai = genai
+            raise EngineError(f"google-genai 미설치: {e}") from e
+        self._client = genai.Client(api_key=api_key)
+        self._types = genai_types
         self._model_name = model
 
     async def query(self, prompt: str) -> EngineResponse:
-        # google-generativeai 는 동기 API. asyncio.to_thread 로 wrap.
+        # google-genai 는 client.aio.models.generate_content 로 네이티브 async 지원.
         start = time.perf_counter()
         try:
-            response = await asyncio.to_thread(self._sync_query, prompt)
+            response = await self._async_query(prompt)
         except Exception as e:
             raise EngineError(f"Gemini 호출 실패: {e}") from e
         latency_ms = int((time.perf_counter() - start) * 1000)
@@ -58,26 +58,30 @@ class GeminiEngine(BaseEngine):
             raw_payload={"model": self._model_name},
         )
 
-    def _sync_query(self, prompt: str):
-        # tools 인자가 라이브러리 버전마다 시그니처가 달라 try/except 로 graceful
+    async def _async_query(self, prompt: str):
+        # google-search Grounding 시도 → 미지원 모델/SDK 면 일반 호출로 폴백
         system_msg = (
             "당신은 한국어로 의료/안과 정보를 정리하는 도우미입니다. "
             "사실 기반으로 답변하고 의료기관 이름은 자연스럽게 언급하세요."
         )
+        types_mod = self._types
         try:
-            model = self._genai.GenerativeModel(
-                model_name=self._model_name,
-                system_instruction=system_msg,
-                tools=[{"google_search_retrieval": {}}],
+            return await self._client.aio.models.generate_content(
+                model=self._model_name,
+                contents=prompt,
+                config=types_mod.GenerateContentConfig(
+                    system_instruction=system_msg,
+                    tools=[types_mod.Tool(google_search=types_mod.GoogleSearch())],
+                ),
             )
-            return model.generate_content(prompt)
         except Exception:
-            # tools 미지원 모델/SDK 버전 → 일반 호출
-            model = self._genai.GenerativeModel(
-                model_name=self._model_name,
-                system_instruction=system_msg,
+            return await self._client.aio.models.generate_content(
+                model=self._model_name,
+                contents=prompt,
+                config=types_mod.GenerateContentConfig(
+                    system_instruction=system_msg,
+                ),
             )
-            return model.generate_content(prompt)
 
     @staticmethod
     def _extract_text_and_citations(response) -> tuple[str, list[str]]:
