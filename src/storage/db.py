@@ -63,3 +63,29 @@ def create_all() -> None:
 
 def drop_all() -> None:
     Base.metadata.drop_all(get_engine())
+
+
+def upgrade_to_head() -> tuple[bool, str | None]:
+    """Streamlit Cloud 부트스트랩에서 호출 — Alembic 을 head 까지 적용.
+
+    Streamlit Community Cloud 는 shell 접근이 없어 alembic CLI 를 따로 못 돌림.
+    `create_all()` 은 신규 테이블만 만들고 기존 테이블의 ALTER 는 못 하므로,
+    column 이 추가된 신규 마이그레이션이 production 에 적용되도록 부트스트랩에서
+    프로그램 방식으로 ``upgrade head`` 를 호출. 실패 시 (False, 에러 메시지) 반환 —
+    호출자가 사이드바/배너로 표시. 무한 루프/실패 캐스케이드 방지.
+    """
+    try:
+        from pathlib import Path
+
+        from alembic import command
+        from alembic.config import Config
+
+        ini_path = Path(__file__).resolve().parent.parent.parent / "alembic.ini"
+        if not ini_path.exists():
+            return False, f"alembic.ini not found at {ini_path}"
+        cfg = Config(str(ini_path))
+        # alembic env.py 가 DATABASE_URL 환경변수를 읽음 — 이미 _hydrate_env_from_secrets 가 셋업
+        command.upgrade(cfg, "head")
+        return True, None
+    except Exception as e:
+        return False, f"{type(e).__name__}: {e}"[:500]

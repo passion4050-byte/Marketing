@@ -74,9 +74,17 @@ def main() -> None:
         )
 
     # ─── DB 부트 ─────────────────────────────────────────────────
-    from src.storage.db import create_all, get_session_factory
+    from src.storage.db import create_all, get_session_factory, upgrade_to_head
 
+    # 1) 신규 테이블 — create_all 로 생성
     create_all()
+    # 2) 기존 테이블의 컬럼 추가/스키마 변경 — Alembic migration 자동 적용
+    #    (Streamlit Cloud 는 shell 없으니 부트스트랩에서 한 번만 실행)
+    ok, err = upgrade_to_head()
+    if not ok and err:
+        st.warning(
+            f"⚠️ Alembic migration 실패 — 기존 테이블 schema 가 최신이 아닐 수 있습니다.\n\n`{err}`"
+        )
     SessionLocal = get_session_factory()
 
     # ─── 메인 탭 ─────────────────────────────────────────────────

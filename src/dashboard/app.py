@@ -105,7 +105,7 @@ except Exception as _e:  # pragma: no cover
     _MEASUREMENT_TAB_ERROR = repr(_e)
     render_measurement_tab = None  # type: ignore
 
-from src.storage.db import create_all, get_session_factory  # noqa: E402
+from src.storage.db import create_all, get_session_factory, upgrade_to_head  # noqa: E402
 from src.storage.models import GeneratedContent, Keyword, Tenant  # noqa: E402
 
 # 발행 현황 탭 (Phase 6.6) — Publication 모델 미적재 환경에서도 앱이 죽지 않도록 폴백
@@ -152,6 +152,10 @@ UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 @st.cache_resource
 def _bootstrap():
     create_all()
+    # Alembic migration 자동 적용 — 기존 테이블에 추가된 컬럼 (e.g. password_set_at) 동기화.
+    # 실패해도 앱 죽이지 않음 — caller 가 사이드바/배너로 표시 가능. cache_resource 라
+    # 컨테이너당 한 번만 실행.
+    upgrade_to_head()
     factory = get_session_factory()
     # Streamlit Cloud처럼 컨테이너 재시작 = SQLite 휘발 환경에서
     # 자동으로 sample tenants/rules 시드 (idempotent — 이미 있으면 NOOP).
