@@ -38,15 +38,15 @@ def render_cost_tab(SessionLocal) -> None:
         for t in tenants:
             day_logs = s.query(LlmCallLog).filter(
                 LlmCallLog.tenant_id == t.id,
-                LlmCallLog.created_at >= today_start,
+                LlmCallLog.called_at >= today_start,
             ).all()
             week_logs = s.query(LlmCallLog).filter(
                 LlmCallLog.tenant_id == t.id,
-                LlmCallLog.created_at >= week_start,
+                LlmCallLog.called_at >= week_start,
             ).all()
             month_logs = s.query(LlmCallLog).filter(
                 LlmCallLog.tenant_id == t.id,
-                LlmCallLog.created_at >= month_start,
+                LlmCallLog.called_at >= month_start,
             ).all()
             day_usd = sum((l.cost_usd or 0.0) for l in day_logs)
             week_usd = sum((l.cost_usd or 0.0) for l in week_logs)
