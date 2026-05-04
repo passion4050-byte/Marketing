@@ -77,6 +77,17 @@ Phase 6.5 이전엔 9-탭 평탄 구조 (FAQ 생성기/블로그 포스트가 �
 
 ---
 
+### 발행 추적 + AEO 인용 매칭 (Phase 6.6)
+
+`Publication` 모델로 tenant 가 외부에 발행한 URL 1건을 추적. `src/analytics/citation.py` 의 `match_publications_to_responses()` 가 AI 엔진의 `Response.cited_urls` 와 정규화 매칭해 `cited_by_engines` 갱신. 콘텐츠 발행 그룹의 4번째 sub-tab "📍 발행 현황" 에 KPI/테이블/등록폼/매칭 버튼.
+
+- **AEO 의 진짜 KPI** = "AI 응답이 우리 URL 을 cite 하는가" — mention_share 와 별개의 citation_rate 지표.
+- **No auto-posting 정책 유지** — 발행 자체는 사용자가 수동 (복사 → 외부 발행 → URL 등록). 외부 플랫폼 자동 게시는 계정 정지/AEO 역효과/의료법 리스크로 채택 안 함. 자세한 채널 우선순위 + 정책 stance 는 `.planning/aeo_geo_strategy.md`.
+- URL 정규화: 모바일/데스크톱 도메인 통합, http→https, trailing slash, utm_*/fbclid 제거 (네이버 블로그 m.blog.naver.com ↔ blog.naver.com 매칭 케이스 핵심).
+- 콘텐츠 카드 (`render_content_card`) 의 인라인 폼이 `generated_content_id` FK 로 GeneratedContent 와 Publication 을 1:N 연결.
+
+---
+
 ### 자동 콘텐츠 큐 (AutoContentSetting) 설계 결정 (Phase 6.5)
 
 `AutoContentSetting` 모델로 tenant 별 자동 큐 설정 (enabled / daily_count / channels) 을 DB 에 저장. `src/collector/scheduler.py` 의 `daily_auto_content_job` 이 매일 03:00 KST 에 실행해 활성 키워드 × 채널로 `GeneratedContent` 를 생성하고 `status='draft'` 로 저장.

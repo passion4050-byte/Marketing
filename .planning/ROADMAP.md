@@ -17,7 +17,9 @@ Phase 1은 **오늘 3시간 안에 동작하는 데모 슬라이스** — 의료
 - [ ] **Phase 3: Reference Library (RAG)** — Chroma + URL 인덱싱 + tenant 격리 검색 + Content Generator 통합
 - [x] **Phase 4: Measurement Foundation (MVP-0)** — Engine 추상화 + Perplexity 1엔진 + 수집 + 멘션 추출 v1
 - [x] **Phase 5: Analytics 강화 (MVP-1)** — 가중치 + Mann-Kendall + 이상치 + Streamlit 대시보드
-- [ ] **Phase 6: Multi-Engine + Competitor Discovery (MVP-2)** — 4엔진 동시 + NER 후보 발견 + Sentiment
+- [x] **Phase 6: Multi-Engine + Competitor Discovery (MVP-2)** — 4엔진 동시 + NER 후보 발견 + Sentiment
+- [x] **Phase 6.5: UX 개편 + 자동 콘텐츠 큐** — 4-탭 그룹핑, AutoContentSetting + 임시 저장함, Gemini SDK `google-genai` 마이그레이션
+- [x] **Phase 6.6: 발행 추적 + AEO 인용 매칭** — Publication 모델, URL 정규화, cited_by_engines 매칭, 📍 발행 현황 sub-tab
 
 ## Phase Details
 
@@ -135,4 +137,6 @@ Phase 1 → 2 → 3 → 4 → 5 → 6 (Phase 3과 Phase 4는 Phase 2 완료 후 
 | 3. Reference Library (RAG) | 0/3 | Not started | - |
 | 4. Measurement Foundation | 3/3 | ✅ Done | 14/14 tasks · 38 신규 pytest · 라이브 측정 탭 |
 | 5. Analytics 강화 | 3/3 | ✅ Done | 15/15 tasks · 40 신규 pytest · 시계열+CI+이상치+추세 라이브 |
-| 6. Multi-Engine + Competitor Discovery | 0/3 | Planned | PLAN.md 작성 완료 — 17 tasks |
+| 6. Multi-Engine + Competitor Discovery | 3/3 | ✅ Done | 17 tasks · 4엔진 + NER + Sentiment 라이브 |
+| 6.5. UX 개편 + 자동 콘텐츠 큐 + Gemini SDK | — | ✅ Done | 4-탭 그룹핑, AutoContentSetting 라운드로빈, google-genai |
+| 6.6. 발행 추적 + AEO 인용 매칭 | — | ✅ Done | Publication 모델 + URL 정규화 + 📍 발행 현황 sub-tab |
