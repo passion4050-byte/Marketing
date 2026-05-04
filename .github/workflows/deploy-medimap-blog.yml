@@ -1,0 +1,31 @@
+  name: Deploy medimap-blog to Vercel
+
+  on:
+    push:
+      branches: [main]
+      paths:
+        - 'medimap-blog/**'
+    workflow_dispatch: {}
+
+  jobs:
+    trigger-vercel:
+      name: Trigger Vercel deploy
+      runs-on: ubuntu-latest
+      steps:
+        - name: Verify secret is set
+          run: |
+            if [ -z "${{ secrets.VERCEL_DEPLOY_HOOK }}" ]; then
+              echo "::error::VERCEL_DEPLOY_HOOK secret 미설정"
+              exit 1
+            fi
+
+        - name: Trigger Vercel deploy hook
+          run: |
+            response=$(curl -sS -w "\nHTTP_STATUS:%{http_code}" -X POST "${{ secrets.VERCEL_DEPLOY_HOOK }}")
+            status=$(echo "$response" | grep "HTTP_STATUS:" | cut -d':' -f2)
+            echo "Status: $status"
+            if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+              echo "::error::Deploy hook 실패"
+              exit 1
+            fi
+            echo "::notice::Vercel 빌드 큐 적재 완료"
