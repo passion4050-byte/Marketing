@@ -23,17 +23,40 @@ _TONES = [
 
 
 def _get_or_create(session, tenant_id: int) -> BrandVoice:
+    """tenant 의 BrandVoice 1행 보장. race / stale cache 시나리오에서도 안전하게 동작.
+
+    rare 케이스: query → None 인데 INSERT 시점에 다른 트랜잭션 (Streamlit rerun /
+    Postgres 영속 DB 등) 이 같은 tenant_id 의 row 를 이미 만들어둔 경우 UNIQUE 위반.
+    이때 rollback 후 재조회로 복구. 정의서 §3 의 BrandVoice.tenant_id UNIQUE 가 이미
+    데이터 무결성을 보장하므로 사용자에게 노출되는 에러는 없게 한다.
+    """
+    from sqlalchemy.exc import IntegrityError
+
     bv = (
         session.query(BrandVoice)
         .filter(BrandVoice.tenant_id == tenant_id)
         .one_or_none()
     )
-    if bv is None:
-        bv = BrandVoice(tenant_id=tenant_id, tone="전문적")
-        session.add(bv)
+    if bv is not None:
+        return bv
+
+    bv = BrandVoice(tenant_id=tenant_id, tone="전문적")
+    session.add(bv)
+    try:
         session.commit()
         session.refresh(bv)
-    return bv
+        return bv
+    except IntegrityError:
+        session.rollback()
+        existing = (
+            session.query(BrandVoice)
+            .filter(BrandVoice.tenant_id == tenant_id)
+            .one_or_none()
+        )
+        if existing is not None:
+            return existing
+        # 둘 다 실패하면 메모리 인스턴스로 폴백 (UI 가 죽지 않도록)
+        return BrandVoice(tenant_id=tenant_id, tone="전문적")
 
 
 def _render_tone_picker(current_tone: str) -> str:

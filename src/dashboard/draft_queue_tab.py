@@ -26,11 +26,14 @@ def _ensure_setting(SessionLocal, tenant_id: int):
     """tenant 별 AutoContentSetting 1행 보장 (없으면 생성).
 
     stale module cache 에서 AutoContentSetting 모델 자체가 없을 수 있어 ImportError 가드.
+    UNIQUE(tenant_id) race 발생 시 IntegrityError → rollback → 재조회.
     """
     try:
         from src.storage.models import AutoContentSetting
     except ImportError:
         return None
+
+    from sqlalchemy.exc import IntegrityError
 
     with SessionLocal() as s:
         row = (
@@ -46,8 +49,18 @@ def _ensure_setting(SessionLocal, tenant_id: int):
                 channels=list(_ALL_CHANNELS),
             )
             s.add(row)
-            s.commit()
-            s.refresh(row)
+            try:
+                s.commit()
+                s.refresh(row)
+            except IntegrityError:
+                s.rollback()
+                row = (
+                    s.query(AutoContentSetting)
+                    .filter(AutoContentSetting.tenant_id == tenant_id)
+                    .first()
+                )
+                if row is None:
+                    return None
         # detach
         return {
             "id": row.id,
