@@ -1,9 +1,9 @@
-"""🏢 테넌트 — 추가/편집/비활성 + 클라이언트 비밀번호 발급. Phase 9-02.
+"""🏢 테넌트 — 추가/편집/비활성 + 클라이언트 비밀번호 발급. Phase 9-04.
 
-TenantPassword 모델은 Phase 9-04 에서 추가 예정. 이번 plan 에서는 기본 환경변수
-패턴(``TENANT_PASSWORD_{tenant_id}``) 으로 운영 — 어드민에서 새 비번 발급 시
-사용자에게 string 으로 표시하고 클립보드에 복사 (DB 영속 X). 다음 plan 에서
-Tenant 모델에 hashed_password column + reset 기능 추가.
+Phase 9-04 에서 ``Tenant.password_hash`` 컬럼 추가 — 평문은 DB 에 저장되지 않고
+``pbkdf2_sha256`` 해시만 영속화. 발급 직후 1회만 평문 표시 (즉시 클라이언트에 전달).
+재발급은 새 해시로 덮어쓰기. blogkey(``src/dashboard/app.py``) 의 _tenant_picker 가
+해당 hash 를 verify 해서 본인 테넌트만 볼 수 있도록 격리.
 """
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ def render_tenants_tab(SessionLocal) -> None:
         st.markdown("---")
         _edit_tenant_form(SessionLocal, rows)
         st.markdown("---")
-        _password_section(rows)
+        _password_section(SessionLocal, rows)
 
 
 def _add_tenant_form(SessionLocal) -> None:
@@ -180,18 +180,27 @@ def _edit_tenant_form(SessionLocal, rows: list) -> None:
             st.rerun()
 
 
-def _password_section(rows: list) -> None:
-    """비밀번호 발급 — Phase 9-02 임시: 환경변수 컨벤션 안내.
+def _password_section(SessionLocal, rows: list) -> None:
+    """비밀번호 발급/리셋 — Phase 9-04: ``Tenant.password_hash`` 영속화.
 
-    Phase 9-04 에서 Tenant.password_hash column 추가 후 진짜 발급/리셋 기능 도입.
+    평문은 발급 직후 1회만 화면에 표시되고 DB 에는 ``pbkdf2_sha256`` 해시만 저장된다.
+    어드민이 잊은 비번은 복구 불가 — 새로 발급해서 클라이언트에 다시 전달.
     """
-    with st.expander("🔑 클라이언트 비밀번호 발급 (임시)", expanded=False):
+    from src.admin.passwords import hash_password
+    from src.storage.models import Tenant
+
+    with st.expander("🔑 클라이언트 비밀번호 발급/리셋", expanded=False):
         st.caption(
-            "**임시 운영안**: blogkey 의 `_tenant_picker` 격리(Phase 9-04)가 들어오기 전까지는 "
-            "Streamlit Cloud secrets 에 `TENANT_PASSWORD_{id}` 형태로 등록하고 클라이언트에게 "
-            "URL 쿼리 파라미터(예: `?tenant=1&pw=abc`) 로 접속 가이드 제공. "
-            "Phase 9-04 에서 Tenant.password_hash + 정식 로그인 도입 예정."
+            "blogkey(클라이언트 제품) 에서 본인 테넌트만 보이도록 하는 접속 비밀번호. "
+            "발급 시 1회만 평문이 표시됩니다 — 즉시 클라이언트에게 전달하세요. "
+            "DB 에는 pbkdf2_sha256 해시만 저장. 잊은 비번은 복구 불가, 재발급으로 덮어쓰기."
         )
+        if not hasattr(Tenant, "password_hash"):
+            st.warning(
+                "⚠️ 현재 ORM 캐시가 구 모델을 들고 있어 `password_hash` 컬럼이 보이지 않습니다. "
+                "Streamlit Cloud 어드민 앱을 **Reboot** 하거나 새 배포 후 다시 시도하세요."
+            )
+            return
         labels = {f"#{t.id} {t.name}": t.id for t in rows}
         choice = st.selectbox(
             "테넌트 선택",
@@ -199,15 +208,45 @@ def _password_section(rows: list) -> None:
             key="admin_pw_pick",
         )
         tid = labels[choice]
-        if st.button("🎲 새 비밀번호 생성", key=f"admin_pw_gen_{tid}"):
+
+        # 현재 hash 보유 여부 표시
+        with SessionLocal() as s:
+            t = s.get(Tenant, tid)
+            has_hash = bool(getattr(t, "password_hash", None)) if t else False
+        col_status, col_btn = st.columns([2, 1])
+        col_status.markdown(
+            f"**현재 상태**: {'🟢 비밀번호 설정됨' if has_hash else '⚪️ 미설정'}"
+        )
+        do_issue = col_btn.button(
+            "🎲 새 비밀번호 발급" if not has_hash else "🔄 비밀번호 재발급",
+            key=f"admin_pw_gen_{tid}",
+            type="primary",
+        )
+
+        if do_issue:
             new_pw = _gen_password(14)
+            with SessionLocal() as s:
+                t = s.get(Tenant, tid)
+                if t is None:
+                    st.error("테넌트가 존재하지 않습니다.")
+                    return
+                t.password_hash = hash_password(new_pw)
+                s.commit()
             st.session_state[f"_admin_pw_show_{tid}"] = new_pw
+            st.rerun()
+
         shown = st.session_state.get(f"_admin_pw_show_{tid}")
         if shown:
             st.success("✅ 새 비밀번호 (1회 표시 — 즉시 복사):")
             st.code(shown, language=None)
             st.info(
-                f"Streamlit Cloud secrets 에 다음 줄 추가:\n```\n"
-                f"TENANT_PASSWORD_{tid} = \"{shown}\"\n```"
+                "**클라이언트 접속 URL** (한 번에 보내기):\n"
+                f"```\nhttps://blogkey.streamlit.app/?tenant={tid}&pw={shown}\n```"
             )
-            st.caption("이 화면을 닫으면 비밀번호가 사라집니다 — 즉시 클라이언트에게 전달.")
+            st.caption(
+                "이 화면을 닫거나 다른 테넌트를 선택하면 평문이 사라집니다. "
+                "DB 에는 해시만 저장되어 있어 복구 불가능."
+            )
+            if st.button("✓ 클라이언트에게 전달 완료", key=f"admin_pw_clear_{tid}"):
+                st.session_state.pop(f"_admin_pw_show_{tid}", None)
+                st.rerun()

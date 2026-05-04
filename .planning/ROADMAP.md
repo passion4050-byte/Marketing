@@ -178,10 +178,10 @@ Plans:
 **Plans**: 4
 
 Plans:
-- [ ] 09-01: src/admin/ + admin_app.py 스캐폴드 + ADMIN_APP_PASSWORD 게이트
-- [ ] 09-02: 테넌트 CRUD + 클라이언트 비밀번호 발급/리셋 + 비용 대시보드
-- [ ] 09-03: 모든 테넌트 Publication + ShortLink + Funnel 통합 뷰 + 블로그 동기화 버튼
-- [ ] 09-04: blogkey multi-tenant picker → 본인 테넌트만 (TENANT_PASSWORD 매핑)
+- [x] 09-01: src/admin/ + admin_app.py 스캐폴드 + ADMIN_APP_PASSWORD 게이트
+- [x] 09-02: 테넌트 CRUD + 클라이언트 비밀번호 발급/리셋 + 비용 대시보드
+- [x] 09-03: 모든 테넌트 Publication + ShortLink + Funnel 통합 뷰 + 블로그 동기화 버튼
+- [x] 09-04: blogkey multi-tenant picker → 본인 테넌트만 (Tenant.password_hash + TENANT_AUTH_REQUIRED + URL ?tenant=&pw= 인증)
 
 ## Progress
 

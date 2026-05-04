@@ -71,7 +71,8 @@ def test_alembic_downgrade_round_trip(tmp_path):
         assert "reference_documents" in tables_after_up
         assert {"queries", "responses", "mentions", "competitors"}.issubset(tables_after_up)
 
-        # downgrade — 최근 5 마이그레이션을 차례로 내려 shortlinks / publications / competitors / auto_content_settings 모두 제거
+        # downgrade — 최근 6 마이그레이션을 차례로 내려 password_hash / shortlinks / publications / competitors / auto_content_settings 모두 제거
+        command.downgrade(cfg, "-1")  # add_tenant_password_hash 제거
         command.downgrade(cfg, "-1")  # add_shortlink 제거
         command.downgrade(cfg, "-1")  # add_publication 제거
         command.downgrade(cfg, "-1")  # add_auto_content_setting 제거

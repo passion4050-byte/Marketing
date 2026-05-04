@@ -41,6 +41,8 @@ def _hydrate_env_from_secrets() -> None:
         # Phase 8 — GA4 Data API
         "GA4_PROPERTY_ID",
         "GA4_SERVICE_ACCOUNT_JSON",
+        # Phase 9-04 — 멀티테넌트 격리
+        "TENANT_AUTH_REQUIRED",
     ):
         try:
             val = secrets.get(key)
@@ -290,12 +292,28 @@ def _top_header() -> None:
 
 
 def _tenant_picker(SessionLocal, *, key: str) -> tuple[Tenant, list[str]]:
-    """대상(Tenant) 드롭다운 + sample keywords 리스트 반환."""
+    """대상(Tenant) 드롭다운 + sample keywords 리스트 반환.
+
+    ``TENANT_AUTH_REQUIRED=true`` 일 때는 ``tenant_auth`` 가 인증한 tenant_id 만 노출.
+    URL ``?tenant=N&pw=...`` 또는 화면 로그인 폼으로 통과한 테넌트만 picker 에 들어옴.
+    """
+    from src.dashboard import tenant_auth as _tauth
+
     with SessionLocal() as session:
         tenants = session.query(Tenant).order_by(Tenant.id).all()
         if not tenants:
             st.error("대상(Tenant) 없음. 터미널에서 `python scripts/init_db.py` 실행하세요.")
             st.stop()
+
+        if _tauth.auth_required():
+            # URL 쿼리 자동 인증 시도
+            _tauth.authenticate_from_query(SessionLocal)
+            allowed = _tauth.allowed_tenant_ids()
+            tenants = [t for t in tenants if t.id in allowed]
+            if not tenants:
+                if _tauth.render_login_form(SessionLocal):
+                    st.rerun()
+                st.stop()
 
         labels = {f"{t.id}. {t.name} — {t.domain_category} ({t.region})": t for t in tenants}
         selected = st.selectbox("대상", list(labels.keys()), key=f"{key}_tenant")
