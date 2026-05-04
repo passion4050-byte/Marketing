@@ -72,9 +72,34 @@ from src.reference.retriever import (
     format_references_block,
     retrieve,
 )
+from src.marketing.cta_templates import CtaConfig, append_cta_to_content
 from src.storage.models import GeneratedContent, LlmCallLog, Tenant
 
 logger = structlog.get_logger(__name__)
+
+
+def _build_cta_config_from_tenant(tenant: Tenant) -> CtaConfig:
+    """Tenant 의 연락처 → CtaConfig. 없는 필드는 CtaConfig 기본값 유지."""
+    defaults = CtaConfig()
+    return CtaConfig(
+        kakao_channel_url=defaults.kakao_channel_url,  # 외부 채널 URL은 환경변수/배포측 책임
+        naver_place_url=tenant.naver_place_url or defaults.naver_place_url,
+        phone=tenant.phone or defaults.phone,
+        brand_name=tenant.name or defaults.brand_name,
+        own_blog_url=tenant.homepage or defaults.own_blog_url,
+    )
+
+
+_SLUG_RE = __import__("re").compile(r"[^a-z0-9가-힣]+")
+
+
+def _resolve_cta_campaign(explicit: Optional[str], keyword: str) -> str:
+    """utm_campaign 값을 결정. explicit > keyword slug > 'untagged'."""
+    if explicit and explicit.strip():
+        return explicit.strip()[:80]
+    base = (keyword or "").strip().lower()
+    base = _SLUG_RE.sub("_", base).strip("_")
+    return base[:80] or "untagged"
 
 
 @dataclass
@@ -368,6 +393,8 @@ def generate_blog_post(
     save: bool = True,
     use_rag: bool = True,
     rag_k: int = 5,
+    include_cta: bool = True,
+    cta_utm_campaign: Optional[str] = None,
 ) -> BlogResult:
     """키워드 + (선택) 참조 URL + (선택) 이미지 → SEO 친화적 블로그 post.
 
@@ -515,6 +542,22 @@ def generate_blog_post(
     full_html = render_full_html(last_post)
     naver_plain = render_naver_blog_plain(last_post)
 
+    if include_cta:
+        cta_cfg = _build_cta_config_from_tenant(tenant)
+        camp = _resolve_cta_campaign(cta_utm_campaign, keyword)
+        body_html = append_cta_to_content(
+            body_html, "blog_html", cfg=cta_cfg,
+            utm_source="own_blog", utm_campaign=camp,
+        )
+        full_html = append_cta_to_content(
+            full_html, "blog_html", cfg=cta_cfg,
+            utm_source="own_blog", utm_campaign=camp,
+        )
+        naver_plain = append_cta_to_content(
+            naver_plain, "naver_blog", cfg=cta_cfg,
+            utm_source="naver_blog", utm_campaign=camp,
+        )
+
     saved_id = None
     if save:
         gc = GeneratedContent(
@@ -614,6 +657,8 @@ def generate_naver_blog_content(
     save: bool = True,
     use_rag: bool = True,
     rag_k: int = 5,
+    include_cta: bool = True,
+    cta_utm_campaign: Optional[str] = None,
 ) -> NaverBlogResult:
     """네이버 블로그 평문 발행 — 자동수정 루프 포함."""
     check_daily_budget(session, tenant_id)
@@ -680,6 +725,16 @@ def generate_naver_blog_content(
     assert last_post is not None and last_report is not None and last_result is not None
     plain = render_naver_plain(last_post)
 
+    if include_cta:
+        tenant = session.get(Tenant, tenant_id)
+        if tenant is not None:
+            cta_cfg = _build_cta_config_from_tenant(tenant)
+            camp = _resolve_cta_campaign(cta_utm_campaign, keyword)
+            plain = append_cta_to_content(
+                plain, "naver_blog", cfg=cta_cfg,
+                utm_source="naver_blog", utm_campaign=camp,
+            )
+
     saved_id = None
     if save:
         gc = GeneratedContent(
@@ -727,6 +782,8 @@ def generate_instagram_content(
     save: bool = True,
     use_rag: bool = True,
     rag_k: int = 5,
+    include_cta: bool = True,
+    cta_utm_campaign: Optional[str] = None,
 ) -> InstagramResult:
     """Instagram 캡션 발행 — 자동수정 루프 포함. body 200~300자 + 해시태그 5~10."""
     check_daily_budget(session, tenant_id)
@@ -783,6 +840,14 @@ def generate_instagram_content(
     rendered = render_instagram_caption(last_cap)
     len_ok, char_count = ig_validate_length(last_cap)
     tag_ok, tag_count = ig_validate_hashtags(last_cap)
+
+    if include_cta:
+        cta_cfg = _build_cta_config_from_tenant(tenant)
+        camp = _resolve_cta_campaign(cta_utm_campaign, keyword)
+        rendered = append_cta_to_content(
+            rendered, "instagram", cfg=cta_cfg,
+            utm_source="instagram", utm_campaign=camp,
+        )
 
     saved_id = None
     if save:

@@ -20,7 +20,8 @@ Phase 1은 **오늘 3시간 안에 동작하는 데모 슬라이스** — 의료
 - [x] **Phase 6: Multi-Engine + Competitor Discovery (MVP-2)** — 4엔진 동시 + NER 후보 발견 + Sentiment
 - [x] **Phase 6.5: UX 개편 + 자동 콘텐츠 큐** — 4-탭 그룹핑, AutoContentSetting + 임시 저장함, Gemini SDK `google-genai` 마이그레이션
 - [x] **Phase 6.6: 발행 추적 + AEO 인용 매칭** — Publication 모델, URL 정규화, cited_by_engines 매칭, 📍 발행 현황 sub-tab
-- [ ] **Phase 7: AEO 자산 Funnel (자사 블로그 + UTM/CTA + 단축도메인 + Funnel 분석)** — 메디맵 테크블로그(Next.js SSG) + 발행 시 UTM/CTA 자동 주입 + 단축도메인 redirect + Funnel 대시보드
+- [x] **Phase 7: AEO 자산 Funnel (자사 블로그 + UTM/CTA + 단축도메인 + Funnel 분석)** — 메디맵 테크블로그(Next.js SSG) + 발행 시 UTM/CTA 자동 주입 + 단축도메인 redirect + Funnel 대시보드
+- [ ] **Phase 8: Funnel Closure (자동 CTA + GA4 + Click 추적)** — generator 자동 CTA 부착, GA4 frontend tracking + backend Data API, ShortLink click → Supabase 직결
 
 ## Phase Details
 
@@ -139,11 +140,28 @@ Plans:
 **Plans**: 5
 
 Plans:
-- [ ] 07-01: medimap-blog Next.js 14 스캐폴드 + 디자인 시스템(Figma 카피) + 헤더/푸터/히어로
-- [ ] 07-02: 블로그 index + 글 상세 + JSON-LD + 시드 글 3편(라식/스마일/백내장) + SaaS export 파이프라인
-- [ ] 07-03: SaaS — UTM 자동 주입 + 4채널 표준 CTA 블록 + Publication 폼 토글
-- [ ] 07-04: 단축도메인 redirect 라우트 + ShortLinkClick 테이블 + Alembic
-- [ ] 07-05: Funnel Analytics — Publication.url cite × GA4 × CTA click 조인 + Streamlit sub-tab
+- [x] 07-01: medimap-blog Next.js 14 스캐폴드 + 디자인 시스템(Figma 카피) + 헤더/푸터/히어로
+- [x] 07-02: 블로그 index + 글 상세 + JSON-LD + 시드 글 3편(라식/스마일/백내장)
+- [x] 07-03: SaaS — UTM 자동 주입 + 표준 CTA 블록 4채널 + Publication 폼 헬퍼
+- [x] 07-04: 단축도메인 redirect 라우트 + ShortLinkClick 테이블 + Alembic
+- [x] 07-05: Funnel Analytics — 자사 URL cite × ShortLink × GA4 가이드 + Streamlit "🔄 Funnel" sub-tab
+
+### Phase 8: Funnel Closure (자동 CTA + GA4 + Click 추적)
+**Goal**: Phase 7 인프라를 *실제 측정 가능한* 상태로 마무리한다. 4채널 콘텐츠 생성 시 자동으로 표준 CTA가 부착되고, GA4가 자사 블로그의 page_view/cta_click을 자동 수집하며, 단축링크 click이 Supabase Postgres에 실시간 적재되어 Streamlit Funnel 대시보드에 cite × pageview × click 통합 KPI가 표시된다.
+**Depends on**: Phase 7 + Supabase Postgres 연결됨
+**Requirements**: 신규 — FUN-09 ~ FUN-14
+**Success Criteria** (what must be TRUE):
+  1. 4채널 generator(blog/naver/instagram) 출력 본문 끝에 표준 CTA 블록이 자동 부착되고, UTM이 채널별로 정확히 주입된다 (default ON, 토글 OFF 가능)
+  2. medimap-blog가 GA4 (`NEXT_PUBLIC_GA_ID`) 설정 시 gtag.js로 page_view + cta_click + scroll_depth 이벤트를 발사한다
+  3. Streamlit Funnel 탭이 GA4 Data API(서비스 계정)로 자사 URL 별 pageview / engagement / source 를 가져와 cite_count와 join 표로 표시한다
+  4. Vercel `/r/[slug]` redirect가 Supabase Postgres에 ShortLinkClick INSERT + ShortLink.click_count UPDATE를 즉시 수행한다 (302 응답은 차단되지 않음 — fire-and-forget)
+  5. Streamlit Funnel 탭 ShortLink 표의 click_count가 실시간 (요청 단위) 증가하는 것을 cross-system으로 확인 가능하다
+**Plans**: 3
+
+Plans:
+- [ ] 08-01: 자동 CTA — generator 3 함수에 include_cta default True 부착 + UI 토글
+- [ ] 08-02: GA4 — frontend gtag(medimap-blog) + backend Data API fetcher(SaaS) + Funnel 탭 join
+- [ ] 08-03: ShortLink click 추적 — Vercel route Supabase 직결 + Streamlit click 표 실시간 KPI
 
 ## Progress
 
@@ -160,4 +178,5 @@ Phase 1 → 2 → 3 → 4 → 5 → 6 (Phase 3과 Phase 4는 Phase 2 완료 후 
 | 6. Multi-Engine + Competitor Discovery | 3/3 | ✅ Done | 17 tasks · 4엔진 + NER + Sentiment 라이브 |
 | 6.5. UX 개편 + 자동 콘텐츠 큐 + Gemini SDK | — | ✅ Done | 4-탭 그룹핑, AutoContentSetting 라운드로빈, google-genai |
 | 6.6. 발행 추적 + AEO 인용 매칭 | — | ✅ Done | Publication 모델 + URL 정규화 + 📍 발행 현황 sub-tab |
-| 7. AEO 자산 Funnel (블로그+UTM+CTA+단축+분석) | 0/5 | In progress | medimap-blog Next.js + Funnel 인프라 |
+| 7. AEO 자산 Funnel (블로그+UTM+CTA+단축+분석) | 5/5 | ✅ Done | medimap-blog Next.js 라이브 + Funnel sub-tab |
+| 8. Funnel Closure (자동 CTA + GA4 + Click 추적) | 0/3 | In progress | generator wiring + GA4 + Supabase 직결 |
