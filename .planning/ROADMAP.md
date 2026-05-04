@@ -165,21 +165,22 @@ Plans:
 - [x] 08-03: ShortLink click 추적 — Vercel route Supabase 직결 + Streamlit click 표 실시간 KPI
 
 ### Phase 9: Admin Site + Tenant 격리
-**Goal**: 메디맵 직원 전용 어드민 사이트(별도 Vercel)에서 모든 클라이언트 테넌트와 컨텐츠 블로그를 통합 관리하고, 클라이언트 제품(blogkey)은 본인 테넌트만 노출되도록 격리한다.
+**Goal**: 메디맵 직원 전용 어드민 사이트(별도 Streamlit Cloud 앱)에서 모든 클라이언트 테넌트와 컨텐츠 블로그를 통합 관리하고, 클라이언트 제품(blogkey)은 본인 테넌트만 노출되도록 격리한다.
 **Depends on**: Phase 8
 **Requirements**: 신규 — ADM-01 ~ ADM-12
+**Stack 결정**: Streamlit (별도 Cloud 앱 `blogkey-admin.streamlit.app`) — 같은 Supabase 공유, 기존 Python 모델/제너레이터 풀 재사용. Next.js 후보 → Phase 10 이후로 보류.
 **Success Criteria** (what must be TRUE):
-  1. `medimap-admin.vercel.app` 라이브 — Next.js + Supabase 직결, APP_PASSWORD 게이트
+  1. `blogkey-admin.streamlit.app` 라이브 — `ADMIN_APP_PASSWORD` 게이트, Supabase 동일 DB
   2. 어드민에서 테넌트 CRUD (추가/편집/비활성) + 클라이언트 비밀번호 발급
   3. 비용 대시보드 — LLM USD × 테넌트 일/주/월 합산, MAX_DAILY_USD 글로벌 설정
-  4. Publication + Funnel 통합 뷰 (모든 테넌트 cite_count + click_count)
+  4. Publication + ShortLink + Funnel 통합 뷰 (모든 테넌트 cite_count + click_count)
   5. blogkey 의 `_tenant_picker` 가 로그인된 클라이언트의 테넌트만 표시 (멀티테넌트 leak 방지)
 **Plans**: 4
 
 Plans:
-- [ ] 09-01: medimap-admin Next.js 14 스캐폴드 + Supabase 직결 + APP_PASSWORD 게이트
+- [ ] 09-01: src/admin/ + admin_app.py 스캐폴드 + ADMIN_APP_PASSWORD 게이트
 - [ ] 09-02: 테넌트 CRUD + 클라이언트 비밀번호 발급/리셋 + 비용 대시보드
-- [ ] 09-03: 모든 테넌트 Publication + ShortLink + Funnel 통합 뷰
+- [ ] 09-03: 모든 테넌트 Publication + ShortLink + Funnel 통합 뷰 + 블로그 동기화 버튼
 - [ ] 09-04: blogkey multi-tenant picker → 본인 테넌트만 (TENANT_PASSWORD 매핑)
 
 ## Progress
@@ -199,4 +200,4 @@ Phase 1 → 2 → 3 → 4 → 5 → 6 (Phase 3과 Phase 4는 Phase 2 완료 후 
 | 6.6. 발행 추적 + AEO 인용 매칭 | — | ✅ Done | Publication 모델 + URL 정규화 + 📍 발행 현황 sub-tab |
 | 7. AEO 자산 Funnel (블로그+UTM+CTA+단축+분석) | 5/5 | ✅ Done | medimap-blog Next.js 라이브 + Funnel sub-tab |
 | 8. Funnel Closure (자동 CTA + GA4 + Click 추적) | 3/3 | ✅ Done | generator wiring + GA4 + Supabase 직결 |
-| 9. Admin Site + Tenant 격리 | 0/4 | Planned | medimap-admin Next.js + 멀티테넌트 격리 |
+| 9. Admin Site + Tenant 격리 | 0/4 | In progress | blogkey-admin Streamlit + 멀티테넌트 격리 |
