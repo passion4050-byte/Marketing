@@ -168,9 +168,9 @@ Plans:
 **Goal**: 메디맵 직원 전용 어드민 사이트(별도 Streamlit Cloud 앱)에서 모든 클라이언트 테넌트와 컨텐츠 블로그를 통합 관리하고, 클라이언트 제품(blogkey)은 본인 테넌트만 노출되도록 격리한다.
 **Depends on**: Phase 8
 **Requirements**: 신규 — ADM-01 ~ ADM-12
-**Stack 결정**: Streamlit (별도 Cloud 앱 `blogkey-admin.streamlit.app`) — 같은 Supabase 공유, 기존 Python 모델/제너레이터 풀 재사용. Next.js 후보 → Phase 10 이후로 보류.
+**Stack 결정**: Streamlit (별도 Cloud 앱 `blogkey-adm.streamlit.app`) — 같은 Supabase 공유, 기존 Python 모델/제너레이터 풀 재사용. Next.js 후보 → Phase 10 이후로 보류.
 **Success Criteria** (what must be TRUE):
-  1. `blogkey-admin.streamlit.app` 라이브 — `ADMIN_APP_PASSWORD` 게이트, Supabase 동일 DB
+  1. `blogkey-adm.streamlit.app` 라이브 — `ADMIN_APP_PASSWORD` 게이트, Supabase 동일 DB
   2. 어드민에서 테넌트 CRUD (추가/편집/비활성) + 클라이언트 비밀번호 발급
   3. 비용 대시보드 — LLM USD × 테넌트 일/주/월 합산, MAX_DAILY_USD 글로벌 설정
   4. Publication + ShortLink + Funnel 통합 뷰 (모든 테넌트 cite_count + click_count)

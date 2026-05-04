@@ -1,6 +1,6 @@
 """메디맵 어드민 사이트 — Phase 9.
 
-`blogkey-admin.streamlit.app` 별도 Streamlit Cloud 앱. 클라이언트 제품(blogkey)과
+`blogkey-adm.streamlit.app` 별도 Streamlit Cloud 앱. 클라이언트 제품(blogkey)과
 같은 Supabase Postgres 를 공유하지만 별도 APP_PASSWORD(``ADMIN_APP_PASSWORD``)로
 게이트되며 모든 테넌트를 통합 관리한다.
 

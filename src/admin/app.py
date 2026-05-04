@@ -70,7 +70,7 @@ def main() -> None:
         st.markdown("---")
         st.caption(
             f"DB: `{_db_summary()}`\n\n"
-            f"Live: blogkey-admin.streamlit.app"
+            f"Live: blogkey-adm.streamlit.app"
         )
 
     # ─── DB 부트 ─────────────────────────────────────────────────
