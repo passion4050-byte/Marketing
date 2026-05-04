@@ -1,10 +1,10 @@
-# 🚀 blogkey-admin Streamlit Cloud 배포 — 6 클릭 가이드
+# 🚀 blogkey-adm Streamlit Cloud 배포 — 6 클릭 가이드
 
-메디맵 직원 전용 어드민 사이트(`blogkey-admin.streamlit.app`)를 Streamlit Community
+메디맵 직원 전용 어드민 사이트(`blogkey-adm.streamlit.app`)를 Streamlit Community
 Cloud 무료 tier 에 배포하는 단계별 가이드. 코드/secrets 템플릿은 이미 prep
 완료(Phase 9-04). share.streamlit.io 에서 **클릭만 6번** 하면 됩니다.
 
-> ℹ️ **왜 `admin.blogkey.streamlit.app` 가 아닌 `blogkey-admin.streamlit.app`?**
+> ℹ️ **왜 `admin.blogkey.streamlit.app` 가 아닌 `blogkey-adm.streamlit.app`?**
 > Streamlit Community Cloud 무료/Hobby tier 는 nested subdomain 라우팅을 지원
 > 하지 않습니다. `<slug>.streamlit.app` 한 가지 패턴만 가능. 진짜 nested 가
 > 필요하면 자체 도메인 + Streamlit Teams (유료) 가 필요합니다.
@@ -50,9 +50,9 @@ GitHub OAuth 로그인 안 된 상태면 먼저 GitHub 계정으로 로그인 (p
 | Repository | `passion4050-byte/Marketing` |
 | Branch | `main` |
 | Main file path | `admin_app.py` ← (★ blogkey 가 아니라 admin) |
-| App URL | `blogkey-admin` |
+| App URL | `blogkey-adm` (Streamlit 이 "admin" 단어를 reserved 처리해서 truncate) |
 
-→ 최종 URL 미리보기: `https://blogkey-admin.streamlit.app` ✓
+→ 최종 URL 미리보기: `https://blogkey-adm.streamlit.app` ✓
 
 ### 클릭 3 — Advanced settings → Python 3.12
 
@@ -87,7 +87,7 @@ GitHub OAuth 로그인 안 된 상태면 먼저 GitHub 계정으로 로그인 (p
 ### 클릭 6 — Reboot app
 
 Settings → **Reboot app** (또는 Save 후 Streamlit 이 자동 재시작).
-30초 후 `https://blogkey-admin.streamlit.app` 접속 → ADMIN_APP_PASSWORD 입력 →
+30초 후 `https://blogkey-adm.streamlit.app` 접속 → ADMIN_APP_PASSWORD 입력 →
 5탭 (🏢 테넌트 / 💸 비용 / 📍 발행 / 🔄 Funnel / 🔗 동기화) 보이면 완료. ✓
 
 ---
@@ -114,7 +114,7 @@ Settings → **Reboot app** (또는 Save 후 Streamlit 이 자동 재시작).
 
 ## 첫 클라이언트에 비번 발급 — 동작 검증
 
-1. `https://blogkey-admin.streamlit.app` 접속 → ADMIN_APP_PASSWORD
+1. `https://blogkey-adm.streamlit.app` 접속 → ADMIN_APP_PASSWORD
 2. 🏢 테넌트 탭 → 🔑 클라이언트 비밀번호 발급/리셋 펼치기
 3. 테넌트 선택 → 🎲 새 비밀번호 발급
 4. 화면에 1회 표시되는 평문 + 자동 생성된 접속 URL (`https://blogkey.streamlit.app/?tenant=N&pw=...`) 클립보드 복사
