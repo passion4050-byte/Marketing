@@ -20,6 +20,7 @@ Phase 1은 **오늘 3시간 안에 동작하는 데모 슬라이스** — 의료
 - [x] **Phase 6: Multi-Engine + Competitor Discovery (MVP-2)** — 4엔진 동시 + NER 후보 발견 + Sentiment
 - [x] **Phase 6.5: UX 개편 + 자동 콘텐츠 큐** — 4-탭 그룹핑, AutoContentSetting + 임시 저장함, Gemini SDK `google-genai` 마이그레이션
 - [x] **Phase 6.6: 발행 추적 + AEO 인용 매칭** — Publication 모델, URL 정규화, cited_by_engines 매칭, 📍 발행 현황 sub-tab
+- [ ] **Phase 7: AEO 자산 Funnel (자사 블로그 + UTM/CTA + 단축도메인 + Funnel 분석)** — 메디맵 테크블로그(Next.js SSG) + 발행 시 UTM/CTA 자동 주입 + 단축도메인 redirect + Funnel 대시보드
 
 ## Phase Details
 
@@ -125,6 +126,25 @@ Plans:
 - [ ] 06-02: 한국어 NER + Competitor Discovery + 후보 검수 UI
 - [ ] 06-03: Sentiment 분석 + 분석 통합
 
+### Phase 7: AEO 자산 Funnel (자사 블로그 + UTM/CTA + 단축도메인 + Funnel 분석)
+**Goal**: AI 검색엔진이 cite할 수 있는 *자사 통제* URL 자산(`medimap.kr/blog/{slug}`)을 만들고, 4채널 발행 시 UTM/CTA가 자동 주입되며, 단축도메인 redirect로 클릭이 추적되고, Publication.url의 cite 빈도와 자사 페이지 GA4 metric이 한 화면에서 보인다.
+**Depends on**: Phase 6.6 (Publication 모델)
+**Requirements**: 신규 — FUN-01 ~ FUN-08 (Funnel) + UI-06 (Funnel 대시보드)
+**Success Criteria** (what must be TRUE):
+  1. `medimap-blog/` Next.js 14 SSG 사이트가 빌드되고, Vercel에 배포되어 `medimap.kr/blog`에 매핑 가능하다 (DNS는 사용자 작업)
+  2. 글 상세 페이지(`/blog/{slug}`)가 Article + FAQPage + MedicalWebPage Schema.org JSON-LD를 노출하고, breadcrumb·OG·sitemap이 동작한다
+  3. Streamlit Publication 등록 폼에서 "UTM 자동 주입" / "CTA 블록 자동 삽입" 토글이 동작하고, 4채널 콘텐츠 본문에 표준 CTA HTML이 부착된다
+  4. `/r/{slug}` redirect 라우트(FastAPI)가 30x로 응답하고 ShortLinkClick 테이블에 click 이벤트가 기록된다
+  5. Streamlit "🚀 Funnel" sub-tab에서 Publication.url cite 빈도 × GA4 페이지뷰 × CTA 클릭률이 조인되어 표시된다
+**Plans**: 5
+
+Plans:
+- [ ] 07-01: medimap-blog Next.js 14 스캐폴드 + 디자인 시스템(Figma 카피) + 헤더/푸터/히어로
+- [ ] 07-02: 블로그 index + 글 상세 + JSON-LD + 시드 글 3편(라식/스마일/백내장) + SaaS export 파이프라인
+- [ ] 07-03: SaaS — UTM 자동 주입 + 4채널 표준 CTA 블록 + Publication 폼 토글
+- [ ] 07-04: 단축도메인 redirect 라우트 + ShortLinkClick 테이블 + Alembic
+- [ ] 07-05: Funnel Analytics — Publication.url cite × GA4 × CTA click 조인 + Streamlit sub-tab
+
 ## Progress
 
 **Execution Order:**
@@ -140,3 +160,4 @@ Phase 1 → 2 → 3 → 4 → 5 → 6 (Phase 3과 Phase 4는 Phase 2 완료 후 
 | 6. Multi-Engine + Competitor Discovery | 3/3 | ✅ Done | 17 tasks · 4엔진 + NER + Sentiment 라이브 |
 | 6.5. UX 개편 + 자동 콘텐츠 큐 + Gemini SDK | — | ✅ Done | 4-탭 그룹핑, AutoContentSetting 라운드로빈, google-genai |
 | 6.6. 발행 추적 + AEO 인용 매칭 | — | ✅ Done | Publication 모델 + URL 정규화 + 📍 발행 현황 sub-tab |
+| 7. AEO 자산 Funnel (블로그+UTM+CTA+단축+분석) | 0/5 | In progress | medimap-blog Next.js + Funnel 인프라 |

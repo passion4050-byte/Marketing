@@ -105,6 +105,16 @@ from src.storage.models import GeneratedContent, Keyword, Tenant  # noqa: E402
 
 # 발행 현황 탭 (Phase 6.6) — Publication 모델 미적재 환경에서도 앱이 죽지 않도록 폴백
 try:
+    from src.dashboard.funnel_tab import render_funnel_tab  # noqa: E402
+
+    _FUNNEL_TAB_OK = True
+    _FUNNEL_TAB_ERROR: str | None = None
+except Exception as e:  # pragma: no cover - 외부 import 실패 가드
+    render_funnel_tab = None  # type: ignore
+    _FUNNEL_TAB_OK = False
+    _FUNNEL_TAB_ERROR = str(e)
+
+try:
     from src.dashboard.publication_tab import (  # noqa: E402
         CHANNEL_OPTIONS as PUB_CHANNEL_OPTIONS,
         CHANNEL_LABEL_MAP as PUB_CHANNEL_LABEL_MAP,
@@ -862,11 +872,12 @@ def main() -> None:
     # ─── ③ 콘텐츠 발행 ────────────────────────────────────────
     with main_tabs[2]:
         tenant, _ = _tenant_picker(SessionLocal, key="publish")
-        sub_unified, sub_sim, sub_history, sub_pub = st.tabs([
+        sub_unified, sub_sim, sub_history, sub_pub, sub_funnel = st.tabs([
             "🚀 통합 발행",
             "🧪 AI 시뮬레이터",
             "🗂️ 발행 이력",
             "📍 발행 현황",
+            "🔄 Funnel",
         ])
         with sub_unified:
             if _UNIFIED_TAB_OK and render_unified_publisher_tab is not None:
@@ -885,6 +896,14 @@ def main() -> None:
             else:
                 st.warning(
                     f"⚠️ 발행 현황 탭 비활성 (import 실패): `{_PUB_TAB_ERROR}`. "
+                    "Streamlit Cloud → Manage app → Reboot app 후 재시도."
+                )
+        with sub_funnel:
+            if _FUNNEL_TAB_OK and render_funnel_tab is not None:
+                render_funnel_tab(SessionLocal, tenant)
+            else:
+                st.warning(
+                    f"⚠️ Funnel 탭 비활성 (import 실패): `{_FUNNEL_TAB_ERROR}`. "
                     "Streamlit Cloud → Manage app → Reboot app 후 재시도."
                 )
 
