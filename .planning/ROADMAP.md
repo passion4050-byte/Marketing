@@ -21,8 +21,8 @@ Phase 1은 **오늘 3시간 안에 동작하는 데모 슬라이스** — 의료
 - [x] **Phase 6.5: UX 개편 + 자동 콘텐츠 큐** — 4-탭 그룹핑, AutoContentSetting + 임시 저장함, Gemini SDK `google-genai` 마이그레이션
 - [x] **Phase 6.6: 발행 추적 + AEO 인용 매칭** — Publication 모델, URL 정규화, cited_by_engines 매칭, 📍 발행 현황 sub-tab
 - [x] **Phase 7: AEO 자산 Funnel (자사 블로그 + UTM/CTA + 단축도메인 + Funnel 분석)** — 메디맵 테크블로그(Next.js SSG) + 발행 시 UTM/CTA 자동 주입 + 단축도메인 redirect + Funnel 대시보드
-- [ ] **Phase 8: Funnel Closure (자동 CTA + GA4 + Click 추적)** — generator 자동 CTA 부착, GA4 frontend tracking + backend Data API, ShortLink click → Supabase 직결
-- [ ] **Phase 9: Admin Site + Tenant 격리** — 메디맵 직원 전용 Next.js admin (별도 Vercel), 테넌트 CRUD + 비번 발급 + 비용 대시보드 + Publication/Funnel 통합. blogkey 의 multi-tenant picker → 본인 테넌트만
+- [x] **Phase 8: Funnel Closure (자동 CTA + GA4 + Click 추적)** — generator 자동 CTA 부착, GA4 frontend tracking + backend Data API, ShortLink click → Supabase 직결
+- [x] **Phase 9: Admin Site + Tenant 격리** — `blogkey-adm.streamlit.app` 라이브, Tenant.password_hash + URL ?tenant=&pw= 인증, 어드민 CRUD + 비번 발급/수정/무효화/완전삭제, 비용 대시보드 + Publication/Funnel 통합 뷰, blogkey picker 본인 테넌트만
 
 ## Phase Details
 
@@ -200,4 +200,4 @@ Phase 1 → 2 → 3 → 4 → 5 → 6 (Phase 3과 Phase 4는 Phase 2 완료 후 
 | 6.6. 발행 추적 + AEO 인용 매칭 | — | ✅ Done | Publication 모델 + URL 정규화 + 📍 발행 현황 sub-tab |
 | 7. AEO 자산 Funnel (블로그+UTM+CTA+단축+분석) | 5/5 | ✅ Done | medimap-blog Next.js 라이브 + Funnel sub-tab |
 | 8. Funnel Closure (자동 CTA + GA4 + Click 추적) | 3/3 | ✅ Done | generator wiring + GA4 + Supabase 직결 |
-| 9. Admin Site + Tenant 격리 | 0/4 | In progress | blogkey-admin Streamlit + 멀티테넌트 격리 |
+| 9. Admin Site + Tenant 격리 | 4/4 | ✅ Done | blogkey-adm.streamlit.app 라이브, Tenant.password_hash, 어드민 계정 관리 풀스코프, URL ?tenant=&pw= 격리, Vercel 자동 deploy 파이프라인, StubEngine RAG-aware cited_urls |
