@@ -1,22 +1,41 @@
-"""🏢 테넌트 — 추가/편집/비활성 + 클라이언트 비밀번호 발급. Phase 9-04.
+"""🏢 테넌트 — CRUD + 계정 관리(계정 정보 리스트 + 비번 발급/수정/무효화 + 완전 삭제). Phase 9-04+.
 
-Phase 9-04 에서 ``Tenant.password_hash`` 컬럼 추가 — 평문은 DB 에 저장되지 않고
-``pbkdf2_sha256`` 해시만 영속화. 발급 직후 1회만 평문 표시 (즉시 클라이언트에 전달).
-재발급은 새 해시로 덮어쓰기. blogkey(``src/dashboard/app.py``) 의 _tenant_picker 가
-해당 hash 를 verify 해서 본인 테넌트만 볼 수 있도록 격리.
+Phase 9-04 에서 ``Tenant.password_hash`` + ``password_set_at`` 컬럼 추가.
+어드민에서 모든 클라이언트 계정을 한 곳에서 관리:
+- 계정 정보 리스트: ID/이름/비번 상태/마지막 변경일
+- 비번 발급: 자동 생성 (14자) 또는 어드민이 직접 입력
+- 비번 무효화: password_hash=NULL → 즉시 로그인 차단, 데이터 보존
+- 테넌트 완전 삭제: cascade 로 콘텐츠/Publication 모두 삭제 (이름 입력 확인 필수)
 """
 
 from __future__ import annotations
 
 import secrets
 import string
+from datetime import datetime, timezone
 
 import streamlit as st
 
 
-def _gen_password(length: int = 12) -> str:
+MIN_PW_LENGTH = 8
+
+
+def _gen_password(length: int = 14) -> str:
     alphabet = string.ascii_letters + string.digits
     return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _validate_manual_pw(pw: str) -> str | None:
+    """수동 입력 비번 검증 — 길이/문자 종류. None=OK, str=에러 메시지."""
+    if len(pw) < MIN_PW_LENGTH:
+        return f"비밀번호는 최소 {MIN_PW_LENGTH}자 이상이어야 합니다."
+    if not any(c.isalpha() for c in pw) or not any(c.isdigit() for c in pw):
+        return "비밀번호는 영문과 숫자를 모두 포함해야 합니다."
+    return None
 
 
 def render_tenants_tab(SessionLocal) -> None:
@@ -66,9 +85,11 @@ def render_tenants_tab(SessionLocal) -> None:
     _add_tenant_form(SessionLocal)
     if rows:
         st.markdown("---")
+        _account_management(SessionLocal, rows)
+        st.markdown("---")
         _edit_tenant_form(SessionLocal, rows)
         st.markdown("---")
-        _password_section(SessionLocal, rows)
+        _danger_zone(SessionLocal, rows)
 
 
 def _add_tenant_form(SessionLocal) -> None:
@@ -180,50 +201,91 @@ def _edit_tenant_form(SessionLocal, rows: list) -> None:
             st.rerun()
 
 
-def _password_section(SessionLocal, rows: list) -> None:
-    """비밀번호 발급/리셋 — Phase 9-04: ``Tenant.password_hash`` 영속화.
+def _account_management(SessionLocal, rows: list) -> None:
+    """🔑 클라이언트 계정 관리 — 정보 리스트 + 자동/수동 발급 + 무효화.
 
-    평문은 발급 직후 1회만 화면에 표시되고 DB 에는 ``pbkdf2_sha256`` 해시만 저장된다.
-    어드민이 잊은 비번은 복구 불가 — 새로 발급해서 클라이언트에 다시 전달.
+    blogkey 접속용 계정. ID = ``Tenant.id`` (정수), 비번 = pbkdf2_sha256 해시로 영속.
+    어드민이 잊은 비번은 복구 불가 — 새로 발급해서 클라이언트에게 다시 전달.
     """
     from src.admin.passwords import hash_password
     from src.storage.models import Tenant
 
-    with st.expander("🔑 클라이언트 비밀번호 발급/리셋", expanded=False):
-        st.caption(
-            "blogkey(클라이언트 제품) 에서 본인 테넌트만 보이도록 하는 접속 비밀번호. "
-            "발급 시 1회만 평문이 표시됩니다 — 즉시 클라이언트에게 전달하세요. "
-            "DB 에는 pbkdf2_sha256 해시만 저장. 잊은 비번은 복구 불가, 재발급으로 덮어쓰기."
+    st.markdown("#### 🔑 클라이언트 계정 관리")
+    st.caption(
+        "blogkey(클라이언트 제품) 접속용 ID + 비밀번호. "
+        "ID 는 테넌트 번호(정수), 비번은 발급 시 1회만 평문 표시 — 즉시 클라이언트에 전달."
+    )
+    if not hasattr(Tenant, "password_hash"):
+        st.warning(
+            "⚠️ ORM 캐시가 구 모델을 들고 있어 `password_hash` 컬럼이 보이지 않습니다. "
+            "Streamlit Cloud 어드민 앱을 **Reboot** 하세요."
         )
-        if not hasattr(Tenant, "password_hash"):
-            st.warning(
-                "⚠️ 현재 ORM 캐시가 구 모델을 들고 있어 `password_hash` 컬럼이 보이지 않습니다. "
-                "Streamlit Cloud 어드민 앱을 **Reboot** 하거나 새 배포 후 다시 시도하세요."
-            )
-            return
-        labels = {f"#{t.id} {t.name}": t.id for t in rows}
-        choice = st.selectbox(
-            "테넌트 선택",
-            list(labels.keys()),
-            key="admin_pw_pick",
-        )
-        tid = labels[choice]
+        return
 
-        # 현재 hash 보유 여부 표시
-        with SessionLocal() as s:
-            t = s.get(Tenant, tid)
-            has_hash = bool(getattr(t, "password_hash", None)) if t else False
-        col_status, col_btn = st.columns([2, 1])
-        col_status.markdown(
-            f"**현재 상태**: {'🟢 비밀번호 설정됨' if has_hash else '⚪️ 미설정'}"
-        )
-        do_issue = col_btn.button(
+    # ─── 계정 정보 리스트 (모든 테넌트의 비번 상태 한눈에) ───────
+    with SessionLocal() as s:
+        all_tenants = s.query(Tenant).order_by(Tenant.id).all()
+        account_rows = []
+        for t in all_tenants:
+            has_hash = bool(getattr(t, "password_hash", None))
+            set_at = getattr(t, "password_set_at", None)
+            account_rows.append({
+                "id": t.id,
+                "name": t.name,
+                "login_url": f"https://blogkey.streamlit.app/?tenant={t.id}",
+                "status": "🟢 설정됨" if has_hash else "⚪️ 미설정",
+                "last_changed": (
+                    set_at.strftime("%Y-%m-%d %H:%M") if set_at else "—"
+                ),
+            })
+
+    st.dataframe(
+        account_rows,
+        use_container_width=True,
+        column_config={
+            "id": st.column_config.NumberColumn("ID", width="small"),
+            "name": st.column_config.TextColumn("테넌트 이름", width="medium"),
+            "login_url": st.column_config.LinkColumn(
+                "접속 URL (베이스)", width="medium",
+                help="비번 입력 후 ?pw=... 형태로 클라이언트에 전달",
+            ),
+            "status": st.column_config.TextColumn("비번 상태", width="small"),
+            "last_changed": st.column_config.TextColumn("마지막 변경", width="small"),
+        },
+        hide_index=True,
+    )
+
+    st.markdown("---")
+    # ─── 액션: 테넌트 선택 + 4가지 액션 ───────────────────────
+    labels = {f"#{t.id} {t.name}": t.id for t in rows}
+    choice = st.selectbox("테넌트 선택", list(labels.keys()), key="admin_acct_pick")
+    tid = labels[choice]
+
+    with SessionLocal() as s:
+        t = s.get(Tenant, tid)
+        has_hash = bool(getattr(t, "password_hash", None)) if t else False
+        last_changed = getattr(t, "password_set_at", None) if t else None
+    info_col, _ = st.columns([3, 1])
+    info_col.markdown(
+        f"**테넌트 #{tid} {t.name if t else ''}** — "
+        f"{'🟢 비번 설정됨' if has_hash else '⚪️ 비번 미설정'}"
+        + (f" (마지막 변경: {last_changed.strftime('%Y-%m-%d %H:%M')})" if last_changed else "")
+    )
+
+    tab_auto, tab_manual, tab_revoke = st.tabs([
+        "🎲 자동 생성 발급",
+        "✏️ 수동 입력 발급",
+        "🔒 비번 무효화",
+    ])
+
+    # ── 자동 생성 ────────────────────────────────────────────
+    with tab_auto:
+        st.caption("14자 영숫자 안전 비밀번호를 자동으로 생성합니다.")
+        if st.button(
             "🎲 새 비밀번호 발급" if not has_hash else "🔄 비밀번호 재발급",
             key=f"admin_pw_gen_{tid}",
             type="primary",
-        )
-
-        if do_issue:
+        ):
             new_pw = _gen_password(14)
             with SessionLocal() as s:
                 t = s.get(Tenant, tid)
@@ -231,22 +293,130 @@ def _password_section(SessionLocal, rows: list) -> None:
                     st.error("테넌트가 존재하지 않습니다.")
                     return
                 t.password_hash = hash_password(new_pw)
+                t.password_set_at = _now()
                 s.commit()
             st.session_state[f"_admin_pw_show_{tid}"] = new_pw
             st.rerun()
 
-        shown = st.session_state.get(f"_admin_pw_show_{tid}")
-        if shown:
-            st.success("✅ 새 비밀번호 (1회 표시 — 즉시 복사):")
-            st.code(shown, language=None)
-            st.info(
-                "**클라이언트 접속 URL** (한 번에 보내기):\n"
-                f"```\nhttps://blogkey.streamlit.app/?tenant={tid}&pw={shown}\n```"
+    # ── 수동 입력 ────────────────────────────────────────────
+    with tab_manual:
+        st.caption(
+            f"어드민이 직접 비번을 정해서 발급. 최소 {MIN_PW_LENGTH}자, 영문+숫자 조합 필수. "
+            "클라이언트가 외우기 쉬운 비번을 원할 때 사용."
+        )
+        with st.form(f"admin_pw_manual_{tid}", clear_on_submit=True):
+            pw1 = st.text_input("새 비밀번호", type="password", key=f"manual_pw1_{tid}")
+            pw2 = st.text_input("비밀번호 확인", type="password", key=f"manual_pw2_{tid}")
+            submitted = st.form_submit_button(
+                "✏️ 이 비밀번호로 설정", type="primary", use_container_width=True,
             )
-            st.caption(
-                "이 화면을 닫거나 다른 테넌트를 선택하면 평문이 사라집니다. "
-                "DB 에는 해시만 저장되어 있어 복구 불가능."
-            )
-            if st.button("✓ 클라이언트에게 전달 완료", key=f"admin_pw_clear_{tid}"):
-                st.session_state.pop(f"_admin_pw_show_{tid}", None)
+        if submitted:
+            if pw1 != pw2:
+                st.error("두 입력이 일치하지 않습니다.")
+            elif (err := _validate_manual_pw(pw1)) is not None:
+                st.error(err)
+            else:
+                with SessionLocal() as s:
+                    t = s.get(Tenant, tid)
+                    if t is None:
+                        st.error("테넌트가 존재하지 않습니다.")
+                        return
+                    t.password_hash = hash_password(pw1)
+                    t.password_set_at = _now()
+                    s.commit()
+                st.session_state[f"_admin_pw_show_{tid}"] = pw1
                 st.rerun()
+
+    # ── 비번 무효화 (로그인 차단, 데이터 유지) ───────────────────
+    with tab_revoke:
+        st.caption(
+            "비번을 즉시 무효화 합니다. 클라이언트는 더 이상 blogkey 에 접속할 수 없지만 "
+            "테넌트 데이터(콘텐츠/Publication/통계)는 모두 보존됩니다. 재발급으로 복구 가능."
+        )
+        if not has_hash:
+            st.info("이 테넌트는 현재 비번이 설정되어 있지 않습니다.")
+        else:
+            confirm = st.checkbox(
+                f"확인 — 테넌트 #{tid} {t.name if t else ''} 의 접속을 즉시 차단합니다.",
+                key=f"admin_revoke_confirm_{tid}",
+            )
+            if st.button(
+                "🔒 지금 무효화",
+                key=f"admin_revoke_btn_{tid}",
+                disabled=not confirm,
+            ):
+                with SessionLocal() as s:
+                    t = s.get(Tenant, tid)
+                    if t is None:
+                        st.error("테넌트가 존재하지 않습니다.")
+                        return
+                    t.password_hash = None
+                    t.password_set_at = _now()
+                    s.commit()
+                st.session_state.pop(f"_admin_pw_show_{tid}", None)
+                st.success(f"✅ 테넌트 #{tid} 의 비밀번호 무효화 완료. 클라이언트 즉시 접속 차단.")
+                st.rerun()
+
+    # ─── 발급 직후 평문 표시 (1회) ────────────────────────────
+    shown = st.session_state.get(f"_admin_pw_show_{tid}")
+    if shown:
+        st.markdown("---")
+        st.success("✅ 새 비밀번호 (1회 표시 — 즉시 복사):")
+        col_id, col_pw = st.columns(2)
+        col_id.metric("로그인 ID", f"{tid}")
+        col_pw.code(shown, language=None)
+        st.info(
+            "**클라이언트 접속 URL** (한 번에 보내기 — 비번 자동 입력):\n"
+            f"```\nhttps://blogkey.streamlit.app/?tenant={tid}&pw={shown}\n```\n\n"
+            "또는 클라이언트가 https://blogkey.streamlit.app 에 직접 접속해서 "
+            f"로그인 폼에 **ID={tid}, 비번={shown}** 입력해도 동일하게 동작합니다."
+        )
+        st.caption(
+            "이 화면을 닫거나 다른 테넌트를 선택하면 평문이 사라집니다. "
+            "DB 에는 해시만 저장되어 있어 복구 불가능."
+        )
+        if st.button("✓ 클라이언트에게 전달 완료", key=f"admin_pw_clear_{tid}"):
+            st.session_state.pop(f"_admin_pw_show_{tid}", None)
+            st.rerun()
+
+
+def _danger_zone(SessionLocal, rows: list) -> None:
+    """🗑️ 테넌트 완전 삭제 — cascade 로 모든 데이터 삭제. 이름 재입력 확인 필수."""
+    from src.storage.models import Tenant
+
+    with st.expander("⚠️ Danger Zone — 테넌트 완전 삭제", expanded=False):
+        st.warning(
+            "**이 작업은 되돌릴 수 없습니다.** 테넌트와 함께 cascade 로 다음 데이터가 모두 삭제됩니다:\n"
+            "- 의사/장비/이벤트 정보 · 브랜드 보이스\n"
+            "- 모든 생성된 콘텐츠 · 참고 자료(ReferenceDocument)\n"
+            "- Publication / ShortLink / ShortLinkClick / 측정 데이터(Query/Response/Mention)\n"
+            "- LLM 호출 로그 / 비용 누적치\n\n"
+            "데이터를 보존하면서 접속만 차단하고 싶으면 **🔒 비번 무효화** 를 사용하세요."
+        )
+        labels = {f"#{t.id} {t.name}": t.id for t in rows}
+        choice = st.selectbox("삭제할 테넌트 선택", list(labels.keys()), key="admin_del_pick")
+        tid = labels[choice]
+        target_name = next((t.name for t in rows if t.id == tid), "")
+
+        confirm_name = st.text_input(
+            f"확인을 위해 테넌트 이름 **`{target_name}`** 을 정확히 입력하세요:",
+            key=f"admin_del_confirm_{tid}",
+        )
+        name_ok = confirm_name.strip() == target_name
+        if confirm_name and not name_ok:
+            st.error("이름이 일치하지 않습니다.")
+        if st.button(
+            "🗑️ 영구 삭제",
+            key=f"admin_del_btn_{tid}",
+            disabled=not name_ok,
+            type="primary",
+        ):
+            with SessionLocal() as s:
+                t = s.get(Tenant, tid)
+                if t is None:
+                    st.error("테넌트가 존재하지 않습니다.")
+                    return
+                s.delete(t)
+                s.commit()
+            st.success(f"✅ 테넌트 #{tid} `{target_name}` 영구 삭제 완료.")
+            st.rerun()

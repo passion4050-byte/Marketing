@@ -38,6 +38,7 @@ class Tenant(Base):
     phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     homepage: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
     password_hash: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    password_set_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     keywords: Mapped[list["Keyword"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")

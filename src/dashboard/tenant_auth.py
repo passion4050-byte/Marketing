@@ -84,6 +84,9 @@ def is_tenant_authed(tenant_id: int) -> bool:
 def render_login_form(SessionLocal) -> bool:
     """직접 로그인 — URL 쿼리 외에도 화면에서 tenant_id + pw 입력 가능.
 
+    어드민(blogkey-adm)에서 발급받은 **로그인 ID** + **비밀번호** 그대로 입력하면 통과.
+    ID 는 테넌트 번호 (정수). 잘못된 입력은 같은 메시지로 통일 — enumeration 방지.
+
     Returns:
         True if 새로 인증 추가됨 (caller 가 rerun 호출).
     """
@@ -92,27 +95,45 @@ def render_login_form(SessionLocal) -> bool:
 
     st.markdown("### 🔐 클라이언트 접속")
     st.caption(
-        "메디맵 어드민이 발급한 비밀번호로 본인 테넌트에만 접속할 수 있습니다. "
-        "URL 에 `?tenant=N&pw=...` 로 접속해도 동일하게 동작합니다."
+        "메디맵에서 발급받은 **로그인 ID** 와 **비밀번호** 를 입력하세요. "
+        "받지 못하셨다면 메디맵 담당자에게 문의해주세요. "
+        "📧 `passion4050@gmail.com`"
     )
-    with st.form("blogkey_tenant_login"):
+    with st.form("blogkey_tenant_login", clear_on_submit=False):
         col_a, col_b = st.columns([1, 2])
-        tid_str = col_a.text_input("테넌트 ID", placeholder="예: 3")
-        pw = col_b.text_input("비밀번호", type="password")
-        submitted = st.form_submit_button("🔐 접속", type="primary", use_container_width=True)
+        tid_str = col_a.text_input(
+            "로그인 ID",
+            placeholder="예: 1",
+            help="메디맵에서 발급받은 정수 ID",
+        )
+        pw = col_b.text_input(
+            "비밀번호",
+            type="password",
+            placeholder="발급받은 비밀번호",
+        )
+        submitted = st.form_submit_button(
+            "🔐 접속", type="primary", use_container_width=True,
+        )
+
+    # 같은 메시지로 통일 (ID/PW 어느 쪽이 틀렸는지 노출 X)
+    GENERIC_FAIL = "ID 또는 비밀번호가 올바르지 않습니다. 발급받은 정보를 다시 확인하세요."
+
     if not submitted:
+        return False
+    if not tid_str or not pw:
+        st.error("ID 와 비밀번호를 모두 입력하세요.")
         return False
     try:
         tid = int(tid_str.strip())
     except (TypeError, ValueError):
-        st.error("테넌트 ID 는 정수여야 합니다.")
+        st.error(GENERIC_FAIL)
         return False
     with SessionLocal() as s:
         t = s.get(Tenant, tid)
         stored = getattr(t, "password_hash", None) if t else None
     if not verify_password(pw, stored):
-        st.error("ID 또는 비밀번호가 올바르지 않습니다.")
+        st.error(GENERIC_FAIL)
         return False
     _authed_set().add(tid)
-    st.success(f"✅ 테넌트 #{tid} 인증 완료")
+    st.success(f"✅ {t.name} 으로 접속 완료")
     return True
