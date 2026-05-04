@@ -1,4 +1,4 @@
-"""StubEngine — Phase 4-T1.2.
+"""StubEngine — Phase 4-T1.2 / Phase 9-04+ (RAG-aware cited_urls).
 
 키 0개로 즉시 동작하는 데모/테스트 엔진. 사용자가 PERPLEXITY_API_KEY 없이도
 측정 흐름(키워드 → n=30 샘플 → Mention 추출 → 대시보드)을 데모할 수 있게 한다.
@@ -6,7 +6,9 @@
 응답 정책:
 - 키워드 + sample_index 를 시드로 한 deterministic 변형 (같은 입력 → 같은 응답)
 - 본문 안에 일반 안과/의료 브랜드명 4~5개를 자연스럽게 포함 → Mention extractor 검증
-- cited_urls 는 fixture 도메인 2~3개
+- cited_urls — RAG (ReferenceDocument) URL 일부 + fixture 일부 혼합. RAG URL 이
+  주입돼 있으면 우선 노출 → 인용 매칭 / Publication.cite_count 파이프라인이
+  실제 LLM 호출 없이도 검증됨. 주입 없으면 fixture 만.
 - latency_ms 는 200~800 범위 결정론적 값
 """
 
@@ -57,9 +59,23 @@ _FIXTURE_URLS = [
 
 
 class StubEngine(BaseEngine):
-    """키 0개로 동작하는 데모 검색 엔진."""
+    """키 0개로 동작하는 데모 검색 엔진. RAG URL 이 주입되면 cited_urls 에 우선 노출."""
 
     name = "stub"
+
+    def __init__(self) -> None:
+        self._reference_urls: list[str] = []
+
+    def set_reference_urls(self, urls: list[str]) -> None:
+        # 중복 제거 + 빈 값 제거 + 순서 보존
+        seen: set[str] = set()
+        cleaned: list[str] = []
+        for u in urls:
+            if not u or u in seen:
+                continue
+            seen.add(u)
+            cleaned.append(u)
+        self._reference_urls = cleaned
 
     async def query(self, prompt: str) -> EngineResponse:
         # prompt + sample_count 의 sha256 → deterministic 인덱스 + latency
@@ -70,12 +86,43 @@ class StubEngine(BaseEngine):
         text = _RESPONSE_TEMPLATES[idx].format(keyword=keyword or "관련 키워드")
         # latency 200~800ms 범위
         latency = 200 + (digest[1] % 600)
+        cited = self._select_cited_urls(digest)
         return EngineResponse(
             text=text,
-            cited_urls=list(_FIXTURE_URLS),
+            cited_urls=cited,
             latency_ms=latency,
-            raw_payload={"engine": "stub", "template_idx": idx},
+            raw_payload={
+                "engine": "stub",
+                "template_idx": idx,
+                "rag_injected": len(self._reference_urls),
+            },
         )
+
+    def _select_cited_urls(self, digest: bytes) -> list[str]:
+        """RAG URL 일부 + fixture 일부 혼합. 같은 prompt 면 같은 결과 (deterministic).
+
+        결정론 — sample 별로 다른 URL 조합이지만, 동일 prompt 호출 시 항상 같은 조합.
+        RAG URL 이 0개면 fixture 만 반환 (기존 동작 유지).
+        """
+        if not self._reference_urls:
+            return list(_FIXTURE_URLS)
+        # digest 의 두 번째 바이트로 RAG URL 시작 인덱스 결정
+        ref = self._reference_urls
+        start = digest[2] % len(ref)
+        # RAG URL 2개 (또는 보유 수만큼) + fixture 1개
+        take_ref = min(2, len(ref))
+        ref_pick = [ref[(start + i) % len(ref)] for i in range(take_ref)]
+        # fixture 는 1개만 시드 가변 (인용 매칭 검증용 baseline 보존)
+        fix_idx = digest[3] % len(_FIXTURE_URLS)
+        fix_pick = [_FIXTURE_URLS[fix_idx]]
+        # 중복 제거 + 순서 (RAG 우선)
+        out: list[str] = []
+        seen: set[str] = set()
+        for u in ref_pick + fix_pick:
+            if u not in seen:
+                seen.add(u)
+                out.append(u)
+        return out
 
     @staticmethod
     def _extract_keyword(prompt: str) -> str:

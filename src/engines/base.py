@@ -34,3 +34,13 @@ class BaseEngine(ABC):
     async def query(self, prompt: str) -> EngineResponse:
         """단일 prompt 로 엔진에 1회 질의. 같은 prompt 라도 stochastic 응답."""
         raise NotImplementedError
+
+    def set_reference_urls(self, urls: list[str]) -> None:
+        """RAG 컨텍스트의 URL 리스트 주입 (default noop).
+
+        StubEngine 같은 데모 엔진은 이 URL 들을 cited_urls 로 일부 섞어 사용 →
+        실제 LLM 호출 없이도 인용 매칭 / Publication.cite_count 파이프라인 검증 가능.
+        실제 엔진(Gemini/Perplexity 등)은 prompt 안에 RAG context 로 주입되어 있어
+        이 메서드는 무시(noop)해도 된다.
+        """
+        pass

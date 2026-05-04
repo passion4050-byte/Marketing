@@ -119,6 +119,29 @@ async def collect_for_keyword(
             # Competitor 테이블 미생성 (Phase 6 이전) 또는 로드 오류 — graceful
             confirmed_competitors = []
 
+        # Phase 9-04+: ReferenceDocument 의 URL 을 RAG 컨텍스트로 엔진에 주입.
+        # StubEngine 은 cited_urls 로 일부 노출 → 인용 매칭 / Publication.cite_count
+        # 파이프라인을 실제 LLM 호출 없이도 검증 가능. 다른 엔진은 set_reference_urls 가
+        # noop 이라 무영향.
+        try:
+            from src.storage.models import ReferenceDocument
+
+            rag_urls = [
+                r.source_url for r in s.query(ReferenceDocument)
+                .filter(ReferenceDocument.tenant_id == tenant_id)
+                .filter(ReferenceDocument.source_url.isnot(None))
+                .all()
+                if r.source_url
+            ]
+        except Exception:
+            rag_urls = []
+    if rag_urls:
+        for eng in engines:
+            try:
+                eng.set_reference_urls(rag_urls)
+            except Exception:
+                pass  # 엔진별 인터페이스 차이 — graceful
+
     sema = asyncio.Semaphore(max(1, concurrency))
     state = {"success": 0, "failed": 0, "mentions": 0, "stopped": False, "error": None,
              "failures": []}
