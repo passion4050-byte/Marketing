@@ -1,8 +1,10 @@
 /**
- * GA4 이벤트 발사 헬퍼.
+ * 이벤트 발사 헬퍼 — dataLayer.push() 기반 (GTM + gtag.js 양쪽 호환).
  *
- * `gtag` 가 window 에 없으면 (GA 비활성/차단/SSR) silent no-op.
- * 모든 이벤트는 send_to: GA_ID (config 에서 잡힘) + 표준 파라미터.
+ * GTM: dataLayer 를 직접 listen 하여 GA4 tag 로 forward
+ * gtag.js: gtag('event', ...) 가 내부적으로 dataLayer.push() 함
+ *
+ * window 가 없거나 (SSR) dataLayer 가 init 안 됐으면 silent no-op.
  */
 
 declare global {
@@ -12,7 +14,7 @@ declare global {
       action: string,
       params?: Record<string, unknown>,
     ) => void;
-    dataLayer?: unknown[];
+    dataLayer?: Record<string, unknown>[];
   }
 }
 
@@ -20,13 +22,14 @@ export type GtagEventParams = Record<string, string | number | boolean | undefin
 
 export function track(eventName: string, params: GtagEventParams = {}): void {
   if (typeof window === "undefined") return;
-  if (typeof window.gtag !== "function") return;
   // strip undefined values for cleanliness
   const clean: Record<string, string | number | boolean> = {};
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined) clean[k] = v;
   }
-  window.gtag("event", eventName, clean);
+  // dataLayer.push 는 GTM 과 gtag.js 모두 호환되는 표준 인터페이스
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({ event: eventName, ...clean });
 }
 
 export function trackCtaClick(

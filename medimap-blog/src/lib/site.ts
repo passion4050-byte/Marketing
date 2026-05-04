@@ -17,6 +17,7 @@ export const siteConfig = {
     phone: process.env.NEXT_PUBLIC_PHONE || "02-0000-0000",
   },
   ga: process.env.NEXT_PUBLIC_GA_ID || "",
+  gtm: process.env.NEXT_PUBLIC_GTM_ID || "",
   publisher: {
     name: "메디맵",
     legalName: "주식회사 메디맵",

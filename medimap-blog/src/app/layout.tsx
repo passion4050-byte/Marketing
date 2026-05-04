@@ -37,7 +37,7 @@ export default function RootLayout({
         <Header />
         <main className="flex-1">{children}</main>
         <Footer />
-        <GoogleAnalytics measurementId={siteConfig.ga} />
+        <GoogleAnalytics measurementId={siteConfig.ga} gtmId={siteConfig.gtm} />
       </body>
     </html>
   );
