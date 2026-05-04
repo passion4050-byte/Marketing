@@ -1,8 +1,10 @@
-"""Phase 4-T2.4 + T3.3 — 측정 (Measurement) 탭.
+"""Phase 4-T2.4 + T3.3 + Phase 9-04+ — 측정 (Measurement) 탭.
 
 기능:
 - 키워드 등록 / On-Off / 삭제
 - "지금 수집" 버튼 — 빠른 데모용 (n=10)
+- **자동 수집** — 첫 방문 시 응답 0건이면 stub 엔진으로 자동 12 샘플 (Phase 9-04+).
+  클라이언트는 측정 탭만 열어도 즉시 데이터를 볼 수 있음.
 - 최근 Response 카드 — text 미리보기 + cited URLs + 멘션 chip + snippet
 - 스케줄러 상태 표시 (다음 실행 시간)
 
@@ -124,6 +126,9 @@ def render_measurement_tab(SessionLocal, tenant) -> None:
 
     st.divider()
 
+    # ─── 자동 수집 (Phase 9-04+) — 첫 방문 시 데이터 0건 보호 ────────
+    _auto_collect_if_empty(SessionLocal, tenant, kw_data)
+
     # ─── 키워드별 시계열 (Phase 5) ─────────────────────────────
     _render_timeseries_section(SessionLocal, tenant, kw_data)
 
@@ -167,7 +172,10 @@ def render_measurement_tab(SessionLocal, tenant) -> None:
             })
 
     if not recent:
-        st.info("아직 수집된 응답이 없습니다. 위에서 ▶️ 수집 버튼을 눌러 보세요.")
+        st.info(
+            "측정 데이터를 준비 중입니다. 페이지를 새로고침하시거나 잠시 후 다시 확인해주세요. "
+            "(자동 수집이 진행됩니다)"
+        )
         return
 
     for item in recent:
@@ -240,8 +248,68 @@ def render_measurement_tab(SessionLocal, tenant) -> None:
                         st.markdown(f"- {_format_url_short(u, 80)}")
 
 
-def _run_collect_now(SessionLocal, tenant_id: int, keyword_id: int, n: int = 10) -> None:
-    """UI 의 '지금 수집' 버튼 핸들러. n 만큼 빠른 수집."""
+def _auto_collect_if_empty(SessionLocal, tenant, kw_data) -> None:
+    """첫 방문 시 응답 0건인 활성 키워드에 대해 stub 엔진으로 자동 수집.
+
+    UX 의도: 클라이언트(테넌트 사용자) 가 측정 탭에 들어왔을 때 별도 버튼 클릭
+    없이 바로 데이터가 보이도록. **stub 엔진 한정** — 비용 발생 엔진(gemini/anthropic
+    등) 은 사용자 의도 없이 자동 호출 금지.
+
+    멱등성: 세션 state 플래그로 같은 (tenant, keyword) 는 세션당 1회만 자동 수집.
+    """
+    if not kw_data:
+        return
+    try:
+        from src.engines import get_engine
+        engine = get_engine()
+    except Exception:
+        return
+    if engine.name != "stub":
+        return  # 비용 엔진은 자동 호출 X — 명시적 버튼 클릭 필요
+
+    # 첫 active 키워드만 대상 (n=12 면 ~3-5초 — 페이지 로딩 부담 작음)
+    first_active = next((k for k in kw_data if k[3]), None)  # (kid, text, brand, active)
+    if first_active is None:
+        return
+    kid = first_active[0]
+
+    flag_key = f"_auto_collected_{tenant.id}_{kid}"
+    if st.session_state.get(flag_key):
+        return  # 같은 세션에서 이미 시도
+
+    from datetime import datetime, timedelta, timezone
+
+    from src.storage.models import Query, Response
+
+    one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
+    with SessionLocal() as s:
+        n_recent = (
+            s.query(Response)
+            .join(Query, Response.query_id == Query.id)
+            .filter(
+                Query.tenant_id == tenant.id,
+                Query.keyword_id == kid,
+                Response.created_at >= one_hour_ago,
+            )
+            .count()
+        )
+    if n_recent >= 6:
+        st.session_state[flag_key] = True  # 최근 데이터 충분
+        return
+
+    # 자동 수집 실행 — 사용자에게는 짧은 spinner 만 표시
+    st.session_state[flag_key] = True
+    with st.status("📡 측정 데이터 준비 중… (자동 수집)", expanded=False):
+        _run_collect_now(SessionLocal, tenant.id, kid, n=12, silent=True)
+
+
+def _run_collect_now(
+    SessionLocal, tenant_id: int, keyword_id: int, n: int = 10, *, silent: bool = False,
+) -> None:
+    """UI 의 '지금 수집' 버튼 핸들러. n 만큼 빠른 수집.
+
+    silent=True 면 success/spinner 메시지 생략 — 자동 수집 흐름에 사용.
+    """
     from src.collector import collect_for_keyword
     from src.engines import get_engine
     from src.storage.models import Keyword
@@ -258,25 +326,37 @@ def _run_collect_now(SessionLocal, tenant_id: int, keyword_id: int, n: int = 10)
         st.error(f"엔진 초기화 실패: {e}")
         return
 
-    with st.spinner(f"`{engine.name}` 로 n={n} 수집 중…"):
+    spinner_ctx = st.spinner(f"`{engine.name}` 로 n={n} 수집 중…") if not silent else _Noop()
+    with spinner_ctx:
         try:
             result = asyncio.run(collect_for_keyword(
                 SessionLocal, tenant_id, kw, engine, n_samples=n, concurrency=3,
             ))
         except Exception as e:
-            st.error(f"수집 실패: {e}")
+            if not silent:
+                st.error(f"수집 실패: {e}")
             return
 
     if result.guardrail_stopped:
-        st.warning(
-            f"🛑 비용 가드레일에 의해 중단 — 성공 {result.n_success}/{n_total_label(n)} · "
-            f"멘션 {result.n_mentions}건. {result.error_msg}"
-        )
+        if not silent:
+            st.warning(
+                f"🛑 비용 가드레일에 의해 중단 — 성공 {result.n_success}/{n_total_label(n)} · "
+                f"멘션 {result.n_mentions}건. {result.error_msg}"
+            )
     else:
-        st.success(
-            f"✅ 수집 완료 — 성공 {result.n_success}/{result.n_total} · "
-            f"실패 {result.n_failed} · 멘션 {result.n_mentions}건"
-        )
+        if not silent:
+            st.success(
+                f"✅ 수집 완료 — 성공 {result.n_success}/{result.n_total} · "
+                f"실패 {result.n_failed} · 멘션 {result.n_mentions}건"
+            )
+
+
+class _Noop:
+    """silent 모드용 no-op context manager."""
+    def __enter__(self):
+        return self
+    def __exit__(self, *args):
+        return False
 
 
 def n_total_label(n: int) -> str:
