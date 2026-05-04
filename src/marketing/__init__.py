@@ -13,6 +13,12 @@ from src.marketing.cta_templates import (
     append_cta_to_content,
     STANDARD_CTA,
 )
+from src.marketing.ga4 import (
+    fetch_pageviews,
+    join_with_publications,
+    is_configured as ga4_configured,
+    PageViewRow,
+)
 
 __all__ = [
     "inject_utm",
@@ -21,4 +27,8 @@ __all__ = [
     "cta_block_for_channel",
     "append_cta_to_content",
     "STANDARD_CTA",
+    "fetch_pageviews",
+    "join_with_publications",
+    "ga4_configured",
+    "PageViewRow",
 ]

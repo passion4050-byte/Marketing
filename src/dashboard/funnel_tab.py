@@ -39,6 +39,8 @@ def render_funnel_tab(SessionLocal, tenant) -> None:
     st.markdown("---")
     _own_url_cite_table(SessionLocal, tenant)
     st.markdown("---")
+    _ga4_join_section(SessionLocal, tenant)
+    st.markdown("---")
     _shortlink_section(SessionLocal, tenant)
     st.markdown("---")
     _ga4_guidance()
@@ -266,6 +268,72 @@ def _shortlink_toggle_form(SessionLocal, tenant, rows: list) -> None:
                     s.commit()
             st.success("비활성화")
             st.rerun()
+
+
+def _ga4_join_section(SessionLocal, tenant) -> None:
+    """GA4 자동 fetch — 자사 URL × cite × pageview × engagement join 표."""
+    from src.marketing import fetch_pageviews, ga4_configured, join_with_publications
+    from src.storage.models import Publication
+
+    st.markdown("#### 🔬 GA4 × Cite Join (자동)")
+    if not ga4_configured():
+        st.info(
+            "**GA4 미설정** — `GA4_PROPERTY_ID` + `GA4_SERVICE_ACCOUNT_JSON` Streamlit secrets "
+            "추가 시 자사 URL 별 pageview/engagement 가 cite_count 와 함께 표시됩니다. "
+            "아래 📊 GA4 통합 안내 참고."
+        )
+        return
+
+    col_d, col_btn = st.columns([3, 1])
+    days = col_d.slider("조회 기간 (일)", 7, 90, 30, key=f"ga4_days_{tenant.id}")
+    refresh = col_btn.button("🔄 새로고침", key=f"ga4_refresh_{tenant.id}")
+    if refresh:
+        try:
+            from src.marketing.ga4 import _cached_fetch  # type: ignore[attr-defined]
+
+            _cached_fetch.cache_clear()
+        except Exception:
+            pass
+
+    try:
+        rows = fetch_pageviews(days=days)
+    except Exception as e:
+        st.error(f"GA4 호출 실패: {e}")
+        return
+
+    if not rows:
+        st.warning(
+            "GA4 응답 비어있음 — property_id 또는 서비스 계정 권한 확인 필요. "
+            "(GA4 → Admin → Property Access Management 에서 서비스 계정 이메일 Viewer 권한)"
+        )
+        return
+
+    with SessionLocal() as s:
+        pubs = (
+            s.query(Publication)
+            .filter(Publication.tenant_id == tenant.id)
+            .all()
+        )
+        pub_url_to_cite = {p.url: (p.cite_count or 0) for p in pubs}
+
+    merged = join_with_publications(rows, pub_url_to_cite)
+    if not merged:
+        st.info("표시할 데이터가 없습니다.")
+        return
+    st.dataframe(
+        merged,
+        use_container_width=True,
+        column_config={
+            "page_path": st.column_config.TextColumn("Path", width="medium"),
+            "page_views": st.column_config.NumberColumn("PV", width="small"),
+            "sessions": st.column_config.NumberColumn("세션", width="small"),
+            "avg_engagement_seconds": st.column_config.NumberColumn(
+                "평균 체류(초)", width="small", format="%.1f"
+            ),
+            "cite_count": st.column_config.NumberColumn("Cite", width="small"),
+        },
+        hide_index=True,
+    )
 
 
 def _ga4_guidance() -> None:
