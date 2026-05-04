@@ -398,3 +398,40 @@ class Competitor(Base):
     confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
+# ─── Publication (Phase 6.6 — 발행 추적 + AEO 인용 매칭) ─────────
+
+
+class Publication(Base):
+    """tenant 가 외부 채널에 실제 발행한 콘텐츠 1건.
+
+    GeneratedContent 가 시스템 안의 ``status=draft/published`` 상태였다면,
+    Publication 은 "외부 세계에 publish 된 URL" — naver blog/tistory/자사 홈페이지/PR 등.
+
+    ``cited_by_engines`` 가 AEO/GEO 의 진짜 KPI 근거 — 이 URL 이 Response.cited_urls 에
+    등장한 이력을 ``analytics.citation.match_publications_to_responses()`` 가 갱신한다.
+    """
+
+    __tablename__ = "publications"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "url", name="uq_publication_tenant_url"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"))
+    generated_content_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("generated_contents.id", ondelete="SET NULL"), nullable=True,
+    )
+    channel: Mapped[str] = mapped_column(String(50))
+    # channel ∈ {naver_blog, tistory, own_blog, naver_place, press_release, youtube, threads, other}
+    destination_label: Mapped[str] = mapped_column(String(300), default="")
+    url: Mapped[str] = mapped_column(String(1000))
+    title: Mapped[str] = mapped_column(String(500), default="")
+    published_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    cited_by_engines: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    # cited_by_engines: [{"engine":"perplexity","first_seen":ISO,"last_seen":ISO,"query_count":N}]
+    cite_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_checked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
