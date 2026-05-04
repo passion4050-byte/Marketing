@@ -103,6 +103,23 @@ except Exception as _e:  # pragma: no cover
 from src.storage.db import create_all, get_session_factory  # noqa: E402
 from src.storage.models import GeneratedContent, Keyword, Tenant  # noqa: E402
 
+# 발행 현황 탭 (Phase 6.6) — Publication 모델 미적재 환경에서도 앱이 죽지 않도록 폴백
+try:
+    from src.dashboard.publication_tab import (  # noqa: E402
+        CHANNEL_OPTIONS as PUB_CHANNEL_OPTIONS,
+        CHANNEL_LABEL_MAP as PUB_CHANNEL_LABEL_MAP,
+        render_publication_tab,
+    )
+
+    _PUB_TAB_OK = True
+    _PUB_TAB_ERROR: str | None = None
+except Exception as _e:  # pragma: no cover
+    _PUB_TAB_OK = False
+    _PUB_TAB_ERROR = repr(_e)
+    render_publication_tab = None  # type: ignore
+    PUB_CHANNEL_OPTIONS = []  # type: ignore
+    PUB_CHANNEL_LABEL_MAP = {}  # type: ignore
+
 st.set_page_config(
     page_title="HOSPITAL — GEO/AEO 콘텐츠 발행",
     page_icon="🏥",
@@ -488,6 +505,120 @@ def _render_readable_content(channel: str, body: str, raw: dict | None) -> None:
     )
 
 
+def _render_publication_register_inline(
+    SessionLocal, content_id: int, channel_default: str, *, key_prefix: str,
+) -> None:
+    """콘텐츠 카드 안의 '📍 어디에 발행했어요' 인라인 폼.
+
+    GeneratedContent 와 Publication 을 ``generated_content_id`` FK 로 연결한다.
+    Publication 모델 미적재 환경(Streamlit stale cache)에서는 안내만 표시.
+    """
+    try:
+        from src.storage.models import Publication
+    except ImportError:
+        st.caption("⚠️ Publication 모델 미로드 — 앱 reboot 필요.")
+        return
+
+    # 이미 등록된 Publication 표시 (있으면)
+    with SessionLocal() as s:
+        existing = (
+            s.query(Publication)
+            .filter(Publication.generated_content_id == content_id)
+            .order_by(Publication.created_at.desc())
+            .all()
+        )
+    if existing:
+        for p in existing:
+            ch_label = PUB_CHANNEL_LABEL_MAP.get(p.channel, p.channel)
+            cite_part = (
+                f"🤖 인용 {p.cite_count}회"
+                if (p.cite_count or 0) > 0
+                else "🤖 미인용"
+            )
+            st.markdown(
+                f"<div style='font-size:13px;padding:6px 0;'>"
+                f"📍 <b>{ch_label}</b> · "
+                f"<a href='{p.url}' target='_blank'>{p.url}</a> · {cite_part}"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
+    # 신규 등록 폼 — channel_default 를 기본값으로
+    default_channel_map = {
+        "schema_org": "own_blog",
+        "blog_html": "own_blog",
+        "naver_blog": "naver_blog",
+        "instagram": "threads",  # threads/SNS 카테고리
+    }
+    default_pub_channel = default_channel_map.get(channel_default, "naver_blog")
+
+    pub_channel_keys = [k for k, _ in PUB_CHANNEL_OPTIONS] or ["other"]
+    try:
+        default_idx = pub_channel_keys.index(default_pub_channel)
+    except ValueError:
+        default_idx = 0
+
+    form_key = f"{key_prefix}_pub_form_{content_id}"
+    with st.form(form_key, clear_on_submit=True):
+        col_ch, col_url = st.columns([1, 2])
+        ch = col_ch.selectbox(
+            "채널",
+            pub_channel_keys,
+            index=default_idx,
+            format_func=lambda k: PUB_CHANNEL_LABEL_MAP.get(k, k),
+            key=f"{form_key}_ch",
+        )
+        url_val = col_url.text_input(
+            "발행한 URL",
+            key=f"{form_key}_url",
+            placeholder="https://blog.naver.com/medimap/12345",
+        )
+        col_label, col_btn = st.columns([2, 1])
+        dest_label = col_label.text_input(
+            "어디에 (자유 입력)",
+            key=f"{form_key}_label",
+            placeholder="예: 메디맵 네이버블로그",
+        )
+        submitted = col_btn.form_submit_button(
+            "📍 등록", type="primary", use_container_width=True,
+        )
+    if submitted:
+        if not url_val.strip():
+            st.warning("URL 을 입력하세요.")
+            return
+        with SessionLocal() as s:
+            content = s.get(GeneratedContent, content_id)
+            if content is None:
+                st.error("연결된 콘텐츠를 찾을 수 없습니다.")
+                return
+            already = (
+                s.query(Publication)
+                .filter(
+                    Publication.tenant_id == content.tenant_id,
+                    Publication.url == url_val.strip(),
+                )
+                .first()
+            )
+            if already is not None:
+                st.warning("이미 등록된 URL 입니다.")
+                return
+            from datetime import datetime as _dt, timezone as _tz
+
+            pub = Publication(
+                tenant_id=content.tenant_id,
+                generated_content_id=content_id,
+                channel=ch,
+                destination_label=dest_label.strip(),
+                url=url_val.strip(),
+                title=content.keyword_text or "",
+                published_at=_dt.now(_tz.utc),
+            )
+            s.add(pub)
+            s.commit()
+        st.success("📍 발행 등록 완료 — 발행 현황 탭에서 인용 매칭을 실행하세요.")
+        st.rerun()
+
+
 def render_content_card(SessionLocal, content_id: int, *, key_prefix: str = "hist") -> None:
     """발행 이력 1건 — 확장 가능한 카드. 본문 편집 + 재검사 + 복사 + 삭제 + 내용보기.
 
@@ -602,6 +733,19 @@ def render_content_card(SessionLocal, content_id: int, *, key_prefix: str = "his
         if copy_clicked:
             st.code(edited, language=None)
             st.caption("👆 우상단 복사 아이콘으로 클립보드 복사")
+
+        # ─── 발행 등록 (Phase 6.6) — No auto-posting 정책 준수 ───
+        st.markdown("##### 📍 어디에 발행했어요")
+        st.caption(
+            "외부 채널(네이버 블로그/티스토리/자사 홈페이지 등)에 본문을 복사해 발행한 뒤 "
+            "그 URL 을 여기 등록하세요. 등록된 URL 은 **'📍 발행 현황'** 탭에서 AI 인용 매칭에 사용됩니다."
+        )
+        try:
+            _render_publication_register_inline(
+                SessionLocal, content_id, channel, key_prefix=key_prefix,
+            )
+        except Exception as _e:  # pragma: no cover
+            st.caption(f"발행 등록 폼 비활성: {_e}")
 
         if delete_clicked:
             confirm_key = f"{key_prefix}_confirm_del_{content_id}"
@@ -718,10 +862,11 @@ def main() -> None:
     # ─── ③ 콘텐츠 발행 ────────────────────────────────────────
     with main_tabs[2]:
         tenant, _ = _tenant_picker(SessionLocal, key="publish")
-        sub_unified, sub_sim, sub_history = st.tabs([
+        sub_unified, sub_sim, sub_history, sub_pub = st.tabs([
             "🚀 통합 발행",
             "🧪 AI 시뮬레이터",
             "🗂️ 발행 이력",
+            "📍 발행 현황",
         ])
         with sub_unified:
             if _UNIFIED_TAB_OK and render_unified_publisher_tab is not None:
@@ -734,6 +879,14 @@ def main() -> None:
             render_ai_simulator_tab(SessionLocal, tenant)
         with sub_history:
             _history_section(SessionLocal, tenant_id=tenant.id)
+        with sub_pub:
+            if _PUB_TAB_OK and render_publication_tab is not None:
+                render_publication_tab(SessionLocal, tenant)
+            else:
+                st.warning(
+                    f"⚠️ 발행 현황 탭 비활성 (import 실패): `{_PUB_TAB_ERROR}`. "
+                    "Streamlit Cloud → Manage app → Reboot app 후 재시도."
+                )
 
     # ─── ④ 임시 저장함 ─────────────────────────────────────────
     with main_tabs[3]:
