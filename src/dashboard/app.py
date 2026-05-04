@@ -38,6 +38,9 @@ def _hydrate_env_from_secrets() -> None:
         "APP_PASSWORD",
         "MAX_DAILY_USD",
         "MAX_CONTENT_GEN_PER_DAY",
+        # Phase 8 — GA4 Data API
+        "GA4_PROPERTY_ID",
+        "GA4_SERVICE_ACCOUNT_JSON",
     ):
         try:
             val = secrets.get(key)
