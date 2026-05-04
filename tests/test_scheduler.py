@@ -162,3 +162,51 @@ def test_daily_auto_content_job_creates_drafts(monkeypatch, session_factory):
         )
     assert len(drafts) == 2
     assert all(d.channel == "schema_org" for d in drafts)
+
+
+def test_daily_auto_content_job_round_robin_keywords_and_channels(
+    monkeypatch, session_factory,
+):
+    """다중 활성 키워드 × 채널 — daily_count 슬롯이 (keyword, channel) round-robin 으로 채워진다."""
+    from src.collector.scheduler import daily_auto_content_job
+    from src.storage.models import AutoContentSetting, GeneratedContent
+
+    monkeypatch.setenv("LLM_PROVIDER", "stub")
+    monkeypatch.setenv("MAX_DAILY_USD", "100")
+    monkeypatch.setenv("MAX_CONTENT_GEN_PER_DAY", "100")
+
+    with session_factory() as s:
+        s.add(Tenant(id=1, name="메디맵", domain_category="안과", region="서울", business_model=""))
+        s.commit()
+        # 활성 키워드 3개 + 비활성 1개 — 비활성은 라운드로빈에서 제외돼야
+        s.add(Keyword(id=1, tenant_id=1, text="라식", target_brand="메디맵", is_active=True))
+        s.add(Keyword(id=2, tenant_id=1, text="라섹", target_brand="메디맵", is_active=True))
+        s.add(Keyword(id=3, tenant_id=1, text="스마일라식", target_brand="메디맵", is_active=True))
+        s.add(Keyword(id=4, tenant_id=1, text="비활성", target_brand="메디맵", is_active=False))
+        s.add(AutoContentSetting(
+            tenant_id=1, enabled=True, daily_count=6,
+            channels=["schema_org", "blog_html"],
+        ))
+        s.commit()
+
+    summary = daily_auto_content_job(session_factory)
+    assert summary["tenants"] == 1
+    assert summary["drafts"] == 6
+
+    with session_factory() as s:
+        drafts = (
+            s.query(GeneratedContent)
+            .filter(GeneratedContent.status == "draft")
+            .order_by(GeneratedContent.id)
+            .all()
+        )
+    pairs = [(d.keyword_text, d.channel) for d in drafts]
+
+    # 활성 키워드 3개 모두 등장 (비활성 "비활성" 은 미등장)
+    used_keywords = {k for k, _ in pairs}
+    assert used_keywords == {"라식", "라섹", "스마일라식"}
+
+    # 채널 2종 모두 등장 + 균등 (daily_count=6, channels=2 → 각 3회)
+    used_channels = [c for _, c in pairs]
+    assert used_channels.count("schema_org") == 3
+    assert used_channels.count("blog_html") == 3

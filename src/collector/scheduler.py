@@ -128,8 +128,9 @@ def start_scheduler(session_factory) -> Any:
 def daily_auto_content_job(session_factory) -> dict:
     """활성 ``AutoContentSetting`` 마다 ``daily_count`` 만큼 ``draft`` 콘텐츠 생성.
 
-    - 1차: tenant 별 첫 활성 키워드만 사용 (간단/안정 우선)
-    - 2차: AutoContentSetting.channels 의 각 채널을 round-robin 으로 daily_count 채움
+    - tenant 의 모든 활성 ``Keyword`` × ``AutoContentSetting.channels`` 를 (keyword, channel)
+      쌍으로 round-robin 하여 daily_count 슬롯을 채운다. 키워드/채널이 충분히 다양하면
+      매일 서로 다른 조합이 생성되고, 어느 한쪽이 1개여도 안전하게 동작한다.
     - 결과물은 ``GeneratedContent.status="draft"`` — 사용자가 임시 저장함에서 검수 후 publish
     """
     from datetime import datetime as _dt, timezone as _tz
@@ -157,19 +158,20 @@ def daily_auto_content_job(session_factory) -> dict:
 
     for tenant_id, daily_count, channels in plans:
         with session_factory() as s:
-            kw = (
+            kws = (
                 s.query(Keyword)
                 .filter(Keyword.tenant_id == tenant_id, Keyword.is_active == True)  # noqa: E712
                 .order_by(Keyword.id)
-                .first()
+                .all()
             )
-            if kw is None:
-                continue
-            keyword_text = kw.text
+            keyword_texts = [k.text for k in kws]
+        if not keyword_texts:
+            continue
 
         summary["tenants"] += 1
         ch_cycle = channels or default_channels
         for i in range(daily_count):
+            keyword_text = keyword_texts[i % len(keyword_texts)]
             channel = ch_cycle[i % len(ch_cycle)]
             try:
                 _generate_draft(session_factory, tenant_id, keyword_text, channel)
@@ -177,7 +179,10 @@ def daily_auto_content_job(session_factory) -> dict:
             except Exception as e:  # pragma: no cover
                 logger.error(
                     "scheduler.auto_content_error",
-                    tenant_id=tenant_id, channel=channel, error=str(e),
+                    tenant_id=tenant_id,
+                    keyword=keyword_text,
+                    channel=channel,
+                    error=str(e),
                 )
                 summary["errors"] += 1
 

@@ -84,7 +84,7 @@ Phase 6.5 이전엔 9-탭 평탄 구조 (FAQ 생성기/블로그 포스트가 �
 - `GeneratedContent.status` 컬럼 (`draft` / `published`) 으로 임시저장함 (`draft_queue_tab`) 과 발행 이력 (`_history_section`) 분리.
 - "🚀 발행" 버튼 → `status='published'` 전환 (사용자 검수 후).
 - **No auto-posting 원칙 유지:** 자동 큐는 **콘텐츠 생성까지만**. 외부 플랫폼 (네이버 블로그/티스토리/인스타) 자동 게시는 여전히 금지. 발행 = 사용자가 임시저장함에서 본문을 클립보드 복사하거나 status 를 published 로 전환하는 행위까지.
-- 1차 구현 한계: 키워드는 첫 활성 1개만 사용 (라운드 로빈 미구현 — Follow-up).
+- **키워드 × 채널 라운드로빈** (2026-05-04 갱신): tenant 의 모든 활성 `Keyword` × `AutoContentSetting.channels` 를 (keyword, channel) 쌍으로 round-robin 하여 daily_count 슬롯을 채운다. 어느 한쪽이 1개여도 안전. 1차의 "첫 키워드만" 한계 해소.
 
 ---
 
