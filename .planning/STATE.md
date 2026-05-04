@@ -5,16 +5,22 @@
 See: .planning/PROJECT.md (updated 2026-05-03)
 
 **Core value:** 키워드 → AEO 최적화 콘텐츠 → 의료법 통과 → 복사 가능 한 라인이 메디맵 운영자에게 동작.
-**Current focus:** Phase 1 — Demo Slice (Compliance + FAQ JSON-LD)
+**Current focus:** Phase 7 — AEO 자산 Funnel (라이브)
 
 ## Current Position
 
-Phase: 2 of 6 (Content Pipeline 확장 — 완료)
-Plan: 02-01, 02-02, 02-03 모두 완료 (20/20 task)
-Status: 4채널 파이프라인 + Alembic + USD 가드레일 + 단위 테스트 + structlog 가동
-Last activity: 2026-05-03 — Phase 2 전체 완료, pytest 66/66 통과
+Phase: 7 of 7 (AEO 자산 Funnel — 라이브 배포 완료)
+Plans: 07-01~05 모두 완료 (5/5)
+Status: medimap-blog Next.js SSG 배포(Vercel), JSON-LD 6종 출력, ShortLink redirect 동작,
+Streamlit 🔄 Funnel sub-tab 라이브
+Last activity: 2026-05-04 — Phase 7 전체 완료, pytest 243/243, Vercel 배포 + env 5개 적용
 
-Progress: [████░░░░░░] 33% (Phase 1, 1.5, 2 완료. Phase 3~6 남음)
+Progress: [██████████] 100% (Phase 1~7 모두 완료)
+
+**라이브 URL:**
+- 블로그: https://medimap-blog-phi.vercel.app
+- 단축링크 redirect: https://medimap-blog-phi.vercel.app/r/{lasik|smile|cataract}
+- 운영자 대시보드: https://blogkey.streamlit.app (🔄 Funnel sub-tab)
 
 **완료된 산출물:**
 - src/storage: 멀티테넌트 SQLAlchemy 모델 (Tenant, ComplianceRule, Keyword, GeneratedContent)
