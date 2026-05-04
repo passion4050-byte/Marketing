@@ -28,7 +28,7 @@ Cloud 무료 tier 에 배포하는 단계별 가이드. 코드/secrets 템플릿
 |---|---|
 | Supabase `DATABASE_URL` | https://supabase.com/dashboard → Project → Settings → Database → Connection string (Transaction mode, pooler) |
 | Gemini `GOOGLE_API_KEY` | https://aistudio.google.com/apikey |
-| GA4 Property ID | (이미 보유 — `6353278443`) |
+| GA4 Property ID | (이미 보유 — `535901659`) |
 | GA4 Service Account JSON | https://console.cloud.google.com/iam-admin/serviceaccounts → Create key → JSON |
 | 어드민 비밀번호 | 새로 정하세요 (blogkey 와 다른 강한 패스워드) |
 
