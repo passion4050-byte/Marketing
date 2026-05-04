@@ -32,6 +32,8 @@ EXPECTED_TABLES = {
     "competitors",
     "auto_content_settings",
     "publications",
+    "shortlinks",
+    "shortlink_clicks",
 }
 
 
@@ -69,12 +71,15 @@ def test_alembic_downgrade_round_trip(tmp_path):
         assert "reference_documents" in tables_after_up
         assert {"queries", "responses", "mentions", "competitors"}.issubset(tables_after_up)
 
-        # downgrade — 최근 4 마이그레이션을 차례로 내려 publications / competitors / auto_content_settings 모두 제거
+        # downgrade — 최근 5 마이그레이션을 차례로 내려 shortlinks / publications / competitors / auto_content_settings 모두 제거
+        command.downgrade(cfg, "-1")  # add_shortlink 제거
         command.downgrade(cfg, "-1")  # add_publication 제거
         command.downgrade(cfg, "-1")  # add_auto_content_setting 제거
         command.downgrade(cfg, "-1")  # add_generated_content_status 제거 (status column)
         command.downgrade(cfg, "-1")  # add_competitor 제거
         tables_after_down = _list_tables(str(db))
+        assert "shortlinks" not in tables_after_down
+        assert "shortlink_clicks" not in tables_after_down
         assert "publications" not in tables_after_down
         assert "competitors" not in tables_after_down
         assert "auto_content_settings" not in tables_after_down

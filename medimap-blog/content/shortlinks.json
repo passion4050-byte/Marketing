@@ -1,0 +1,17 @@
+{
+  "lasik": {
+    "target_url": "https://medimap.kr/blog/lasik-guide?utm_source=shortlink&utm_medium=ai_cite&utm_campaign=lasik_guide",
+    "label": "라식 가이드 진입링크",
+    "is_active": true
+  },
+  "smile": {
+    "target_url": "https://medimap.kr/blog/smile-vs-lasik?utm_source=shortlink&utm_medium=ai_cite&utm_campaign=smile_vs_lasik",
+    "label": "스마일 vs 라식 비교",
+    "is_active": true
+  },
+  "cataract": {
+    "target_url": "https://medimap.kr/blog/cataract-overview?utm_source=shortlink&utm_medium=ai_cite&utm_campaign=cataract_overview",
+    "label": "백내장 가이드",
+    "is_active": true
+  }
+}

@@ -435,3 +435,52 @@ class Publication(Base):
     last_checked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+# ─── Funnel: 단축링크 (Phase 7-04) ──────────────────────────────
+
+
+class ShortLink(Base):
+    """tenant 가 단축한 링크 (m.medimap.kr/r/{slug} → target_url).
+
+    target_url 은 *공유용 UTM-fied URL* 또는 canonical URL 둘 다 가능. Publication 과의 FK 는
+    선택적 — PR 보도자료 등 외부 도메인 링크에도 단축을 적용할 수 있다.
+    """
+
+    __tablename__ = "shortlinks"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "slug", name="uq_shortlink_tenant_slug"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"))
+    publication_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("publications.id", ondelete="SET NULL"), nullable=True,
+    )
+    slug: Mapped[str] = mapped_column(String(120))
+    target_url: Mapped[str] = mapped_column(String(2000))
+    label: Mapped[str] = mapped_column(String(300), default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    click_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now,
+    )
+
+
+class ShortLinkClick(Base):
+    """ShortLink redirect 호출 1건. Vercel/redirect 라우트 → SaaS webhook 으로 적재."""
+
+    __tablename__ = "shortlink_clicks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    shortlink_id: Mapped[int] = mapped_column(
+        ForeignKey("shortlinks.id", ondelete="CASCADE"),
+    )
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"))
+    clicked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    user_agent: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    referer: Mapped[Optional[str]] = mapped_column(String(2000), nullable=True)
+    country: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
+    ip_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    # 익명화: ip 자체는 저장하지 않고 SHA-256 해시 prefix 만
