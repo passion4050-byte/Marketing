@@ -22,6 +22,7 @@ Phase 1은 **오늘 3시간 안에 동작하는 데모 슬라이스** — 의료
 - [x] **Phase 6.6: 발행 추적 + AEO 인용 매칭** — Publication 모델, URL 정규화, cited_by_engines 매칭, 📍 발행 현황 sub-tab
 - [x] **Phase 7: AEO 자산 Funnel (자사 블로그 + UTM/CTA + 단축도메인 + Funnel 분석)** — 메디맵 테크블로그(Next.js SSG) + 발행 시 UTM/CTA 자동 주입 + 단축도메인 redirect + Funnel 대시보드
 - [ ] **Phase 8: Funnel Closure (자동 CTA + GA4 + Click 추적)** — generator 자동 CTA 부착, GA4 frontend tracking + backend Data API, ShortLink click → Supabase 직결
+- [ ] **Phase 9: Admin Site + Tenant 격리** — 메디맵 직원 전용 Next.js admin (별도 Vercel), 테넌트 CRUD + 비번 발급 + 비용 대시보드 + Publication/Funnel 통합. blogkey 의 multi-tenant picker → 본인 테넌트만
 
 ## Phase Details
 
@@ -159,9 +160,27 @@ Plans:
 **Plans**: 3
 
 Plans:
-- [ ] 08-01: 자동 CTA — generator 3 함수에 include_cta default True 부착 + UI 토글
-- [ ] 08-02: GA4 — frontend gtag(medimap-blog) + backend Data API fetcher(SaaS) + Funnel 탭 join
-- [ ] 08-03: ShortLink click 추적 — Vercel route Supabase 직결 + Streamlit click 표 실시간 KPI
+- [x] 08-01: 자동 CTA — generator 3 함수에 include_cta default True 부착 + UI 토글
+- [x] 08-02: GA4 — frontend gtag(medimap-blog) + backend Data API fetcher(SaaS) + Funnel 탭 join
+- [x] 08-03: ShortLink click 추적 — Vercel route Supabase 직결 + Streamlit click 표 실시간 KPI
+
+### Phase 9: Admin Site + Tenant 격리
+**Goal**: 메디맵 직원 전용 어드민 사이트(별도 Vercel)에서 모든 클라이언트 테넌트와 컨텐츠 블로그를 통합 관리하고, 클라이언트 제품(blogkey)은 본인 테넌트만 노출되도록 격리한다.
+**Depends on**: Phase 8
+**Requirements**: 신규 — ADM-01 ~ ADM-12
+**Success Criteria** (what must be TRUE):
+  1. `medimap-admin.vercel.app` 라이브 — Next.js + Supabase 직결, APP_PASSWORD 게이트
+  2. 어드민에서 테넌트 CRUD (추가/편집/비활성) + 클라이언트 비밀번호 발급
+  3. 비용 대시보드 — LLM USD × 테넌트 일/주/월 합산, MAX_DAILY_USD 글로벌 설정
+  4. Publication + Funnel 통합 뷰 (모든 테넌트 cite_count + click_count)
+  5. blogkey 의 `_tenant_picker` 가 로그인된 클라이언트의 테넌트만 표시 (멀티테넌트 leak 방지)
+**Plans**: 4
+
+Plans:
+- [ ] 09-01: medimap-admin Next.js 14 스캐폴드 + Supabase 직결 + APP_PASSWORD 게이트
+- [ ] 09-02: 테넌트 CRUD + 클라이언트 비밀번호 발급/리셋 + 비용 대시보드
+- [ ] 09-03: 모든 테넌트 Publication + ShortLink + Funnel 통합 뷰
+- [ ] 09-04: blogkey multi-tenant picker → 본인 테넌트만 (TENANT_PASSWORD 매핑)
 
 ## Progress
 
@@ -179,4 +198,5 @@ Phase 1 → 2 → 3 → 4 → 5 → 6 (Phase 3과 Phase 4는 Phase 2 완료 후 
 | 6.5. UX 개편 + 자동 콘텐츠 큐 + Gemini SDK | — | ✅ Done | 4-탭 그룹핑, AutoContentSetting 라운드로빈, google-genai |
 | 6.6. 발행 추적 + AEO 인용 매칭 | — | ✅ Done | Publication 모델 + URL 정규화 + 📍 발행 현황 sub-tab |
 | 7. AEO 자산 Funnel (블로그+UTM+CTA+단축+분석) | 5/5 | ✅ Done | medimap-blog Next.js 라이브 + Funnel sub-tab |
-| 8. Funnel Closure (자동 CTA + GA4 + Click 추적) | 0/3 | In progress | generator wiring + GA4 + Supabase 직결 |
+| 8. Funnel Closure (자동 CTA + GA4 + Click 추적) | 3/3 | ✅ Done | generator wiring + GA4 + Supabase 직결 |
+| 9. Admin Site + Tenant 격리 | 0/4 | Planned | medimap-admin Next.js + 멀티테넌트 격리 |
