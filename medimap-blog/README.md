@@ -1,6 +1,6 @@
 # medimap-blog (메디맵 테크 블로그)
 
-AEO/GEO 자산용 Next.js 14 SSG 사이트. AI 검색엔진(Perplexity, ChatGPT, Gemini, Claude)이 cite할 수 있는 자사 통제 URL(`medimap.kr/blog/{slug}`)을 발행한다.
+AEO/GEO 자산용 Next.js 14 SSG 사이트. AI 검색엔진(Perplexity, ChatGPT, Gemini, Claude)이 cite할 수 있는 자사 통제 URL(`medimap-blog-phi.vercel.app/blog/{slug}`)을 발행한다.
 
 ## Stack
 
