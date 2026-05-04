@@ -159,7 +159,12 @@ def _publication_table(SessionLocal, rows: list) -> None:
 
 
 def _register_form(SessionLocal, tenant) -> None:
-    """외부 콘텐츠 직접 등록 폼 (콘텐츠 카드에 연결되지 않은 발행물 — PR/타사 미디어 등)."""
+    """외부 콘텐츠 직접 등록 폼 (콘텐츠 카드에 연결되지 않은 발행물 — PR/타사 미디어 등).
+
+    UTM/단축링크 자동 주입은 Publication.url 자체에 적용하지 *않는다* — Publication.url 은
+    AI cite 응답과 매칭하기 위한 *canonical* 형태로 보관해야 하기 때문. 등록 직후
+    `_utm_link_helper()` 가 별도 공유용 UTM 링크 + 단축링크를 노출한다.
+    """
     from src.storage.models import Publication
 
     with st.expander("➕ 새 발행물 등록 (외부 콘텐츠 직접 입력)", expanded=False):
@@ -229,6 +234,75 @@ def _register_form(SessionLocal, tenant) -> None:
                 s.commit()
             st.success(f"등록되었습니다 — {channel}")
             st.rerun()
+
+
+def _utm_link_helper(tenant) -> None:
+    """공유용 UTM 링크 + 단축링크 생성기.
+
+    Publication.url 은 canonical 로 두되, 사용자가 SNS/댓글/타 블로그에 *유입용*으로
+    배포할 때 쓸 UTM-fied 링크를 즉석에서 만들어준다. AI 가 그 링크를 cite 하면
+    GA4/내부 분석에서 utm_source=ai_cite 로 집계 가능.
+    """
+    from src.marketing.funnel import (
+        UtmParams,
+        apply_publication_funnel,
+        inject_utm,
+        shortlink_for,
+    )
+
+    with st.expander("🔗 공유용 UTM 링크 / 단축링크 생성", expanded=False):
+        st.caption(
+            "자사 페이지 URL 을 입력하면 UTM 이 부착된 공유 링크와, 클릭 추적이 가능한 "
+            "단축링크(m.medimap.kr/r/{slug}) 를 만듭니다. **Publication 의 canonical URL 은 "
+            "건드리지 않습니다** — AI cite 매칭은 canonical 로만 동작합니다."
+        )
+        col_u, col_s = st.columns([3, 2])
+        url = col_u.text_input(
+            "원본 URL (자사 페이지 권장)",
+            key=f"utm_helper_url_{tenant.id}",
+            placeholder="https://medimap.kr/blog/lasik-guide",
+        )
+        source = col_s.selectbox(
+            "utm_source",
+            ["own_blog", "naver_blog", "tistory", "press_release", "instagram", "threads", "kakao", "email"],
+            key=f"utm_helper_src_{tenant.id}",
+        )
+        col_c, col_t = st.columns([2, 2])
+        campaign = col_c.text_input(
+            "utm_campaign (비워두면 slug 자동)",
+            key=f"utm_helper_camp_{tenant.id}",
+            placeholder="예: lasik_guide_2026q2",
+        )
+        custom_slug = col_t.text_input(
+            "단축 slug (비워두면 자동)",
+            key=f"utm_helper_slug_{tenant.id}",
+            placeholder="예: lasik",
+        )
+        if not url.strip():
+            return
+        try:
+            if campaign.strip():
+                utm_url = inject_utm(
+                    url.strip(),
+                    UtmParams(
+                        source=source,
+                        medium="ai_cite",
+                        campaign=campaign.strip(),
+                    ),
+                )
+            else:
+                utm_url = apply_publication_funnel(url.strip(), channel=source)
+            short_slug = (custom_slug.strip() or campaign.strip()
+                          or url.rstrip("/").split("/")[-1] or "link")
+            short_url = shortlink_for(short_slug)
+        except ValueError as e:
+            st.error(f"링크 생성 실패: {e}")
+            return
+
+        st.markdown("**📤 공유용 UTM 링크**")
+        st.code(utm_url, language=None)
+        st.markdown("**🔗 단축링크 (click 추적용 — Phase 7-04 redirect 라우트와 함께 동작)**")
+        st.code(short_url, language=None)
 
 
 def _match_button(SessionLocal, tenant) -> None:
@@ -301,6 +375,7 @@ def render_publication_tab(SessionLocal, tenant) -> None:
 
     st.markdown("---")
     _register_form(SessionLocal, tenant)
+    _utm_link_helper(tenant)
 
     with st.expander("📚 AEO/GEO 인용을 늘리는 법 — 빠른 가이드", expanded=False):
         st.markdown(
