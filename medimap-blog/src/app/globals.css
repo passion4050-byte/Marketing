@@ -1,0 +1,73 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-surface text-ink antialiased;
+    font-feature-settings: "tnum" on, "ss01" on;
+  }
+  ::selection {
+    @apply bg-brand/20 text-brand-700;
+  }
+}
+
+@layer components {
+  .container-content {
+    @apply mx-auto w-full max-w-content px-5 lg:px-8;
+  }
+  .pill-label {
+    @apply inline-flex items-center rounded-pill bg-brand-50 px-3 py-1 text-sm font-medium text-brand-700;
+  }
+  .btn-primary {
+    @apply inline-flex items-center gap-2 rounded-pill bg-brand px-6 py-3 text-base font-semibold text-white shadow-cta transition hover:bg-brand-600 active:translate-y-px;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 rounded-pill border border-line bg-white px-6 py-3 text-base font-semibold text-ink-muted transition hover:bg-surface-hover;
+  }
+  .prose-medimap {
+    @apply max-w-prose text-ink;
+  }
+  .prose-medimap h2 {
+    @apply mt-12 mb-4 text-3xl font-bold tracking-tight;
+  }
+  .prose-medimap h3 {
+    @apply mt-8 mb-3 text-xl font-bold;
+  }
+  .prose-medimap p {
+    @apply my-4 leading-relaxed text-ink-muted;
+  }
+  .prose-medimap a {
+    @apply text-brand underline underline-offset-4 hover:text-brand-700;
+  }
+  .prose-medimap ul {
+    @apply my-4 list-disc pl-6 text-ink-muted;
+  }
+  .prose-medimap ol {
+    @apply my-4 list-decimal pl-6 text-ink-muted;
+  }
+  .prose-medimap li {
+    @apply my-1.5;
+  }
+  .prose-medimap blockquote {
+    @apply my-6 border-l-4 border-brand-200 bg-surface-alt px-5 py-3 text-ink-muted;
+  }
+  .prose-medimap code {
+    @apply rounded bg-surface-alt px-1.5 py-0.5 font-mono text-sm;
+  }
+  .prose-medimap pre {
+    @apply my-6 overflow-x-auto rounded-card bg-ink p-4 text-sm text-white;
+  }
+  .prose-medimap hr {
+    @apply my-10 border-line;
+  }
+}
