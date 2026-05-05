@@ -20,10 +20,29 @@ import asyncio
 import streamlit as st
 
 
+_BRAND_PINK = "#FF4D5E"
+_BRAND_GRAY = "#9CA3AF"
+
+
 def _format_url_short(url: str | None, max_len: int = 50) -> str:
     if not url:
         return "(직접)"
     return url if len(url) <= max_len else url[: max_len - 1] + "…"
+
+
+def _load_publication_urls(SessionLocal, tenant_id: int) -> set[str]:
+    """tenant 의 발행된 URL 집합 — Response.cited_urls 와 매칭해 '내 발행 인용' 필터링."""
+    try:
+        from src.storage.models import Publication
+    except ImportError:
+        return set()
+    with SessionLocal() as s:
+        rows = (
+            s.query(Publication.url)
+            .filter(Publication.tenant_id == tenant_id)
+            .all()
+        )
+    return {r.url.strip() for r in rows if r.url}
 
 
 def render_measurement_tab(SessionLocal, tenant) -> None:
@@ -136,6 +155,12 @@ def render_measurement_tab(SessionLocal, tenant) -> None:
 
     # ─── 최근 Response 카드 ────────────────────────────────────
     st.markdown("##### 최근 응답 (직전 30건)")
+    st.caption(
+        "엔진이 키워드에 답한 원문 응답. **🎯 내 발행 인용** 박스는 응답이 인용한 URL 중 "
+        "내가 실제 발행해 등록한 콘텐츠와 매칭된 것만 노출 — 더미/외부 출처는 카운트만 표시."
+    )
+    publication_urls = _load_publication_urls(SessionLocal, tenant.id)
+
     with SessionLocal() as s:
         rows = (
             s.query(Response, Query)
@@ -243,9 +268,29 @@ def render_measurement_tab(SessionLocal, tenant) -> None:
                         )
 
             if item["cited_urls"]:
-                with st.expander(f"출처 URL ({len(item['cited_urls'])}건)", expanded=False):
-                    for u in item["cited_urls"]:
-                        st.markdown(f"- {_format_url_short(u, 80)}")
+                cited_clean = [u.strip() for u in item["cited_urls"] if isinstance(u, str) and u.strip()]
+                own_cited = [u for u in cited_clean if u in publication_urls]
+                external_count = len(cited_clean) - len(own_cited)
+
+                if own_cited:
+                    st.markdown(
+                        f"<div style='margin-top:8px;padding:10px 14px;background:#FFF1F3;"
+                        f"border:1px solid rgba(255,77,94,0.20);border-radius:10px;'>"
+                        f"<div style='font-size:11px;font-weight:700;color:#C2202F;"
+                        f"text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;'>"
+                        f"🎯 내 발행 콘텐츠 인용 ({len(own_cited)}건)</div>"
+                        + "".join(
+                            f"<div style='font-size:13px;margin-top:3px;'>"
+                            f"<a href='{u}' target='_blank' rel='noopener'>{u}</a></div>"
+                            for u in own_cited
+                        )
+                        + "</div>",
+                        unsafe_allow_html=True,
+                    )
+                if external_count > 0:
+                    st.caption(
+                        f"📎 외부 출처 {external_count}건 (Publication 미등록 — 카운트만 집계)"
+                    )
 
 
 def _auto_collect_if_empty(SessionLocal, tenant, kw_data) -> None:
@@ -437,35 +482,60 @@ def _render_timeseries_section(SessionLocal, tenant, kw_data) -> None:
     col_a.markdown(_anomaly_chip_html(len(anomalies)), unsafe_allow_html=True)
     col_n.metric("누적 응답", agg["n"])
 
+    st.markdown("###### 🧪 AI가 본 내 브랜드")
+    st.caption(
+        f"등록 키워드 `{keyword_text}` 로 4엔진을 호출했을 때 내 브랜드가 어떻게 등장했는지."
+    )
     col_s, col_w = st.columns(2)
     col_s.metric(
-        "단순 share", f"{agg['share']:.1%}",
-        help=f"95% CI: [{agg['ci_95'][0]:.2f}, {agg['ci_95'][1]:.2f}]",
+        "AI 응답 노출률", f"{agg['share']:.1%}",
+        help=(
+            f"AI가 같은 질문에 답한 {agg['n']}건 중 내 브랜드가 '있음/없음' 으로 등장한 비율. "
+            f"95% 신뢰구간 [{agg['ci_95'][0]:.2f}, {agg['ci_95'][1]:.2f}]"
+        ),
     )
     col_w.metric(
-        "가중 share", f"{agg['weighted_share']:.1%}",
-        help=f"95% CI: [{agg['weighted_ci_95'][0]:.2f}, {agg['weighted_ci_95'][1]:.2f}]",
+        "추천 강도 노출률", f"{agg['weighted_share']:.1%}",
+        help=(
+            "응답 안에서 등장 위치(앞쪽일수록 높음)와 추천 표현(권장/추천 vs 단순 언급)을 "
+            "0~1 가중치로 환산한 노출률. 단순 노출률보다 콘텐츠 인용 강도를 잘 반영. "
+            f"95% 신뢰구간 [{agg['weighted_ci_95'][0]:.2f}, {agg['weighted_ci_95'][1]:.2f}]"
+        ),
     )
 
-    # sentiment 분포 KPI — Phase 6
+    # AI 톤 분석 — sentiment 분포
     if agg.get("n", 0) > 0:
-        col_p, col_n2, col_neu = st.columns(3)
-        col_p.metric("🟢 긍정 share", f"{agg.get('positive_share', 0.0):.1%}")
-        col_n2.metric("🔴 부정 share", f"{agg.get('negative_share', 0.0):.1%}")
-        col_neu.metric("⚪ 중립 share", f"{agg.get('neutral_share', 0.0):.1%}")
+        st.markdown("###### 💬 AI가 쓴 톤 분석")
+        st.caption(
+            "내 브랜드를 다룬 응답의 어조 — AI가 답을 작성한 문장 안에서 평가가 긍/중/부 중 "
+            "어디에 가까웠는지를 분류."
+        )
+        col_p, col_neu, col_n2 = st.columns(3)
+        col_p.metric(
+            "🟢 긍정", f"{agg.get('positive_share', 0.0):.1%}",
+            help="추천·권장·잘함 등 긍정 표현이 포함된 응답 비율",
+        )
+        col_neu.metric(
+            "⚪ 중립", f"{agg.get('neutral_share', 0.0):.1%}",
+            help="단순 언급/사실 나열 — 평가 단어 없는 응답 비율",
+        )
+        col_n2.metric(
+            "🔴 부정", f"{agg.get('negative_share', 0.0):.1%}",
+            help="주의·논란·부정 평가가 포함된 응답 비율 (없을수록 좋음)",
+        )
 
     # ─── Altair line + CI 음영 + 이상치 dot ──────────────────
     base = alt.Chart(df).encode(
         x=alt.X("day:T", title="날짜"),
     )
-    band = base.mark_area(opacity=0.18, color="#5b8ff9").encode(
+    band = base.mark_area(opacity=0.18, color=_BRAND_PINK).encode(
         y=alt.Y("ci_lo:Q", title="Mention Share"),
         y2="ci_hi:Q",
     )
-    line = base.mark_line(strokeWidth=2.5, color="#5b8ff9").encode(
+    line = base.mark_line(strokeWidth=2.5, color=_BRAND_PINK).encode(
         y=alt.Y("share:Q", title="Mention Share"),
     )
-    points = base.mark_circle(size=50, color="#5b8ff9").encode(
+    points = base.mark_circle(size=50, color=_BRAND_PINK).encode(
         y="share:Q",
     )
     layers = [band, line, points]
@@ -476,7 +546,7 @@ def _render_timeseries_section(SessionLocal, tenant, kw_data) -> None:
             for a in anomalies
         ])
         anomaly_layer = alt.Chart(anomaly_df).mark_point(
-            size=200, color="#a02520", filled=True, shape="diamond",
+            size=200, color="#C2202F", filled=True, shape="diamond",
         ).encode(x="day:T", y="share:Q")
         layers.append(anomaly_layer)
 
@@ -487,11 +557,47 @@ def _render_timeseries_section(SessionLocal, tenant, kw_data) -> None:
         f"이상치는 직전 7일 평균 ± 2σ 벗어난 시점."
     )
 
-    # by_brand 테이블
+    # by_brand — 본인 vs 경쟁사 막대 (항상 노출, expander 제거)
     if agg["by_brand"]:
-        with st.expander(f"브랜드별 멘션 카운트 ({len(agg['by_brand'])}개)", expanded=False):
-            for brand, count in agg["by_brand"].items():
-                st.markdown(f"- **{brand}** — {count}건")
+        st.markdown("###### 🏆 본 키워드 응답에 가장 많이 등장한 브랜드")
+        st.caption(
+            "n=" + str(agg["n"]) + " 응답 안에서 각 브랜드가 등장한 횟수. "
+            "**핑크 = 내 브랜드**, 회색 = 경쟁사. 막대가 짧으면 그 브랜드는 AI가 거의 언급 안 한 것."
+        )
+        bb_rows = sorted(agg["by_brand"].items(), key=lambda x: -x[1])[:8]
+        bb_df = pd.DataFrame(
+            [
+                {
+                    "브랜드": b,
+                    "멘션": int(c),
+                    "구분": "내 브랜드" if b == tenant.name else "경쟁사",
+                }
+                for b, c in bb_rows
+            ]
+        )
+        bb_chart = (
+            alt.Chart(bb_df)
+            .mark_bar(cornerRadiusEnd=4)
+            .encode(
+                x=alt.X("멘션:Q", title="등장 횟수"),
+                y=alt.Y("브랜드:N", sort="-x", title=None),
+                color=alt.Color(
+                    "구분:N",
+                    scale=alt.Scale(
+                        domain=["내 브랜드", "경쟁사"],
+                        range=[_BRAND_PINK, _BRAND_GRAY],
+                    ),
+                    legend=alt.Legend(title=None, orient="top"),
+                ),
+                tooltip=[
+                    alt.Tooltip("브랜드:N"),
+                    alt.Tooltip("멘션:Q", title="등장 횟수"),
+                    alt.Tooltip("구분:N"),
+                ],
+            )
+            .properties(height=max(140, 32 * len(bb_df)))
+        )
+        st.altair_chart(bb_chart, use_container_width=True)
 
     # ─── 경쟁사 비교 차트 — Phase 6-T3.4 ────────────────────
     with SessionLocal() as cs:
@@ -512,7 +618,7 @@ def _render_timeseries_section(SessionLocal, tenant, kw_data) -> None:
         comp_df = pd.DataFrame(rows)
         comp_chart = (
             alt.Chart(comp_df)
-            .mark_bar(color="#5b8ff9")
+            .mark_bar(color=_BRAND_PINK)
             .encode(
                 x=alt.X("share:Q", axis=alt.Axis(format=".0%"), title="Mention Share"),
                 y=alt.Y("브랜드:N", sort="-x"),
@@ -537,10 +643,10 @@ def _render_competitor_section(SessionLocal, tenant) -> None:
         st.warning(f"경쟁사 모듈 import 실패: `{_ie}`")
         return
 
-    st.markdown("##### 🎯 경쟁사 후보 검수")
+    st.markdown("##### 🎯 경쟁사 후보 검수 — TOP 3")
     st.caption(
-        "AI 응답에서 자동 발견된 의료기관 후보입니다. 승인하면 다음 수집부터 "
-        "멘션으로 자동 인식되어 비교 분석에 포함됩니다."
+        f"등록 키워드를 4엔진(ChatGPT · Gemini · Claude · Perplexity)에 질의했을 때 "
+        f"`{tenant.name}` 외에 가장 많이 등장한 의료기관 상위 3개. 승인 시 멘션 분석에 자동 포함."
     )
 
     # 후보 + confirmed 목록 동시 조회
@@ -554,19 +660,36 @@ def _render_competitor_section(SessionLocal, tenant) -> None:
         )
         confirmed_data = [(c.id, c.name, c.discovery_source, c.first_seen_at) for c in confirmed]
 
-    # 후보 카드
+    # 후보 카드 — 멘션 카운트 desc + top 3
     if not candidates:
         st.info(
-            "⚪ 임계 통과한 후보가 없습니다 — 응답 ≥ 3개 + 키워드 ≥ 2개 가 필요합니다. "
-            "(이미 등록되었거나, 자기 브랜드는 자동 제외)"
+            "⚪ 아직 노출된 경쟁사가 없습니다 — 측정 응답이 더 쌓이면 자동으로 채워집니다. "
+            "(키워드 등록 + 수집 실행 후 응답 ≥ 3개 + 키워드 ≥ 2개 통과한 후보만 노출)"
         )
     else:
-        for cand in candidates:
+        ranked = sorted(
+            candidates,
+            key=lambda c: (-(c.mention_count or 0), -(c.response_count or 0), c.name),
+        )
+        top = ranked[:3]
+        rank_styles = [
+            ("🥇 1위", "#FFF6D6", "#B45309"),
+            ("🥈 2위", "#F1F5F9", "#475569"),
+            ("🥉 3위", "#FFF1EA", "#B53D14"),
+        ]
+        for idx, cand in enumerate(top):
+            label, bg, fg = rank_styles[idx]
             with st.container(border=True):
                 head_l, head_r = st.columns([4, 2])
                 head_l.markdown(
-                    f"**{cand.name}** — 멘션 `{cand.mention_count}` · "
-                    f"응답 `{cand.response_count}` · 키워드 `{cand.keyword_count}`"
+                    f"<span style='display:inline-block;padding:3px 10px;border-radius:999px;"
+                    f"background:{bg};color:{fg};font-weight:700;font-size:12px;"
+                    f"margin-right:10px;'>{label}</span>"
+                    f"<b style='font-size:15px;'>{cand.name}</b>"
+                    f"<div style='margin-top:6px;color:#6B7280;font-size:12.5px;'>"
+                    f"등장 응답 <b>{cand.response_count}</b>건 · 멘션 <b>{cand.mention_count}</b>회 · "
+                    f"키워드 <b>{cand.keyword_count}</b>개</div>",
+                    unsafe_allow_html=True,
                 )
                 first = cand.first_seen.strftime("%Y-%m-%d") if cand.first_seen else "—"
                 head_r.caption(f"최초 등장 {first}")
@@ -583,7 +706,8 @@ def _render_competitor_section(SessionLocal, tenant) -> None:
 
                 col_y, col_n = st.columns(2)
                 if col_y.button(
-                    "✅ 승인", key=f"comp_approve_{cand.name}", use_container_width=True
+                    "✅ 승인 — 멘션 분석 포함", key=f"comp_approve_{cand.name}",
+                    use_container_width=True, type="primary",
                 ):
                     with SessionLocal() as ws:
                         ws.add(Competitor(
@@ -598,7 +722,7 @@ def _render_competitor_section(SessionLocal, tenant) -> None:
                     st.success(f"승인: {cand.name}")
                     st.rerun()
                 if col_n.button(
-                    "❌ 거절", key=f"comp_reject_{cand.name}", use_container_width=True
+                    "❌ 거절", key=f"comp_reject_{cand.name}", use_container_width=True,
                 ):
                     with SessionLocal() as ws:
                         ws.add(Competitor(
@@ -612,6 +736,15 @@ def _render_competitor_section(SessionLocal, tenant) -> None:
                         ws.commit()
                     st.info(f"거절: {cand.name} (다음 후보 풀에서 제외)")
                     st.rerun()
+
+        if len(ranked) > 3:
+            with st.expander(f"하위 후보 더 보기 ({len(ranked) - 3}개)", expanded=False):
+                for cand in ranked[3:]:
+                    st.markdown(
+                        f"- **{cand.name}** — 응답 {cand.response_count}건 · "
+                        f"멘션 {cand.mention_count}회 · 키워드 {cand.keyword_count}개"
+                    )
+                st.caption("필요 시 위 TOP 3 가 승인/거절 처리되면 자동으로 다음 순위가 올라옵니다.")
 
     # 확정 경쟁사 목록
     if confirmed_data:
