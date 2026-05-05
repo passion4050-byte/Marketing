@@ -42,6 +42,9 @@ AI 검색엔진(Perplexity, ChatGPT, Gemini, Claude)에서 의료 도메인 브�
 - **Type hints**: 모든 public 함수에 type hint. dataclass/Pydantic 사용.
 - **No mocking DB in tests**: 통합 테스트는 SQLite 메모리 DB 실제 사용. LLM은 모킹 OK.
 - **Streamlit stale module cache 가드**: Streamlit Cloud 재배포 후 `sys.modules` 캐시로 신규 ORM 컬럼/모델이 누락된 채 실행될 수 있음. 신규 속성/모델 접근 전 `hasattr(Model, "field")` 또는 `try/except ImportError` 가드 필수. 완전 해소는 앱 reboot.
+- **Design-only changes**: 디자인/UI 작업 시 기능 로직(LLM 호출, DB 쿼리, 스케줄러, 컴플라이언스 린터, 핸들러)은 절대 손대지 말 것. theme.py CSS / Tailwind 토큰 / 마크업만 수정. 기능 변경이 필요하면 별도 커밋으로 분리.
+- **Cross-site design sync**: 3개 사이트가 동일한 강남언니 디자인 토큰을 공유 — `src/dashboard/theme.py`(테넌트), `src/admin/theme.py`(어드민), `medimap-blog/tailwind.config.ts` + `medimap-blog/src/app/globals.css`(블로그). 브랜드 컬러 변경 시 4개 파일을 동시에 갱신. 확정 팔레트 — Brand `#FF4D5E`(핫핑크), Accent `#FF6B35`(오렌지-레드), Admin Primary `#4F5DF8`(퍼플), Mint `#15CBA8`. SVG `<linearGradient>` stop-color 는 Tailwind 토큰이 미치지 않으므로 별도 체크리스트.
+- **Token-first components**: 신규 컴포넌트는 `brand-*` / `accent-*` 토큰 클래스만 사용. `#hexcode` 직접 삽입 금지 (SVG gradient 제외). 한 곳만 빠뜨려도 리브랜딩 시 색이 어긋나는 구멍이 됨.
 <!-- GSD:conventions-end -->
 
 <!-- GSD:architecture-start source:ARCHITECTURE.md -->
@@ -71,9 +74,10 @@ src/
 ├── reference/       # RAG (crawler, chunker, embedder, retriever)
 ├── compliance/      # 의료법 린터
 ├── content/         # 콘텐츠 생성 + 4채널 템플릿
-├── dashboard/       # Streamlit 테넌트 앱 — theme.py(파랑) + kpi_strip 헬퍼
-└── admin/           # Streamlit 어드민 백오피스 — theme.py(보라+슬레이트)
-                     # admin_kpi_strip / admin_chip / render_admin_header 헬퍼
+├── dashboard/       # Streamlit 테넌트 앱 — theme.py(강남언니 핑크 #FF4D5E + 오렌지 #FF6B35)
+│                    # kpi_strip / login wrap 헬퍼
+└── admin/           # Streamlit 어드민 백오피스 — theme.py(핑크 #FF4D5E + 퍼플 #4F5DF8 + 민트 #15CBA8)
+                     # admin_kpi_strip / admin_chip / render_admin_header / render_side_card 헬퍼
 medimap-blog/        # Next.js 14 SSG 블로그/랜딩 (Vercel 배포)
 ```
 
@@ -112,6 +116,8 @@ No project skills found. Add skills to any of: `.claude/skills/`, `.agents/skill
 - `DATABASE_URL` (선택) — Supabase Postgres 등 영속 DB 사용 시
 
 **시크릿 hydration:** `src/dashboard/app.py` 의 `_hydrate_env_from_secrets()` 가 `st.secrets` 를 `os.environ` 으로 흘려보내 기존 `os.getenv()` 코드가 변경 없이 동작.
+
+**Analytics (GA4 단일 소스):** 3개 사이트 모두 GA4 만 사용 (GTM 제거 완료, ~280KB 절감 유지). medimap-blog 의 GA4 measurement ID 는 `medimap-blog/src/lib/site.ts` 의 `siteConfig.ga` 에서 조회. `next/script` 전략은 **항상 `afterInteractive`** — 이전에 `lazyOnload` 시도했으나 작은 스크립트라 main thread idle 진입을 늦춰 TBT/FCP 가 회귀해 되돌림.
 
 **최초 배포 자동화 (재실행 불필요):** `tools/deploy_github.py` — GitHub Device Flow OAuth → private 리포 생성 → master→main 리브랜드 → 첫 푸시 → 토큰 strip. 일반 재배포는 `git push origin main` 만으로 충분.
 <!-- GSD:deployment-end -->
