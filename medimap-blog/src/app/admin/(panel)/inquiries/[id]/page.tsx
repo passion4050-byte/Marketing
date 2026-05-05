@@ -8,20 +8,9 @@ import {
   statusLabel,
 } from "@/components/admin/StatusPill";
 import { updateInquiryAction } from "./actions";
+import { formatKstDateTime } from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
-
-function fmtDateTime(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString("ko-KR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 export default async function InquiryDetail({
   params,
@@ -67,7 +56,7 @@ export default async function InquiryDetail({
             </h2>
             <p className="mt-1 text-[13px] text-ink-muted">
               담당자 <strong className="text-ink">{row.contact_name}</strong> ·{" "}
-              <span className="num">{fmtDateTime(row.created_at)}</span>
+              <span className="num">{formatKstDateTime(row.created_at)}</span>
             </p>
             <dl className="mt-5 grid gap-3 sm:grid-cols-2">
               <Info icon={<Phone size={13} />} label="연락처" value={row.phone ?? "—"} />
@@ -109,7 +98,7 @@ export default async function InquiryDetail({
               </div>
               <div>
                 Updated{" "}
-                <span className="text-ink num">{fmtDateTime(row.updated_at)}</span>
+                <span className="text-ink num">{formatKstDateTime(row.updated_at)}</span>
               </div>
             </dl>
           </details>

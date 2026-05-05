@@ -12,8 +12,17 @@ export const config = {
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
-  // /admin/login 자체는 게이트 통과 — 로그인 폼 + 인증 처리.
-  if (pathname.startsWith("/admin/login")) return NextResponse.next();
+  // /admin/login: 미인증이면 로그인 폼, 이미 인증된 상태면 dashboard 로.
+  if (pathname.startsWith("/admin/login")) {
+    if (isAdminConfigured()) {
+      const session = req.cookies.get(ADMIN_COOKIE_NAME)?.value;
+      const alreadyAuthed = await verifySessionCookie(session);
+      if (alreadyAuthed) {
+        return NextResponse.redirect(new URL("/admin", req.url));
+      }
+    }
+    return NextResponse.next();
+  }
 
   // ADMIN_PASSWORD 미설정이면 안내 페이지로 강제 (잠금된 어드민 보호).
   if (!isAdminConfigured()) {

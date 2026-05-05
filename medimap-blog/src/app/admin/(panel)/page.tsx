@@ -17,22 +17,9 @@ import {
   formTypeLabel,
   statusLabel,
 } from "@/components/admin/StatusPill";
+import { formatKstRelative } from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
-
-function relTime(iso: string): string {
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return iso;
-  const diffMs = Date.now() - t;
-  const m = Math.round(diffMs / 60000);
-  if (m < 1) return "방금 전";
-  if (m < 60) return `${m}분 전`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h}시간 전`;
-  const d = Math.round(h / 24);
-  if (d < 7) return `${d}일 전`;
-  return new Date(t).toLocaleDateString("ko-KR");
-}
 
 export default async function AdminDashboard() {
   const [stats, recent] = await Promise.all([
@@ -236,7 +223,7 @@ export default async function AdminDashboard() {
                   className="border-b border-line/40 transition hover:bg-surface-alt/40"
                 >
                   <td className="px-6 py-3 text-ink-muted">
-                    {relTime(row.created_at)}
+                    {formatKstRelative(row.created_at)}
                   </td>
                   <td className="px-3 py-3">
                     <FormTypePill type={row.form_type} />

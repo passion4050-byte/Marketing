@@ -13,16 +13,11 @@ import {
   formTypeLabel,
   statusLabel,
 } from "@/components/admin/StatusPill";
+import { formatKstDateTime } from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 25;
-
-function fmt(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
 
 export default async function AdminInquiriesList({
   searchParams,
@@ -157,7 +152,7 @@ export default async function AdminInquiriesList({
                   className="border-b border-line/40 transition hover:bg-surface-alt/40"
                 >
                   <td className="px-6 py-3 text-ink-muted num">
-                    {fmt(row.created_at)}
+                    {formatKstDateTime(row.created_at)}
                   </td>
                   <td className="px-3 py-3">
                     <FormTypePill type={row.form_type} />
