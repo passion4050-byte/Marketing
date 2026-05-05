@@ -10,29 +10,30 @@ const config: Config = {
     },
     extend: {
       colors: {
+        // 강남언니 톤 — 핫핑크 브랜드 + 오렌지-레드 액센트
         brand: {
-          DEFAULT: "#0057FF",
-          50: "#EAF1FF",
-          100: "#D6E4FF",
-          200: "#ADC8FF",
-          300: "#84ABFF",
-          400: "#5B8FFF",
-          500: "#0057FF",
-          600: "#0046CC",
-          700: "#003599",
-          800: "#002566",
-          900: "#001433",
+          DEFAULT: "#FF4D5E",
+          50: "#FFF1F3",
+          100: "#FFE0E5",
+          200: "#FFC2CB",
+          300: "#FFA0AE",
+          400: "#FF7787",
+          500: "#FF4D5E",
+          600: "#E63746",
+          700: "#C2202F",
+          800: "#931620",
+          900: "#5C0D14",
         },
         accent: {
-          DEFAULT: "#7C5CFF",
-          50: "#F2EEFF",
-          100: "#E1D9FF",
-          200: "#C4B3FF",
-          300: "#A88EFF",
-          400: "#8C68FF",
-          500: "#7C5CFF",
-          600: "#5F3FE0",
-          700: "#4226B3",
+          DEFAULT: "#FF6B35",
+          50: "#FFF3EE",
+          100: "#FFE3D6",
+          200: "#FFC4A8",
+          300: "#FFA478",
+          400: "#FF884F",
+          500: "#FF6B35",
+          600: "#E2521F",
+          700: "#B53D14",
         },
         ink: {
           DEFAULT: "#101828",
@@ -74,15 +75,15 @@ const config: Config = {
       boxShadow: {
         soft: "0 1px 3px rgba(16,24,40,0.06), 0 1px 2px rgba(16,24,40,0.04)",
         card: "0 4px 12px rgba(16,24,40,0.06), 0 2px 4px rgba(16,24,40,0.04)",
-        cta: "0 4px 6px rgba(0,87,255,0.18), 0 2px 4px rgba(0,87,255,0.10)",
-        glow: "0 0 0 1px rgba(0,87,255,0.18), 0 12px 32px -8px rgba(0,87,255,0.30)",
+        cta: "0 4px 6px rgba(255,77,94,0.20), 0 2px 4px rgba(255,77,94,0.12)",
+        glow: "0 0 0 1px rgba(255,77,94,0.20), 0 12px 32px -8px rgba(255,77,94,0.32)",
       },
       maxWidth: { content: "1280px", prose: "75ch" },
       backgroundImage: {
         "grid-fade":
-          "radial-gradient(circle at top, rgba(0,87,255,0.08), transparent 50%), linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 100%)",
+          "radial-gradient(circle at top, rgba(255,77,94,0.08), transparent 50%), linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 100%)",
         "brand-mesh":
-          "radial-gradient(at 12% 20%, rgba(0,87,255,0.18) 0px, transparent 50%), radial-gradient(at 80% 0%, rgba(124,92,255,0.18) 0px, transparent 50%), radial-gradient(at 80% 80%, rgba(0,87,255,0.10) 0px, transparent 50%)",
+          "radial-gradient(at 12% 20%, rgba(255,77,94,0.18) 0px, transparent 50%), radial-gradient(at 80% 0%, rgba(255,107,53,0.18) 0px, transparent 50%), radial-gradient(at 80% 80%, rgba(255,77,94,0.10) 0px, transparent 50%)",
       },
       keyframes: {
         "fade-in-up": {

@@ -72,7 +72,7 @@ export function TableOfContents() {
                       : "text-ink-muted hover:text-brand"
                   }`}
                   style={{
-                    borderLeft: active ? "2px solid #0057FF" : undefined,
+                    borderLeft: active ? "2px solid #FF4D5E" : undefined,
                     marginLeft: active ? -17 : undefined,
                     paddingLeft: active ? 15 : undefined,
                   }}

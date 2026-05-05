@@ -42,7 +42,7 @@
     border-radius: 999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(0,87,255,0.40);
+    background: rgba(255,77,94,0.42);
     background-clip: padding-box;
   }
 }
@@ -94,7 +94,7 @@
   /* Reading progress bar (client component sets --scroll-progress) */
   .reading-progress {
     @apply pointer-events-none fixed inset-x-0 top-0 z-50 h-[3px] origin-left;
-    background: linear-gradient(90deg, #0057FF 0%, #7C5CFF 100%);
+    background: linear-gradient(90deg, #FF4D5E 0%, #FF6B35 100%);
     transform: scaleX(var(--scroll-progress, 0));
     will-change: transform;
     transition: transform 80ms linear;

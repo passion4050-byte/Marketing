@@ -18,8 +18,8 @@ export function Footer() {
             >
               <defs>
                 <linearGradient id="footerLogo" x1="0" y1="0" x2="32" y2="32">
-                  <stop offset="0%" stopColor="#5B8FFF" />
-                  <stop offset="100%" stopColor="#A88EFF" />
+                  <stop offset="0%" stopColor="#FF4D5E" />
+                  <stop offset="100%" stopColor="#FF6B35" />
                 </linearGradient>
               </defs>
               <rect x="2" y="2" width="28" height="28" rx="9" fill="url(#footerLogo)" />
