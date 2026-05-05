@@ -93,14 +93,6 @@ const config: Config = {
           "0%": { opacity: "0" },
           "100%": { opacity: "1" },
         },
-        "accordion-down": {
-          "0%": { gridTemplateRows: "0fr" },
-          "100%": { gridTemplateRows: "1fr" },
-        },
-        "accordion-up": {
-          "0%": { gridTemplateRows: "1fr" },
-          "100%": { gridTemplateRows: "0fr" },
-        },
         "shimmer": {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
@@ -109,8 +101,6 @@ const config: Config = {
       animation: {
         "fade-in-up": "fade-in-up 0.45s cubic-bezier(.2,.8,.2,1) both",
         "fade-in": "fade-in 0.4s ease both",
-        "accordion-down": "accordion-down 0.22s ease",
-        "accordion-up": "accordion-up 0.22s ease",
         "shimmer": "shimmer 1.6s linear infinite",
       },
     },

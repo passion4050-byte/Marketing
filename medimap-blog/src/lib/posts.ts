@@ -18,6 +18,8 @@ export interface PostMeta {
   medicalCondition?: string;
   medicalSpecialty?: string;
   reviewedBy?: string;
+  /** Pin a post as the blog index hero card. First `featured: true` wins; falls back to newest. */
+  featured?: boolean;
 }
 
 export interface Post extends PostMeta {
@@ -43,6 +45,7 @@ async function readPostFile(slug: string): Promise<Post | null> {
       medicalCondition: data.medicalCondition ? String(data.medicalCondition) : undefined,
       medicalSpecialty: data.medicalSpecialty ? String(data.medicalSpecialty) : undefined,
       reviewedBy: data.reviewedBy ? String(data.reviewedBy) : undefined,
+      featured: data.featured === true,
       source: content,
     };
   } catch {

@@ -21,8 +21,11 @@ export default async function BlogIndexPage() {
   const categories = Array.from(
     new Set(posts.map((p) => p.category).filter(Boolean) as string[]),
   );
-  const featured = posts[0];
-  const rest = posts.slice(1);
+  // Explicit `featured: true` frontmatter wins; otherwise pin the newest post.
+  const featured = posts.find((p) => p.featured) ?? posts[0];
+  const rest = featured
+    ? posts.filter((p) => p.slug !== featured.slug)
+    : posts;
 
   return (
     <>
