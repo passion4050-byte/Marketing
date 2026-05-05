@@ -1,53 +1,70 @@
-"""중앙화된 디자인 시스템 — 색상/간격/타이포 토큰 + 전역 CSS.
+"""중앙화된 디자인 시스템 — 강남언니 톤 매칭 (Phase 9-06).
+
+레퍼런스: 강남언니 모바일 앱 + 파트너센터 로그인.
+- Brand mark: 핫핑크-레드 ``#FF4D5E`` 워드마크
+- Action accent: 오렌지-레드 ``#FF6B35`` (검색/CTA)
+- Surface: 흰색 + 옅은 그레이
+- Card: hairline 1px + 충분한 패딩 + 약한 그림자
+- Tab active: 핑크 underline + 굵은 텍스트 (배경색 사용 안 함)
+- 한국어 헤딩 매우 굵직 (font-weight 800+)
 
 모든 탭 모듈에서 import해 일관성 유지.
 """
 
 from __future__ import annotations
 
-# ─── 색상 팔레트 (Tone & Manner) ─────────────────────────────────
+
+# ─── 색상 팔레트 (강남언니 톤) ───────────────────────────────────
 
 
 class Colors:
-    # Primary (의료/SaaS 신뢰감)
-    PRIMARY = "#5b8ff9"          # 메인 파랑
-    PRIMARY_DARK = "#3a6cd8"
-    PRIMARY_LIGHT = "#e7eefb"
+    # Primary (강남언니 핫핑크-레드 시그니처)
+    PRIMARY = "#FF4D5E"
+    PRIMARY_DARK = "#E63E51"
+    PRIMARY_LIGHT = "#FFEFF1"
+
+    # Action accent (검색바/CTA — 오렌지-레드)
+    ACCENT = "#FF6B35"
+    ACCENT_DARK = "#E55A28"
+    ACCENT_LIGHT = "#FFF1EA"
 
     # Status
-    SUCCESS = "#1e7a3d"          # 통과/완료/긍정
-    SUCCESS_LIGHT = "#e6f6ea"
-    WARNING = "#a36100"          # 검수 권장/주의
-    WARNING_LIGHT = "#fff4d6"
-    ERROR = "#a02520"            # 위반/실패
-    ERROR_LIGHT = "#fbe5e3"
-    INFO = "#1d50a8"
-    INFO_LIGHT = "#e7eefb"
+    SUCCESS = "#10B981"
+    SUCCESS_LIGHT = "#D1FAE5"
+    WARNING = "#F59E0B"
+    WARNING_LIGHT = "#FEF3C7"
+    ERROR = "#EF4444"
+    ERROR_LIGHT = "#FEE2E2"
+    INFO = "#3B82F6"
+    INFO_LIGHT = "#DBEAFE"
 
-    # Neutral
-    GRAY_900 = "#1a1a1a"
-    GRAY_700 = "#444"
-    GRAY_500 = "#666"
-    GRAY_400 = "#888"
-    GRAY_300 = "#bbb"
-    GRAY_200 = "#eee"
-    GRAY_100 = "#fafafa"
-    GRAY_50 = "#fbfbfd"
-    WHITE = "#ffffff"
+    # Neutral (강남언니 회색 계조)
+    GRAY_900 = "#1F2937"
+    GRAY_700 = "#4B5563"
+    GRAY_500 = "#6B7280"
+    GRAY_400 = "#9CA3AF"
+    GRAY_300 = "#D1D5DB"
+    GRAY_200 = "#E5E7EB"
+    GRAY_100 = "#F3F4F6"
+    GRAY_50 = "#F9FAFB"
+    WHITE = "#FFFFFF"
+
+    # Dark hero card (배너 톤)
+    HERO_DARK = "#1F2937"
 
     # Accent (보조)
-    PURPLE = "#7c5cff"
-    PURPLE_LIGHT = "#f0e7fb"
-    GREEN = "#1e7a3d"
-    GREEN_LIGHT = "#e6f6ea"
-    AMBER = "#f5a623"
-    AMBER_LIGHT = "#fff4d6"
+    PURPLE = "#7C5CFF"          # 호환용 — 일부 모듈이 참조
+    PURPLE_LIGHT = "#F0E7FB"
+    GREEN = "#10B981"
+    GREEN_LIGHT = "#D1FAE5"
+    AMBER = "#F59E0B"
+    AMBER_LIGHT = "#FEF3C7"
 
     # Engine 브랜드 색
-    ENGINE_OPENAI = "#10a37f"
-    ENGINE_ANTHROPIC = "#d97757"
-    ENGINE_GEMINI = "#4285f4"
-    ENGINE_PERPLEXITY = "#20808d"
+    ENGINE_OPENAI = "#10A37F"
+    ENGINE_ANTHROPIC = "#D97757"
+    ENGINE_GEMINI = "#4285F4"
+    ENGINE_PERPLEXITY = "#20808D"
 
 
 # ─── 간격/Border ──────────────────────────────────────────────
@@ -65,7 +82,7 @@ class Spacing:
 class Radius:
     SM = "8px"
     MD = "12px"
-    LG = "14px"
+    LG = "16px"
 
 
 # ─── 전역 CSS (모든 페이지 공통) ──────────────────────────────
@@ -74,18 +91,23 @@ class Radius:
 GLOBAL_CSS = f"""
 <style>
   /* ─ Foundations ─ */
-  .stApp {{ background: {Colors.GRAY_50}; }}
-  h1, h2, h3, h4 {{ letter-spacing: -0.02em; color: {Colors.GRAY_900}; }}
+  .stApp {{
+    background: {Colors.GRAY_50};
+    font-feature-settings: "tnum" on;
+  }}
+  h1, h2, h3, h4 {{ letter-spacing: -0.025em; color: {Colors.GRAY_900}; }}
 
-  /* ─ Top toolbar / hide deploy button (clean look) ─ */
+  /* ─ Hide Streamlit chrome ─ */
   div[data-testid="stToolbar"] {{ display: none; }}
+  #MainMenu {{ visibility: hidden; }}
+  footer {{ visibility: hidden; }}
 
-  /* ─ Sidebar — 완전 숨김 (메타정보는 상단 헤더로 이동) ─ */
+  /* ─ Sidebar 완전 숨김 (메타정보는 상단 헤더로) ─ */
   section[data-testid="stSidebar"] {{ display: none !important; }}
   button[data-testid="stSidebarCollapseButton"],
   button[kind="header"][data-testid="baseButton-header"] {{ display: none !important; }}
 
-  /* 메인 컨테이너 좌우 여백 확보 — 사이드바 제거에 따른 조정 */
+  /* 메인 컨테이너 */
   section.main > div.block-container {{
     padding-top: 1.5rem !important;
     padding-left: 3rem !important;
@@ -93,113 +115,88 @@ GLOBAL_CSS = f"""
     max-width: 1400px !important;
   }}
 
-  /* ─ Top App Header — Premium SaaS look (Phase 6.5) ─
-     좌: 그라데이션 마크 + ECG-pulse 아이콘 + 워드마크 + tagline
-     우: LIVE pulse dot + 오늘 날짜 pill
-     상단 2px 그라데이션 액센트 라인 + 미세 그림자. */
+  /* ─ Top App Header — 강남언니 톤 (흰 배경 + 핑크 마크) ─ */
   .gsd-app-header {{
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 18px 24px;
-    background: linear-gradient(135deg, {Colors.WHITE} 0%, #f5f8ff 100%);
-    border: 1px solid rgba(91, 143, 249, 0.16);
+    padding: 14px 22px;
+    background: {Colors.WHITE};
+    border: 1px solid {Colors.GRAY_200};
     border-radius: 14px;
     margin-bottom: 22px;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 4px 14px rgba(91, 143, 249, 0.05),
-                0 1px 0 rgba(255, 255, 255, 0.6) inset;
-  }}
-  .gsd-app-header::before {{
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg,
-      {Colors.PRIMARY} 0%,
-      {Colors.PURPLE} 45%,
-      {Colors.PRIMARY} 90%,
-      transparent 100%);
-    background-size: 200% 100%;
-    animation: gsd-accent-flow 8s linear infinite;
-  }}
-  @keyframes gsd-accent-flow {{
-    0% {{ background-position: 0% 50%; }}
-    100% {{ background-position: 200% 50%; }}
+    box-shadow: 0 1px 2px rgba(31, 41, 55, 0.03);
   }}
   .gsd-brand {{
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
   }}
   .gsd-brand-mark {{
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, {Colors.PRIMARY} 0%, {Colors.PURPLE} 100%);
+    width: 40px; height: 40px;
+    border-radius: 11px;
+    background: linear-gradient(135deg, {Colors.PRIMARY} 0%, {Colors.ACCENT} 100%);
     display: flex;
     align-items: center;
     justify-content: center;
+    color: white;
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: -0.02em;
     box-shadow:
-      0 6px 14px rgba(91, 143, 249, 0.32),
-      inset 0 1px 0 rgba(255, 255, 255, 0.28),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.06);
+      0 4px 10px rgba(255, 77, 94, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.32);
     transition: transform 0.18s cubic-bezier(.2,.8,.2,1),
                 box-shadow 0.18s ease;
+  }}
+  .gsd-app-header:hover .gsd-brand-mark {{
+    transform: translateY(-1px) scale(1.04);
+    box-shadow: 0 6px 14px rgba(255, 77, 94, 0.40);
   }}
   .gsd-brand-mark svg {{
     filter: drop-shadow(0 1px 1px rgba(0,0,0,0.18));
   }}
-  .gsd-app-header:hover .gsd-brand-mark {{
-    transform: translateY(-1px) scale(1.04);
-    box-shadow:
-      0 8px 20px rgba(91, 143, 249, 0.44),
-      inset 0 1px 0 rgba(255, 255, 255, 0.32);
-  }}
   .gsd-brand-name {{
-    font-size: 23px;
+    font-size: 19px;
     font-weight: 800;
-    letter-spacing: -0.045em;
+    letter-spacing: -0.030em;
     color: {Colors.GRAY_900};
     line-height: 1;
-    background: linear-gradient(180deg, {Colors.GRAY_900} 0%, #2a2d3a 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  }}
+  .gsd-brand-name .brand-accent {{
+    color: {Colors.PRIMARY};
   }}
   .gsd-brand-tag {{
     font-size: 10.5px;
-    color: {Colors.GRAY_400};
-    letter-spacing: 0.16em;
+    color: {Colors.GRAY_500};
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    margin-top: 6px;
-    font-weight: 600;
+    margin-top: 5px;
+    font-weight: 700;
   }}
   .gsd-header-status {{
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 8px 14px 8px 12px;
-    background: rgba(91, 143, 249, 0.06);
-    border: 1px solid rgba(91, 143, 249, 0.14);
+    padding: 7px 14px 7px 12px;
+    background: {Colors.GRAY_50};
+    border: 1px solid {Colors.GRAY_200};
     border-radius: 999px;
   }}
   .gsd-live-dot {{
-    width: 7px;
-    height: 7px;
+    width: 7px; height: 7px;
     background: {Colors.SUCCESS};
     border-radius: 50%;
     position: relative;
     flex-shrink: 0;
-    box-shadow: 0 0 0 2px rgba(30, 122, 61, 0.18);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
   }}
   .gsd-live-dot::after {{
     content: '';
     position: absolute;
     inset: -4px;
     border-radius: 50%;
-    background: rgba(30, 122, 61, 0.32);
+    background: rgba(16, 185, 129, 0.32);
     animation: gsd-live-pulse 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }}
   @keyframes gsd-live-pulse {{
@@ -207,264 +204,271 @@ GLOBAL_CSS = f"""
     100% {{ transform: scale(2.3); opacity: 0; }}
   }}
   .gsd-live-text {{
-    font-size: 10.5px;
+    font-size: 11px;
     font-weight: 800;
     color: {Colors.SUCCESS};
-    letter-spacing: 0.12em;
+    letter-spacing: 0.10em;
     text-transform: uppercase;
   }}
   .gsd-status-divider {{
     width: 1px;
     height: 12px;
-    background: rgba(91, 143, 249, 0.22);
+    background: {Colors.GRAY_300};
   }}
   .gsd-status-date {{
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     color: {Colors.GRAY_500};
-    letter-spacing: 0.03em;
     font-variant-numeric: tabular-nums;
   }}
+
   .gsd-meta-strip {{
     display: flex;
     align-items: center;
     gap: 14px;
   }}
-  .gsd-meta-item {{
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }}
+  .gsd-meta-item {{ display: inline-flex; align-items: center; gap: 6px; }}
   .gsd-meta-label {{
     font-size: 11px;
     color: {Colors.GRAY_400};
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    font-weight: 600;
+    font-weight: 700;
   }}
   .gsd-meta-value {{
     font-size: 12px;
     color: {Colors.GRAY_700};
     font-weight: 600;
   }}
-  .gsd-meta-divider {{
-    width: 1px;
-    height: 16px;
-    background: {Colors.GRAY_200};
-  }}
+  .gsd-meta-divider {{ width: 1px; height: 16px; background: {Colors.GRAY_200}; }}
+
   .gsd-inline-note {{
-    background: {Colors.INFO_LIGHT};
-    color: {Colors.INFO};
-    padding: 8px 14px;
+    background: {Colors.PRIMARY_LIGHT};
+    color: {Colors.PRIMARY_DARK};
+    padding: 10px 14px;
     border-radius: {Radius.SM};
-    font-size: 12px;
+    font-size: 12.5px;
     margin-bottom: 14px;
-    border: 1px solid rgba(29, 80, 168, 0.12);
+    border: 1px solid rgba(255, 77, 94, 0.18);
+    font-weight: 600;
   }}
   .gsd-inline-note code {{
     background: rgba(255,255,255,0.6);
     padding: 1px 6px;
     border-radius: 4px;
-    font-size: 11px;
+    font-size: 11.5px;
   }}
 
   /* ─ Page title block ─ */
-  .gsd-page-title {{
-    margin: 4px 0 22px 0;
-  }}
+  .gsd-page-title {{ margin: 4px 0 22px 0; }}
   .gsd-page-title h1 {{
-    font-size: 28px !important;
+    font-size: 30px !important;
     font-weight: 800 !important;
-    letter-spacing: -0.03em !important;
+    letter-spacing: -0.030em !important;
     color: {Colors.GRAY_900} !important;
     margin: 0 !important;
-    line-height: 1.2 !important;
+    line-height: 1.15 !important;
   }}
   .gsd-page-title p {{
-    font-size: 13px;
+    font-size: 14px;
     color: {Colors.GRAY_500};
-    margin: 6px 0 0 0;
-    line-height: 1.5;
+    margin: 8px 0 0 0;
+    line-height: 1.55;
   }}
 
-  /* ─ Tabs — 큰 클릭 영역, 명확한 active ─ */
+  /* ─ Tabs — 강남언니 underline 스타일 ─ */
   div[data-baseweb="tab-list"] {{
-    gap: 2px;
+    gap: 0px;
     border-bottom: 1px solid {Colors.GRAY_200};
     margin-bottom: 18px;
+    background: transparent !important;
   }}
   button[data-baseweb="tab"] {{
-    border-radius: {Radius.SM} {Radius.SM} 0 0 !important;
-    padding: 12px 20px !important;
-    font-weight: 600 !important;
+    border-radius: 0 !important;
+    padding: 14px 22px !important;
+    font-weight: 700 !important;
     font-size: 14px !important;
     color: {Colors.GRAY_500} !important;
-    border: none !important;
     background: transparent !important;
-    transition: color 0.12s ease, background 0.12s ease !important;
+    border: none !important;
+    margin-right: 4px !important;
+    transition: color 0.15s ease !important;
   }}
   button[data-baseweb="tab"]:hover {{
     color: {Colors.GRAY_900} !important;
-    background: {Colors.GRAY_100} !important;
+    background: transparent !important;
   }}
   button[data-baseweb="tab"][aria-selected="true"] {{
-    background: {Colors.PRIMARY_LIGHT} !important;
-    color: {Colors.PRIMARY_DARK} !important;
+    color: {Colors.PRIMARY} !important;
+    background: transparent !important;
   }}
-  /* active 탭 하단 인디케이터 두껍게 */
   div[data-baseweb="tab-highlight"] {{
     background-color: {Colors.PRIMARY} !important;
-    height: 3px !important;
+    height: 2.5px !important;
+    border-radius: 2px;
   }}
 
-  /* ─ Buttons ─ */
-  div[data-testid="stButton"] > button {{
-    border-radius: {Radius.SM};
-    font-weight: 600;
-    transition: transform 0.05s ease;
-  }}
-  div[data-testid="stButton"] > button:hover {{
-    transform: translateY(-1px);
-  }}
+  /* ─ Buttons — primary 핑크 ─ */
   div[data-testid="stButton"] > button[kind="primary"] {{
     background: {Colors.PRIMARY};
-    border-color: {Colors.PRIMARY};
+    border: 1px solid {Colors.PRIMARY};
     color: {Colors.WHITE} !important;
+    font-weight: 700;
+    border-radius: {Radius.SM};
+    box-shadow: 0 1px 2px rgba(255, 77, 94, 0.18);
+    transition: all 0.15s ease;
   }}
   div[data-testid="stButton"] > button[kind="primary"]:hover {{
     background: {Colors.PRIMARY_DARK};
     border-color: {Colors.PRIMARY_DARK};
+    transform: translateY(-1px);
   }}
-  /* 선택된 (disabled primary) 버튼 — 텍스트 흰색 유지, opacity 살짝만 낮춤 */
   div[data-testid="stButton"] > button[kind="primary"]:disabled,
   div[data-testid="stButton"] > button[kind="primary"][disabled] {{
     background: {Colors.PRIMARY} !important;
     border-color: {Colors.PRIMARY} !important;
     color: {Colors.WHITE} !important;
-    opacity: 0.92 !important;
+    opacity: 0.45 !important;
     cursor: default !important;
   }}
   div[data-testid="stButton"] > button[kind="primary"]:disabled *,
   div[data-testid="stButton"] > button[kind="primary"][disabled] * {{
     color: {Colors.WHITE} !important;
   }}
+  div[data-testid="stButton"] > button:not([kind="primary"]) {{
+    background: {Colors.WHITE};
+    border: 1px solid {Colors.GRAY_200};
+    color: {Colors.GRAY_700};
+    border-radius: {Radius.SM};
+    font-weight: 600;
+    transition: all 0.15s ease;
+  }}
+  div[data-testid="stButton"] > button:not([kind="primary"]):hover {{
+    border-color: {Colors.PRIMARY};
+    color: {Colors.PRIMARY};
+    background: {Colors.PRIMARY_LIGHT};
+    transform: translateY(-1px);
+  }}
 
-  /* ─ Inputs — 가벼운 hairline + 포커스 시 브랜드 ring ─ */
+  /* ─ Inputs — 1px hairline + 핑크 focus ring ─ */
   div[data-baseweb="input"],
   div[data-baseweb="textarea"],
   div[data-baseweb="select"] > div {{
     border-radius: {Radius.SM} !important;
-    border: 1px solid rgba(16, 24, 40, 0.10) !important;
+    border: 1px solid {Colors.GRAY_200} !important;
     background: {Colors.WHITE} !important;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }}
   div[data-baseweb="input"]:hover,
   div[data-baseweb="textarea"]:hover,
   div[data-baseweb="select"] > div:hover {{
-    border-color: rgba(91, 143, 249, 0.45) !important;
+    border-color: {Colors.GRAY_300} !important;
   }}
   div[data-baseweb="input"]:focus-within,
   div[data-baseweb="textarea"]:focus-within,
   div[data-baseweb="select"]:focus-within > div {{
     border-color: {Colors.PRIMARY} !important;
-    box-shadow: 0 0 0 3px rgba(91, 143, 249, 0.14) !important;
+    box-shadow: 0 0 0 3px rgba(255, 77, 94, 0.14) !important;
   }}
-  /* 내부 input/textarea 자체의 보더는 제거 (이중 보더 방지) */
   div[data-baseweb="input"] input,
   div[data-baseweb="textarea"] textarea {{
     border: none !important;
     border-radius: {Radius.SM} !important;
     background: transparent !important;
+    color: {Colors.GRAY_900} !important;
   }}
 
-  /* ─ Containers (st.container(border=True)) — 1px hairline ─ */
-  /* Streamlit 신/구 selector 모두 커버 */
+  /* ─ Containers ─ */
   div[data-testid="stVerticalBlockBorderWrapper"],
   div[data-testid="stContainer"] > div[style*="border"],
   div[data-testid="stContainer"] > div[class*="block-container"] {{
     border-radius: {Radius.MD} !important;
-    border: 1px solid rgba(16, 24, 40, 0.08) !important;
+    border: 1px solid {Colors.GRAY_200} !important;
     background: {Colors.WHITE} !important;
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
+    box-shadow: 0 1px 2px rgba(31, 41, 55, 0.03);
   }}
 
-  /* ─ Expander — hairline + 부드러운 헤더 톤 ─ */
+  /* ─ Expander ─ */
   div[data-testid="stExpander"] {{
     border-radius: {Radius.MD} !important;
-    border: 1px solid rgba(16, 24, 40, 0.08) !important;
+    border: 1px solid {Colors.GRAY_200} !important;
     background: {Colors.WHITE} !important;
     overflow: hidden;
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.02);
+    box-shadow: 0 1px 2px rgba(31, 41, 55, 0.02);
   }}
   div[data-testid="stExpander"] details summary {{
-    background: rgba(91, 143, 249, 0.03) !important;
+    background: {Colors.GRAY_50} !important;
     transition: background 0.15s ease;
+    font-weight: 600;
   }}
   div[data-testid="stExpander"] details summary:hover {{
-    background: rgba(91, 143, 249, 0.06) !important;
+    background: {Colors.PRIMARY_LIGHT} !important;
   }}
   div[data-testid="stExpander"] details[open] summary {{
-    border-bottom: 1px solid rgba(16, 24, 40, 0.06) !important;
+    border-bottom: 1px solid {Colors.GRAY_200} !important;
   }}
 
-  /* ─ File uploader — dashed hairline ─ */
+  /* ─ File uploader ─ */
   div[data-testid="stFileUploader"] section,
   div[data-testid="stFileUploaderDropzone"] {{
-    border: 1px dashed rgba(91, 143, 249, 0.36) !important;
+    border: 1px dashed {Colors.GRAY_300} !important;
     border-radius: {Radius.MD} !important;
-    background: rgba(91, 143, 249, 0.02) !important;
+    background: {Colors.GRAY_50} !important;
     transition: border-color 0.18s ease, background 0.18s ease;
   }}
   div[data-testid="stFileUploader"] section:hover,
   div[data-testid="stFileUploaderDropzone"]:hover {{
     border-color: {Colors.PRIMARY} !important;
-    background: rgba(91, 143, 249, 0.05) !important;
+    background: {Colors.PRIMARY_LIGHT} !important;
   }}
 
-  /* ─ Number input / slider 컨테이너도 동일 처리 ─ */
-  div[data-testid="stNumberInput"] > div > div {{
-    border-radius: {Radius.SM} !important;
-  }}
-
-  /* ─ Radio / Checkbox 그룹 컨테이너 ─ */
+  /* ─ Number/Slider/Toggle 컨테이너 ─ */
+  div[data-testid="stNumberInput"] > div > div {{ border-radius: {Radius.SM} !important; }}
   div[data-testid="stRadio"] > div,
-  div[data-testid="stCheckbox"] > label {{
-    border-radius: {Radius.SM};
+  div[data-testid="stCheckbox"] > label {{ border-radius: {Radius.SM}; }}
+  div[data-testid="stSlider"] [role="slider"] {{
+    background: {Colors.PRIMARY} !important;
+    box-shadow: 0 0 0 4px rgba(255, 77, 94, 0.18) !important;
+  }}
+  div[data-testid="stToggle"] [role="switch"][aria-checked="true"] {{
+    background: {Colors.PRIMARY} !important;
+  }}
+  div[data-testid="stCheckbox"] [data-checked="true"] {{
+    background: {Colors.PRIMARY} !important;
+    border-color: {Colors.PRIMARY} !important;
   }}
 
-  /* ─ Metrics — hairline + tabular nums + 호버 lift ─ */
+  /* ─ Metrics ─ */
   div[data-testid="stMetric"] {{
     background: {Colors.WHITE};
-    padding: 14px 18px;
+    padding: 16px 20px;
     border-radius: {Radius.MD};
-    border: 1px solid rgba(16, 24, 40, 0.08);
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    border: 1px solid {Colors.GRAY_200};
+    transition: transform 0.15s ease, border-color 0.15s ease;
   }}
   div[data-testid="stMetric"]:hover {{
     transform: translateY(-1px);
-    box-shadow: 0 8px 22px -10px rgba(91, 143, 249, 0.22);
+    border-color: {Colors.PRIMARY};
   }}
   div[data-testid="stMetric"] label {{
     color: {Colors.GRAY_500} !important;
-    font-size: 11px !important;
+    font-size: 12px !important;
     font-weight: 700 !important;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
   }}
   div[data-testid="stMetric"] div[data-testid="stMetricValue"] {{
-    font-size: 24px !important;
+    font-size: 26px !important;
     font-weight: 800 !important;
     color: {Colors.GRAY_900} !important;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.02em;
   }}
 
-  /* ─ Status chips (공용) ─ */
+  /* ─ Status chips ─ */
   .gsd-chip {{
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 2px 10px;
+    padding: 3px 11px;
     border-radius: 999px;
     font-size: 11px;
     font-weight: 700;
@@ -474,20 +478,54 @@ GLOBAL_CSS = f"""
     line-height: 1.6;
     border: 1px solid transparent;
   }}
-  .gsd-chip-green {{ background: {Colors.SUCCESS_LIGHT}; color: {Colors.SUCCESS}; border-color: rgba(30,122,61,0.18); }}
-  .gsd-chip-yellow {{ background: {Colors.WARNING_LIGHT}; color: {Colors.WARNING}; border-color: rgba(163,97,0,0.18); }}
-  .gsd-chip-red {{ background: {Colors.ERROR_LIGHT}; color: {Colors.ERROR}; border-color: rgba(160,37,32,0.18); }}
-  .gsd-chip-blue {{ background: {Colors.INFO_LIGHT}; color: {Colors.INFO}; border-color: rgba(29,80,168,0.18); }}
-  .gsd-chip-gray {{ background: {Colors.GRAY_100}; color: {Colors.GRAY_500}; border-color: rgba(16,24,40,0.08); }}
-  .gsd-chip-purple {{ background: {Colors.PURPLE_LIGHT}; color: {Colors.PURPLE}; border-color: rgba(124,92,255,0.18); }}
+  .gsd-chip-pink {{
+    background: {Colors.PRIMARY_LIGHT};
+    color: {Colors.PRIMARY_DARK};
+    border-color: rgba(255, 77, 94, 0.22);
+  }}
+  .gsd-chip-orange {{
+    background: {Colors.ACCENT_LIGHT};
+    color: {Colors.ACCENT_DARK};
+    border-color: rgba(255, 107, 53, 0.22);
+  }}
+  .gsd-chip-green {{
+    background: {Colors.SUCCESS_LIGHT};
+    color: #047857;
+    border-color: rgba(16, 185, 129, 0.20);
+  }}
+  .gsd-chip-yellow {{
+    background: {Colors.WARNING_LIGHT};
+    color: #B45309;
+    border-color: rgba(245, 158, 11, 0.20);
+  }}
+  .gsd-chip-red {{
+    background: {Colors.ERROR_LIGHT};
+    color: #B91C1C;
+    border-color: rgba(239, 68, 68, 0.20);
+  }}
+  .gsd-chip-blue {{
+    background: {Colors.INFO_LIGHT};
+    color: #1D4ED8;
+    border-color: rgba(59, 130, 246, 0.20);
+  }}
+  .gsd-chip-gray {{
+    background: {Colors.GRAY_100};
+    color: {Colors.GRAY_500};
+    border-color: {Colors.GRAY_200};
+  }}
+  .gsd-chip-purple {{
+    background: {Colors.PRIMARY_LIGHT};
+    color: {Colors.PRIMARY_DARK};
+    border-color: rgba(255, 77, 94, 0.22);
+  }}
 
-  /* ─ Section title (carded sections) ─ */
+  /* ─ Section title ─ */
   .gsd-section-title {{
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 800;
     color: {Colors.GRAY_500};
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     margin: 8px 0 6px 0;
   }}
 
@@ -495,32 +533,45 @@ GLOBAL_CSS = f"""
   .gsd-kpi-card {{
     padding: 18px 20px;
     border-radius: {Radius.LG};
-    border: 1px solid rgba(0, 0, 0, 0.04);
+    border: 1px solid {Colors.GRAY_200};
     background: {Colors.WHITE};
   }}
   .gsd-kpi-label {{
     font-size: 13px;
     color: {Colors.GRAY_500};
     margin-bottom: 6px;
+    font-weight: 600;
   }}
   .gsd-kpi-value {{
     font-size: 28px;
-    font-weight: 700;
+    font-weight: 800;
     color: {Colors.GRAY_900};
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
   }}
   .gsd-kpi-delta {{
     font-size: 12px;
     margin-top: 4px;
     color: {Colors.SUCCESS};
+    font-weight: 600;
   }}
 
-  /* ─ Progress bar polish ─ */
+  /* ─ Progress bar ─ */
   div[data-testid="stProgress"] > div > div {{
-    background: {Colors.PRIMARY} !important;
+    background: linear-gradient(90deg, {Colors.PRIMARY} 0%, {Colors.ACCENT} 100%) !important;
   }}
 
-  /* ─ Code block (복사 버튼 강조) ─ */
+  /* ─ Code block ─ */
   pre {{ border-radius: {Radius.MD} !important; }}
+  code, kbd {{
+    background: {Colors.PRIMARY_LIGHT};
+    color: {Colors.PRIMARY_DARK};
+    border-radius: 6px;
+    padding: 1px 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    border: 1px solid rgba(255, 77, 94, 0.16);
+  }}
 
   /* ─ Caption ─ */
   div[data-testid="stCaptionContainer"] {{
@@ -531,13 +582,13 @@ GLOBAL_CSS = f"""
   hr {{
     border: none;
     border-top: 1px solid {Colors.GRAY_200};
-    margin: 24px 0;
+    margin: 22px 0;
   }}
 
-  /* ─ Expander ─ */
+  /* ─ Expander summary ─ */
   details summary {{
     border-radius: {Radius.SM} !important;
-    padding: 8px 12px !important;
+    padding: 10px 14px !important;
   }}
 
   /* ─ DataFrame ─ */
@@ -546,18 +597,18 @@ GLOBAL_CSS = f"""
     border: 1px solid {Colors.GRAY_200};
     overflow: hidden;
   }}
+  div[data-testid="stDataFrame"] [role="row"]:hover {{
+    background: {Colors.PRIMARY_LIGHT} !important;
+  }}
 
-  /* ─ Bar/Line chart wrapper polish ─ */
+  /* ─ Bar/Line chart wrapper ─ */
   div[data-testid="stPlotlyChart"], div[data-testid="stArrowVegaLiteChart"], div.stVegaLiteChart {{
     border-radius: {Radius.MD};
     background: {Colors.WHITE};
     padding: 8px;
   }}
 
-  /* ─ Equal-height columns for 3-up cards (Phase 6.5 UX) ─
-     Streamlit 의 ``st.markdown('<div class="gsd-equal-row">')`` 는 wrapper 가 안 되고
-     빈 div 로 그려지므로, **다음 형제 (sibling)** 인 stHorizontalBlock 을 타겟팅한다.
-     (Adjacent sibling combinator ``+``) */
+  /* ─ Equal-height columns for 3-up cards ─ */
   .gsd-equal-row + div[data-testid="stHorizontalBlock"] {{
     align-items: stretch !important;
   }}
@@ -581,9 +632,6 @@ GLOBAL_CSS = f"""
     flex-direction: column !important;
     min-height: 600px !important;
   }}
-  /* 최종 폴백 — markdown wrapper 가 아예 sibling 도 안 잡히는 빌드 환경 대비.
-     `gsd-equal-row` 가 들어있는 페이지의 첫 horizontal block 컨테이너를 정렬한다.
-     (data-gsd-equal 속성 hook — profile.py 가 직접 부여) */
   div[data-gsd-equal="1"] {{ align-items: stretch !important; }}
   div[data-gsd-equal="1"] > div[data-testid="column"] {{
     display: flex !important; flex-direction: column !important;
@@ -594,176 +642,128 @@ GLOBAL_CSS = f"""
     display: flex !important; flex-direction: column !important;
   }}
 
-  /* ─ Sub-tab indicator (네스티드 st.tabs) — primary 보다 옅게 ─ */
+  /* ─ Sub-tab ─ */
   div[data-baseweb="tab-panel"] div[data-baseweb="tab-list"] {{
     border-bottom: 1px solid {Colors.GRAY_200};
     margin-bottom: 14px;
   }}
   div[data-baseweb="tab-panel"] button[data-baseweb="tab"] {{
-    padding: 8px 16px !important;
+    padding: 10px 18px !important;
     font-size: 13px !important;
   }}
+  div[data-baseweb="tab-panel"] button[data-baseweb="tab"][aria-selected="true"] {{
+    color: {Colors.PRIMARY} !important;
+    background: transparent !important;
+  }}
 
-  /* ─ Premium section card — 그라데이션 + 미세 그림자 (Phase 6.5) ─ */
+  /* ─ Premium section card ─ */
   .gsd-section-card {{
-    background: linear-gradient(180deg, {Colors.WHITE} 0%, {Colors.GRAY_50} 100%);
-    border: 1px solid rgba(91, 143, 249, 0.18);
+    background: {Colors.WHITE};
+    border: 1px solid {Colors.GRAY_200};
     border-radius: {Radius.LG};
     padding: 22px 24px;
-    box-shadow: 0 2px 8px rgba(91, 143, 249, 0.06);
+    box-shadow: 0 1px 2px rgba(31, 41, 55, 0.03);
     margin-bottom: 18px;
   }}
   .gsd-section-card-title {{
     font-size: 16px;
-    font-weight: 700;
+    font-weight: 800;
     color: {Colors.GRAY_900};
     margin: 0 0 4px 0;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em;
   }}
   .gsd-section-card-desc {{
     font-size: 12px;
     color: {Colors.GRAY_500};
     margin-bottom: 14px;
-    line-height: 1.5;
+    line-height: 1.55;
   }}
 
-  /* ─ Empty-state illustration (Phase 6.5) ─ */
+  /* ─ Empty state ─ */
   .gsd-empty-state {{
     text-align: center;
     padding: 48px 24px;
     background: {Colors.WHITE};
-    border: 1.5px dashed rgba(91, 143, 249, 0.26);
+    border: 1.5px dashed {Colors.GRAY_300};
     border-radius: {Radius.LG};
     color: {Colors.GRAY_500};
-    transition: border-color 0.2s ease, background 0.2s ease;
+    transition: border-color 0.18s ease, background 0.18s ease;
   }}
   .gsd-empty-state:hover {{
-    border-color: rgba(91, 143, 249, 0.45);
-    background: linear-gradient(180deg, {Colors.WHITE} 0%, rgba(91,143,249,0.04) 100%);
+    border-color: {Colors.PRIMARY};
+    background: {Colors.PRIMARY_LIGHT};
   }}
-  .gsd-empty-state-icon {{
-    font-size: 36px;
-    margin-bottom: 12px;
-  }}
+  .gsd-empty-state-icon {{ font-size: 36px; margin-bottom: 12px; }}
   .gsd-empty-state-title {{
     font-size: 15px;
     font-weight: 700;
     color: {Colors.GRAY_700};
     margin-bottom: 6px;
   }}
-  .gsd-empty-state-desc {{
-    font-size: 12px;
-    line-height: 1.6;
-  }}
+  .gsd-empty-state-desc {{ font-size: 12px; line-height: 1.6; }}
 
-  /* ─ KPI Hero strip (Phase 9-05 UI/UX 리프레시) ─
-     상단 4개 KPI 카드 — 그라데이션 + 마이크로 인터랙션. */
+  /* ─ KPI strip ─ */
   .gsd-kpi-strip {{
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 14px;
     margin-bottom: 22px;
   }}
-  @media (max-width: 900px) {{
+  @media (max-width: 1100px) {{
     .gsd-kpi-strip {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
   }}
   .gsd-kpi-tile {{
     position: relative;
     overflow: hidden;
     padding: 18px 20px;
-    border-radius: {Radius.LG};
-    border: 1px solid rgba(16, 24, 40, 0.08);
-    background: linear-gradient(180deg, {Colors.WHITE} 0%, #fbfcff 100%);
-    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    border-radius: {Radius.MD};
+    border: 1px solid {Colors.GRAY_200};
+    background: {Colors.WHITE};
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
   }}
   .gsd-kpi-tile:hover {{
-    transform: translateY(-2px);
-    box-shadow: 0 14px 30px -14px rgba(91, 143, 249, 0.30);
-    border-color: rgba(91, 143, 249, 0.32);
-  }}
-  .gsd-kpi-tile::before {{
-    content: '';
-    position: absolute;
-    inset: 0 0 auto 0;
-    height: 2px;
-    background: linear-gradient(90deg, {Colors.PRIMARY} 0%, {Colors.PURPLE} 100%);
-    opacity: 0.55;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 22px -10px rgba(255, 77, 94, 0.20);
+    border-color: {Colors.PRIMARY};
   }}
   .gsd-kpi-tile-label {{
-    font-size: 11px;
+    font-size: 12px;
     color: {Colors.GRAY_500};
     font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
     margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }}
   .gsd-kpi-tile-value {{
     font-size: 28px;
     font-weight: 800;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
     color: {Colors.GRAY_900};
-    line-height: 1.05;
+    line-height: 1.1;
     font-variant-numeric: tabular-nums;
   }}
   .gsd-kpi-tile-delta {{
-    margin-top: 4px;
-    font-size: 11.5px;
+    margin-top: 6px;
+    font-size: 12px;
     color: {Colors.GRAY_500};
     font-weight: 600;
   }}
-
-  /* ─ Toast / inline success banner ─ */
-  .gsd-success-banner {{
-    background: linear-gradient(180deg, rgba(30,122,61,0.08) 0%, rgba(30,122,61,0.04) 100%);
-    border: 1px solid rgba(30, 122, 61, 0.22);
-    color: {Colors.SUCCESS};
-    padding: 10px 14px;
-    border-radius: {Radius.SM};
-    font-size: 13px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  /* 첫 번째 KPI tile 만 핑크 강조 */
+  .gsd-kpi-tile.is-accent {{
+    background: linear-gradient(180deg, {Colors.WHITE} 0%, {Colors.PRIMARY_LIGHT} 100%);
+    border-color: rgba(255, 77, 94, 0.20);
+  }}
+  .gsd-kpi-tile.is-accent::before {{
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: linear-gradient(90deg, {Colors.PRIMARY} 0%, {Colors.ACCENT} 100%);
+    opacity: 0.85;
   }}
 
-  /* ─ Selectbox / multiselect 개선 ─ */
-  div[data-baseweb="select"] [role="listbox"] {{
-    border-radius: {Radius.SM} !important;
-    box-shadow: 0 12px 28px -8px rgba(16, 24, 40, 0.18) !important;
-    border: 1px solid rgba(91, 143, 249, 0.22) !important;
-  }}
-  div[data-baseweb="select"] li:hover {{
-    background: rgba(91, 143, 249, 0.08) !important;
-  }}
-
-  /* ─ Slider 핸들 brand 컬러 ─ */
-  div[data-testid="stSlider"] [role="slider"] {{
-    background: {Colors.PRIMARY} !important;
-    box-shadow: 0 0 0 4px rgba(91, 143, 249, 0.18) !important;
-  }}
-
-  /* ─ Toggle (st.toggle) ─ */
-  div[data-testid="stToggle"] [role="switch"][aria-checked="true"] {{
-    background: {Colors.PRIMARY} !important;
-  }}
-
-  /* ─ Tag-like st.code(span) — inline code ─ */
-  code, kbd {{
-    background: {Colors.PRIMARY_LIGHT};
-    color: {Colors.PRIMARY_DARK};
-    border-radius: 6px;
-    padding: 1px 6px;
-    font-size: 12.5px;
-    font-weight: 600;
-  }}
-
-  /* ─ Sub-tab pill polish ─ */
-  div[data-baseweb="tab-panel"] button[data-baseweb="tab"][aria-selected="true"] {{
-    background: rgba(91, 143, 249, 0.10) !important;
-    color: {Colors.PRIMARY_DARK} !important;
-  }}
-
-  /* ─ Subtle entrance animation on main containers (one-shot) ─ */
+  /* ─ Subtle entrance animation ─ */
   @keyframes gsd-fade-up {{
     0%   {{ opacity: 0; transform: translateY(6px); }}
     100% {{ opacity: 1; transform: translateY(0); }}
@@ -775,56 +775,87 @@ GLOBAL_CSS = f"""
   /* ─ Page sub-title (탭 안 헤더용) ─ */
   .gsd-tab-heading {{
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
     gap: 14px;
-    margin: 6px 0 14px 0;
+    margin: 4px 0 18px 0;
     padding-bottom: 12px;
     border-bottom: 1px solid {Colors.GRAY_200};
   }}
   .gsd-tab-heading-left h3 {{
-    margin: 0 0 2px 0 !important;
-    font-size: 18px !important;
+    margin: 0 0 4px 0 !important;
+    font-size: 22px !important;
     color: {Colors.GRAY_900} !important;
-    letter-spacing: -0.02em !important;
+    letter-spacing: -0.025em !important;
+    font-weight: 800 !important;
   }}
   .gsd-tab-heading-left p {{
     margin: 0 !important;
-    font-size: 12.5px !important;
+    font-size: 13px !important;
     color: {Colors.GRAY_500} !important;
   }}
+
+  /* ─ Toast / inline success banner ─ */
+  .gsd-success-banner {{
+    background: {Colors.SUCCESS_LIGHT};
+    border: 1px solid rgba(16, 185, 129, 0.22);
+    color: #047857;
+    padding: 10px 14px;
+    border-radius: {Radius.SM};
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }}
+
+  /* ─ Login gate (강남언니 파트너센터 톤) ─ */
+  .gsd-login-wrap {{
+    max-width: 480px;
+    margin: 64px auto 0 auto;
+    padding: 0 24px;
+  }}
+  .gsd-login-brand {{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 32px;
+  }}
+  .gsd-login-brand-mark {{
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, {Colors.PRIMARY} 0%, {Colors.ACCENT} 100%);
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 800; font-size: 13px;
+    box-shadow: 0 4px 10px rgba(255, 77, 94, 0.28);
+  }}
+  .gsd-login-brand-name {{
+    font-size: 16px;
+    font-weight: 800;
+    color: {Colors.GRAY_900};
+    letter-spacing: -0.02em;
+  }}
+  .gsd-login-brand-name .brand-accent {{ color: {Colors.PRIMARY}; }}
+  .gsd-login-title {{
+    text-align: center;
+    margin-bottom: 6px;
+  }}
+  .gsd-login-title h1 {{
+    font-size: 26px !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.025em !important;
+    color: {Colors.GRAY_900} !important;
+    margin: 0 0 8px 0 !important;
+  }}
+  .gsd-login-title p {{
+    font-size: 14px;
+    color: {Colors.GRAY_500};
+    margin: 0;
+  }}
+
 </style>
 """
-
-
-def kpi_strip(items: list[tuple[str, str, str, str]]) -> str:
-    """KPI strip — 상단 4개 카드를 한 번에. 각 항목: (emoji, label, value, delta).
-
-    사용 예::
-
-        st.markdown(
-            kpi_strip([
-                ("🎯", "데이터 건강 점수", "85/100", "등급 A"),
-                ("📤", "총 발행 콘텐츠", "12건", ""),
-                ("🔍", "예상 노출률", "72%", "데이터 피딩 기반"),
-                ("🏷️", "활성 데이터", "9건", "의사 3 + 장비 4 + 이벤트 2"),
-            ]),
-            unsafe_allow_html=True,
-        )
-    """
-    tiles = []
-    for emoji, label, value, delta in items:
-        delta_html = (
-            f'<div class="gsd-kpi-tile-delta">{delta}</div>' if delta else ""
-        )
-        tiles.append(
-            f'<div class="gsd-kpi-tile">'
-            f'<div class="gsd-kpi-tile-label">{emoji} {label}</div>'
-            f'<div class="gsd-kpi-tile-value">{value}</div>'
-            f"{delta_html}"
-            f"</div>"
-        )
-    return f'<div class="gsd-kpi-strip">{"".join(tiles)}</div>'
 
 
 def chip(label: str, variant: str = "gray") -> str:
@@ -856,3 +887,24 @@ def status_chip(status: str) -> str:
     if status == "fail":
         return chip("❌ 위반", "red")
     return chip(status, "gray")
+
+
+def kpi_strip(items: list[tuple[str, str, str, str]]) -> str:
+    """KPI strip — 첫 항목 핑크 강조 카드.
+
+    items=[(emoji, label, value, delta), ...]
+    """
+    tiles = []
+    for i, (emoji, label, value, delta) in enumerate(items):
+        accent_cls = " is-accent" if i == 0 else ""
+        delta_html = (
+            f'<div class="gsd-kpi-tile-delta">{delta}</div>' if delta else ""
+        )
+        tiles.append(
+            f'<div class="gsd-kpi-tile{accent_cls}">'
+            f'<div class="gsd-kpi-tile-label">{emoji} {label}</div>'
+            f'<div class="gsd-kpi-tile-value">{value}</div>'
+            f"{delta_html}"
+            f"</div>"
+        )
+    return f'<div class="gsd-kpi-strip">{"".join(tiles)}</div>'

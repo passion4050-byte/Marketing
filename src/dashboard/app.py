@@ -136,7 +136,7 @@ except Exception as _e:  # pragma: no cover
     PUB_CHANNEL_LABEL_MAP = {}  # type: ignore
 
 st.set_page_config(
-    page_title="HOSPITAL — GEO/AEO 콘텐츠 발행",
+    page_title="메디맵 파트너센터 — GEO/AEO 콘텐츠 발행",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -181,6 +181,7 @@ def _check_password() -> bool:
     """공개 URL에서 demo 보호용 비밀번호 게이트.
 
     APP_PASSWORD 환경변수(또는 st.secrets) 가 비어 있으면 게이트 비활성.
+    UI 만 강남언니 파트너센터 로그인 화면 톤. 기능/검증 로직은 동일.
     """
     expected = os.getenv("APP_PASSWORD", "").strip()
     if not expected:
@@ -189,12 +190,17 @@ def _check_password() -> bool:
     if st.session_state.get("_auth_ok"):
         return True
 
+    # 강남언니 파트너센터 로그인 화면 톤 — 핑크 마크 + 큰 헤딩 + 부텍스트
     st.markdown(
         """
-        <div style="max-width:380px;margin:80px auto 0 auto;text-align:center;">
-          <div style="font-size:32px;font-weight:800;letter-spacing:-0.03em;">🔒 HOSPITAL</div>
-          <div style="font-size:14px;color:#666;margin:6px 0 28px 0;">
-            GEO/AEO Content Platform — 비공개 데모
+        <div class="gsd-login-wrap">
+          <div class="gsd-login-brand">
+            <div class="gsd-login-brand-mark">M</div>
+            <div class="gsd-login-brand-name">메디맵 <span class="brand-accent">파트너센터</span></div>
+          </div>
+          <div class="gsd-login-title">
+            <h1>메디맵 파트너센터 로그인</h1>
+            <p>입점한 병·의원 직원만 이용할 수 있어요.</p>
           </div>
         </div>
         """,
@@ -203,8 +209,15 @@ def _check_password() -> bool:
     col_l, col_c, col_r = st.columns([1, 2, 1])
     with col_c:
         with st.form("login_form", clear_on_submit=False):
-            pw = st.text_input("비밀번호", type="password", placeholder="데모 비밀번호 입력")
-            submitted = st.form_submit_button("입장", type="primary", use_container_width=True)
+            pw = st.text_input(
+                "비밀번호",
+                type="password",
+                placeholder="비밀번호 입력",
+                label_visibility="collapsed",
+            )
+            submitted = st.form_submit_button(
+                "로그인", type="primary", use_container_width=True
+            )
         if submitted:
             if pw == expected:
                 st.session_state["_auth_ok"] = True
@@ -252,9 +265,9 @@ def _render_compliance_inline(report) -> None:
 
 
 def _top_header() -> None:
-    """상단 헤더 — Premium SaaS 디자인 (Phase 6.5).
+    """상단 헤더 — 강남언니 파트너센터 톤 매칭.
 
-    좌: 그라데이션 마크 + ECG-pulse SVG + 워드마크 + tagline
+    좌: 핑크-오렌지 그라데이션 마크 + "메디맵" + 핑크 강조 워드마크 + tagline
     우: LIVE pulse + 오늘 날짜 pill
     """
     from datetime import datetime
@@ -264,16 +277,9 @@ def _top_header() -> None:
         f"""
         <div class="gsd-app-header">
           <div class="gsd-brand">
-            <div class="gsd-brand-mark">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-                   xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <path d="M2.5 12 H6.5 L8.2 7.2 L11.7 17.5 L13.7 12 H21.5"
-                      stroke="white" stroke-width="2.2"
-                      stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-              </svg>
-            </div>
+            <div class="gsd-brand-mark" aria-hidden="true">M</div>
             <div>
-              <div class="gsd-brand-name">HOSPITAL</div>
+              <div class="gsd-brand-name">메디맵 <span class="brand-accent">파트너센터</span></div>
               <div class="gsd-brand-tag">GEO · AEO Content Platform</div>
             </div>
           </div>
