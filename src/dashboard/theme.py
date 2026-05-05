@@ -618,6 +618,11 @@ GLOBAL_CSS = f"""
     border: 1.5px dashed rgba(91, 143, 249, 0.26);
     border-radius: {Radius.LG};
     color: {Colors.GRAY_500};
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }}
+  .gsd-empty-state:hover {{
+    border-color: rgba(91, 143, 249, 0.45);
+    background: linear-gradient(180deg, {Colors.WHITE} 0%, rgba(91,143,249,0.04) 100%);
   }}
   .gsd-empty-state-icon {{
     font-size: 36px;
@@ -633,8 +638,176 @@ GLOBAL_CSS = f"""
     font-size: 12px;
     line-height: 1.6;
   }}
+
+  /* ─ KPI Hero strip (Phase 9-05 UI/UX 리프레시) ─
+     상단 4개 KPI 카드 — 그라데이션 + 마이크로 인터랙션. */
+  .gsd-kpi-strip {{
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 22px;
+  }}
+  @media (max-width: 900px) {{
+    .gsd-kpi-strip {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+  }}
+  .gsd-kpi-tile {{
+    position: relative;
+    overflow: hidden;
+    padding: 18px 20px;
+    border-radius: {Radius.LG};
+    border: 1px solid rgba(91, 143, 249, 0.18);
+    background: linear-gradient(180deg, {Colors.WHITE} 0%, #f7faff 100%);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  }}
+  .gsd-kpi-tile:hover {{
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px -10px rgba(91, 143, 249, 0.32);
+    border-color: rgba(91, 143, 249, 0.42);
+  }}
+  .gsd-kpi-tile::before {{
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 3px;
+    background: linear-gradient(90deg, {Colors.PRIMARY} 0%, {Colors.PURPLE} 100%);
+    opacity: 0.65;
+  }}
+  .gsd-kpi-tile-label {{
+    font-size: 11px;
+    color: {Colors.GRAY_500};
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }}
+  .gsd-kpi-tile-value {{
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: {Colors.GRAY_900};
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+  }}
+  .gsd-kpi-tile-delta {{
+    margin-top: 4px;
+    font-size: 11.5px;
+    color: {Colors.GRAY_500};
+    font-weight: 600;
+  }}
+
+  /* ─ Toast / inline success banner ─ */
+  .gsd-success-banner {{
+    background: linear-gradient(180deg, rgba(30,122,61,0.08) 0%, rgba(30,122,61,0.04) 100%);
+    border: 1px solid rgba(30, 122, 61, 0.22);
+    color: {Colors.SUCCESS};
+    padding: 10px 14px;
+    border-radius: {Radius.SM};
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }}
+
+  /* ─ Selectbox / multiselect 개선 ─ */
+  div[data-baseweb="select"] [role="listbox"] {{
+    border-radius: {Radius.SM} !important;
+    box-shadow: 0 12px 28px -8px rgba(16, 24, 40, 0.18) !important;
+    border: 1px solid rgba(91, 143, 249, 0.22) !important;
+  }}
+  div[data-baseweb="select"] li:hover {{
+    background: rgba(91, 143, 249, 0.08) !important;
+  }}
+
+  /* ─ Slider 핸들 brand 컬러 ─ */
+  div[data-testid="stSlider"] [role="slider"] {{
+    background: {Colors.PRIMARY} !important;
+    box-shadow: 0 0 0 4px rgba(91, 143, 249, 0.18) !important;
+  }}
+
+  /* ─ Toggle (st.toggle) ─ */
+  div[data-testid="stToggle"] [role="switch"][aria-checked="true"] {{
+    background: {Colors.PRIMARY} !important;
+  }}
+
+  /* ─ Tag-like st.code(span) — inline code ─ */
+  code, kbd {{
+    background: {Colors.PRIMARY_LIGHT};
+    color: {Colors.PRIMARY_DARK};
+    border-radius: 6px;
+    padding: 1px 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+  }}
+
+  /* ─ Sub-tab pill polish ─ */
+  div[data-baseweb="tab-panel"] button[data-baseweb="tab"][aria-selected="true"] {{
+    background: rgba(91, 143, 249, 0.10) !important;
+    color: {Colors.PRIMARY_DARK} !important;
+  }}
+
+  /* ─ Subtle entrance animation on main containers (one-shot) ─ */
+  @keyframes gsd-fade-up {{
+    0%   {{ opacity: 0; transform: translateY(6px); }}
+    100% {{ opacity: 1; transform: translateY(0); }}
+  }}
+  section.main > div.block-container {{
+    animation: gsd-fade-up 0.32s cubic-bezier(.2,.8,.2,1) both;
+  }}
+
+  /* ─ Page sub-title (탭 안 헤더용) ─ */
+  .gsd-tab-heading {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin: 6px 0 14px 0;
+    padding-bottom: 12px;
+    border-bottom: 1px solid {Colors.GRAY_200};
+  }}
+  .gsd-tab-heading-left h3 {{
+    margin: 0 0 2px 0 !important;
+    font-size: 18px !important;
+    color: {Colors.GRAY_900} !important;
+    letter-spacing: -0.02em !important;
+  }}
+  .gsd-tab-heading-left p {{
+    margin: 0 !important;
+    font-size: 12.5px !important;
+    color: {Colors.GRAY_500} !important;
+  }}
 </style>
 """
+
+
+def kpi_strip(items: list[tuple[str, str, str, str]]) -> str:
+    """KPI strip — 상단 4개 카드를 한 번에. 각 항목: (emoji, label, value, delta).
+
+    사용 예::
+
+        st.markdown(
+            kpi_strip([
+                ("🎯", "데이터 건강 점수", "85/100", "등급 A"),
+                ("📤", "총 발행 콘텐츠", "12건", ""),
+                ("🔍", "예상 노출률", "72%", "데이터 피딩 기반"),
+                ("🏷️", "활성 데이터", "9건", "의사 3 + 장비 4 + 이벤트 2"),
+            ]),
+            unsafe_allow_html=True,
+        )
+    """
+    tiles = []
+    for emoji, label, value, delta in items:
+        delta_html = (
+            f'<div class="gsd-kpi-tile-delta">{delta}</div>' if delta else ""
+        )
+        tiles.append(
+            f'<div class="gsd-kpi-tile">'
+            f'<div class="gsd-kpi-tile-label">{emoji} {label}</div>'
+            f'<div class="gsd-kpi-tile-value">{value}</div>'
+            f"{delta_html}"
+            f"</div>"
+        )
+    return f'<div class="gsd-kpi-strip">{"".join(tiles)}</div>'
 
 
 def chip(label: str, variant: str = "gray") -> str:

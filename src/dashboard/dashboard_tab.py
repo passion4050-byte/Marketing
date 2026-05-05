@@ -20,23 +20,8 @@ import pandas as pd
 import streamlit as st
 
 from src.content.tenant_context import calculate_health_score
+from src.dashboard.theme import kpi_strip
 from src.storage.models import GeneratedContent, Tenant
-
-
-def _kpi_card(emoji: str, label: str, value: str, delta: str = "", bg: str = "#e7eefb") -> str:
-    delta_html = (
-        f'<div style="font-size:12px;color:#1e7a3d;margin-top:4px;">{delta}</div>'
-        if delta
-        else ""
-    )
-    return f"""
-    <div style="background:{bg};padding:18px 20px;border-radius:14px;
-                border:1px solid rgba(0,0,0,0.04);">
-      <div style="font-size:13px;color:#555;margin-bottom:6px;">{emoji} {label}</div>
-      <div style="font-size:28px;font-weight:700;color:#222;">{value}</div>
-      {delta_html}
-    </div>
-    """
 
 
 def _generate_engine_exposure_series(tenant_id: int, days: int = 14) -> pd.DataFrame:
@@ -69,10 +54,17 @@ def _trend_chart(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def render_dashboard_tab(SessionLocal, tenant) -> None:
-    st.markdown("### 📊 셋팅 데이터 노출 현황")
-    st.caption(
-        f"**{tenant.name}**의 AI 검색엔진 노출 추세와 데이터 피딩 효과를 한눈에. "
-        "측정 인프라(MVP-0)가 활성화되면 실측정 데이터로 자동 전환됩니다."
+    st.markdown(
+        f"""
+        <div class="gsd-tab-heading">
+          <div class="gsd-tab-heading-left">
+            <h3>📊 셋팅 데이터 노출 현황</h3>
+            <p><b>{tenant.name}</b> · AI 검색엔진 노출 추세 + 데이터 피딩 효과</p>
+          </div>
+          <span class="gsd-chip gsd-chip-blue">실시간 KPI</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
     with SessionLocal() as session:
@@ -92,35 +84,31 @@ def render_dashboard_tab(SessionLocal, tenant) -> None:
             .all()
         ]
 
-    # 상단 KPI 4개
+    # 상단 KPI 4개 — 통합 strip
     score = health["score"]
     grade = "A" if score >= 80 else ("B" if score >= 60 else ("C" if score >= 40 else "D"))
-    col1, col2, col3, col4 = st.columns(4)
-    col1.markdown(
-        _kpi_card("🎯", "데이터 건강 점수", f"{score}/100", f"등급 {grade}", bg="#e7eefb"),
-        unsafe_allow_html=True,
-    )
-    col2.markdown(
-        _kpi_card("📤", "총 발행 콘텐츠", f"{total_published}건", bg="#f0e7fb"),
-        unsafe_allow_html=True,
-    )
-    col3.markdown(
-        _kpi_card(
-            "🔍", "예상 노출률",
-            f"{min(95, 30 + score // 2)}%",
-            "데이터 피딩 기반 추정",
-            bg="#e6f6ea",
+    n_total = health["doctors"][0] + health["equipment"][0] + health["events"][1]
+    st.markdown(
+        kpi_strip(
+            [
+                ("🎯", "데이터 건강 점수", f"{score}/100", f"등급 {grade}"),
+                ("📤", "총 발행 콘텐츠", f"{total_published}건", "누적"),
+                (
+                    "🔍",
+                    "예상 노출률",
+                    f"{min(95, 30 + score // 2)}%",
+                    "데이터 피딩 기반 추정",
+                ),
+                (
+                    "🏷️",
+                    "활성 데이터",
+                    f"{n_total}건",
+                    f"의사 {health['doctors'][0]} · 장비 {health['equipment'][0]} · 이벤트 {health['events'][1]}",
+                ),
+            ]
         ),
         unsafe_allow_html=True,
     )
-    col4.markdown(
-        _kpi_card("🏷️", "활성 데이터", f"{health['doctors'][0] + health['equipment'][0] + health['events'][1]}건",
-                  f"의사 {health['doctors'][0]} + 장비 {health['equipment'][0]} + 이벤트 {health['events'][1]}",
-                  bg="#fff4d6"),
-        unsafe_allow_html=True,
-    )
-
-    st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
 
     # 데이터 부재 시 안내
     if not health["doctors"][0] and not health["equipment"][0] and not health["events"][1]:
