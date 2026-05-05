@@ -3,6 +3,7 @@ import "./globals.css";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
+import { PublicChrome } from "@/components/PublicChrome";
 import { siteConfig } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -60,9 +61,9 @@ export default function RootLayout({
         <link rel="stylesheet" href={PRETENDARD_HREF} />
       </head>
       <body className="flex min-h-screen flex-col">
-        <Header />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        <PublicChrome header={<Header />} footer={<Footer />}>
+          {children}
+        </PublicChrome>
         <GoogleAnalytics measurementId={siteConfig.ga} gtmId={siteConfig.gtm} />
       </body>
     </html>
