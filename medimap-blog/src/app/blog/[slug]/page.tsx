@@ -5,17 +5,21 @@ import { compileMDX } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import rehypeSlug from "rehype-slug";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
+import { Clock, ChevronRight } from "lucide-react";
 
 import { CTABlock } from "@/components/CTABlock";
 import { FAQAccordion } from "@/components/FAQAccordion";
 import { JsonLd } from "@/components/JsonLd";
+import { ReadingProgress } from "@/components/ReadingProgress";
+import { TableOfContents } from "@/components/TableOfContents";
+import { RelatedPosts } from "@/components/RelatedPosts";
 import {
   articleLd,
   breadcrumbLd,
   faqPageLd,
   medicalWebPageLd,
 } from "@/lib/schema";
-import { getAllPostSlugs, getPostBySlug } from "@/lib/posts";
+import { getAllPostSlugs, getAllPosts, getPostBySlug } from "@/lib/posts";
 
 export const dynamicParams = false;
 export const revalidate = false;
@@ -60,6 +64,12 @@ export async function generateMetadata({
   };
 }
 
+function readingTime(source: string): number {
+  const words = source.replace(/\s+/g, " ").trim().length;
+  // Korean prose: ~600 chars/min for fluent readers, clamp to 2 min minimum.
+  return Math.max(2, Math.round(words / 600));
+}
+
 export default async function BlogPostPage({
   params,
 }: {
@@ -67,6 +77,9 @@ export default async function BlogPostPage({
 }) {
   const post = await getPostBySlug(params.slug);
   if (!post) notFound();
+
+  const allPosts = await getAllPosts();
+  const minutes = readingTime(post.source);
 
   const { content } = await compileMDX({
     source: post.source,
@@ -87,6 +100,7 @@ export default async function BlogPostPage({
 
   return (
     <>
+      <ReadingProgress />
       <JsonLd
         data={breadcrumbLd([
           { name: "홈", href: "/" },
@@ -98,43 +112,88 @@ export default async function BlogPostPage({
       <JsonLd data={medicalWebPageLd(post)} />
       <JsonLd data={faqPageLd(post.faq ?? [])} />
 
-      <article className="container-content py-12 md:py-20">
-        <nav aria-label="Breadcrumb" className="text-sm text-ink-subtle">
-          <Link href="/" className="hover:text-brand">홈</Link>
-          <span className="mx-2">/</span>
-          <Link href="/blog" className="hover:text-brand">블로그</Link>
-          <span className="mx-2">/</span>
-          <span className="text-ink-muted">{post.title}</span>
+      <div className="container-content py-10 md:py-14">
+        <nav
+          aria-label="Breadcrumb"
+          className="flex items-center gap-1.5 text-sm text-ink-subtle"
+        >
+          <Link href="/" className="hover:text-brand">
+            홈
+          </Link>
+          <ChevronRight size={14} className="text-ink-subtle/60" />
+          <Link href="/blog" className="hover:text-brand">
+            블로그
+          </Link>
+          <ChevronRight size={14} className="text-ink-subtle/60" />
+          <span className="line-clamp-1 text-ink-muted">{post.title}</span>
         </nav>
 
-        <header className="mx-auto mt-6 max-w-prose">
-          {post.category && <span className="pill-label">{post.category}</span>}
-          <h1 className="mt-4 text-display-md md:text-display-lg">{post.title}</h1>
-          <p className="mt-4 text-lg text-ink-muted">{post.description}</p>
-          <div className="mt-6 flex items-center gap-3 text-sm text-ink-subtle">
-            {post.author && <span>{post.author}</span>}
-            <time dateTime={post.date}>{post.date}</time>
-            {post.reviewedBy && (
-              <span className="rounded-pill bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">
-                의료진 검수: {post.reviewedBy}
-              </span>
+        <div className="mt-8 grid gap-12 xl:grid-cols-[minmax(0,1fr)_240px]">
+          <article className="min-w-0 animate-fade-in-up">
+            <header className="mx-auto max-w-prose">
+              <div className="flex flex-wrap items-center gap-2">
+                {post.category && (
+                  <span className="pill-label">{post.category}</span>
+                )}
+                {post.reviewedBy && (
+                  <span className="pill-tag border-brand-100 bg-brand-50 text-brand-700">
+                    의료진 검수: {post.reviewedBy}
+                  </span>
+                )}
+              </div>
+              <h1 className="mt-4 text-display-md balance-text md:text-display-lg">
+                {post.title}
+              </h1>
+              <p className="mt-5 text-lg leading-relaxed text-ink-muted pretty-text">
+                {post.description}
+              </p>
+              <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-y border-line py-4 text-sm text-ink-subtle">
+                {post.author && (
+                  <span className="font-semibold text-ink-muted">
+                    {post.author}
+                  </span>
+                )}
+                <time dateTime={post.date}>{post.date}</time>
+                <span className="inline-flex items-center gap-1">
+                  <Clock size={14} />
+                  {minutes}분 분량
+                </span>
+                {post.tags && post.tags.length > 0 && (
+                  <div className="ml-auto flex flex-wrap gap-1.5">
+                    {post.tags.slice(0, 4).map((t) => (
+                      <span key={t} className="pill-tag">
+                        #{t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </header>
+
+            <div className="mx-auto mt-10 prose-medimap">{content}</div>
+
+            {post.faq && post.faq.length > 0 && (
+              <section className="mx-auto mt-14 max-w-prose">
+                <h2 id="faq" className="text-2xl font-bold tracking-tight">
+                  자주 묻는 질문
+                </h2>
+                <p className="mt-2 text-sm text-ink-subtle">
+                  본 콘텐츠는 의료법 가이드 검수를 마쳤습니다.
+                </p>
+                <FAQAccordion items={post.faq} />
+              </section>
             )}
-          </div>
-        </header>
 
-        <div className="mx-auto mt-10 prose-medimap">{content}</div>
+            <div className="mx-auto max-w-prose">
+              <CTABlock utmSource="blog" utmCampaign={`blog_${post.slug}`} />
+            </div>
+          </article>
 
-        {post.faq && post.faq.length > 0 && (
-          <section className="mx-auto mt-12 max-w-prose">
-            <h2 className="text-2xl font-bold tracking-tight">자주 묻는 질문</h2>
-            <FAQAccordion items={post.faq} />
-          </section>
-        )}
-
-        <div className="mx-auto max-w-prose">
-          <CTABlock utmSource="blog" utmCampaign={`blog_${post.slug}`} />
+          <TableOfContents />
         </div>
-      </article>
+
+        <RelatedPosts posts={allPosts} currentSlug={post.slug} />
+      </div>
     </>
   );
 }
