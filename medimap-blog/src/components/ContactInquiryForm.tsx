@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Send } from "lucide-react";
+import { Send, CheckCircle2, AlertCircle } from "lucide-react";
+
+type Status = "idle" | "sending" | "success" | "error";
 
 export function ContactInquiryForm() {
   const [name, setName] = useState("");
@@ -10,23 +12,49 @@ export function ContactInquiryForm() {
   const [email, setEmail] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [status, setStatus] = useState<Status>("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const subj = encodeURIComponent(`[메디맵 문의] ${subject || "제휴/광고 문의"}`);
-    const body = encodeURIComponent(
-      [
-        `이름: ${name}`,
-        `회사명: ${company}`,
-        `연락처: ${phone}`,
-        `이메일: ${email}`,
-        `제목: ${subject}`,
-        "",
-        "메시지:",
-        message,
-      ].join("\n"),
-    );
-    window.location.href = `mailto:cs@medimap.co.kr?subject=${subj}&body=${body}`;
+    setStatus("sending");
+    setErrorMsg(null);
+    try {
+      const res = await fetch("/api/inquiry/submit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          form_type: "contact",
+          org_name: company || "(미기재)",
+          contact_name: name,
+          phone,
+          email,
+          message: subject ? `[${subject}]\n${message}` : message,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        warning?: string;
+      };
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
+      setStatus("success");
+      setName("");
+      setCompany("");
+      setPhone("");
+      setEmail("");
+      setSubject("");
+      setMessage("");
+    } catch (err) {
+      setStatus("error");
+      setErrorMsg(
+        err instanceof Error
+          ? err.message
+          : "전송에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      );
+    }
   }
 
   return (
@@ -111,14 +139,40 @@ export function ContactInquiryForm() {
 
       <button
         type="submit"
-        className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-pill bg-gradient-to-r from-brand to-accent px-6 py-3.5 text-base font-bold text-white shadow-cta transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glow"
+        disabled={status === "sending"}
+        className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-pill bg-gradient-to-r from-brand to-accent px-6 py-3.5 text-base font-bold text-white shadow-cta transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glow disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
       >
-        문의하기
-        <Send size={16} />
+        {status === "sending" ? "전송 중…" : "문의하기"}
+        {status !== "sending" && <Send size={16} />}
       </button>
-      <p className="mt-3 text-center text-[12px] text-ink-subtle">
-        제출 시 기본 메일 앱이 열립니다 · 영업일 기준 1~2일 내 회신
-      </p>
+
+      {status === "success" && (
+        <div className="mt-4 flex items-start gap-2.5 rounded-card border border-emerald-200 bg-emerald-50 p-4 text-[13px] text-emerald-800">
+          <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-600" />
+          <div>
+            <div className="font-semibold">문의가 접수되었습니다.</div>
+            <div className="mt-0.5 text-emerald-700/80">
+              영업일 기준 1~2일 내에 회신 드리겠습니다.
+            </div>
+          </div>
+        </div>
+      )}
+      {status === "error" && (
+        <div className="mt-4 flex items-start gap-2.5 rounded-card border border-red-200 bg-red-50 p-4 text-[13px] text-red-800">
+          <AlertCircle size={18} className="mt-0.5 shrink-0 text-red-600" />
+          <div>
+            <div className="font-semibold">전송 실패</div>
+            <div className="mt-0.5 text-red-700/80">
+              {errorMsg ?? "잠시 후 다시 시도해주세요."}
+            </div>
+          </div>
+        </div>
+      )}
+      {status === "idle" && (
+        <p className="mt-3 text-center text-[12px] text-ink-subtle">
+          영업일 기준 1~2일 내 회신
+        </p>
+      )}
     </form>
   );
 }

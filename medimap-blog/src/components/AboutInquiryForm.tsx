@@ -1,19 +1,15 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Send } from "lucide-react";
+import { Send, CheckCircle2, AlertCircle } from "lucide-react";
 
 type Tab = "partnership" | "listing";
+type Status = "idle" | "sending" | "success" | "error";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "partnership", label: "비즈니스 제휴 문의" },
   { id: "listing", label: "병원 입점 문의" },
 ];
-
-const SUBJECTS: Record<Tab, string> = {
-  partnership: "[메디맵] 비즈니스 제휴 문의",
-  listing: "[메디맵] 병원 입점 문의",
-};
 
 const PLACEHOLDERS: Record<Tab, { org: string; contact: string }> = {
   partnership: {
@@ -32,22 +28,45 @@ export function AboutInquiryForm() {
   const [contact, setContact] = useState("");
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
+  const [status, setStatus] = useState<Status>("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const subject = encodeURIComponent(SUBJECTS[tab]);
-    const body = encodeURIComponent(
-      [
-        `구분: ${TABS.find((t) => t.id === tab)?.label}`,
-        `기관/병원명: ${org}`,
-        `담당자: ${contact}`,
-        `연락처: ${phone}`,
-        "",
-        "문의 내용:",
-        message,
-      ].join("\n"),
-    );
-    window.location.href = `mailto:hello@medimap.kr?subject=${subject}&body=${body}`;
+    setStatus("sending");
+    setErrorMsg(null);
+    try {
+      const res = await fetch("/api/inquiry/submit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          form_type: tab,
+          org_name: org,
+          contact_name: contact,
+          phone,
+          message,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+      };
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
+      setStatus("success");
+      setOrg("");
+      setContact("");
+      setPhone("");
+      setMessage("");
+    } catch (err) {
+      setStatus("error");
+      setErrorMsg(
+        err instanceof Error
+          ? err.message
+          : "전송에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      );
+    }
   }
 
   const ph = PLACEHOLDERS[tab];
@@ -132,14 +151,40 @@ export function AboutInquiryForm() {
 
       <button
         type="submit"
-        className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-pill bg-gradient-to-r from-brand to-accent px-6 py-3.5 text-base font-bold text-white shadow-cta transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glow"
+        disabled={status === "sending"}
+        className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-pill bg-gradient-to-r from-brand to-accent px-6 py-3.5 text-base font-bold text-white shadow-cta transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glow disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
       >
-        문의하기
-        <Send size={16} />
+        {status === "sending" ? "전송 중…" : "문의하기"}
+        {status !== "sending" && <Send size={16} />}
       </button>
-      <p className="mt-3 text-center text-[12px] text-ink-subtle">
-        제출 시 기본 메일 앱이 열립니다. 영업일 기준 1~2일 내 회신드립니다.
-      </p>
+
+      {status === "success" && (
+        <div className="mt-4 flex items-start gap-2.5 rounded-card border border-emerald-200 bg-emerald-50 p-4 text-[13px] text-emerald-800">
+          <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-600" />
+          <div>
+            <div className="font-semibold">문의가 접수되었습니다.</div>
+            <div className="mt-0.5 text-emerald-700/80">
+              영업일 기준 1~2일 내 회신드립니다.
+            </div>
+          </div>
+        </div>
+      )}
+      {status === "error" && (
+        <div className="mt-4 flex items-start gap-2.5 rounded-card border border-red-200 bg-red-50 p-4 text-[13px] text-red-800">
+          <AlertCircle size={18} className="mt-0.5 shrink-0 text-red-600" />
+          <div>
+            <div className="font-semibold">전송 실패</div>
+            <div className="mt-0.5 text-red-700/80">
+              {errorMsg ?? "잠시 후 다시 시도해주세요."}
+            </div>
+          </div>
+        </div>
+      )}
+      {status === "idle" && (
+        <p className="mt-3 text-center text-[12px] text-ink-subtle">
+          영업일 기준 1~2일 내 회신드립니다.
+        </p>
+      )}
     </form>
   );
 }
