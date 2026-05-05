@@ -20,10 +20,21 @@ export interface PostMeta {
   reviewedBy?: string;
   /** Pin a post as the blog index hero card. First `featured: true` wins; falls back to newest. */
   featured?: boolean;
+  /** Pre-computed reading time in minutes — stays in sync between list & detail. */
+  readingMinutes: number;
 }
 
 export interface Post extends PostMeta {
   source: string;
+}
+
+/**
+ * Reading time for Korean prose ≈ 600 chars/minute, with a 2-minute floor so
+ * very short posts don't round down to 1 minute and feel disposable.
+ */
+export function readingTimeMinutes(source: string): number {
+  const chars = source.replace(/\s+/g, " ").trim().length;
+  return Math.max(2, Math.round(chars / 600));
 }
 
 async function readPostFile(slug: string): Promise<Post | null> {
@@ -46,6 +57,7 @@ async function readPostFile(slug: string): Promise<Post | null> {
       medicalSpecialty: data.medicalSpecialty ? String(data.medicalSpecialty) : undefined,
       reviewedBy: data.reviewedBy ? String(data.reviewedBy) : undefined,
       featured: data.featured === true,
+      readingMinutes: readingTimeMinutes(content),
       source: content,
     };
   } catch {
@@ -71,6 +83,10 @@ export async function getAllPosts(): Promise<PostMeta[]> {
     .filter((p): p is Post => p !== null)
     .map(({ source: _source, ...meta }) => meta)
     .sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+
+export async function getPostsForList(): Promise<PostMeta[]> {
+  return getAllPosts();
 }
 
 export async function getPostBySlug(slug: string): Promise<Post | null> {

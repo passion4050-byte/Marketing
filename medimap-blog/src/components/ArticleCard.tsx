@@ -55,7 +55,7 @@ export function ArticleCard({ post, variant = "default" }: Props) {
           <span className="meta-divider" />
           <span className="pill-stat">
             <Clock size={12} />
-            {readingTimeFromMeta(post)}
+            {post.readingMinutes}분
           </span>
         </div>
         <span className="inline-flex h-7 w-7 items-center justify-center rounded-pill border border-line bg-white text-ink-muted transition-all group-hover:border-brand-200 group-hover:bg-brand group-hover:text-white">
@@ -69,11 +69,4 @@ export function ArticleCard({ post, variant = "default" }: Props) {
 function formatDate(iso: string): string {
   const d = new Date(iso);
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function readingTimeFromMeta(post: PostMeta): string {
-  const text = `${post.title} ${post.description}`;
-  const chars = text.replace(/\s+/g, " ").trim().length;
-  const minutes = Math.max(2, Math.round((chars / 500) * 5));
-  return `${minutes}분`;
 }

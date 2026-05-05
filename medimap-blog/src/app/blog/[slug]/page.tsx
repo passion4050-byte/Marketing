@@ -64,12 +64,6 @@ export async function generateMetadata({
   };
 }
 
-function readingTime(source: string): number {
-  const words = source.replace(/\s+/g, " ").trim().length;
-  // Korean prose: ~600 chars/min for fluent readers, clamp to 2 min minimum.
-  return Math.max(2, Math.round(words / 600));
-}
-
 export default async function BlogPostPage({
   params,
 }: {
@@ -79,7 +73,7 @@ export default async function BlogPostPage({
   if (!post) notFound();
 
   const allPosts = await getAllPosts();
-  const minutes = readingTime(post.source);
+  const minutes = post.readingMinutes;
 
   const { content } = await compileMDX({
     source: post.source,
