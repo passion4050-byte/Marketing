@@ -26,7 +26,7 @@ export function GoogleAnalytics({ measurementId, gtmId }: Props) {
     <>
       {gtmId && (
         <>
-          <Script id="gtm-init" strategy="lazyOnload">
+          <Script id="gtm-init" strategy="afterInteractive">
             {`
               (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
               new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -49,9 +49,9 @@ export function GoogleAnalytics({ measurementId, gtmId }: Props) {
         <>
           <Script
             src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`}
-            strategy="lazyOnload"
+            strategy="afterInteractive"
           />
-          <Script id="ga4-init" strategy="lazyOnload">
+          <Script id="ga4-init" strategy="afterInteractive">
             {`
               window.dataLayer = window.dataLayer || [];
               function gtag(){dataLayer.push(arguments);}
