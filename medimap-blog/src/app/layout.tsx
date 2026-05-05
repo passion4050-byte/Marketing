@@ -4,6 +4,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { PublicChrome } from "@/components/PublicChrome";
+import { FloatingInquiryButton } from "@/components/FloatingInquiryButton";
 import { siteConfig } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -64,6 +65,7 @@ export default function RootLayout({
         <PublicChrome header={<Header />} footer={<Footer />}>
           {children}
         </PublicChrome>
+        <FloatingInquiryButton />
         <GoogleAnalytics measurementId={siteConfig.ga} gtmId={siteConfig.gtm} />
       </body>
     </html>
