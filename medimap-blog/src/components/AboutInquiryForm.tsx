@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Send, CheckCircle2, AlertCircle } from "lucide-react";
+import { Send, AlertCircle } from "lucide-react";
+import { InquirySuccessModal } from "./InquirySuccessModal";
 
 type Tab = "partnership" | "listing";
 type Status = "idle" | "sending" | "success" | "error";
@@ -158,17 +159,10 @@ export function AboutInquiryForm() {
         {status !== "sending" && <Send size={16} />}
       </button>
 
-      {status === "success" && (
-        <div className="mt-4 flex items-start gap-2.5 rounded-card border border-emerald-200 bg-emerald-50 p-4 text-[13px] text-emerald-800">
-          <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-600" />
-          <div>
-            <div className="font-semibold">문의가 접수되었습니다.</div>
-            <div className="mt-0.5 text-emerald-700/80">
-              영업일 기준 1~2일 내 회신드립니다.
-            </div>
-          </div>
-        </div>
-      )}
+      <InquirySuccessModal
+        open={status === "success"}
+        onClose={() => setStatus("idle")}
+      />
       {status === "error" && (
         <div className="mt-4 flex items-start gap-2.5 rounded-card border border-red-200 bg-red-50 p-4 text-[13px] text-red-800">
           <AlertCircle size={18} className="mt-0.5 shrink-0 text-red-600" />
@@ -180,7 +174,7 @@ export function AboutInquiryForm() {
           </div>
         </div>
       )}
-      {status === "idle" && (
+      {(status === "idle" || status === "success") && (
         <p className="mt-3 text-center text-[12px] text-ink-subtle">
           영업일 기준 1~2일 내 회신드립니다.
         </p>
