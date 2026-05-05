@@ -9,6 +9,11 @@
   :root {
     color-scheme: light;
     --scroll-progress: 0;
+    /* Brand canonical — keep in sync with tailwind.config.ts brand/accent.
+       Used by SVG <linearGradient stop-color="var(--color-brand)"> where
+       Tailwind utility classes do not reach (CLAUDE.md "Cross-site design sync"). */
+    --color-brand: #FF4D5E;
+    --color-accent: #FF6B35;
   }
   html {
     -webkit-text-size-adjust: 100%;
