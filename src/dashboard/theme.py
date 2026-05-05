@@ -308,8 +308,10 @@ GLOBAL_CSS = f"""
     border-radius: 2px;
   }}
 
-  /* ─ Buttons — primary 핑크 ─ */
-  div[data-testid="stButton"] > button[kind="primary"] {{
+  /* ─ Buttons — primary 핑크 (stButton + stFormSubmitButton 통합) ─ */
+  div[data-testid="stButton"] > button[kind="primary"],
+  div[data-testid="stFormSubmitButton"] > button[kind="primary"],
+  div[data-testid="stFormSubmitButton"] > button[kind="primaryFormSubmit"] {{
     background: {Colors.PRIMARY};
     border: 1px solid {Colors.PRIMARY};
     color: {Colors.WHITE} !important;
@@ -318,13 +320,19 @@ GLOBAL_CSS = f"""
     box-shadow: 0 1px 2px rgba(255, 77, 94, 0.18);
     transition: all 0.15s ease;
   }}
-  div[data-testid="stButton"] > button[kind="primary"]:hover {{
+  div[data-testid="stButton"] > button[kind="primary"]:hover,
+  div[data-testid="stFormSubmitButton"] > button[kind="primary"]:hover,
+  div[data-testid="stFormSubmitButton"] > button[kind="primaryFormSubmit"]:hover {{
     background: {Colors.PRIMARY_DARK};
     border-color: {Colors.PRIMARY_DARK};
     transform: translateY(-1px);
   }}
   div[data-testid="stButton"] > button[kind="primary"]:disabled,
-  div[data-testid="stButton"] > button[kind="primary"][disabled] {{
+  div[data-testid="stButton"] > button[kind="primary"][disabled],
+  div[data-testid="stFormSubmitButton"] > button[kind="primary"]:disabled,
+  div[data-testid="stFormSubmitButton"] > button[kind="primary"][disabled],
+  div[data-testid="stFormSubmitButton"] > button[kind="primaryFormSubmit"]:disabled,
+  div[data-testid="stFormSubmitButton"] > button[kind="primaryFormSubmit"][disabled] {{
     background: {Colors.PRIMARY} !important;
     border-color: {Colors.PRIMARY} !important;
     color: {Colors.WHITE} !important;
@@ -332,10 +340,15 @@ GLOBAL_CSS = f"""
     cursor: default !important;
   }}
   div[data-testid="stButton"] > button[kind="primary"]:disabled *,
-  div[data-testid="stButton"] > button[kind="primary"][disabled] * {{
+  div[data-testid="stButton"] > button[kind="primary"][disabled] *,
+  div[data-testid="stFormSubmitButton"] > button[kind="primary"]:disabled *,
+  div[data-testid="stFormSubmitButton"] > button[kind="primary"][disabled] *,
+  div[data-testid="stFormSubmitButton"] > button[kind="primaryFormSubmit"]:disabled *,
+  div[data-testid="stFormSubmitButton"] > button[kind="primaryFormSubmit"][disabled] * {{
     color: {Colors.WHITE} !important;
   }}
-  div[data-testid="stButton"] > button:not([kind="primary"]) {{
+  div[data-testid="stButton"] > button:not([kind="primary"]),
+  div[data-testid="stFormSubmitButton"] > button:not([kind="primary"]):not([kind="primaryFormSubmit"]) {{
     background: {Colors.WHITE};
     border: 1px solid {Colors.GRAY_200};
     color: {Colors.GRAY_700};
@@ -343,7 +356,8 @@ GLOBAL_CSS = f"""
     font-weight: 600;
     transition: all 0.15s ease;
   }}
-  div[data-testid="stButton"] > button:not([kind="primary"]):hover {{
+  div[data-testid="stButton"] > button:not([kind="primary"]):hover,
+  div[data-testid="stFormSubmitButton"] > button:not([kind="primary"]):not([kind="primaryFormSubmit"]):hover {{
     border-color: {Colors.PRIMARY};
     color: {Colors.PRIMARY};
     background: {Colors.PRIMARY_LIGHT};
@@ -852,6 +866,31 @@ GLOBAL_CSS = f"""
     font-size: 14px;
     color: {Colors.GRAY_500};
     margin: 0;
+  }}
+
+  /* ─ Active tenant badge (단일 테넌트 모드 — picker 대체) ─ */
+  .gsd-active-tenant {{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px 6px 10px;
+    border-radius: 999px;
+    background: {Colors.PRIMARY_LIGHT};
+    border: 1px solid rgba(255, 77, 94, 0.20);
+    color: {Colors.GRAY_900};
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }}
+  .gsd-active-tenant .dot {{
+    width: 8px; height: 8px; border-radius: 50%;
+    background: linear-gradient(135deg, {Colors.PRIMARY} 0%, {Colors.ACCENT} 100%);
+    box-shadow: 0 0 0 3px rgba(255, 77, 94, 0.12);
+  }}
+  .gsd-active-tenant .meta {{
+    color: {Colors.GRAY_500};
+    font-weight: 500;
+    margin-left: 4px;
   }}
 
 </style>

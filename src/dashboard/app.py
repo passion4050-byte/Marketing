@@ -177,20 +177,45 @@ def _bootstrap():
     return factory
 
 
-def _check_password() -> bool:
-    """공개 URL에서 demo 보호용 비밀번호 게이트.
+def _check_login(SessionLocal_factory=None) -> bool:
+    """단일 로그인 게이트.
 
-    APP_PASSWORD 환경변수(또는 st.secrets) 가 비어 있으면 게이트 비활성.
-    UI 만 강남언니 파트너센터 로그인 화면 톤. 기능/검증 로직은 동일.
+    - ``TENANT_AUTH_REQUIRED=true`` (운영 모드, 어드민 발급 ID/PW 사용):
+      어드민에서 발급한 **로그인 ID + 비밀번호** 한 번만 입력 → 세션에 단일 활성
+      tenant 박힘. 이후 모든 탭은 picker 없이 그 tenant 만 노출.
+    - 미설정/false (데모/단일 테넌트 모드):
+      기존 ``APP_PASSWORD`` 한 번 입력 → 모든 탭에서 picker 로 tenant 선택.
+
+    SessionLocal_factory: 운영 모드에서 tenant 인증에 필요. 데모 모드에선 미사용.
     """
+    from src.dashboard import tenant_auth as _tauth
+
+    # ── 운영 모드: 어드민 발급 ID/PW 단일 게이트 ───────────────────────
+    if _tauth.auth_required():
+        if SessionLocal_factory is None:
+            # bootstrap 전이라도 화면은 그릴 수 있게 — caller 가 다시 호출
+            return False
+        # URL ?tenant=&pw= 자동 인증 (있으면)
+        try:
+            tid = _tauth.authenticate_from_query(SessionLocal_factory)
+            if tid is not None:
+                _tauth.set_active_tenant_id(tid)
+        except Exception:
+            pass
+        if _tauth.active_tenant_id() is not None:
+            return True
+        # 강남언니 톤 단일 게이트 폼
+        if _tauth.render_partner_login(SessionLocal_factory):
+            st.rerun()
+        return False
+
+    # ── 데모/단일 테넌트 모드: APP_PASSWORD 게이트 (legacy) ──────────────
     expected = os.getenv("APP_PASSWORD", "").strip()
     if not expected:
         return True
-
     if st.session_state.get("_auth_ok"):
         return True
 
-    # 강남언니 파트너센터 로그인 화면 톤 — 핑크 마크 + 큰 헤딩 + 부텍스트
     st.markdown(
         """
         <div class="gsd-login-wrap">
@@ -264,6 +289,21 @@ def _render_compliance_inline(report) -> None:
                 )
 
 
+def _render_logout_bar() -> None:
+    """운영 모드(TENANT_AUTH_REQUIRED)에서만 우측 상단 로그아웃 버튼 노출."""
+    from src.dashboard import tenant_auth as _tauth
+
+    if not _tauth.auth_required():
+        return
+    if _tauth.active_tenant_id() is None:
+        return
+    _, col_btn = st.columns([7, 1])
+    with col_btn:
+        if st.button("🚪 로그아웃", key="_logout_btn", use_container_width=True):
+            _tauth.clear_session()
+            st.rerun()
+
+
 def _top_header() -> None:
     """상단 헤더 — 강남언니 파트너센터 톤 매칭.
 
@@ -302,32 +342,46 @@ def _top_header() -> None:
 
 
 def _tenant_picker(SessionLocal, *, key: str) -> tuple[Tenant, list[str]]:
-    """대상(Tenant) 드롭다운 + sample keywords 리스트 반환.
+    """대상(Tenant) 표시 + sample keywords 반환.
 
-    ``TENANT_AUTH_REQUIRED=true`` 일 때는 ``tenant_auth`` 가 인증한 tenant_id 만 노출.
-    URL ``?tenant=N&pw=...`` 또는 화면 로그인 폼으로 통과한 테넌트만 picker 에 들어옴.
+    - ``TENANT_AUTH_REQUIRED=true`` (운영): 단일 게이트에서 인증된 활성 tenant
+      를 picker 없이 정적 배지로만 표시 — 사용자가 추가 입력 없이 자기
+      병원 정보만 곧장 본다.
+    - 미설정/false (데모): 모든 tenant 를 selectbox 로 노출 (기존 동작).
     """
     from src.dashboard import tenant_auth as _tauth
 
     with SessionLocal() as session:
-        tenants = session.query(Tenant).order_by(Tenant.id).all()
-        if not tenants:
-            st.error("대상(Tenant) 없음. 터미널에서 `python scripts/init_db.py` 실행하세요.")
-            st.stop()
-
         if _tauth.auth_required():
-            # URL 쿼리 자동 인증 시도
-            _tauth.authenticate_from_query(SessionLocal)
-            allowed = _tauth.allowed_tenant_ids()
-            tenants = [t for t in tenants if t.id in allowed]
-            if not tenants:
-                if _tauth.render_login_form(SessionLocal):
-                    st.rerun()
+            # 운영 모드 — 활성 tenant 강제 사용, picker UI 없음
+            active_id = _tauth.active_tenant_id()
+            if active_id is None:
+                st.warning("세션이 만료되었어요. 다시 로그인해주세요.")
+                _tauth.clear_session()
+                st.rerun()
+            tenant = session.get(Tenant, active_id)
+            if tenant is None:
+                st.error("계정에 연결된 병원 정보를 찾을 수 없습니다. 어드민에 문의하세요.")
                 st.stop()
-
-        labels = {f"{t.id}. {t.name} — {t.domain_category} ({t.region})": t for t in tenants}
-        selected = st.selectbox("대상", list(labels.keys()), key=f"{key}_tenant")
-        tenant = labels[selected]
+            st.markdown(
+                f"""
+                <div class="gsd-active-tenant">
+                  <span class="dot" aria-hidden="true"></span>
+                  <span>{tenant.name}</span>
+                  <span class="meta">· {tenant.domain_category} · {tenant.region}</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        else:
+            # 데모 모드 — 기존 picker
+            tenants = session.query(Tenant).order_by(Tenant.id).all()
+            if not tenants:
+                st.error("대상(Tenant) 없음. 터미널에서 `python scripts/init_db.py` 실행하세요.")
+                st.stop()
+            labels = {f"{t.id}. {t.name} — {t.domain_category} ({t.region})": t for t in tenants}
+            selected = st.selectbox("대상", list(labels.keys()), key=f"{key}_tenant")
+            tenant = labels[selected]
 
         sample_keywords = (
             session.query(Keyword)
@@ -836,10 +890,12 @@ def _history_section(SessionLocal, tenant_id: int | None = None) -> None:
 
 
 def main() -> None:
-    if not _check_password():
-        st.stop()
+    # 부트스트랩을 먼저 — TENANT_AUTH_REQUIRED 모드는 로그인 게이트가 DB 를 필요로 함
     SessionLocal = _bootstrap()
+    if not _check_login(SessionLocal):
+        st.stop()
     _top_header()
+    _render_logout_bar()
 
     # 페이지 타이틀 — 헤더 바로 아래, 컴팩트하게
     st.markdown(

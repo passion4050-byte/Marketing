@@ -21,6 +21,7 @@ import streamlit as st
 
 
 SESSION_KEY = "_authed_tenants"
+SESSION_ACTIVE_KEY = "_authed_tenant_id"  # 단일 활성 tenant — 새 단일 게이트 흐름
 
 
 def auth_required() -> bool:
@@ -79,6 +80,98 @@ def allowed_tenant_ids() -> set[int]:
 
 def is_tenant_authed(tenant_id: int) -> bool:
     return tenant_id in _authed_set()
+
+
+def active_tenant_id() -> Optional[int]:
+    """현재 세션의 단일 활성 tenant_id (새 단일 게이트 흐름)."""
+    val = st.session_state.get(SESSION_ACTIVE_KEY)
+    return int(val) if isinstance(val, int) else None
+
+
+def set_active_tenant_id(tid: int) -> None:
+    """단일 활성 tenant 설정 + 인증 set 누적."""
+    st.session_state[SESSION_ACTIVE_KEY] = int(tid)
+    _authed_set().add(int(tid))
+
+
+def clear_session() -> None:
+    """로그아웃 — 인증 흔적 모두 제거."""
+    st.session_state.pop(SESSION_ACTIVE_KEY, None)
+    st.session_state.pop(SESSION_KEY, None)
+
+
+def render_partner_login(SessionLocal) -> bool:
+    """🔐 강남언니 톤 단일 게이트 — 어드민 발급 ID/PW 한 번 입력으로 통과.
+
+    성공 시 ``set_active_tenant_id`` 호출로 세션에 단일 tenant 박아두고,
+    이후 모든 탭은 ``active_tenant_id()`` 만 참조 — picker 노출 없음.
+
+    URL 쿼리 ``?tenant=N&pw=...`` 로 자동 인증된 경우는 호출 전에 set 됨.
+
+    Returns:
+        True if 새 인증 통과 (caller 가 rerun).
+    """
+    from src.admin.passwords import verify_password
+    from src.storage.models import Tenant
+
+    st.markdown(
+        """
+        <div class="gsd-login-wrap">
+          <div class="gsd-login-brand">
+            <div class="gsd-login-brand-mark">M</div>
+            <div class="gsd-login-brand-name">메디맵 <span class="brand-accent">파트너센터</span></div>
+          </div>
+          <div class="gsd-login-title">
+            <h1>메디맵 파트너센터 로그인</h1>
+            <p>입점한 병·의원 직원만 이용할 수 있어요.</p>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    col_l, col_c, col_r = st.columns([1, 2, 1])
+    with col_c:
+        with st.form("partner_login_form", clear_on_submit=False):
+            tid_str = st.text_input(
+                "로그인 ID",
+                placeholder="발급받은 ID (예: 1)",
+                help="메디맵 어드민에서 발급받은 정수 ID",
+            )
+            pw = st.text_input(
+                "비밀번호",
+                type="password",
+                placeholder="비밀번호 입력",
+            )
+            submitted = st.form_submit_button(
+                "로그인", type="primary", use_container_width=True,
+            )
+            st.caption(
+                "ID/비밀번호를 받지 못하셨다면 메디맵 담당자에게 문의해주세요. "
+                "📧 `passion4050@gmail.com`"
+            )
+
+        if not submitted:
+            return False
+
+        GENERIC_FAIL = "ID 또는 비밀번호가 올바르지 않습니다. 발급받은 정보를 다시 확인하세요."
+        if not tid_str or not pw:
+            st.error("ID 와 비밀번호를 모두 입력하세요.")
+            return False
+        try:
+            tid = int(tid_str.strip())
+        except (TypeError, ValueError):
+            st.error(GENERIC_FAIL)
+            return False
+        with SessionLocal() as s:
+            t = s.get(Tenant, tid)
+            stored = getattr(t, "password_hash", None) if t else None
+        if not verify_password(pw, stored):
+            st.error(GENERIC_FAIL)
+            return False
+        set_active_tenant_id(tid)
+        return True
+    return False
 
 
 def render_login_form(SessionLocal) -> bool:
