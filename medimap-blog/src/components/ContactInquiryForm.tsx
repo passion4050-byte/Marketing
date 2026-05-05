@@ -35,10 +35,9 @@ export function ContactInquiryForm() {
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
-        warning?: string;
       };
       if (!res.ok || !data.ok) {
-        throw new Error(data.error ?? `HTTP ${res.status}`);
+        throw new Error(humanizeError(data.error, res.status));
       }
       setStatus("success");
       setName("");
@@ -175,6 +174,21 @@ export function ContactInquiryForm() {
       )}
     </form>
   );
+}
+
+function humanizeError(code: string | undefined, status: number): string {
+  switch (code) {
+    case "database-unconfigured":
+      return "시스템 점검 중입니다. 잠시 후 다시 시도해주세요.";
+    case "missing-fields":
+      return "필수 입력값을 모두 채워주세요.";
+    case "insert-failed":
+      return "저장 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.";
+    case "invalid-json":
+      return "요청을 처리하지 못했습니다. 페이지를 새로고침 후 다시 시도해주세요.";
+    default:
+      return `전송에 실패했습니다 (HTTP ${status}).`;
+  }
 }
 
 function Field({

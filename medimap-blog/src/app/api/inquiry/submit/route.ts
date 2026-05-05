@@ -77,11 +77,11 @@ export async function POST(req: Request) {
   });
 
   if (!result.ok) {
-    // DB 미설정이면 200 + warning 으로 응답 — UX 깨지 않게 폴백.
+    // DB 미설정/연결 실패 시 명시적 503 — silent ok 폴백은 디버깅을 어렵게 함.
     if (result.error === "database-unconfigured") {
       return NextResponse.json(
-        { ok: true, warning: "saved-locally-only", id: null },
-        { status: 200 },
+        { ok: false, error: "database-unconfigured" },
+        { status: 503 },
       );
     }
     return NextResponse.json(
