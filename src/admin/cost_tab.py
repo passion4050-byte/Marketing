@@ -20,7 +20,7 @@ def render_cost_tab(SessionLocal) -> None:
             <h3>💸 LLM 비용 대시보드</h3>
             <p>전체 테넌트의 LLM 호출 비용 합산 + 가드레일 모니터링</p>
           </div>
-          <span class="admin-chip admin-chip-purple">전사 KPI</span>
+          <span class="admin-chip admin-chip-pink">전사 KPI</span>
         </div>
         """,
         unsafe_allow_html=True,

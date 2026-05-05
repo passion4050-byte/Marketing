@@ -48,7 +48,7 @@ def render_tenants_tab(SessionLocal) -> None:
             <h3>🏢 테넌트 관리</h3>
             <p>클라이언트(병·의원) CRUD + blogkey 접속 비밀번호 발급/회수</p>
           </div>
-          <span class="admin-chip admin-chip-purple">멀티테넌트</span>
+          <span class="admin-chip admin-chip-pink">멀티테넌트</span>
         </div>
         """,
         unsafe_allow_html=True,

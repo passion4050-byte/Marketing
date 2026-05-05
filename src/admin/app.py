@@ -78,21 +78,23 @@ def main() -> None:
     with st.sidebar:
         st.markdown(
             """
-            <div style="display:flex;align-items:center;gap:10px;
+            <div style="display:flex;align-items:center;gap:11px;
                         padding:6px 0 18px 0;">
-              <div style="width:36px;height:36px;border-radius:10px;
-                          background:linear-gradient(135deg,#7c5cff 0%,#b29eff 100%);
-                          display:flex;align-items:center;justify-content:center;">
-                <span style="font-size:16px;color:white;">🛠️</span>
-              </div>
+              <div style="width:38px;height:38px;border-radius:11px;
+                          background:linear-gradient(135deg,#FF4D5E 0%,#FF6E7C 100%);
+                          display:flex;align-items:center;justify-content:center;
+                          color:white;font-weight:800;font-size:15px;
+                          box-shadow:0 4px 10px rgba(255,77,94,0.28);">M</div>
               <div style="line-height:1.15;">
-                <div style="font-size:15px;font-weight:800;color:white !important;">
-                  메디맵 어드민
+                <div style="font-size:15px;font-weight:800;color:#1F2937 !important;
+                            letter-spacing:-0.025em;">
+                  메디맵 <span style="color:#FF4D5E;">파트너센터</span>
                 </div>
                 <div style="font-size:10px;letter-spacing:0.14em;
-                            color:rgba(255,255,255,0.55) !important;
-                            text-transform:uppercase;font-weight:700;">
-                  Back Office
+                            color:#6B7280 !important;
+                            text-transform:uppercase;font-weight:700;
+                            margin-top:3px;">
+                  Admin Console
                 </div>
               </div>
             </div>
@@ -114,13 +116,13 @@ def main() -> None:
             ),
             unsafe_allow_html=True,
         )
-        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
         logout_button()
         st.markdown(
             f"""
-            <div style='font-size:10px;color:rgba(255,255,255,0.42) !important;
-                        margin-top:14px;letter-spacing:0.06em;'>
-              {_db_summary()}<br/>
+            <div style='font-size:10.5px;color:#9CA3AF !important;
+                        margin-top:14px;letter-spacing:0.04em;line-height:1.6;'>
+              <b style='color:#6B7280 !important;'>{_db_summary()}</b><br/>
               blogkey-adm.streamlit.app
             </div>
             """,
