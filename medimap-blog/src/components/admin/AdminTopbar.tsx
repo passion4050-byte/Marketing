@@ -18,7 +18,7 @@ export function AdminTopbar() {
   const pathname = usePathname() ?? "/admin";
   const match = TITLES.find((t) => t.test(pathname));
   return (
-    <header className="sticky top-0 z-10 flex items-center justify-between border-b border-line/70 bg-white/85 px-6 py-4 backdrop-blur lg:px-10">
+    <header className="z-10 flex items-center justify-between border-b border-line/70 bg-white/85 px-6 py-4 backdrop-blur lg:sticky lg:top-0 lg:px-10">
       <div>
         <h1 className="text-[20px] font-extrabold tracking-tight text-ink">
           {match?.title ?? "관리자"}
