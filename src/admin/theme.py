@@ -161,17 +161,22 @@ ADMIN_CSS = f"""
     font-variant-numeric: tabular-nums;
   }}
 
-  /* ─ Sidebar mini card ─ */
+  /* ─ Sidebar mini card — 더 가벼운 hairline ─ */
   .admin-side-card {{
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 12px;
-    padding: 12px 14px;
-    margin-bottom: 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 11px;
+    padding: 11px 13px;
+    margin-bottom: 8px;
+    transition: background 0.18s ease, border-color 0.18s ease;
+  }}
+  .admin-side-card:hover {{
+    background: rgba(255,255,255,0.07);
+    border-color: rgba(255,255,255,0.14);
   }}
   .admin-side-card .label {{
     font-size: 10px;
-    color: rgba(255,255,255,0.56) !important;
+    color: rgba(255,255,255,0.54) !important;
     letter-spacing: 0.10em;
     text-transform: uppercase;
     font-weight: 700;
@@ -180,8 +185,10 @@ ADMIN_CSS = f"""
   .admin-side-card .value {{
     font-size: 15px;
     color: #fff !important;
-    font-weight: 700;
+    font-weight: 800;
     word-break: break-all;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
   }}
 
   /* ─ Tabs (top-level) ─ */
@@ -231,13 +238,19 @@ ADMIN_CSS = f"""
     transform: translateY(-1px);
   }}
 
-  /* ─ Inputs ─ */
+  /* ─ Inputs — hairline + 보라 ring ─ */
   div[data-baseweb="input"],
   div[data-baseweb="textarea"],
   div[data-baseweb="select"] > div {{
     border-radius: {Radius.SM} !important;
-    border: 1.5px solid rgba(124, 92, 255, 0.30) !important;
+    border: 1px solid rgba(16, 24, 40, 0.10) !important;
     background: {Colors.WHITE} !important;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }}
+  div[data-baseweb="input"]:hover,
+  div[data-baseweb="textarea"]:hover,
+  div[data-baseweb="select"] > div:hover {{
+    border-color: rgba(124, 92, 255, 0.42) !important;
   }}
   div[data-baseweb="input"]:focus-within,
   div[data-baseweb="textarea"]:focus-within,
@@ -246,33 +259,38 @@ ADMIN_CSS = f"""
     box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.16) !important;
   }}
 
-  /* ─ Containers / Expander ─ */
+  /* ─ Containers / Expander — hairline ─ */
   div[data-testid="stVerticalBlockBorderWrapper"],
   div[data-testid="stExpander"] {{
     border-radius: {Radius.MD} !important;
-    border: 1.5px solid rgba(124, 92, 255, 0.20) !important;
+    border: 1px solid rgba(16, 24, 40, 0.08) !important;
     background: {Colors.WHITE} !important;
-    box-shadow: 0 1px 3px rgba(124, 92, 255, 0.04);
+    box-shadow: 0 1px 2px rgba(124, 92, 255, 0.03);
   }}
   div[data-testid="stExpander"] details summary {{
-    background: rgba(124, 92, 255, 0.05) !important;
+    background: rgba(124, 92, 255, 0.04) !important;
+    transition: background 0.15s ease;
+  }}
+  div[data-testid="stExpander"] details summary:hover {{
+    background: rgba(124, 92, 255, 0.08) !important;
   }}
 
-  /* ─ Metric cards ─ */
+  /* ─ Metric cards — tabular nums + hover lift ─ */
   div[data-testid="stMetric"] {{
-    background: linear-gradient(180deg, {Colors.WHITE} 0%, #fbfaff 100%);
+    background: linear-gradient(180deg, {Colors.WHITE} 0%, #fdfcff 100%);
     padding: 14px 18px;
     border-radius: {Radius.MD};
-    border: 1px solid rgba(124, 92, 255, 0.16);
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    border: 1px solid rgba(16, 24, 40, 0.08);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
   }}
   div[data-testid="stMetric"]:hover {{
     transform: translateY(-1px);
-    box-shadow: 0 12px 24px -10px rgba(124, 92, 255, 0.25);
+    box-shadow: 0 12px 26px -12px rgba(124, 92, 255, 0.22);
+    border-color: rgba(124, 92, 255, 0.22);
   }}
   div[data-testid="stMetric"] label {{
     color: {Colors.GRAY_500} !important;
-    font-size: 11.5px !important;
+    font-size: 11px !important;
     font-weight: 700 !important;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -282,6 +300,7 @@ ADMIN_CSS = f"""
     font-weight: 800 !important;
     letter-spacing: -0.02em !important;
     color: {Colors.GRAY_900} !important;
+    font-variant-numeric: tabular-nums;
   }}
 
   /* ─ DataFrame ─ */
@@ -291,21 +310,25 @@ ADMIN_CSS = f"""
     overflow: hidden;
   }}
 
-  /* ─ Status chips (공유) ─ */
+  /* ─ Status chips ─ */
   .admin-chip {{
-    display: inline-block;
-    padding: 3px 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
     border-radius: 999px;
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.02em;
     margin-right: 6px;
+    line-height: 1.6;
+    border: 1px solid transparent;
   }}
-  .admin-chip-purple {{ background: rgba(124,92,255,0.12); color: {ADMIN_ACCENT_DARK}; }}
-  .admin-chip-green  {{ background: {Colors.SUCCESS_LIGHT}; color: {Colors.SUCCESS}; }}
-  .admin-chip-amber  {{ background: {Colors.WARNING_LIGHT}; color: {Colors.WARNING}; }}
-  .admin-chip-red    {{ background: {Colors.ERROR_LIGHT};   color: {Colors.ERROR}; }}
-  .admin-chip-gray   {{ background: {Colors.GRAY_200};      color: {Colors.GRAY_500}; }}
+  .admin-chip-purple {{ background: rgba(124,92,255,0.10); color: {ADMIN_ACCENT_DARK}; border-color: rgba(124,92,255,0.18); }}
+  .admin-chip-green  {{ background: {Colors.SUCCESS_LIGHT}; color: {Colors.SUCCESS}; border-color: rgba(30,122,61,0.18); }}
+  .admin-chip-amber  {{ background: {Colors.WARNING_LIGHT}; color: {Colors.WARNING}; border-color: rgba(163,97,0,0.18); }}
+  .admin-chip-red    {{ background: {Colors.ERROR_LIGHT};   color: {Colors.ERROR}; border-color: rgba(160,37,32,0.18); }}
+  .admin-chip-gray   {{ background: {Colors.GRAY_100};      color: {Colors.GRAY_500}; border-color: rgba(16,24,40,0.08); }}
 
   /* ─ Section heading inside tab ─ */
   .admin-tab-heading {{
@@ -344,22 +367,25 @@ ADMIN_CSS = f"""
     overflow: hidden;
     padding: 18px 20px;
     border-radius: {Radius.LG};
-    border: 1px solid rgba(124, 92, 255, 0.20);
-    background: linear-gradient(180deg, {Colors.WHITE} 0%, #fbfaff 100%);
+    border: 1px solid rgba(16, 24, 40, 0.08);
+    background: linear-gradient(180deg, {Colors.WHITE} 0%, #fdfcff 100%);
     transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
   }}
   .admin-kpi-tile:hover {{
     transform: translateY(-2px);
-    box-shadow: 0 14px 30px -12px rgba(124, 92, 255, 0.32);
-    border-color: rgba(124, 92, 255, 0.44);
+    box-shadow: 0 16px 32px -14px rgba(124, 92, 255, 0.30);
+    border-color: rgba(124, 92, 255, 0.32);
   }}
   .admin-kpi-tile::before {{
     content: '';
     position: absolute;
     inset: 0 0 auto 0;
-    height: 3px;
+    height: 2px;
     background: linear-gradient(90deg, {ADMIN_ACCENT} 0%, #5b8ff9 100%);
-    opacity: 0.7;
+    opacity: 0.55;
+  }}
+  .admin-kpi-tile-value {{
+    font-variant-numeric: tabular-nums;
   }}
   .admin-kpi-tile-label {{
     font-size: 11px;

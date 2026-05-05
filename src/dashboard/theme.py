@@ -349,25 +349,25 @@ GLOBAL_CSS = f"""
     color: {Colors.WHITE} !important;
   }}
 
-  /* ─ Inputs — 브랜드 컬러 윤곽선으로 가시성 강화 ─ */
+  /* ─ Inputs — 가벼운 hairline + 포커스 시 브랜드 ring ─ */
   div[data-baseweb="input"],
   div[data-baseweb="textarea"],
   div[data-baseweb="select"] > div {{
     border-radius: {Radius.SM} !important;
-    border: 1.5px solid rgba(91, 143, 249, 0.35) !important;
+    border: 1px solid rgba(16, 24, 40, 0.10) !important;
     background: {Colors.WHITE} !important;
-    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }}
   div[data-baseweb="input"]:hover,
   div[data-baseweb="textarea"]:hover,
   div[data-baseweb="select"] > div:hover {{
-    border-color: rgba(91, 143, 249, 0.6) !important;
+    border-color: rgba(91, 143, 249, 0.45) !important;
   }}
   div[data-baseweb="input"]:focus-within,
   div[data-baseweb="textarea"]:focus-within,
   div[data-baseweb="select"]:focus-within > div {{
     border-color: {Colors.PRIMARY} !important;
-    box-shadow: 0 0 0 3px rgba(91, 143, 249, 0.15) !important;
+    box-shadow: 0 0 0 3px rgba(91, 143, 249, 0.14) !important;
   }}
   /* 내부 input/textarea 자체의 보더는 제거 (이중 보더 방지) */
   div[data-baseweb="input"] input,
@@ -377,42 +377,48 @@ GLOBAL_CSS = f"""
     background: transparent !important;
   }}
 
-  /* ─ Containers (st.container(border=True)) — 브랜드 컬러 윤곽선 ─ */
+  /* ─ Containers (st.container(border=True)) — 1px hairline ─ */
   /* Streamlit 신/구 selector 모두 커버 */
   div[data-testid="stVerticalBlockBorderWrapper"],
   div[data-testid="stContainer"] > div[style*="border"],
   div[data-testid="stContainer"] > div[class*="block-container"] {{
     border-radius: {Radius.MD} !important;
-    border: 1.5px solid rgba(91, 143, 249, 0.32) !important;
+    border: 1px solid rgba(16, 24, 40, 0.08) !important;
     background: {Colors.WHITE} !important;
-    box-shadow: 0 1px 3px rgba(91, 143, 249, 0.04);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
   }}
 
-  /* ─ Expander — 윤곽선 강조 ─ */
+  /* ─ Expander — hairline + 부드러운 헤더 톤 ─ */
   div[data-testid="stExpander"] {{
     border-radius: {Radius.MD} !important;
-    border: 1.5px solid rgba(91, 143, 249, 0.32) !important;
+    border: 1px solid rgba(16, 24, 40, 0.08) !important;
     background: {Colors.WHITE} !important;
     overflow: hidden;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.02);
   }}
   div[data-testid="stExpander"] details summary {{
-    background: rgba(91, 143, 249, 0.04) !important;
+    background: rgba(91, 143, 249, 0.03) !important;
+    transition: background 0.15s ease;
+  }}
+  div[data-testid="stExpander"] details summary:hover {{
+    background: rgba(91, 143, 249, 0.06) !important;
   }}
   div[data-testid="stExpander"] details[open] summary {{
-    border-bottom: 1px solid rgba(91, 143, 249, 0.18) !important;
+    border-bottom: 1px solid rgba(16, 24, 40, 0.06) !important;
   }}
 
-  /* ─ File uploader — 윤곽선 강조 ─ */
+  /* ─ File uploader — dashed hairline ─ */
   div[data-testid="stFileUploader"] section,
   div[data-testid="stFileUploaderDropzone"] {{
-    border: 1.5px dashed rgba(91, 143, 249, 0.42) !important;
+    border: 1px dashed rgba(91, 143, 249, 0.36) !important;
     border-radius: {Radius.MD} !important;
-    background: rgba(91, 143, 249, 0.03) !important;
+    background: rgba(91, 143, 249, 0.02) !important;
+    transition: border-color 0.18s ease, background 0.18s ease;
   }}
   div[data-testid="stFileUploader"] section:hover,
   div[data-testid="stFileUploaderDropzone"]:hover {{
     border-color: {Colors.PRIMARY} !important;
-    background: rgba(91, 143, 249, 0.06) !important;
+    background: rgba(91, 143, 249, 0.05) !important;
   }}
 
   /* ─ Number input / slider 컨테이너도 동일 처리 ─ */
@@ -426,43 +432,54 @@ GLOBAL_CSS = f"""
     border-radius: {Radius.SM};
   }}
 
-  /* ─ Metrics ─ */
+  /* ─ Metrics — hairline + tabular nums + 호버 lift ─ */
   div[data-testid="stMetric"] {{
     background: {Colors.WHITE};
     padding: 14px 18px;
     border-radius: {Radius.MD};
-    border: 1px solid {Colors.GRAY_200};
+    border: 1px solid rgba(16, 24, 40, 0.08);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+  }}
+  div[data-testid="stMetric"]:hover {{
+    transform: translateY(-1px);
+    box-shadow: 0 8px 22px -10px rgba(91, 143, 249, 0.22);
   }}
   div[data-testid="stMetric"] label {{
     color: {Colors.GRAY_500} !important;
-    font-size: 12px !important;
-    font-weight: 600 !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
   }}
   div[data-testid="stMetric"] div[data-testid="stMetricValue"] {{
     font-size: 24px !important;
-    font-weight: 700 !important;
+    font-weight: 800 !important;
     color: {Colors.GRAY_900} !important;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
   }}
 
   /* ─ Status chips (공용) ─ */
   .gsd-chip {{
-    display: inline-block;
-    padding: 3px 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
     border-radius: 999px;
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.02em;
     margin-right: 6px;
     vertical-align: middle;
+    line-height: 1.6;
+    border: 1px solid transparent;
   }}
-  .gsd-chip-green {{ background: {Colors.SUCCESS_LIGHT}; color: {Colors.SUCCESS}; }}
-  .gsd-chip-yellow {{ background: {Colors.WARNING_LIGHT}; color: {Colors.WARNING}; }}
-  .gsd-chip-red {{ background: {Colors.ERROR_LIGHT}; color: {Colors.ERROR}; }}
-  .gsd-chip-blue {{ background: {Colors.INFO_LIGHT}; color: {Colors.INFO}; }}
-  .gsd-chip-gray {{ background: {Colors.GRAY_200}; color: {Colors.GRAY_500}; }}
-  .gsd-chip-purple {{ background: {Colors.PURPLE_LIGHT}; color: {Colors.PURPLE}; }}
+  .gsd-chip-green {{ background: {Colors.SUCCESS_LIGHT}; color: {Colors.SUCCESS}; border-color: rgba(30,122,61,0.18); }}
+  .gsd-chip-yellow {{ background: {Colors.WARNING_LIGHT}; color: {Colors.WARNING}; border-color: rgba(163,97,0,0.18); }}
+  .gsd-chip-red {{ background: {Colors.ERROR_LIGHT}; color: {Colors.ERROR}; border-color: rgba(160,37,32,0.18); }}
+  .gsd-chip-blue {{ background: {Colors.INFO_LIGHT}; color: {Colors.INFO}; border-color: rgba(29,80,168,0.18); }}
+  .gsd-chip-gray {{ background: {Colors.GRAY_100}; color: {Colors.GRAY_500}; border-color: rgba(16,24,40,0.08); }}
+  .gsd-chip-purple {{ background: {Colors.PURPLE_LIGHT}; color: {Colors.PURPLE}; border-color: rgba(124,92,255,0.18); }}
 
   /* ─ Section title (carded sections) ─ */
   .gsd-section-title {{
@@ -655,22 +672,22 @@ GLOBAL_CSS = f"""
     overflow: hidden;
     padding: 18px 20px;
     border-radius: {Radius.LG};
-    border: 1px solid rgba(91, 143, 249, 0.18);
-    background: linear-gradient(180deg, {Colors.WHITE} 0%, #f7faff 100%);
+    border: 1px solid rgba(16, 24, 40, 0.08);
+    background: linear-gradient(180deg, {Colors.WHITE} 0%, #fbfcff 100%);
     transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
   }}
   .gsd-kpi-tile:hover {{
     transform: translateY(-2px);
-    box-shadow: 0 12px 28px -10px rgba(91, 143, 249, 0.32);
-    border-color: rgba(91, 143, 249, 0.42);
+    box-shadow: 0 14px 30px -14px rgba(91, 143, 249, 0.30);
+    border-color: rgba(91, 143, 249, 0.32);
   }}
   .gsd-kpi-tile::before {{
     content: '';
     position: absolute;
     inset: 0 0 auto 0;
-    height: 3px;
+    height: 2px;
     background: linear-gradient(90deg, {Colors.PRIMARY} 0%, {Colors.PURPLE} 100%);
-    opacity: 0.65;
+    opacity: 0.55;
   }}
   .gsd-kpi-tile-label {{
     font-size: 11px;
