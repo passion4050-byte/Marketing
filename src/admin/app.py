@@ -72,7 +72,7 @@ def main() -> None:
     ok, err = upgrade_to_head()
     SessionLocal = get_session_factory()
 
-    sidebar_stats = _compute_sidebar_stats(SessionLocal)
+    sidebar_stats = _compute_sidebar_stats()
 
     # ─── 사이드바 ────────────────────────────────────────────────
     with st.sidebar:
@@ -168,9 +168,13 @@ def main() -> None:
         render_sync_tab(SessionLocal)
 
 
-def _compute_sidebar_stats(SessionLocal) -> dict:
-    """사이드바 미니 KPI — 실패해도 0 반환."""
+@st.cache_data(ttl=60, show_spinner=False)
+def _compute_sidebar_stats() -> dict:
+    """사이드바 미니 KPI — 실패해도 0 반환. TTL 60초 캐시로 탭 전환 시 DB 부하↓."""
     from datetime import datetime, timezone
+    from src.storage.db import get_session_factory
+
+    SessionLocal = get_session_factory()
 
     out = {"tenants": 0, "pubs": 0, "today_usd": 0.0}
     try:
