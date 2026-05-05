@@ -5,7 +5,13 @@ import { JsonLd } from "@/components/JsonLd";
 import { organizationLd, websiteLd } from "@/lib/schema";
 import { getAllPosts } from "@/lib/posts";
 import Link from "next/link";
-import { ArrowRight, Search, FileText, ShieldCheck, BarChart3 } from "lucide-react";
+import {
+  ArrowRight,
+  Search,
+  FileText,
+  ShieldCheck,
+  BarChart3,
+} from "lucide-react";
 
 export const revalidate = false;
 
@@ -21,19 +27,32 @@ export default async function HomePage() {
       <Hero />
 
       <section className="container-content py-20">
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="mb-10 max-w-2xl">
+          <span className="pill-label">왜 메디맵인가</span>
+          <h2 className="mt-3 text-[28px] font-bold tracking-tight balance-text md:text-[32px]">
+            의료 콘텐츠의 새로운 기준
+          </h2>
+          <p className="mt-3 text-ink-muted pretty-text">
+            검색 트래픽을 받는 콘텐츠가 아니라, AI 검색이 인용하는 신뢰
+            자산입니다.
+          </p>
+        </div>
+        <div className="grid gap-5 md:grid-cols-3">
           <FeatureCard
+            n="01"
             icon={<Search size={20} />}
             title="AI 검색 인용"
             desc="Perplexity·ChatGPT·Gemini·Claude가 인용할 수 있도록 Schema.org 구조화로 발행됩니다."
           />
           <FeatureCard
+            n="02"
             icon={<ShieldCheck size={20} />}
             title="의료법 검수"
             desc="9개 의료광고 룰 자동 린트 + 전문의 검수. 환자가 안심하고 읽을 수 있는 콘텐츠."
             accent
           />
           <FeatureCard
+            n="03"
             icon={<BarChart3 size={20} />}
             title="실시간 측정"
             desc="발행 URL의 AI 인용 빈도, 페이지뷰, 클릭 전환율을 한 화면에서 확인합니다."
@@ -42,18 +61,17 @@ export default async function HomePage() {
       </section>
 
       <section className="container-content pb-20">
-        <div className="flex items-end justify-between">
+        <div className="flex items-end justify-between gap-4">
           <div>
             <span className="pill-label">메디맵 인사이트</span>
-            <h2 className="mt-3 text-headline">최신 콘텐츠</h2>
+            <h2 className="mt-3 text-[28px] font-bold tracking-tight md:text-[32px]">
+              최신 콘텐츠
+            </h2>
             <p className="mt-2 max-w-xl text-ink-muted">
               의료/안과 분야의 신뢰할 수 있는 가이드와 사례를 정기적으로 발행합니다.
             </p>
           </div>
-          <Link
-            href="/blog"
-            className="hidden btn-ghost md:inline-flex"
-          >
+          <Link href="/blog" className="hidden btn-ghost md:inline-flex">
             전체 보기 <ArrowRight size={16} />
           </Link>
         </div>
@@ -92,11 +110,13 @@ export default async function HomePage() {
 }
 
 function FeatureCard({
+  n,
   icon,
   title,
   desc,
   accent,
 }: {
+  n: string;
   icon: React.ReactNode;
   title: string;
   desc: string;
@@ -104,29 +124,34 @@ function FeatureCard({
 }) {
   return (
     <div
-      className={`relative overflow-hidden rounded-card border bg-white p-6 transition hover:-translate-y-0.5 hover:shadow-card ${
-        accent ? "border-brand-200" : "border-line"
+      className={`relative overflow-hidden rounded-card border bg-white p-6 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-card ${
+        accent
+          ? "border-brand-200 ring-1 ring-brand-100"
+          : "border-line/70 hover:border-brand-100"
       }`}
     >
       {accent && (
         <div
-          className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-brand-50"
+          className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-gradient-to-br from-brand-100/80 to-accent-50/60 blur-xl"
           aria-hidden
         />
       )}
-      <div className="relative">
+      <div className="relative flex items-start justify-between">
         <div
           className={`flex h-11 w-11 items-center justify-center rounded-pill ${
-            accent ? "bg-brand text-white" : "bg-brand-50 text-brand"
+            accent ? "bg-brand text-white shadow-cta" : "bg-brand-50 text-brand"
           }`}
         >
           {icon}
         </div>
-        <h3 className="mt-4 text-lg font-bold tracking-tight text-ink">
-          {title}
-        </h3>
-        <p className="mt-2 text-sm leading-relaxed text-ink-muted">{desc}</p>
+        <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-ink-subtle/60 num">
+          {n}
+        </span>
       </div>
+      <h3 className="mt-4 text-lg font-bold tracking-tight text-ink">
+        {title}
+      </h3>
+      <p className="mt-2 text-sm leading-[1.7] text-ink-muted">{desc}</p>
     </div>
   );
 }

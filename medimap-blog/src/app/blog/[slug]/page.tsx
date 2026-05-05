@@ -141,20 +141,24 @@ export default async function BlogPostPage({
                   </span>
                 )}
               </div>
-              <h1 className="mt-4 text-display-md balance-text md:text-display-lg">
+              <h1 className="mt-4 text-[36px] font-extrabold leading-[1.15] tracking-[-0.025em] balance-text md:text-[48px]">
                 {post.title}
               </h1>
-              <p className="mt-5 text-lg leading-relaxed text-ink-muted pretty-text">
+              <p className="mt-5 text-[18px] leading-[1.7] text-ink-muted pretty-text">
                 {post.description}
               </p>
-              <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-y border-line py-4 text-sm text-ink-subtle">
+              <div className="mt-7 flex flex-wrap items-center gap-x-3 gap-y-2 border-y border-line/70 py-4 text-sm text-ink-subtle">
                 {post.author && (
                   <span className="font-semibold text-ink-muted">
                     {post.author}
                   </span>
                 )}
-                <time dateTime={post.date}>{post.date}</time>
-                <span className="inline-flex items-center gap-1">
+                <span className="meta-divider" />
+                <time dateTime={post.date} className="num">
+                  {post.date}
+                </time>
+                <span className="meta-divider" />
+                <span className="pill-stat">
                   <Clock size={14} />
                   {minutes}분 분량
                 </span>

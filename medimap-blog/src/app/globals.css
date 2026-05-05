@@ -1,4 +1,5 @@
-@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css");
+/* Pretendard font is loaded via <link> in app/layout.tsx (preconnect + parallel)
+   so it does not block CSS parsing the way `@import` does. */
 
 @tailwind base;
 @tailwind components;
@@ -7,7 +8,7 @@
 @layer base {
   :root {
     color-scheme: light;
-    --scroll-progress: 0%;
+    --scroll-progress: 0;
   }
   html {
     -webkit-text-size-adjust: 100%;
@@ -19,25 +20,29 @@
     font-feature-settings: "tnum" on, "ss01" on;
   }
   ::selection {
-    @apply bg-brand/20 text-brand-700;
+    @apply bg-brand/15 text-brand-700;
   }
   *:focus-visible {
-    @apply outline-none ring-2 ring-brand/40 ring-offset-2 ring-offset-white rounded;
+    @apply outline-none ring-2 ring-brand/35 ring-offset-2 ring-offset-white rounded;
+  }
+  h1, h2, h3, h4 {
+    text-wrap: balance;
   }
   h2[id], h3[id] {
     scroll-margin-top: 96px;
   }
-  /* Quiet, brand-tinted scrollbar (Webkit) */
+
+  /* Brand-tinted, quiet scrollbar (Webkit) */
   ::-webkit-scrollbar { width: 12px; height: 12px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: rgba(16,24,40,0.18);
+    background: rgba(16,24,40,0.14);
     border: 3px solid transparent;
     background-clip: padding-box;
     border-radius: 999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(0,87,255,0.45);
+    background: rgba(0,87,255,0.40);
     background-clip: padding-box;
   }
 }
@@ -47,10 +52,10 @@
     @apply mx-auto w-full max-w-content px-5 lg:px-8;
   }
   .pill-label {
-    @apply inline-flex items-center rounded-pill bg-brand-50 px-3 py-1 text-sm font-medium text-brand-700;
+    @apply inline-flex items-center rounded-pill bg-brand-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.10em] text-brand-700;
   }
   .pill-tag {
-    @apply inline-flex items-center rounded-pill border border-line bg-white px-2.5 py-0.5 text-xs font-medium text-ink-muted;
+    @apply inline-flex items-center rounded-pill border border-line/80 bg-white px-2.5 py-0.5 text-[11px] font-medium text-ink-muted;
   }
   .btn-primary {
     @apply inline-flex items-center gap-2 rounded-pill bg-brand px-6 py-3 text-base font-semibold text-white shadow-cta transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-brand-600 hover:shadow-glow active:translate-y-0;
@@ -61,12 +66,26 @@
   .btn-ghost {
     @apply inline-flex items-center gap-2 rounded-pill px-4 py-2 text-sm font-semibold text-ink-muted transition hover:bg-surface-hover hover:text-brand;
   }
+
   .card-base {
-    @apply rounded-card border border-line bg-white shadow-soft transition-all duration-200 ease-out;
+    @apply rounded-card border border-line/70 bg-white shadow-soft transition-all duration-200 ease-out;
   }
   .card-hover {
-    @apply hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-card;
+    @apply hover:-translate-y-0.5 hover:border-brand-100 hover:shadow-card;
   }
+  .card-accent-top {
+    /* hairline gradient line that appears on hover for an editorial feel */
+    @apply relative overflow-hidden;
+  }
+  .card-accent-top::before {
+    content: "";
+    @apply absolute inset-x-0 top-0 h-px scale-x-0 bg-gradient-to-r from-transparent via-brand to-accent transition-transform duration-300;
+    transform-origin: left;
+  }
+  .card-accent-top:hover::before {
+    @apply scale-x-100;
+  }
+
   .skeleton {
     @apply animate-shimmer bg-[length:200%_100%];
     background-image: linear-gradient(90deg, #eef2f7 0%, #f7f9fc 50%, #eef2f7 100%);
@@ -74,42 +93,50 @@
 
   /* Reading progress bar (client component sets --scroll-progress) */
   .reading-progress {
-    @apply pointer-events-none fixed inset-x-0 top-0 z-50 h-1 origin-left;
+    @apply pointer-events-none fixed inset-x-0 top-0 z-50 h-[3px] origin-left;
     background: linear-gradient(90deg, #0057FF 0%, #7C5CFF 100%);
     transform: scaleX(var(--scroll-progress, 0));
+    will-change: transform;
     transition: transform 80ms linear;
+  }
+
+  .num { font-variant-numeric: tabular-nums; }
+  .meta-divider { @apply h-3 w-px bg-line; }
+  .pill-stat {
+    @apply inline-flex items-center gap-1 text-[12px] font-medium text-ink-muted num;
   }
 
   /* Prose */
   .prose-medimap {
     @apply max-w-prose text-ink;
   }
+  .prose-medimap > :first-child { margin-top: 0; }
   .prose-medimap h2 {
-    @apply mt-12 mb-4 text-3xl font-bold tracking-tight;
+    @apply mt-12 mb-4 text-[28px] font-bold tracking-tight;
   }
   .prose-medimap h3 {
-    @apply mt-8 mb-3 text-xl font-bold;
+    @apply mt-9 mb-3 text-xl font-bold;
   }
   .prose-medimap p {
-    @apply my-4 leading-relaxed text-ink-muted;
+    @apply my-4 leading-[1.8] text-ink-muted;
   }
   .prose-medimap a {
-    @apply text-brand underline underline-offset-4 hover:text-brand-700;
+    @apply text-brand underline decoration-brand/30 underline-offset-4 transition hover:decoration-brand;
   }
   .prose-medimap ul {
-    @apply my-4 list-disc pl-6 text-ink-muted;
+    @apply my-4 list-disc pl-6 leading-[1.8] text-ink-muted marker:text-brand/60;
   }
   .prose-medimap ol {
-    @apply my-4 list-decimal pl-6 text-ink-muted;
+    @apply my-4 list-decimal pl-6 leading-[1.8] text-ink-muted marker:text-brand/60;
   }
   .prose-medimap li {
     @apply my-1.5;
   }
   .prose-medimap blockquote {
-    @apply my-6 rounded-card border-l-4 border-brand-200 bg-surface-alt px-5 py-3 text-ink-muted;
+    @apply my-6 rounded-card border-l-4 border-brand-200 bg-brand-50/50 px-5 py-4 text-ink-muted;
   }
   .prose-medimap code {
-    @apply rounded bg-surface-alt px-1.5 py-0.5 font-mono text-sm;
+    @apply rounded bg-surface-alt px-1.5 py-0.5 font-mono text-sm text-brand-700;
   }
   .prose-medimap pre {
     @apply my-6 overflow-x-auto rounded-card bg-ink p-4 text-sm text-white;
@@ -118,14 +145,14 @@
     @apply my-10 border-line;
   }
   .prose-medimap img {
-    @apply my-6 rounded-card border border-line;
+    @apply my-6 rounded-card border border-line/70;
   }
   .prose-medimap table {
     @apply my-6 w-full border-collapse text-sm;
   }
   .prose-medimap th,
   .prose-medimap td {
-    @apply border border-line px-3 py-2 text-left;
+    @apply border border-line/70 px-3 py-2 text-left;
   }
   .prose-medimap th {
     @apply bg-surface-alt font-semibold text-ink;
@@ -138,6 +165,11 @@
 @layer utilities {
   .balance-text { text-wrap: balance; }
   .pretty-text { text-wrap: pretty; }
+  /* Subtle dotted texture for hero/blog headers */
+  .bg-grid-dots {
+    background-image: radial-gradient(rgba(16,24,40,0.06) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
