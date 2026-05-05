@@ -60,7 +60,7 @@ AI 검색엔진(Perplexity, ChatGPT, Gemini, Claude)에서 의료 도메인 브�
 [Monitoring Agent (4엔진 수집)] → [Analytics] → [Streamlit Dashboard]
 ```
 
-**디렉토리(예정):**
+**디렉토리:**
 ```
 src/
 ├── engines/         # LLM 엔진 (Perplexity, OpenAI, Gemini, Claude)
@@ -71,7 +71,10 @@ src/
 ├── reference/       # RAG (crawler, chunker, embedder, retriever)
 ├── compliance/      # 의료법 린터
 ├── content/         # 콘텐츠 생성 + 4채널 템플릿
-└── dashboard/       # Streamlit
+├── dashboard/       # Streamlit 테넌트 앱 — theme.py(파랑) + kpi_strip 헬퍼
+└── admin/           # Streamlit 어드민 백오피스 — theme.py(보라+슬레이트)
+                     # admin_kpi_strip / admin_chip / render_admin_header 헬퍼
+medimap-blog/        # Next.js 14 SSG 블로그/랜딩 (Vercel 배포)
 ```
 
 상세는 `.planning/SPEC-v2.md` §0, §2.
@@ -86,11 +89,14 @@ No project skills found. Add skills to any of: `.claude/skills/`, `.agents/skill
 <!-- GSD:deployment-start -->
 ## Deployment
 
-- **플랫폼:** Streamlit Community Cloud (무료 tier)
-- **라이브 URL:** https://blogkey.streamlit.app (비공개 — `APP_PASSWORD` 게이트)
+- **플랫폼:** Streamlit Community Cloud (무료 tier) + Vercel (Next.js)
+- **라이브 사이트 (3개):**
+  - **테넌트 대시보드** (`blogkey`) → https://blogkey.streamlit.app — 클라이언트(병·의원) 운영자, `APP_PASSWORD` + `?tenant=&pw=` 게이트
+  - **어드민 백오피스** (`blogkey-adm`) → https://blogkey-adm.streamlit.app — 메디맵 직원 전용, `ADMIN_APP_PASSWORD` 게이트
+  - **블로그/랜딩** (`medimap-blog`) → https://medimap-blog-phi.vercel.app — Next.js 14 SSG, AEO 자산용 자사 통제 URL
 - **GitHub:** https://github.com/passion4050-byte/Marketing (private)
 - **브랜치:** `main` (master → main 리브랜드 완료)
-- **자동 재배포:** main 브랜치 push 시 1~2분 내 Streamlit Cloud 가 자동 빌드
+- **자동 재배포:** main push 시 — Streamlit Cloud(blogkey + blogkey-adm) 1~2분 빌드, Vercel deploy hook(medimap-blog) 즉시 트리거
 
 **배포 산출물:**
 - `requirements.txt` — Streamlit Cloud 가 읽는 의존성 목록 (pyproject.toml 미러)
