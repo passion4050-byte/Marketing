@@ -34,14 +34,19 @@ export function CTABlock({
     <aside
       className="relative my-12 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-700 p-8 text-white shadow-cta"
       data-cta-block="standard"
+      // Promote to its own GPU layer so the blurred glow siblings below don't
+      // re-paint on every scroll on low-end mobile devices.
+      style={{ contain: "paint", willChange: "transform" }}
     >
       <div
         className="absolute -right-16 -top-20 h-48 w-48 rounded-full bg-white/10 blur-2xl"
         aria-hidden
+        style={{ transform: "translateZ(0)", willChange: "transform" }}
       />
       <div
         className="absolute -bottom-24 -left-10 h-56 w-56 rounded-full bg-accent/30 blur-3xl"
         aria-hidden
+        style={{ transform: "translateZ(0)", willChange: "transform" }}
       />
       <div className="relative">
         <h3 className="text-[22px] font-bold tracking-tight md:text-2xl">
