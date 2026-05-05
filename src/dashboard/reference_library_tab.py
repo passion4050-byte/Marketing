@@ -12,6 +12,8 @@
 
 from __future__ import annotations
 
+import re
+
 import streamlit as st
 
 
@@ -21,6 +23,51 @@ def _format_url_short(url: str | None, max_len: int = 60) -> str:
     if len(url) <= max_len:
         return url
     return url[: max_len - 1] + "…"
+
+
+# raw_text 가 trafilatura 추출에 실패한 사이트(SPA, JSON-LD heavy 등) 의 HTML
+# 잔재를 포함할 수 있으므로, 디스플레이 시점에 한 번 더 정제한다.
+# 인덱서/저장 로직은 그대로 유지 — 이 함수는 *보여주기* 전용.
+_HTML_DETECT_RE = re.compile(
+    r"<(?:html|head|body|div|p|article|section|main|script|style)\b",
+    re.IGNORECASE,
+)
+
+
+def _clean_text_for_display(raw: str, max_len: int = 800) -> tuple[str, int]:
+    """raw_text → 사람이 읽기 좋은 본문 텍스트 + 정제 후 글자수.
+
+    - <script>/<style>/<noscript> 제거
+    - 모든 HTML 태그 제거 → plain text
+    - 과도한 공백/개행 압축
+    - max_len 길면 ellipsis
+    """
+    if not raw:
+        return "", 0
+
+    text = raw
+    if _HTML_DETECT_RE.search(raw):
+        try:
+            from bs4 import BeautifulSoup
+
+            try:
+                soup = BeautifulSoup(raw, "lxml")
+            except Exception:
+                soup = BeautifulSoup(raw, "html.parser")
+            for tag in soup(["script", "style", "noscript", "template"]):
+                tag.decompose()
+            text = soup.get_text(separator="\n", strip=True)
+        except Exception:
+            text = re.sub(r"<[^>]+>", " ", raw)
+
+    text = re.sub(r"[ \t ]+", " ", text)
+    text = re.sub(r"\n[ \t]+", "\n", text)
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+
+    cleaned_total = len(text)
+    if cleaned_total > max_len:
+        return text[:max_len].rstrip() + "\n\n…(이하 생략)", cleaned_total
+    return text, cleaned_total
 
 
 def render_reference_library_tab(SessionLocal, tenant) -> None:
@@ -132,8 +179,41 @@ def render_reference_library_tab(SessionLocal, tenant) -> None:
             )
 
             with st.expander("본문 일부 보기", expanded=False):
-                excerpt = (d.raw_text or "")[:600]
-                st.text(excerpt + ("\n\n…(이하 생략)" if len(d.raw_text or "") > 600 else ""))
+                raw = d.raw_text or ""
+                cleaned, cleaned_total = _clean_text_for_display(raw, max_len=800)
+                full_chars = len(raw)
+
+                if not cleaned.strip():
+                    st.caption(
+                        "⚠️ 본문 텍스트를 추출하지 못했습니다 (스크립트/스타일만 발견). "
+                        "사이트가 SPA(React/Next.js) 인 경우 발생할 수 있습니다."
+                    )
+                else:
+                    if full_chars != cleaned_total:
+                        st.caption(
+                            f"📄 정제된 본문 · 전체 **{cleaned_total:,}자** "
+                            f"(원본 raw {full_chars:,}자에서 HTML 태그/스크립트 제거)"
+                        )
+                    else:
+                        st.caption(f"📄 본문 · 전체 **{cleaned_total:,}자**")
+                    st.markdown(
+                        f"""
+                        <div style='background:#fafafa;border:1px solid #eee;
+                                    border-radius:8px;padding:14px 16px;
+                                    font-size:13.5px;line-height:1.7;color:#333;
+                                    white-space:pre-wrap;'>{cleaned}</div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+                # 개발/디버그용 raw HTML 토글 (운영자가 굳이 볼 필요 없음)
+                with st.expander("🔍 원본 raw 보기 (디버그)", expanded=False):
+                    raw_excerpt = raw[:1500]
+                    st.code(
+                        raw_excerpt
+                        + ("\n\n…(이하 생략)" if full_chars > 1500 else ""),
+                        language="html",
+                    )
 
 
 def _show_index_result(result, *, label: str) -> None:
