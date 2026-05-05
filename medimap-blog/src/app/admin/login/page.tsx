@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { Lock, AlertCircle, Info } from "lucide-react";
-import { loginAction } from "./actions";
+import { Info } from "lucide-react";
+import { LoginForm } from "./LoginForm";
 import { isAdminConfigured } from "@/lib/admin-auth";
 
 export const metadata: Metadata = {
@@ -8,13 +8,14 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+export const dynamic = "force-dynamic";
+
 export default function AdminLoginPage({
   searchParams,
 }: {
-  searchParams?: { from?: string; error?: string; setup?: string };
+  searchParams?: { from?: string; setup?: string };
 }) {
   const setup = searchParams?.setup === "1" || !isAdminConfigured();
-  const errorCode = searchParams?.error;
   const from = searchParams?.from ?? "";
 
   return (
@@ -33,48 +34,7 @@ export default function AdminLoginPage({
         </div>
 
         <div className="rounded-card bg-white p-7 shadow-card md:p-8">
-          {setup ? (
-            <SetupNotice />
-          ) : (
-            <form action={loginAction} className="space-y-4">
-              <input type="hidden" name="from" value={from} />
-              <div>
-                <label
-                  htmlFor="password"
-                  className="mb-1.5 flex items-center gap-1.5 text-[13px] font-semibold text-ink-muted"
-                >
-                  <Lock size={13} /> 비밀번호
-                </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoFocus
-                  required
-                  placeholder="ADMIN_PASSWORD"
-                  className="form-input"
-                />
-              </div>
-              {errorCode === "invalid" && (
-                <div className="flex items-start gap-2 rounded-card border border-red-200 bg-red-50 p-3 text-[12.5px] text-red-700">
-                  <AlertCircle size={15} className="mt-0.5 shrink-0" />
-                  비밀번호가 일치하지 않습니다.
-                </div>
-              )}
-              {errorCode === "missing" && (
-                <div className="flex items-start gap-2 rounded-card border border-amber-200 bg-amber-50 p-3 text-[12.5px] text-amber-800">
-                  <AlertCircle size={15} className="mt-0.5 shrink-0" />
-                  비밀번호를 입력해주세요.
-                </div>
-              )}
-              <button
-                type="submit"
-                className="mt-2 w-full rounded-pill bg-gradient-to-r from-brand to-accent px-6 py-3 text-[14px] font-bold text-white shadow-cta transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glow"
-              >
-                로그인
-              </button>
-            </form>
-          )}
+          {setup ? <SetupNotice /> : <LoginForm from={from} />}
         </div>
       </div>
     </div>
