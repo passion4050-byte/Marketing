@@ -7,12 +7,22 @@ import rehypeSlug from "rehype-slug";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import { Clock, ChevronRight } from "lucide-react";
 
+import dynamic from "next/dynamic";
 import { CTABlock } from "@/components/CTABlock";
 import { FAQAccordion } from "@/components/FAQAccordion";
 import { JsonLd } from "@/components/JsonLd";
-import { ReadingProgress } from "@/components/ReadingProgress";
-import { TableOfContents } from "@/components/TableOfContents";
 import { RelatedPosts } from "@/components/RelatedPosts";
+
+// Defer client-only widgets until after hydration so they don't compete with
+// the LCP element (the article hero <p>) for main-thread time.
+const ReadingProgress = dynamic(
+  () => import("@/components/ReadingProgress").then((m) => m.ReadingProgress),
+  { ssr: false },
+);
+const TableOfContents = dynamic(
+  () => import("@/components/TableOfContents").then((m) => m.TableOfContents),
+  { ssr: false },
+);
 import {
   articleLd,
   breadcrumbLd,

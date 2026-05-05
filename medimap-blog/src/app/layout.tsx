@@ -52,6 +52,8 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
+        {/* Pre-resolve DNS for analytics so lazy-loaded GA/GTM connects faster. */}
+        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
         {/* Plain stylesheet link in <head> — Next 14 hoists it; loaded in parallel
             with the rest of the document. The Pretendard subset CSS uses
             `font-display: swap` so system Korean fonts render immediately. */}
