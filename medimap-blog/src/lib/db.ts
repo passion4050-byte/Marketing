@@ -20,7 +20,7 @@ export function getSql(): Sql | null {
     _sql = postgres(url, {
       max: 1,
       idle_timeout: 20,
-      connect_timeout: 10,
+      connect_timeout: 5, // Vercel Hobby function timeout 10초 — 빠르게 fail.
       prepare: false, // pgbouncer/transaction-mode 호환
     });
     return _sql;

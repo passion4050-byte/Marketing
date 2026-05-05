@@ -1,4 +1,5 @@
-import { Settings, KeyRound, Database, Bell } from "lucide-react";
+import { Settings, KeyRound, Database, Bell, CheckCircle2, XCircle } from "lucide-react";
+import { probeConnection } from "@/lib/inquiries";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,8 @@ const GROUP_META: Record<string, { title: string; icon: React.ReactNode }> = {
   notify: { title: "알림", icon: <Bell size={14} /> },
 };
 
-export default function AdminSettings() {
+export default async function AdminSettings() {
+  const probe = await probeConnection();
   const grouped = ENV_KEYS.reduce<Record<string, typeof ENV_KEYS>>((acc, e) => {
     (acc[e.group] ||= []).push(e);
     return acc;
@@ -43,6 +45,74 @@ export default function AdminSettings() {
             <p className="mt-1">
               어드민 자체에서 변경할 수 없습니다 — Vercel 프로젝트 설정 → Environment Variables 에서 변경 후 redeploy.
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* DB 연결 probe — DATABASE_URL 검증 */}
+      <div
+        className={`rounded-card p-5 shadow-card text-[13px] ${
+          !probe.configured
+            ? "bg-amber-50 border border-amber-200"
+            : probe.reachable
+            ? "bg-emerald-50 border border-emerald-200"
+            : "bg-red-50 border border-red-200"
+        }`}
+      >
+        <div className="flex items-start gap-3">
+          {!probe.configured ? (
+            <Database size={18} className="mt-0.5 shrink-0 text-amber-700" />
+          ) : probe.reachable ? (
+            <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-700" />
+          ) : (
+            <XCircle size={18} className="mt-0.5 shrink-0 text-red-700" />
+          )}
+          <div className="flex-1">
+            <div
+              className={`font-semibold ${
+                !probe.configured
+                  ? "text-amber-800"
+                  : probe.reachable
+                  ? "text-emerald-800"
+                  : "text-red-800"
+              }`}
+            >
+              DATABASE_URL 연결 상태:{" "}
+              {!probe.configured
+                ? "미설정"
+                : probe.reachable
+                ? "정상 연결"
+                : "연결 실패"}
+            </div>
+            {!probe.configured && (
+              <p className="mt-1 text-amber-700/90">
+                DATABASE_URL env 가 설정되지 않았습니다.
+              </p>
+            )}
+            {probe.configured && probe.reachable && (
+              <p className="mt-1 text-emerald-700/90">
+                Supabase 에 연결되어 폼 제출/문의 조회가 정상 동작합니다.
+              </p>
+            )}
+            {probe.configured && !probe.reachable && (
+              <div className="mt-1 text-red-700/90 space-y-1.5">
+                <p>
+                  DATABASE_URL 은 설정되어 있지만 Supabase 에 연결할 수 없습니다.
+                </p>
+                {probe.error && (
+                  <p className="font-mono text-[11.5px] text-red-700">
+                    원인: {probe.error}
+                  </p>
+                )}
+                <p>가장 흔한 원인:</p>
+                <ul className="list-disc pl-5 space-y-0.5">
+                  <li>비밀번호에 특수문자(@, #, ?, : 등)가 URL 인코딩 안 됨</li>
+                  <li>비밀번호 오타</li>
+                  <li>Supabase 프로젝트가 paused 상태</li>
+                  <li>잘못된 host/port (Transaction Pooler 6543 권장)</li>
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       </div>

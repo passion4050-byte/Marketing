@@ -7,6 +7,49 @@
 
 import { getSql } from "./db";
 
+const QUERY_TIMEOUT_MS = 4000;
+
+async function withQueryTimeout<T>(
+  p: Promise<T>,
+  fallback: T,
+  ms = QUERY_TIMEOUT_MS,
+): Promise<T> {
+  let to: ReturnType<typeof setTimeout> | undefined;
+  const timer = new Promise<T>((resolve) => {
+    to = setTimeout(() => resolve(fallback), ms);
+  });
+  try {
+    return await Promise.race([p, timer]);
+  } finally {
+    if (to) clearTimeout(to);
+  }
+}
+
+export async function probeConnection(): Promise<{
+  configured: boolean;
+  reachable: boolean;
+  error?: string;
+}> {
+  const sql = getSql();
+  if (!sql) return { configured: false, reachable: false };
+  return withQueryTimeout(
+    (async () => {
+      try {
+        await sql`SELECT 1`;
+        return { configured: true, reachable: true };
+      } catch (e) {
+        return {
+          configured: true,
+          reachable: false,
+          error: e instanceof Error ? e.message : "unknown-error",
+        };
+      }
+    })(),
+    { configured: true, reachable: false, error: "timeout" },
+    5000,
+  );
+}
+
 export type InquiryFormType = "partnership" | "listing" | "contact";
 export type InquiryStatus = "new" | "in_progress" | "replied" | "archived";
 
@@ -54,25 +97,30 @@ export async function submitInquiry(
 ): Promise<{ ok: boolean; id?: number; error?: string }> {
   const sql = getSql();
   if (!sql) return { ok: false, error: "database-unconfigured" };
-  try {
-    const rows = await sql<{ id: number }[]>`
-      INSERT INTO medimap_inquiries (
-        form_type, org_name, contact_name, phone, email, message,
-        ip_hash, user_agent, referer
-      ) VALUES (
-        ${input.form_type}, ${input.org_name}, ${input.contact_name},
-        ${input.phone ?? null}, ${input.email ?? null}, ${input.message},
-        ${input.ip_hash ?? null}, ${input.user_agent ?? null}, ${input.referer ?? null}
-      )
-      RETURNING id
-    `;
-    return { ok: true, id: rows[0]?.id };
-  } catch (e) {
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : "insert-failed",
-    };
-  }
+  return withQueryTimeout(
+    (async () => {
+      try {
+        const rows = await sql<{ id: number }[]>`
+          INSERT INTO medimap_inquiries (
+            form_type, org_name, contact_name, phone, email, message,
+            ip_hash, user_agent, referer
+          ) VALUES (
+            ${input.form_type}, ${input.org_name}, ${input.contact_name},
+            ${input.phone ?? null}, ${input.email ?? null}, ${input.message},
+            ${input.ip_hash ?? null}, ${input.user_agent ?? null}, ${input.referer ?? null}
+          )
+          RETURNING id
+        `;
+        return { ok: true, id: rows[0]?.id };
+      } catch (e) {
+        return {
+          ok: false,
+          error: e instanceof Error ? e.message : "insert-failed",
+        };
+      }
+    })(),
+    { ok: false, error: "timeout" },
+  );
 }
 
 export interface ListInquiriesFilter {
@@ -90,43 +138,53 @@ export async function listInquiries(
   if (!sql) return { rows: [], total: 0 };
   const limit = Math.max(1, Math.min(filter.limit ?? 50, 200));
   const offset = Math.max(0, filter.offset ?? 0);
-  try {
-    const where = sql`
-      WHERE (${filter.form_type ?? null}::text IS NULL OR form_type = ${filter.form_type ?? null})
-        AND (${filter.status    ?? null}::text IS NULL OR status    = ${filter.status    ?? null})
-        AND (
-          ${filter.search ?? null}::text IS NULL
-          OR org_name     ILIKE ${"%" + (filter.search ?? "") + "%"}
-          OR contact_name ILIKE ${"%" + (filter.search ?? "") + "%"}
-          OR message      ILIKE ${"%" + (filter.search ?? "") + "%"}
-        )
-    `;
-    const rows = await sql<InquiryRow[]>`
-      SELECT * FROM medimap_inquiries
-      ${where}
-      ORDER BY created_at DESC
-      LIMIT ${limit} OFFSET ${offset}
-    `;
-    const totalRows = await sql<{ c: string }[]>`
-      SELECT COUNT(*)::text AS c FROM medimap_inquiries ${where}
-    `;
-    return { rows, total: Number(totalRows[0]?.c ?? 0) };
-  } catch {
-    return { rows: [], total: 0 };
-  }
+  return withQueryTimeout(
+    (async () => {
+      try {
+        const where = sql`
+          WHERE (${filter.form_type ?? null}::text IS NULL OR form_type = ${filter.form_type ?? null})
+            AND (${filter.status    ?? null}::text IS NULL OR status    = ${filter.status    ?? null})
+            AND (
+              ${filter.search ?? null}::text IS NULL
+              OR org_name     ILIKE ${"%" + (filter.search ?? "") + "%"}
+              OR contact_name ILIKE ${"%" + (filter.search ?? "") + "%"}
+              OR message      ILIKE ${"%" + (filter.search ?? "") + "%"}
+            )
+        `;
+        const rows = await sql<InquiryRow[]>`
+          SELECT * FROM medimap_inquiries
+          ${where}
+          ORDER BY created_at DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `;
+        const totalRows = await sql<{ c: string }[]>`
+          SELECT COUNT(*)::text AS c FROM medimap_inquiries ${where}
+        `;
+        return { rows, total: Number(totalRows[0]?.c ?? 0) };
+      } catch {
+        return { rows: [], total: 0 };
+      }
+    })(),
+    { rows: [], total: 0 },
+  );
 }
 
 export async function getInquiry(id: number): Promise<InquiryRow | null> {
   const sql = getSql();
   if (!sql) return null;
-  try {
-    const rows = await sql<InquiryRow[]>`
-      SELECT * FROM medimap_inquiries WHERE id = ${id} LIMIT 1
-    `;
-    return rows[0] ?? null;
-  } catch {
-    return null;
-  }
+  return withQueryTimeout(
+    (async () => {
+      try {
+        const rows = await sql<InquiryRow[]>`
+          SELECT * FROM medimap_inquiries WHERE id = ${id} LIMIT 1
+        `;
+        return rows[0] ?? null;
+      } catch {
+        return null;
+      }
+    })(),
+    null,
+  );
 }
 
 export async function updateInquiry(
@@ -167,6 +225,13 @@ export async function getInquiryStats(): Promise<InquiryStats> {
   };
   const sql = getSql();
   if (!sql) return empty;
+  return withQueryTimeout(loadStats(sql, empty), empty);
+}
+
+async function loadStats(
+  sql: NonNullable<ReturnType<typeof getSql>>,
+  empty: InquiryStats,
+): Promise<InquiryStats> {
   try {
     const [totals, byType, byStatusRows, daily] = await Promise.all([
       sql<{ total: string; this_week: string }[]>`
@@ -207,3 +272,4 @@ export async function getInquiryStats(): Promise<InquiryStats> {
     return empty;
   }
 }
+
