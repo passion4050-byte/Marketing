@@ -1,4 +1,4 @@
-"""메디맵 어드민 사이트 메인 엔트리 — Phase 9-01.
+"""메디맵 어드민 사이트 메인 엔트리 — Phase 9-01 + 9-05 UI/UX 리프레시.
 
 배포: Streamlit Cloud → main file path = ``admin_app.py`` (repo 루트의 1줄 launcher).
 
@@ -13,7 +13,6 @@ Streamlit Cloud Secrets 필요 키:
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 import streamlit as st
 
@@ -55,40 +54,91 @@ def main() -> None:
         initial_sidebar_state="expanded",
     )
 
+    # ─── 글로벌 디자인 시스템 ──────────────────────────────────────
+    from src.admin.theme import ADMIN_CSS, render_admin_header, render_side_card
+
+    st.markdown(ADMIN_CSS, unsafe_allow_html=True)
+
     # ─── 인증 게이트 ──────────────────────────────────────────────
     from src.admin.auth import require_admin_login, logout_button
 
     if not require_admin_login():
         st.stop()
 
-    # ─── 사이드바 ────────────────────────────────────────────────
-    with st.sidebar:
-        st.markdown("## 🛠️ 메디맵 어드민")
-        st.caption("메디맵 직원 전용 통합 관리 콘솔")
-        st.markdown("---")
-        logout_button()
-        st.markdown("---")
-        st.caption(
-            f"DB: `{_db_summary()}`\n\n"
-            f"Live: blogkey-adm.streamlit.app"
-        )
-
-    # ─── DB 부트 ─────────────────────────────────────────────────
+    # ─── DB 부트 (사이드바 카운터에 쓸 통계 먼저 계산) ──────────
     from src.storage.db import create_all, get_session_factory, upgrade_to_head
 
-    # 1) 신규 테이블 — create_all 로 생성
     create_all()
-    # 2) 기존 테이블의 컬럼 추가/스키마 변경 — Alembic migration 자동 적용
-    #    (Streamlit Cloud 는 shell 없으니 부트스트랩에서 한 번만 실행)
     ok, err = upgrade_to_head()
+    SessionLocal = get_session_factory()
+
+    sidebar_stats = _compute_sidebar_stats(SessionLocal)
+
+    # ─── 사이드바 ────────────────────────────────────────────────
+    with st.sidebar:
+        st.markdown(
+            """
+            <div style="display:flex;align-items:center;gap:10px;
+                        padding:6px 0 18px 0;">
+              <div style="width:36px;height:36px;border-radius:10px;
+                          background:linear-gradient(135deg,#7c5cff 0%,#b29eff 100%);
+                          display:flex;align-items:center;justify-content:center;">
+                <span style="font-size:16px;color:white;">🛠️</span>
+              </div>
+              <div style="line-height:1.15;">
+                <div style="font-size:15px;font-weight:800;color:white !important;">
+                  메디맵 어드민
+                </div>
+                <div style="font-size:10px;letter-spacing:0.14em;
+                            color:rgba(255,255,255,0.55) !important;
+                            text-transform:uppercase;font-weight:700;">
+                  Back Office
+                </div>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            render_side_card("Tenants", str(sidebar_stats["tenants"])),
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            render_side_card("Publications", str(sidebar_stats["pubs"])),
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            render_side_card(
+                "Today USD",
+                f"${sidebar_stats['today_usd']:.4f}",
+            ),
+            unsafe_allow_html=True,
+        )
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+        logout_button()
+        st.markdown(
+            f"""
+            <div style='font-size:10px;color:rgba(255,255,255,0.42) !important;
+                        margin-top:14px;letter-spacing:0.06em;'>
+              {_db_summary()}<br/>
+              blogkey-adm.streamlit.app
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    # ─── 상단 헤더 ─────────────────────────────────────────────
+    st.markdown(
+        render_admin_header(db_label=_db_summary()),
+        unsafe_allow_html=True,
+    )
+
     if not ok and err:
         st.warning(
             f"⚠️ Alembic migration 실패 — 기존 테이블 schema 가 최신이 아닐 수 있습니다.\n\n`{err}`"
         )
-    SessionLocal = get_session_factory()
 
     # ─── 메인 탭 ─────────────────────────────────────────────────
-    st.markdown("# 🛠️ 메디맵 어드민")
     tabs = st.tabs([
         "🏢 테넌트",
         "💸 비용",
@@ -118,12 +168,43 @@ def main() -> None:
         render_sync_tab(SessionLocal)
 
 
+def _compute_sidebar_stats(SessionLocal) -> dict:
+    """사이드바 미니 KPI — 실패해도 0 반환."""
+    from datetime import datetime, timezone
+
+    out = {"tenants": 0, "pubs": 0, "today_usd": 0.0}
+    try:
+        from src.storage.models import Tenant
+        with SessionLocal() as s:
+            out["tenants"] = s.query(Tenant).count()
+    except Exception:
+        pass
+    try:
+        from src.storage.models import Publication
+        with SessionLocal() as s:
+            out["pubs"] = s.query(Publication).count()
+    except Exception:
+        pass
+    try:
+        from src.storage.models import LlmCallLog
+        today_start = datetime.now(timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0,
+        )
+        with SessionLocal() as s:
+            logs = s.query(LlmCallLog).filter(
+                LlmCallLog.called_at >= today_start
+            ).all()
+            out["today_usd"] = sum((l.cost_usd or 0.0) for l in logs)
+    except Exception:
+        pass
+    return out
+
+
 def _db_summary() -> str:
     url = os.environ.get("DATABASE_URL", "")
     if not url:
         return "sqlite (local)"
     if "postgres" in url or "supabase" in url or "pooler" in url:
-        # 호스트만 노출 (보안)
         try:
             host = url.split("@", 1)[1].split("/")[0]
             return f"postgres ({host})"

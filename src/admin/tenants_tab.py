@@ -41,10 +41,20 @@ def _validate_manual_pw(pw: str) -> str | None:
 def render_tenants_tab(SessionLocal) -> None:
     from src.storage.models import Tenant
 
-    st.markdown("### 🏢 테넌트 관리")
+    st.markdown(
+        """
+        <div class="admin-tab-heading">
+          <div class="admin-tab-heading-left">
+            <h3>🏢 테넌트 관리</h3>
+            <p>클라이언트(병·의원) CRUD + blogkey 접속 비밀번호 발급/회수</p>
+          </div>
+          <span class="admin-chip admin-chip-purple">멀티테넌트</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     st.caption(
-        "클라이언트(병·의원)를 추가/편집/비활성하고, blogkey 접속용 비밀번호를 발급합니다. "
-        "비밀번호는 발급 시 1회만 표시되니 즉시 클라이언트에게 전달하세요."
+        "비밀번호는 발급 시 1회만 표시됩니다. 즉시 클라이언트에게 전달하세요."
     )
 
     with SessionLocal() as s:
