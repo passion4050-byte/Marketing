@@ -169,6 +169,37 @@
   .heading-anchor {
     @apply no-underline text-ink hover:text-brand;
   }
+
+  /* DB 자동 발행 글 (generator HTML) — prose-medimap 컴포넌트 톤에 맞춤 */
+  .db-html-content {
+    @apply max-w-prose text-ink;
+  }
+  .db-html-content > :first-child { margin-top: 0; }
+  .db-html-content h1 { @apply hidden; } /* page header 와 중복 회피 */
+  .db-html-content h2 { @apply mt-12 mb-4 text-[28px] font-bold tracking-tight; }
+  .db-html-content h3 { @apply mt-9 mb-3 text-xl font-bold; }
+  .db-html-content p { @apply my-4 leading-[1.8] text-ink-muted; }
+  .db-html-content a {
+    @apply text-brand underline decoration-brand/30 underline-offset-4 transition hover:decoration-brand;
+  }
+  .db-html-content ul {
+    @apply my-4 list-disc pl-6 leading-[1.8] text-ink-muted marker:text-brand/60;
+  }
+  .db-html-content ol {
+    @apply my-4 list-decimal pl-6 leading-[1.8] text-ink-muted marker:text-brand/60;
+  }
+  .db-html-content li { @apply my-1.5; }
+  .db-html-content blockquote {
+    @apply my-6 rounded-card border-l-4 border-brand-200 bg-brand-50/50 px-5 py-4 text-ink-muted;
+  }
+  .db-html-content table { @apply my-6 w-full border-collapse text-sm; }
+  .db-html-content th,
+  .db-html-content td { @apply border border-line/70 px-3 py-2 text-left; }
+  .db-html-content th { @apply bg-surface-alt font-semibold text-ink; }
+  /* generator 가 본문 끝에 부착하는 표준 CTA aside — 자체 인라인 스타일 유지 */
+  .db-html-content aside.cta-block { @apply my-10; }
+  /* meta 태그(<meta name=description>) 는 텍스트 흐름에서 숨김 */
+  .db-html-content meta { display: none; }
 }
 
 @layer utilities {

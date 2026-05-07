@@ -140,7 +140,7 @@ def daily_auto_content_job(session_factory) -> dict:
         Keyword,
     )
 
-    summary = {"tenants": 0, "drafts": 0, "errors": 0}
+    summary = {"tenants": 0, "drafts": 0, "published": 0, "errors": 0}
     default_channels = ["schema_org", "blog_html", "naver_blog", "instagram"]
 
     with session_factory() as s:
@@ -152,11 +152,12 @@ def daily_auto_content_job(session_factory) -> dict:
                 st.tenant_id,
                 int(st.daily_count or 1),
                 list(st.channels) if st.channels else list(default_channels),
+                bool(getattr(st, "auto_publish", False)),
             )
             for st in settings
         ]
 
-    for tenant_id, daily_count, channels in plans:
+    for tenant_id, daily_count, channels, auto_publish in plans:
         with session_factory() as s:
             kws = (
                 s.query(Keyword)
@@ -174,8 +175,14 @@ def daily_auto_content_job(session_factory) -> dict:
             keyword_text = keyword_texts[i % len(keyword_texts)]
             channel = ch_cycle[i % len(ch_cycle)]
             try:
-                _generate_draft(session_factory, tenant_id, keyword_text, channel)
-                summary["drafts"] += 1
+                final_status = _generate_draft(
+                    session_factory, tenant_id, keyword_text, channel,
+                    auto_publish=auto_publish,
+                )
+                if final_status == "published":
+                    summary["published"] += 1
+                else:
+                    summary["drafts"] += 1
             except Exception as e:  # pragma: no cover
                 logger.error(
                     "scheduler.auto_content_error",
@@ -200,10 +207,21 @@ def daily_auto_content_job(session_factory) -> dict:
     return summary
 
 
-def _generate_draft(session_factory, tenant_id: int, keyword: str, channel: str) -> None:
-    """1건 자동 생성 → status='draft' 로 저장. 실패 시 raise.
+def _generate_draft(
+    session_factory,
+    tenant_id: int,
+    keyword: str,
+    channel: str,
+    *,
+    auto_publish: bool = False,
+) -> str:
+    """1건 자동 생성. ``auto_publish=True`` + compliance_status='pass' 면 즉시 published.
 
-    generator 가 default status='published' 로 저장하므로 직후 update 한다.
+    Returns:
+        실제 저장된 status ('published' | 'draft' | '').
+
+    의료법 가드: warn / fail 콘텐츠는 auto_publish 와 무관하게 ``draft`` 로 저장 —
+    사용자가 임시저장함에서 검수 후 수동 승격해야 안전.
     """
     from src.content.generator import (
         generate_blog_post,
@@ -224,15 +242,23 @@ def _generate_draft(session_factory, tenant_id: int, keyword: str, channel: str)
         elif channel == "instagram":
             r = generate_instagram_content(s, tenant_id=tenant_id, keyword=keyword, save=True)
         else:
-            return
+            return ""
         saved_id = getattr(r, "saved_id", None)
 
-    if saved_id is not None:
-        with session_factory() as s:
-            obj = s.get(GeneratedContent, saved_id)
-            if obj is not None:
-                obj.status = "draft"
-                s.commit()
+    if saved_id is None:
+        return ""
+
+    with session_factory() as s:
+        obj = s.get(GeneratedContent, saved_id)
+        if obj is None:
+            return ""
+        # 의료법 통과 + auto_publish 일 때만 즉시 발행 — 그 외엔 draft 유지.
+        if auto_publish and obj.compliance_status == "pass":
+            obj.status = "published"
+        else:
+            obj.status = "draft"
+        s.commit()
+        return obj.status
 
 
 def stop_scheduler() -> None:

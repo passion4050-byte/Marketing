@@ -67,6 +67,7 @@ def _ensure_setting(SessionLocal, tenant_id: int):
             "enabled": row.enabled,
             "daily_count": row.daily_count,
             "channels": list(row.channels) if row.channels else list(_ALL_CHANNELS),
+            "auto_publish": bool(getattr(row, "auto_publish", False)),
             "last_run_at": row.last_run_at,
         }
 
@@ -128,6 +129,21 @@ def _render_setting_card(SessionLocal, tenant) -> None:
             help="향후 유튜브/Threads 등 추가 예정.",
         )
 
+        auto_publish = st.toggle(
+            "✅ 의료법 통과 시 즉시 자동 발행 (검수 단계 건너뛰기)",
+            value=setting["auto_publish"],
+            key=f"auto_publish_{tenant.id}",
+            help=(
+                "켜면 의료법 린터 status='pass' 인 콘텐츠는 임시저장함을 건너뛰고 곧장 "
+                "발행됩니다. blog_html 채널은 medimap-blog 자사 블로그에 1~5분 내 자동 노출. "
+                "warn/fail 콘텐츠는 안전을 위해 항상 임시저장함에 남겨 사용자 검수 필요."
+            ),
+        )
+        if auto_publish:
+            st.caption(
+                "⚠️ 자동 발행 활성 중 — 의료법 위반/주의 콘텐츠만 임시저장함에 들어옵니다."
+            )
+
         col_s, col_run = st.columns([1, 1])
         save_clicked = col_s.button(
             "💾 설정 저장", key=f"auto_save_{tenant.id}",
@@ -150,6 +166,8 @@ def _render_setting_card(SessionLocal, tenant) -> None:
                     row.enabled = bool(enabled)
                     row.daily_count = int(daily_count)
                     row.channels = list(channels_selected) or list(_ALL_CHANNELS)
+                    if hasattr(row, "auto_publish"):
+                        row.auto_publish = bool(auto_publish)
                     s.commit()
             st.success("자동 생성 설정이 저장되었습니다.")
             st.rerun()
@@ -169,6 +187,8 @@ def _render_setting_card(SessionLocal, tenant) -> None:
                     row.enabled = True
                     row.daily_count = int(daily_count)
                     row.channels = list(channels_selected) or list(_ALL_CHANNELS)
+                    if hasattr(row, "auto_publish"):
+                        row.auto_publish = bool(auto_publish)
                     s.commit()
 
             with st.spinner(f"자동 콘텐츠 {daily_count}건 생성 중…"):
@@ -187,7 +207,9 @@ def _render_setting_card(SessionLocal, tenant) -> None:
                     row.enabled = prev_enabled
                     s.commit()
             st.success(
-                f"✅ {result.get('drafts', 0)}건 임시저장 · 오류 {result.get('errors', 0)}건"
+                f"✅ 임시저장 {result.get('drafts', 0)}건 · "
+                f"즉시 발행 {result.get('published', 0)}건 · "
+                f"오류 {result.get('errors', 0)}건"
             )
             st.rerun()
 

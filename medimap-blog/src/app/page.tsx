@@ -13,7 +13,8 @@ import {
   BarChart3,
 } from "lucide-react";
 
-export const revalidate = false;
+// 60초 ISR — 홈 최신 글 4편이 자동 발행 시 1분 내 반영.
+export const revalidate = 60;
 
 export default async function HomePage() {
   const posts = await getAllPosts();

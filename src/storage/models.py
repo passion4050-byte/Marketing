@@ -375,6 +375,9 @@ class AutoContentSetting(Base):
     daily_count: Mapped[int] = mapped_column(Integer, default=2)  # 1~10
     channels: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     # channels: ["schema_org","blog_html","naver_blog","instagram"] subset, default all
+    # auto_publish=True 면 의료법 린터 status='pass' 인 콘텐츠는 draft 단계 건너뛰고
+    # 즉시 status='published' 로 저장. warn/fail 콘텐츠는 안전하게 draft 로 남김.
+    auto_publish: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     last_run_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 

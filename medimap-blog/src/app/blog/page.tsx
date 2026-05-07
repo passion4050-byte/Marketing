@@ -6,7 +6,8 @@ import { breadcrumbLd } from "@/lib/schema";
 import { getAllPosts } from "@/lib/posts";
 import { ShieldCheck, FileText, Sparkles } from "lucide-react";
 
-export const revalidate = false;
+// 60초 ISR — DB published 글이 새로 생기면 1분 내 인덱스에 반영.
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "메디맵 인사이트",

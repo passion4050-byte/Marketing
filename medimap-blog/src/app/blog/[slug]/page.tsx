@@ -31,8 +31,10 @@ import {
 } from "@/lib/schema";
 import { getAllPostSlugs, getAllPosts, getPostBySlug } from "@/lib/posts";
 
-export const dynamicParams = false;
-export const revalidate = false;
+// DB 자동 발행 글은 빌드 시점에 알 수 없음 → on-demand SSG 허용
+export const dynamicParams = true;
+// 60초 ISR — 새 자동 발행 글이 1분 내 반영. 캐시 부담 최소.
+export const revalidate = 60;
 
 const mdxComponents = {
   CTABlock,
@@ -85,22 +87,35 @@ export default async function BlogPostPage({
   const allPosts = await getAllPosts();
   const minutes = post.readingMinutes;
 
-  const { content } = await compileMDX({
-    source: post.source,
-    components: mdxComponents,
-    options: {
-      mdxOptions: {
-        remarkPlugins: [remarkGfm],
-        rehypePlugins: [
-          rehypeSlug,
-          [
-            rehypeAutolinkHeadings,
-            { behavior: "wrap", properties: { className: ["heading-anchor"] } },
+  // DB 자동 발행 글은 generator 가 만든 HTML 을 그대로 노출 — 의료법 린터 통과한
+  // 자기 콘텐츠라 XSS 위험 없음. mdx 글은 기존 compileMDX 파이프라인 유지.
+  let content: React.ReactNode;
+  if (post.source_type === "html") {
+    content = (
+      <div
+        className="db-html-content"
+        dangerouslySetInnerHTML={{ __html: post.source }}
+      />
+    );
+  } else {
+    const compiled = await compileMDX({
+      source: post.source,
+      components: mdxComponents,
+      options: {
+        mdxOptions: {
+          remarkPlugins: [remarkGfm],
+          rehypePlugins: [
+            rehypeSlug,
+            [
+              rehypeAutolinkHeadings,
+              { behavior: "wrap", properties: { className: ["heading-anchor"] } },
+            ],
           ],
-        ],
+        },
       },
-    },
-  });
+    });
+    content = compiled.content;
+  }
 
   return (
     <>
