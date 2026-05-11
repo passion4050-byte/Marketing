@@ -237,3 +237,60 @@
     scroll-behavior: auto !important;
   }
 }
+
+ * UX FIX — 빨강 CTA 카드 안 흐릿한 버튼 대비 보강 (WCAG 4.5:1+)
+   * ========================================================================= */
+  [class*="bg-brand"] a[class*="bg-white/"],
+  [class*="bg-brand"] button[class*="bg-white/"],
+  [class*="bg-gradient"] a[class*="bg-white/"],
+  [class*="bg-gradient"] button[class*="bg-white/"] {
+    background-color: rgba(255, 255, 255, 0.2) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.9);
+    color: #fff !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  }
+
+  [class*="bg-brand"] a[class*="bg-white/"]:hover,
+  [class*="bg-brand"] button[class*="bg-white/"]:hover,
+  [class*="bg-gradient"] a[class*="bg-white/"]:hover,
+  [class*="bg-gradient"] button[class*="bg-white/"]:hover {
+    background-color: rgba(255, 255, 255, 0.35) !important;
+    border-color: #fff;
+  }
+
+  /* 솔리드 흰 primary 버튼은 글자 굵게 + 살짝 더 진한 빨강 */
+  [class*="bg-brand"] a.bg-white,
+  [class*="bg-brand"] button.bg-white,
+  [class*="bg-gradient"] a.bg-white,
+  [class*="bg-gradient"] button.bg-white {
+    color: #d83547 !important;
+    font-weight: 700;
+  }
+
+  /* 빨강 카드 안 흰글자 보조설명(text-white/85 등) */
+  [class*="bg-brand"] [class*="text-white/"],
+  [class*="bg-gradient"] [class*="text-white/"] {
+    color: rgba(255, 255, 255, 0.96) !important;
+  }
+
+  /* 본문 회색 텍스트(text-ink-muted) 가독성 보강 */
+  [class*="text-ink-muted"] {
+    color: #525866 !important;
+  }
+
+  /* 키보드 포커스 링 — 접근성 */
+  a:focus-visible,
+  button:focus-visible {
+    outline: 3px solid #ff4d5e;
+    outline-offset: 3px;
+    border-radius: 8px;
+  }
+
+  /* 모션 민감 사용자 보호 */
+  @media (prefers-reduced-motion: reduce) {
+    a, button {
+      transition: none !important;
+      transform: none !important;
+    }
+  }
+
