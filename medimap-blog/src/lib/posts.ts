@@ -104,8 +104,9 @@ interface DbPostRow {
   updated_at: string;
 }
 
-async function getDbPostRows(): Promise<DbPostRow[]> {
-  const sql = getSql();
+ async function getDbPostRows(): Promise<DbPostRow[]> {
+    if (process.env.NEXT_PHASE === "phase-production-build") return [];
+    const sql = getSql();
   if (!sql) return [];
   try {
     return await sql<DbPostRow[]>`
@@ -128,7 +129,8 @@ async function getDbPostRows(): Promise<DbPostRow[]> {
 }
 
 async function getDbPostRowById(id: number): Promise<DbPostRow | null> {
-  const sql = getSql();
+    if (process.env.NEXT_PHASE === "phase-production-build") return null;
+    const sql = getSql();
   if (!sql) return null;
   try {
     const rows = await sql<DbPostRow[]>`
