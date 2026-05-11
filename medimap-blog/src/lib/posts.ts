@@ -128,8 +128,7 @@ interface DbPostRow {
 }
 
 async function getDbPostRowById(id: number): Promise<DbPostRow | null> {
-    if (process.env.NEXT_PHASE === "phase-production-build") return null;
-    const sql = getSql();
+  const sql = getSql();
   if (!sql) return null;
   try {
     const rows = await sql<DbPostRow[]>`
