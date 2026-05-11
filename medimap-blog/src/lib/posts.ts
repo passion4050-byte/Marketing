@@ -187,10 +187,15 @@ function stripHtml(s: string): string {
 }
 
 function dbRowToPostMeta(row: DbPostRow): PostMeta {
+  function toIsoDate(v: unknown): string | undefined {
+    if (v instanceof Date) return v.toISOString().slice(0, 10);
+    if (typeof v === "string" && v.length >= 10) return v.slice(0, 10);
+    return undefined;
+  }
   const title = extractTitle(row.body, row.keyword_text);
   const description = extractDescription(row.body, row.keyword_text);
-  const date = (row.created_at || "").slice(0, 10) || new Date().toISOString().slice(0, 10);
-  const updated = (row.updated_at || row.created_at || "").slice(0, 10) || undefined;
+  const date = toIsoDate(row.created_at) ?? new Date().toISOString().slice(0, 10);
+  const updated = toIsoDate(row.updated_at) ?? toIsoDate(row.created_at);
   return {
     slug: dbRowToSlug(row.id),
     title,
