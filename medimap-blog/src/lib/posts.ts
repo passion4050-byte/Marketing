@@ -253,9 +253,18 @@ export async function getPostsForList(): Promise<PostMeta[]> {
 }
 
 export async function getPostBySlug(slug: string): Promise<Post | null> {
+  // Next.js dynamic route 의 params.slug 가 URL-encoded(%EA%B0%95...) 로 들어올 수
+  // 있으므로 디코딩 후 비교. mdx 파일은 영문 슬러그라 디코딩 후도 동일.
+  let decoded = slug;
+  try {
+    decoded = decodeURIComponent(slug);
+  } catch {
+    // malformed escape 시 raw 그대로
+  }
+
   // 1. mdx 파일 우선 (사용자 큐레이션) → 2. DB slug 매칭
-  const file = await readPostFile(slug);
+  const file = await readPostFile(decoded);
   if (file) return file;
-  const row = await getDbPostRowBySlug(slug);
+  const row = await getDbPostRowBySlug(decoded);
   return row ? dbRowToPost(row) : null;
 }
