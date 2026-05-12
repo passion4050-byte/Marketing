@@ -5,9 +5,6 @@ import { getSql } from "./db";
 
 const POSTS_DIR = path.join(process.cwd(), "content", "blog");
 
-/** DB 글 slug 충돌 회피 prefix — mdx 글 slug 와 절대 겹치지 않게. */
-const DB_SLUG_PREFIX = "auto-";
-
 /**
  * 본문 형식 — `mdx` 는 compileMDX 파이프라인, `html` 은 자기 콘텐츠를 그대로 렌더.
  * 자동 발행 콘텐츠(blog_html) 는 generator 가 의료법 통과 HTML 을 만들어 저장하므로 html.
@@ -89,7 +86,7 @@ async function getMdxSlugs(): Promise<string[]> {
   }
 }
 
-/* ────────── DB 자동 발행 글 ─────────────────────────────────────── */
+/* ────────── DB 자동 발행 글 — slug 컬럼 직접 사용 ──────────── */
 
 interface DbPostRow {
   id: number;
@@ -100,34 +97,54 @@ interface DbPostRow {
   body: string;
   compliance_status: string;
   status: string;
+  slug: string | null;
+  title: string | null;
+  excerpt: string | null;
+  published_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
- async function getDbPostRows(): Promise<DbPostRow[]> {
+const DB_SELECT = `
+  gc.id, gc.tenant_id, t.name AS tenant_name,
+  gc.channel, gc.keyword_text, gc.body,
+  gc.compliance_status, gc.status,
+  gc.slug, gc.title, gc.excerpt, gc.published_at,
+  gc.created_at, gc.updated_at
+`;
+
+const DB_FILTER = `
+  gc.status = 'published'
+  AND gc.channel = 'blog_html'
+  AND gc.compliance_status = 'pass'
+  AND gc.slug IS NOT NULL
+  AND length(trim(gc.slug)) > 0
+`;
+
+function toIsoDate(v: unknown): string | undefined {
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (typeof v === "string" && v.length >= 10) return v.slice(0, 10);
+  return undefined;
+}
+
+async function getDbPostRows(): Promise<DbPostRow[]> {
   const sql = getSql();
   if (!sql) return [];
   try {
-    return await sql<DbPostRow[]>`
-      SELECT
-        gc.id, gc.tenant_id, t.name AS tenant_name,
-        gc.channel, gc.keyword_text, gc.body,
-        gc.compliance_status, gc.status,
-        gc.created_at, gc.updated_at
+    return await sql.unsafe<DbPostRow[]>(`
+      SELECT ${DB_SELECT}
       FROM generated_contents gc
       LEFT JOIN tenants t ON t.id = gc.tenant_id
-      WHERE gc.status = 'published'
-        AND gc.channel = 'blog_html'
-        AND gc.compliance_status = 'pass'
-      ORDER BY gc.created_at DESC
+      WHERE ${DB_FILTER}
+      ORDER BY COALESCE(gc.published_at, gc.created_at) DESC
       LIMIT 200
-    `;
+    `);
   } catch {
     return [];
   }
 }
 
-async function getDbPostRowById(id: number): Promise<DbPostRow | null> {
+async function getDbPostRowBySlug(slug: string): Promise<DbPostRow | null> {
   const sql = getSql();
   if (!sql) return null;
   try {
@@ -136,10 +153,11 @@ async function getDbPostRowById(id: number): Promise<DbPostRow | null> {
         gc.id, gc.tenant_id, t.name AS tenant_name,
         gc.channel, gc.keyword_text, gc.body,
         gc.compliance_status, gc.status,
+        gc.slug, gc.title, gc.excerpt, gc.published_at,
         gc.created_at, gc.updated_at
       FROM generated_contents gc
       LEFT JOIN tenants t ON t.id = gc.tenant_id
-      WHERE gc.id = ${id}
+      WHERE gc.slug = ${slug}
         AND gc.status = 'published'
         AND gc.channel = 'blog_html'
         AND gc.compliance_status = 'pass'
@@ -151,26 +169,18 @@ async function getDbPostRowById(id: number): Promise<DbPostRow | null> {
   }
 }
 
-function dbRowToSlug(id: number): string {
-  return `${DB_SLUG_PREFIX}${id}`;
+/** 본문 HTML 에서 가벼운 메타 추출 — DB 컬럼이 비었을 때 폴백용. */
+function stripHtml(s: string): string {
+  return s.replace(/<[^>]+>/g, "");
 }
 
-function parseSlug(slug: string): { type: "mdx" } | { type: "db"; id: number } {
-  if (slug.startsWith(DB_SLUG_PREFIX)) {
-    const id = Number(slug.slice(DB_SLUG_PREFIX.length));
-    if (Number.isFinite(id) && id > 0) return { type: "db", id };
-  }
-  return { type: "mdx" };
-}
-
-/** 본문 HTML 에서 가벼운 메타 추출 — title(<h1>), description(<meta>/첫 단락). */
-function extractTitle(body: string, fallback: string): string {
+function extractTitleFromBody(body: string, fallback: string): string {
   const m = body.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
   if (m) return stripHtml(m[1]).trim() || fallback;
   return fallback;
 }
 
-function extractDescription(body: string, fallback: string): string {
+function extractDescriptionFromBody(body: string, fallback: string): string {
   const meta = body.match(/<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i);
   if (meta) return meta[1].trim();
   const p = body.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
@@ -178,31 +188,29 @@ function extractDescription(body: string, fallback: string): string {
     const t = stripHtml(p[1]).trim();
     if (t) return t.slice(0, 180);
   }
-  const flat = stripHtml(body).trim().replace(/\s+/g, " ");
-  return flat.slice(0, 180) || fallback;
-}
-
-function stripHtml(s: string): string {
-  return s.replace(/<[^>]+>/g, "");
+  return stripHtml(body).trim().replace(/\s+/g, " ").slice(0, 180) || fallback;
 }
 
 function dbRowToPostMeta(row: DbPostRow): PostMeta {
-  function toIsoDate(v: unknown): string | undefined {
-    if (v instanceof Date) return v.toISOString().slice(0, 10);
-    if (typeof v === "string" && v.length >= 10) return v.slice(0, 10);
-    return undefined;
-  }
-  const title = extractTitle(row.body, row.keyword_text);
-  const description = extractDescription(row.body, row.keyword_text);
-  const date = toIsoDate(row.created_at) ?? new Date().toISOString().slice(0, 10);
-  const updated = toIsoDate(row.updated_at) ?? toIsoDate(row.created_at);
+  // DB 의 title/excerpt/published_at 컬럼 우선, 비었으면 본문 추출 폴백.
+  // 날짜 변환은 toIsoDate 로 통일 — postgres.js 가 timestamptz 를 Date 객체로 줄 수 있음.
+  const title = (row.title || "").trim() || extractTitleFromBody(row.body, row.keyword_text);
+  const rawExcerpt = (row.excerpt || "").trim();
+  const description = rawExcerpt
+    ? (rawExcerpt.includes("<") ? stripHtml(rawExcerpt).trim().slice(0, 180) : rawExcerpt)
+    : extractDescriptionFromBody(row.body, row.keyword_text);
+  const date =
+    toIsoDate(row.published_at) ??
+    toIsoDate(row.created_at) ??
+    new Date().toISOString().slice(0, 10);
+  const updated = toIsoDate(row.updated_at) ?? toIsoDate(row.published_at) ?? toIsoDate(row.created_at);
   return {
-    slug: dbRowToSlug(row.id),
+    slug: (row.slug || "").trim(),
     title,
     description,
     date,
     updated,
-    category: "자동 발행",
+    category: "메디맵 인사이트",
     tags: row.keyword_text ? [row.keyword_text] : undefined,
     author: row.tenant_name ?? undefined,
     readingMinutes: readingTimeMinutes(stripHtml(row.body)),
@@ -221,7 +229,10 @@ function dbRowToPost(row: DbPostRow): Post {
 
 export async function getAllPostSlugs(): Promise<string[]> {
   const [mdx, db] = await Promise.all([getMdxSlugs(), getDbPostRows()]);
-  return [...mdx, ...db.map((r) => dbRowToSlug(r.id))];
+  return [
+    ...mdx,
+    ...db.map((r) => (r.slug ?? "").trim()).filter(Boolean),
+  ];
 }
 
 export async function getAllPosts(): Promise<PostMeta[]> {
@@ -230,8 +241,11 @@ export async function getAllPosts(): Promise<PostMeta[]> {
   const fileMetas = mdxPosts
     .filter((p): p is Post => p !== null)
     .map(({ source: _source, ...meta }) => meta);
-  const dbMetas = dbRows.map(dbRowToPostMeta);
-  return [...fileMetas, ...dbMetas].sort((a, b) => (a.date < b.date ? 1 : -1));
+  const dbMetas = dbRows.map(dbRowToPostMeta).filter((m) => m.slug);
+  // mdx slug 와 DB slug 가 어쩌다 겹치면 mdx 우선 (사용자가 손으로 큐레이션한 글)
+  const seen = new Set(fileMetas.map((m) => m.slug));
+  const dedupedDb = dbMetas.filter((m) => !seen.has(m.slug));
+  return [...fileMetas, ...dedupedDb].sort((a, b) => (a.date < b.date ? 1 : -1));
 }
 
 export async function getPostsForList(): Promise<PostMeta[]> {
@@ -239,10 +253,9 @@ export async function getPostsForList(): Promise<PostMeta[]> {
 }
 
 export async function getPostBySlug(slug: string): Promise<Post | null> {
-  const parsed = parseSlug(slug);
-  if (parsed.type === "db") {
-    const row = await getDbPostRowById(parsed.id);
-    return row ? dbRowToPost(row) : null;
-  }
-  return readPostFile(slug);
+  // 1. mdx 파일 우선 (사용자 큐레이션) → 2. DB slug 매칭
+  const file = await readPostFile(slug);
+  if (file) return file;
+  const row = await getDbPostRowBySlug(slug);
+  return row ? dbRowToPost(row) : null;
 }

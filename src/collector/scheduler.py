@@ -255,10 +255,36 @@ def _generate_draft(
         # 의료법 통과 + auto_publish 일 때만 즉시 발행 — 그 외엔 draft 유지.
         if auto_publish and obj.compliance_status == "pass":
             obj.status = "published"
+            # blog_html 이고 slug 비어있으면 keyword + id 로 자동 채움 (medimap-blog
+            # /blog/{slug} URL 노출 안전성 확보). 사용자가 어드민에서 직접 편집한
+            # slug 는 절대 덮어쓰지 않음.
+            if channel == "blog_html" and hasattr(obj, "slug"):
+                cur = (getattr(obj, "slug", None) or "").strip()
+                if not cur:
+                    obj.slug = _make_slug(keyword, obj.id)
+            if hasattr(obj, "published_at") and getattr(obj, "published_at", None) is None:
+                from datetime import datetime as _dt2, timezone as _tz2
+                obj.published_at = _dt2.now(_tz2.utc)
         else:
             obj.status = "draft"
         s.commit()
         return obj.status
+
+
+def _make_slug(keyword: str, content_id: int) -> str:
+    """한글/영문 키워드를 URL-safe slug 로 변환. 항상 -{id} suffix 로 충돌 0.
+
+    한글은 그대로 보존(Next.js URL 인코딩 OK), 공백/특수문자는 하이픈으로.
+    """
+    import re as _re
+    base = (keyword or "").strip().lower()
+    # 영숫자/한글/하이픈/공백만 남김
+    base = _re.sub(r"[^\w가-힣\s-]+", "", base, flags=_re.UNICODE)
+    base = _re.sub(r"[\s_]+", "-", base).strip("-")
+    if not base:
+        base = "post"
+    base = base[:40]  # 너무 길면 자름
+    return f"{base}-{content_id}"
 
 
 def stop_scheduler() -> None:
