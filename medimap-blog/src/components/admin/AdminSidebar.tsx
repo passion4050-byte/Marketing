@@ -11,10 +11,23 @@ import {
   LogOut,
   Menu,
   X,
+  FileText,
+  TrendingUp,
+  DollarSign,
+  Users,
+  RefreshCw,
 } from "lucide-react";
 
 const NAV: { href: string; label: string; icon: typeof LayoutDashboard }[] = [
   { href: "/admin", label: "대시보드", icon: LayoutDashboard },
+  // 콘텐츠 & 발행 (blogkey-adm 흡수)
+  { href: "/admin/publications", label: "발행 관리", icon: FileText },
+  { href: "/admin/funnel", label: "Funnel · ROI", icon: TrendingUp },
+  { href: "/admin/cost", label: "LLM 비용", icon: DollarSign },
+  // 데이터 운영
+  { href: "/admin/tenants", label: "테넌트", icon: Users },
+  { href: "/admin/sync", label: "블로그 동기화", icon: RefreshCw },
+  // 기존
   { href: "/admin/inquiries", label: "문의 관리", icon: MessageSquare },
   { href: "/admin/shortlinks", label: "단축링크", icon: Link2 },
   { href: "/admin/settings", label: "환경설정", icon: Settings },

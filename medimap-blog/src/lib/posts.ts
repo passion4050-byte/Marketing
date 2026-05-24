@@ -130,8 +130,15 @@ function toIsoDate(v: unknown): string | undefined {
 async function getDbPostRows(): Promise<DbPostRow[]> {
   const sql = getSql();
   if (!sql) return [];
+  // 2026-05-24: 빌드타임에 Supabase pooler 가 hang 걸려 SIGTERM 발생했었음.
+  // 8초 명시적 timeout — 늦으면 빈 배열, build 진행 멈추지 않음.
+  // ISR(revalidate=60) 이 첫 요청 시 다시 페치하므로 사용자 영향 0.
+  let to: ReturnType<typeof setTimeout> | undefined;
+  const timer = new Promise<DbPostRow[]>((resolve) => {
+    to = setTimeout(() => resolve([]), 8000);
+  });
   try {
-    return await sql.unsafe<DbPostRow[]>(`
+    const query = sql.unsafe<DbPostRow[]>(`
       SELECT ${DB_SELECT}
       FROM generated_contents gc
       LEFT JOIN tenants t ON t.id = gc.tenant_id
@@ -139,8 +146,11 @@ async function getDbPostRows(): Promise<DbPostRow[]> {
       ORDER BY COALESCE(gc.published_at, gc.created_at) DESC
       LIMIT 200
     `);
+    return await Promise.race([query, timer]);
   } catch {
     return [];
+  } finally {
+    if (to) clearTimeout(to);
   }
 }
 
@@ -267,4 +277,13 @@ export async function getPostBySlug(slug: string): Promise<Post | null> {
   if (file) return file;
   const row = await getDbPostRowBySlug(decoded);
   return row ? dbRowToPost(row) : null;
+}
+
+
+/**
+ * 빌드타임 generateStaticParams 용 — mdx 글만. DB slug 는 dynamicParams=true 로 처리.
+ * 2026-05-24: SSG 빌드타임 Supabase pooler hang 회피.
+ */
+export async function getMdxOnlySlugs(): Promise<string[]> {
+  return getMdxSlugs();
 }

@@ -48,7 +48,11 @@ const mdxComponents = {
 };
 
 export async function generateStaticParams() {
-  const slugs = await getAllPostSlugs();
+  // 2026-05-24: DB slug 들은 빌드타임 prerender 에서 제외 — pooler hang 회피.
+  // dynamicParams=true 와 revalidate=60 으로 첫 요청 시 SSR + 60초 ISR.
+  // mdx 글만 빌드 시 prerender. 자동 발행 DB 글은 첫 방문자 살짝 느림 (수백 ms).
+  const { getMdxOnlySlugs } = await import("@/lib/posts");
+  const slugs = await getMdxOnlySlugs();
   return slugs.map((slug) => ({ slug }));
 }
 
