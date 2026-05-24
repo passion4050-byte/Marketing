@@ -86,7 +86,7 @@ export function BlogIndex({ posts, categories }: Props) {
 
       {!active && featured && (
         <Link
-          href={`/blog/${featured.slug}`}
+          href={`/blog/${encodeURIComponent(featured.slug)}`}
           className="group mt-12 grid gap-6 overflow-hidden rounded-card border border-line/70 bg-white p-6 shadow-soft transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-brand-100 hover:shadow-card md:grid-cols-[1.4fr_1fr] md:p-8"
         >
           <div>
@@ -116,20 +116,31 @@ export function BlogIndex({ posts, categories }: Props) {
             </div>
           </div>
           <div className="relative hidden items-center justify-center overflow-hidden rounded-card bg-gradient-to-br from-brand-50 via-white to-accent-50 md:flex">
-            <div className="absolute inset-6 rounded-card border border-brand-100/40" />
-            <div
-              className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-brand/10 blur-2xl"
-              aria-hidden
-              style={{ transform: "translateZ(0)" }}
-            />
-            <div className="relative px-6 text-center">
-              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand-700">
-                FEATURED
-              </div>
-              <div className="mt-2 text-3xl font-extrabold tracking-tight text-ink balance-text md:text-4xl">
-                {featured.category ?? "메디컬"}
-              </div>
-            </div>
+            {featured.cover_image_url ? (
+              <img
+                src={featured.cover_image_url}
+                alt={featured.cover_image_alt ?? featured.title}
+                className="absolute inset-0 h-full w-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <>
+                <div className="absolute inset-6 rounded-card border border-brand-100/40" />
+                <div
+                  className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-brand/10 blur-2xl"
+                  aria-hidden
+                  style={{ transform: "translateZ(0)" }}
+                />
+                <div className="relative px-6 text-center">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand-700">
+                    FEATURED
+                  </div>
+                  <div className="mt-2 text-3xl font-extrabold tracking-tight text-ink balance-text md:text-4xl">
+                    {featured.category ?? "메디컬"}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </Link>
       )}

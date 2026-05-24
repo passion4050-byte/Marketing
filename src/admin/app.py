@@ -134,6 +134,7 @@ def main() -> None:
         render_admin_header(db_label=_db_summary()),
         unsafe_allow_html=True,
     )
+    _db_safety_banner()
 
     if not ok and err:
         st.warning(
@@ -221,3 +222,26 @@ def _db_summary() -> str:
 
 if __name__ == "__main__":
     main()
+
+def _db_safety_banner() -> None:
+    """DB 종류 안전 배너 — sqlite-fallback 시 빨간 경고. 2026-05-24
+
+    silent SQLite fallback 사고 방지. 사용자 입력이 컨테이너 휘발성 SQLite 에
+    저장되어 Supabase 에 반영 안 되는 케이스를 가시화.
+    """
+    try:
+        from src.storage.db import get_db_kind
+        kind = get_db_kind()
+    except Exception:
+        return
+    if kind == "postgres":
+        return
+    if kind == "sqlite-fallback":
+        st.error(
+            "🚨 DATABASE_URL 미설정 — SQLite 임시 저장 모드. "
+            "컨테이너 재시작 시 데이터 휘발. "
+            "Streamlit Cloud Settings → Secrets 에 DATABASE_URL 추가 필요."
+        )
+    elif kind == "sqlite":
+        st.warning("⚠️ SQLite 로컬 DB 사용 중 — Production 환경에선 PostgreSQL 권장.")
+

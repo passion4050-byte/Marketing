@@ -13,8 +13,21 @@ from .models import Base
 
 
 def _resolve_database_url() -> str:
-    url = os.getenv("DATABASE_URL", "sqlite:///./data/geo.db")
-    # SQLite의 경우 파일 경로 디렉토리 미리 확보
+    """DATABASE_URL 우선. 미설정 시 STREAMLIT_ALLOW_SQLITE=true 로 명시 허용한 경우에만 sqlite fallback.
+
+    2026-05-24: 사용자가 Streamlit Cloud secrets 에 DATABASE_URL 누락 시 sqlite 로 silent
+    fallback 되어 입력 데이터가 컨테이너 휘발되는 사고 발생. 명시 토글 없이는 RuntimeError.
+    """
+    url = os.getenv("DATABASE_URL", "").strip()
+    if not url:
+        allow_sqlite = os.getenv("STREAMLIT_ALLOW_SQLITE", "").strip().lower() in ("1", "true", "yes", "on")
+        if not allow_sqlite:
+            raise RuntimeError(
+                "DATABASE_URL 환경변수 미설정. Streamlit Cloud Secrets 에 추가 필요.\n"
+                "  postgresql://postgres.<REF>:<PW>@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres\n"
+                "로컬 개발용 sqlite 가 필요하면 STREAMLIT_ALLOW_SQLITE=true 명시 (휘발성 주의)."
+            )
+        url = "sqlite:///./data/geo.db"
     if url.startswith("sqlite:///"):
         path_str = url.replace("sqlite:///", "", 1)
         path = Path(path_str)
@@ -22,6 +35,18 @@ def _resolve_database_url() -> str:
             path = Path.cwd() / path
         path.parent.mkdir(parents=True, exist_ok=True)
     return url
+
+
+def get_db_kind() -> str:
+    """현재 DB 종류 — Streamlit 배너 표시용."""
+    url = os.getenv("DATABASE_URL", "").strip()
+    if not url:
+        return "sqlite-fallback"
+    if url.startswith("postgresql://") or url.startswith("postgres://"):
+        return "postgres"
+    if url.startswith("sqlite"):
+        return "sqlite"
+    return "unknown"
 
 
 _engine = None

@@ -200,6 +200,27 @@
   .db-html-content aside.cta-block { @apply my-10; }
   /* meta 태그(<meta name=description>) 는 텍스트 흐름에서 숨김 */
   .db-html-content meta { display: none; }
+
+  /* POST-HERO 2026-05-24 — DB 자동 발행 글 hero image + db-html-content 본문 내 figure */
+  .db-html-content figure.post-hero {
+    @apply my-6 overflow-hidden rounded-card border border-line/70 bg-surface-alt;
+  }
+  .db-html-content figure.post-hero img {
+    @apply w-full h-auto;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+  }
+  .db-html-content figure.post-hero figcaption {
+    @apply px-4 py-2 text-[11.5px] text-ink-subtle;
+  }
+    /* CTA-CLEANUP 2026-05-24 — generator 자동 부착 CTA aside 는 medimap-blog
+     페이지 레이아웃의 "메디맵에 상담하기" 와 중복되어 숨김.
+     legacy 발행글 + 누락 케이스 가드. */
+  .db-html-content aside.cta-block,
+  .db-html-content aside[data-cta-block] {
+    display: none !important;
+  }
+
 }
 
 @layer utilities {

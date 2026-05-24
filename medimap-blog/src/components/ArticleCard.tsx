@@ -11,11 +11,22 @@ export function ArticleCard({ post, variant = "default" }: Props) {
   const compact = variant === "compact";
   return (
     <Link
-      href={`/blog/${post.slug}`}
-      className={`group flex flex-col card-base card-hover card-accent-top ${
-        compact ? "p-5" : "p-6"
+      href={`/blog/${encodeURIComponent(post.slug)}`}
+      className={`group flex flex-col card-base card-hover card-accent-top overflow-hidden ${
+        compact ? "p-0" : "p-0"
       }`}
     >
+      {post.cover_image_url && (
+        <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface-alt">
+          <img
+            src={post.cover_image_url}
+            alt={post.cover_image_alt ?? post.title}
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+          />
+        </div>
+      )}
+      <div className={compact ? "p-5" : "p-6"}>
       <div className="flex items-center gap-1.5">
         {post.category && <span className="pill-label">{post.category}</span>}
         {post.reviewedBy && (
@@ -61,6 +72,7 @@ export function ArticleCard({ post, variant = "default" }: Props) {
         <span className="inline-flex h-7 w-7 items-center justify-center rounded-pill border border-line bg-white text-ink-muted transition-all group-hover:border-brand-200 group-hover:bg-brand group-hover:text-white">
           <ArrowUpRight size={14} />
         </span>
+      </div>
       </div>
     </Link>
   );

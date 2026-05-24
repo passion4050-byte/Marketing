@@ -8,6 +8,7 @@ import {
   MessageSquare,
   Link2,
   Settings,
+  BookOpen,
   LogOut,
   Menu,
   X,
@@ -31,6 +32,7 @@ const NAV: { href: string; label: string; icon: typeof LayoutDashboard }[] = [
   { href: "/admin/inquiries", label: "문의 관리", icon: MessageSquare },
   { href: "/admin/shortlinks", label: "단축링크", icon: Link2 },
   { href: "/admin/settings", label: "환경설정", icon: Settings },
+  { href: "/admin/guide", label: "운영 가이드", icon: BookOpen },
 ];
 
 function NavList({

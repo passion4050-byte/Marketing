@@ -268,6 +268,35 @@ def _generate_draft(
         else:
             obj.status = "draft"
         s.commit()
+
+        # 2026-05-24: blog_html 자동 발행 시 Pollinations.AI 일러스트 자동 첨부.
+        # IMAGE_GEN_ENABLED=true 일 때만. 실패해도 발행 자체는 진행 (graceful).
+        if obj.status == "published" and channel == "blog_html":
+            try:
+                from src.content.image_picker import generate_image_for_content, is_enabled
+                if is_enabled():
+                    img = generate_image_for_content(keyword, obj.title)
+                    if img:
+                        from sqlalchemy import text as _sql_text
+                        s.execute(
+                            _sql_text(
+                                "UPDATE generated_contents SET "
+                                "cover_image_url=:url, cover_image_alt=:alt, "
+                                "cover_image_prompt=:prompt, cover_image_generated_at=NOW() "
+                                "WHERE id=:id"
+                            ),
+                            {
+                                "url": img["url"],
+                                "alt": img["alt"],
+                                "prompt": img["prompt"][:1000],
+                                "id": obj.id,
+                            },
+                        )
+                        s.commit()
+            except Exception:
+                # 이미지 실패는 발행 차단 사유 아님 — silent log only
+                pass
+
         return obj.status
 
 

@@ -93,6 +93,23 @@ export default async function BlogPostPage({
 
   // DB 자동 발행 글은 generator 가 만든 HTML 을 그대로 노출 — 의료법 린터 통과한
   // 자기 콘텐츠라 XSS 위험 없음. mdx 글은 기존 compileMDX 파이프라인 유지.
+  const heroImage = post.cover_image_url ? (
+    <figure className="post-hero -mt-4 mb-8 overflow-hidden rounded-card border border-line/70 bg-surface-alt">
+      <img
+        src={post.cover_image_url}
+        alt={post.cover_image_alt ?? post.title}
+        className="w-full h-auto aspect-[16/9] object-cover"
+        loading="eager"
+        decoding="async"
+      />
+      {post.cover_image_alt && (
+        <figcaption className="px-4 py-2 text-[11.5px] text-ink-subtle">
+          {post.cover_image_alt}
+        </figcaption>
+      )}
+    </figure>
+  ) : null;
+
   let content: React.ReactNode;
   if (post.source_type === "html") {
     content = (
@@ -197,7 +214,8 @@ export default async function BlogPostPage({
               </div>
             </header>
 
-            <div className="mx-auto mt-10 prose-medimap">{content}</div>
+            <div className="mx-auto mt-10 prose-medimap">{heroImage}
+          {content}</div>
 
             {post.faq && post.faq.length > 0 && (
               <section className="mx-auto mt-14 max-w-prose">

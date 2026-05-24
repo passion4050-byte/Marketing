@@ -31,6 +31,8 @@ export interface PostMeta {
   readingMinutes: number;
   /** mdx 파일 vs DB 자동 발행 글 — blog/[slug] 페이지가 렌더 분기에 사용. */
   source_type: PostSourceType;
+  cover_image_url?: string;
+  cover_image_alt?: string;
 }
 
 export interface Post extends PostMeta {
@@ -103,6 +105,8 @@ interface DbPostRow {
   published_at: string | null;
   created_at: string;
   updated_at: string;
+  cover_image_url: string | null;
+  cover_image_alt: string | null;
 }
 
 const DB_SELECT = `
@@ -110,7 +114,8 @@ const DB_SELECT = `
   gc.channel, gc.keyword_text, gc.body,
   gc.compliance_status, gc.status,
   gc.slug, gc.title, gc.excerpt, gc.published_at,
-  gc.created_at, gc.updated_at
+  gc.created_at, gc.updated_at,
+  gc.cover_image_url, gc.cover_image_alt
 `;
 
 const DB_FILTER = `

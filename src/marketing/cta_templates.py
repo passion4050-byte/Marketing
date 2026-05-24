@@ -61,9 +61,17 @@ def append_cta_to_content(
     utm_source: Optional[str] = None,
     utm_campaign: Optional[str] = None,
 ) -> str:
-    """본문 끝에 채널 CTA 를 한 줄 띄우고 부착. 이미 CTA 마커가 있으면 중복 부착하지 않는다."""
+    """본문 끝에 채널 CTA 를 한 줄 띄우고 부착. 이미 CTA 마커가 있으면 중복 부착하지 않는다.
+
+    2026-05-24: medimap-blog 자사 블로그 채널 (blog_html / schema_org / own_blog)
+    은 페이지 레이아웃 자체에 "메디맵에 상담하기" CTA 가 별도 노출되므로
+    본문 끝 CTA 부착은 중복 — no-op 으로 처리. 외부 채널(naver_blog / instagram)
+    은 본문이 곧 전부라 그대로 부착 유지.
+    """
     if not content:
         return content
+    if channel in ("blog_html", "schema_org", "own_blog"):
+        return content  # 자사 블로그 — 중복 회피
     if "data-cta-block=" in content or "[CTA-BLOCK]" in content:
         return content
     block = cta_block_for_channel(
