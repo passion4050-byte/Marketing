@@ -885,6 +885,34 @@ def _build_blog_user_prompt(
     return "\n".join(parts)
 
 
+
+def _lenient_json_loads(raw: str) -> dict:
+    """LLM 출력 JSON 파싱 — 표준 json.loads 실패 시 자동 수정 시도.
+
+    2026-05-24: Gemini 가 markdown wrap + 한국어 콘텐츠 안에 escape 안 된 줄바꿈/
+    따옴표 넣어서 malformed JSON 빈번. response_mime_type 강제 후에도 가끔
+    실패. 자동 보정 (smart quotes / trailing comma / control char) 시도.
+    """
+    import json as _json
+    import re as _re
+    try:
+        return _json.loads(raw)
+    except _json.JSONDecodeError:
+        pass
+    fixed = raw
+    # smart quotes → ASCII
+    fixed = fixed.replace("“", '"').replace("”", '"')
+    fixed = fixed.replace("‘", "'").replace("’", "'")
+    # trailing comma in object/array
+    fixed = _re.sub(r",\s*([}\]])", r"\1", fixed)
+    # control char in string (Gemini 가 \n 안 escape 한 경우) — string 안 \n → \\n
+    # 가장 위험. 일단 stub 우회 — strip 시도만.
+    try:
+        return _json.loads(fixed)
+    except _json.JSONDecodeError as e:
+        # 마지막 시도: strict=False
+        return _json.loads(fixed, strict=False)
+
 def _parse_qa_json(text: str) -> list[FAQPair]:
     """LLM 응답에서 FAQ JSON 추출."""
     cleaned = re.sub(r"```(?:json)?\s*", "", text)
@@ -893,9 +921,9 @@ def _parse_qa_json(text: str) -> list[FAQPair]:
     if not m:
         raise LLMError(f"LLM 응답에서 JSON을 찾지 못함: {text[:200]}")
     try:
-        data = json.loads(m.group(0))
+        data = _lenient_json_loads(m.group(0))
     except json.JSONDecodeError as e:
-        raise LLMError(f"JSON 파싱 실패: {e}; raw={text[:200]}") from e
+        raise LLMError(f"JSON 파싱 실패: {e}; raw={text[:500]}") from e
 
     pairs_raw = data.get("qa_pairs") or data.get("faq") or data.get("pairs") or []
     if not pairs_raw:
@@ -911,9 +939,9 @@ def _parse_blog_json(text: str) -> dict:
     if not m:
         raise LLMError(f"LLM 응답에서 JSON을 찾지 못함: {text[:200]}")
     try:
-        data = json.loads(m.group(0))
+        data = _lenient_json_loads(m.group(0))
     except json.JSONDecodeError as e:
-        raise LLMError(f"JSON 파싱 실패: {e}; raw={text[:200]}") from e
+        raise LLMError(f"JSON 파싱 실패: {e}; raw={text[:500]}") from e
 
     # 최소 필드 검증
     if "title" not in data and "sections" not in data:
@@ -971,17 +999,21 @@ class GeminiProvider:
         self._client = genai.Client(api_key=api_key)
         self._types = genai_types
         self._model = model
+        # 2026-05-24: response_mime_type=application/json 강제. Gemini 가 markdown
+        # 코드 블록 (```json...```) 으로 감싸지 않고 strict JSON 만 출력 → parser 통과율 ↑.
+        # 추가 safety: temperature 명시 (사실 조작 위험 감소).
+        _json_kwargs = {"response_mime_type": "application/json", "temperature": 0.7}
         self._faq_config = genai_types.GenerateContentConfig(
-            system_instruction=_FAQ_SYSTEM_PROMPT
+            system_instruction=_FAQ_SYSTEM_PROMPT, **_json_kwargs
         )
         self._blog_config = genai_types.GenerateContentConfig(
-            system_instruction=_BLOG_SYSTEM_PROMPT
+            system_instruction=_BLOG_SYSTEM_PROMPT, **_json_kwargs
         )
         self._naver_config = genai_types.GenerateContentConfig(
-            system_instruction=_NAVER_SYSTEM_PROMPT
+            system_instruction=_NAVER_SYSTEM_PROMPT, **_json_kwargs
         )
         self._instagram_config = genai_types.GenerateContentConfig(
-            system_instruction=_INSTAGRAM_SYSTEM_PROMPT
+            system_instruction=_INSTAGRAM_SYSTEM_PROMPT, **_json_kwargs
         )
 
     def _generate(self, prompt: str, config) -> str:
