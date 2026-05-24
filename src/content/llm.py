@@ -1427,7 +1427,7 @@ def get_provider(provider_name: str | None = None) -> LLMProvider:
         return StubProvider()
 
     if name == "gemini":
-        key = os.getenv("GOOGLE_API_KEY")
+        key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
         if not key:
             raise LLMError(
                 "GOOGLE_API_KEY 미설정. https://aistudio.google.com/apikey 에서 무료 발급 후 .env에 추가."

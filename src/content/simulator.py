@@ -121,7 +121,7 @@ def _simulate_gemini(prompt: str) -> str:
     from google import genai
     from google.genai import types
 
-    key = os.getenv("GOOGLE_API_KEY")
+    key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
     if not key:
         raise RuntimeError("GOOGLE_API_KEY 미설정")
     client = genai.Client(api_key=key)
