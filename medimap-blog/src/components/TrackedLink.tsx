@@ -3,7 +3,7 @@
 import { trackCtaClick } from "@/lib/analytics";
 
 interface Props extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
-  trackChannel: "kakao" | "naver_place" | "phone";
+  trackChannel: "kakao" | "naver_place" | "phone" | "medimap_main";
   trackSource: string;
   trackCampaign: string;
 }

@@ -33,7 +33,7 @@ export function track(eventName: string, params: GtagEventParams = {}): void {
 }
 
 export function trackCtaClick(
-  channel: "kakao" | "naver_place" | "phone",
+  channel: "kakao" | "naver_place" | "phone" | "medimap_main",
   source: string,
   campaign: string,
 ): void {

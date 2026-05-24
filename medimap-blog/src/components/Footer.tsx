@@ -99,10 +99,10 @@ export function Footer() {
             영업일 기준 1~2일 내 회신드립니다.
           </p>
           <a
-            href={`mailto:hello@medimap.kr`}
+            href={`mailto:sales@medimap.team`}
             className="mt-4 inline-flex items-center gap-2 rounded-pill border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/30 hover:bg-white/10"
           >
-            <Mail size={14} /> hello@medimap.kr
+            <Mail size={14} /> sales@medimap.team
           </a>
         </div>
       </div>

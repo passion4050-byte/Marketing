@@ -1,5 +1,5 @@
 import { siteConfig } from "@/lib/site";
-import { MessageCircle, MapPin, Phone } from "lucide-react";
+import { MessageCircle, MapPin, ExternalLink } from "lucide-react";
 import { TrackedLink } from "./TrackedLink";
 
 interface CTABlockProps {
@@ -77,13 +77,15 @@ export function CTABlock({
             <MapPin size={17} /> 네이버 플레이스
           </TrackedLink>
           <TrackedLink
-            href={`tel:${siteConfig.contact.phone}`}
-            trackChannel="phone"
+            href={siteConfig.contact.medimapMain}
+            target="_blank"
+            rel="noopener noreferrer"
+            trackChannel="medimap_main"
             trackSource={utmSource}
             trackCampaign={utmCampaign}
             className="group inline-flex items-center justify-center gap-2 rounded-pill bg-white px-5 py-3 text-sm font-semibold text-brand transition hover:-translate-y-0.5 hover:bg-brand-50"
           >
-            <Phone size={17} /> 전화 상담
+            <ExternalLink size={17} /> 많은 의료정보 보기
           </TrackedLink>
         </div>
       </div>

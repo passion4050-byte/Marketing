@@ -10,11 +10,12 @@ export const siteConfig = {
     process.env.NEXT_PUBLIC_SHORTLINK_BASE || "https://m.medimap.kr/r",
   contact: {
     kakao:
-      process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL || "https://pf.kakao.com/_xxxxx",
+      process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL || "https://pf.kakao.com/_xnWQkG",
     naverPlace:
       process.env.NEXT_PUBLIC_NAVER_PLACE_URL ||
-      "https://map.naver.com/v5/search/메디맵",
+      "https://map.naver.com/p/search/%EB%A9%94%EB%94%94%EB%A7%B5/place/1091694610?c=15.00,0,0,0,dh&placePath=/home?bk_query=%EB%A9%94%EB%94%94%EB%A7%B5&entry=bmp&from=map&fromPanelNum=2&timestamp=202605242028&locale=ko&svcName=map_pcv5&searchText=%EB%A9%94%EB%94%94%EB%A7%B5",
     phone: process.env.NEXT_PUBLIC_PHONE || "02-0000-0000",
+    medimapMain: process.env.NEXT_PUBLIC_MEDIMAP_MAIN_URL || "https://medi-map.co.kr",
   },
   ga: process.env.NEXT_PUBLIC_GA_ID || "",
   gtm: process.env.NEXT_PUBLIC_GTM_ID || "",
