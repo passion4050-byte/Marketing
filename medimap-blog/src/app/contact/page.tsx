@@ -139,12 +139,6 @@ function ContactSection() {
 
           <div className="mt-10 space-y-6">
             <InfoRow
-              icon={<Phone size={16} />}
-              label="Phone"
-              value={CONTACT.phone}
-              href={`tel:${CONTACT.phoneTel}`}
-            />
-            <InfoRow
               icon={<Mail size={16} />}
               label="Email"
               value={CONTACT.email}
@@ -280,18 +274,6 @@ function LocationSection() {
             <Row icon={<MapPin size={15} />} label="주소" value={CONTACT.office} />
             <Row icon={<Train size={15} />} label="지하철" value={CONTACT.subway} />
             <Row
-              icon={<Phone size={15} />}
-              label="전화"
-              value={
-                <a
-                  href={`tel:${CONTACT.phoneTel}`}
-                  className="num transition hover:text-brand"
-                >
-                  {CONTACT.phone}
-                </a>
-              }
-            />
-            <Row
               icon={<Mail size={15} />}
               label="이메일"
               value={
@@ -317,12 +299,6 @@ function LocationSection() {
             />
 
             <div className="mt-6 flex flex-wrap gap-2 border-t border-line/70 pt-5">
-              <a
-                href={`tel:${CONTACT.phoneTel}`}
-                className="inline-flex items-center gap-1.5 rounded-pill bg-brand px-4 py-2 text-[13px] font-bold text-white shadow-cta transition hover:-translate-y-0.5 hover:shadow-glow"
-              >
-                <Phone size={13} /> 전화
-              </a>
               <a
                 href={`mailto:${CONTACT.email}`}
                 className="inline-flex items-center gap-1.5 rounded-pill border border-line bg-white px-4 py-2 text-[13px] font-bold text-ink-muted transition hover:border-brand-200 hover:text-brand"

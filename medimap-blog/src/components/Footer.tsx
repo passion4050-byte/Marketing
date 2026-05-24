@@ -1,9 +1,16 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Mail, MessageCircle, MapPin, Phone } from "lucide-react";
 import { siteConfig } from "@/lib/site";
 
 export function Footer() {
-  return (
+    const pathname = usePathname() ?? "";
+  if (pathname.startsWith("/admin") || pathname.startsWith("/client")) {
+    return null;
+  }
+return (
     <footer className="mt-24 bg-ink text-white">
       <div className="container-content grid gap-10 py-16 md:grid-cols-12">
         <div className="md:col-span-5">

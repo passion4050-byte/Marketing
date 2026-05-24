@@ -6,7 +6,7 @@
  */
 import { getSql } from "./db";
 
-const QUERY_TIMEOUT_MS = 4000;
+const QUERY_TIMEOUT_MS = 8000;
 const TENANT_ID = 1; // MVP — TETE 하드코딩
 
 async function withQueryTimeout<T>(p: Promise<T>, fallback: T, ms = QUERY_TIMEOUT_MS): Promise<T> {

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { siteConfig, navItems } from "@/lib/site";
 
@@ -26,6 +27,11 @@ export function Header() {
       document.body.style.overflow = "";
     };
   }, [open]);
+
+  const pathname = usePathname() ?? "";
+  if (pathname.startsWith("/admin") || pathname.startsWith("/client")) {
+    return null;
+  }
 
   return (
     <header
@@ -60,7 +66,7 @@ export function Header() {
             </Link>
           ))}
           <Link
-            href={siteConfig.contact.kakao}
+            href={siteConfig.contact.medimapMain}
             className="btn-primary ml-3 px-5 py-2.5 text-sm"
             target="_blank"
             rel="noopener noreferrer"
@@ -112,7 +118,7 @@ export function Header() {
             ))}
             <li className="mt-2">
               <Link
-                href={siteConfig.contact.kakao}
+                href={siteConfig.contact.medimapMain}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setOpen(false)}
