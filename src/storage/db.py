@@ -164,3 +164,15 @@ def upgrade_to_head() -> tuple[bool, str | None]:
         return True, msg
     except Exception as e:
         return False, f"{type(e).__name__}: {e}"[:500]
+
+
+def __getattr__(name: str):
+    """Lazy SessionLocal alias — Streamlit/scheduler/scripts 의 ``from src.storage.db import SessionLocal`` 호환.
+
+    2026-05-24: scripts/run_auto_content_once.py 가 SessionLocal 직접 import 했으나
+    db.py 는 get_session_factory() 만 노출. module-level __getattr__ (PEP 562) 로
+    lazy 호환. 첫 접근 시 get_session_factory() 호출 → DATABASE_URL 미설정 시 명시 에러.
+    """
+    if name == "SessionLocal":
+        return get_session_factory()
+    raise AttributeError(f"module 'src.storage.db' has no attribute {name!r}")
