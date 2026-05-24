@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { ClientSidebar } from "@/components/admin/ClientSidebar";
 import { getClientPersona } from "@/lib/client-data";
+import { CLIENT_COOKIE_NAME, isClientConfigured, verifyClientCookie } from "@/lib/client-auth";
 
 export const metadata: Metadata = {
   title: "클라이언트 포털 — 메디맵",
@@ -10,6 +13,12 @@ export const metadata: Metadata = {
 };
 
 export default async function ClientPortalLayout({ children }: { children: React.ReactNode }) {
+  // 2026-05-24: tenant 인증 가드. CLIENT_PASSWORD env 미설정 시는 우회 (개발/MVP 호환).
+  if (isClientConfigured()) {
+    const cookie = cookies().get(CLIENT_COOKIE_NAME)?.value;
+    const ok = await verifyClientCookie(cookie);
+    if (!ok) redirect("/client/login");
+  }
   const persona = await getClientPersona();
   return (
     <div className="min-h-screen bg-[#F7F8FB]">

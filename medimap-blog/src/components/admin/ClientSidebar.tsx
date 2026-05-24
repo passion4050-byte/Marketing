@@ -64,7 +64,7 @@ function BrandHeader({ onClose, tenantName }: { onClose?: () => void; tenantName
 
 function LogoutForm() {
   return (
-    <form action="/api/admin/logout" method="post" className="border-t border-line/70 p-3">
+    <form action="/api/client/logout" method="post" className="border-t border-line/70 p-3">
       <button type="submit"
               className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13.5px] font-semibold text-ink-muted transition hover:bg-surface-alt hover:text-ink">
         <LogOut size={16} />
