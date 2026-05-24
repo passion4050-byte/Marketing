@@ -497,12 +497,6 @@ function PartnerReviews() {
 /* ────────────────── 5. CTA + PDF 다운로드 ────────────────── */
 
 function PartnerCta() {
-  const brochureMail = `mailto:sales@medimap.team?subject=${encodeURIComponent(
-    "[메디맵] 소개서(PDF) 요청",
-  )}&body=${encodeURIComponent(
-    "안녕하세요. 메디맵 소개서 PDF 자료를 요청드립니다.\n\n- 병원/기관명: \n- 담당자: \n- 연락처: \n\n감사합니다.",
-  )}`;
-
   return (
     <section
       id="partner-cta"
@@ -541,14 +535,15 @@ function PartnerCta() {
             메디맵 소개서 다운 받기
           </h3>
           <a
-            href={brochureMail}
+            href="/medimap-introduction.pdf"
+            download="메디맵_소개서.pdf"
             className="mt-4 inline-flex items-center gap-2 rounded-pill bg-white px-6 py-3 text-base font-bold text-brand shadow-cta transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glow"
           >
             <FileDown size={18} />
-            소개서 받기
+            소개서 받기 (PDF)
           </a>
           <p className="mt-3 text-[12px] text-white/75">
-            메디맵의 자세한 소개가 담긴 PDF 파일을 메일로 보내드립니다.
+            메디맵의 자세한 소개가 담긴 PDF 파일을 즉시 다운로드합니다.
           </p>
         </div>
       </div>
