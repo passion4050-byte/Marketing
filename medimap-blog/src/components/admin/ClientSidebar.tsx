@@ -41,14 +41,10 @@ function BrandHeader({ onClose, tenantName }: { onClose?: () => void; tenantName
   return (
     <div className="flex items-center justify-between border-b border-line/70 px-5 py-5">
       <Link href="/client" onClick={onClose} className="flex items-center gap-2.5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-accent text-white text-[15px] font-extrabold">
-          M
-        </div>
-        <div className="text-[14px] font-bold tracking-tight text-ink">
-          MEDIMAP
-          <span className="ml-1.5 rounded-md bg-accent/15 px-1.5 py-0.5 text-[10px] font-bold text-accent-deep">
-            CLIENT
-          </span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/medimap-logo.svg" alt="MEDIMAP" width={134} height={22} className="h-5 w-auto" />
+        <div>
+          <span className="rounded-md bg-accent/15 px-1.5 py-0.5 text-[10px] font-bold text-accent-deep">CLIENT</span>
           {tenantName && (
             <div className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-ink-subtle">
               <Building2 size={10} /> {tenantName}
@@ -97,8 +93,9 @@ export function ClientSidebar({ tenantName }: { tenantName?: string }) {
           <Menu size={20} />
         </button>
         <Link href="/client" className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-brand to-accent text-white text-[13px] font-extrabold">M</div>
-          <div className="text-[13.5px] font-bold tracking-tight text-ink">CLIENT</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/medimap-logo.svg" alt="MEDIMAP" width={134} height={22} className="h-4 w-auto" />
+          <span className="rounded-md bg-accent/15 px-1.5 py-0.5 text-[9px] font-bold text-accent-deep">CLIENT</span>
         </Link>
         <span className="w-10" aria-hidden />
       </div>

@@ -130,39 +130,13 @@ export function Header() {
 
 function Logo() {
   return (
-    <div className="flex items-center gap-2.5">
-      <svg
-        width="32"
-        height="32"
-        viewBox="0 0 32 32"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-hidden
-        className="drop-shadow-[0_2px_8px_rgba(27,104,255,0.22)]"
-      >
-        <defs>
-          <linearGradient id="logoGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="var(--color-brand)" />
-            <stop offset="100%" stopColor="var(--color-accent)" />
-          </linearGradient>
-        </defs>
-        <rect x="2" y="2" width="28" height="28" rx="9" fill="url(#logoGrad)" />
-        <path
-          d="M9 22V10l4 7 4-7v12M21 10v12M21 13.5l3-3.5"
-          stroke="white"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-      <div className="leading-tight">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">
-          메디맵
-        </div>
-        <div className="text-sm font-extrabold tracking-tight text-brand">
-          MEDIMAP
-        </div>
-      </div>
-    </div>
+    <img
+      src="/medimap-logo.svg"
+      alt="MEDIMAP"
+      width={134}
+      height={22}
+      className="h-6 w-auto md:h-7"
+      // eslint-disable-next-line @next/next/no-img-element
+    />
   );
 }

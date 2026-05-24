@@ -4,7 +4,6 @@ import { BlogIndex } from "@/components/BlogIndex";
 import { JsonLd } from "@/components/JsonLd";
 import { breadcrumbLd } from "@/lib/schema";
 import { getAllPosts } from "@/lib/posts";
-import { ShieldCheck, FileText, Sparkles } from "lucide-react";
 
 // 60초 ISR — DB published 글이 새로 생기면 1분 내 인덱스에 반영.
 export const revalidate = 60;
@@ -43,23 +42,7 @@ export default async function BlogIndexPage() {
             <h1 className="mt-4 text-[40px] font-extrabold tracking-[-0.025em] balance-text md:text-[48px]">
               신뢰할 수 있는 의료 가이드
             </h1>
-            <p className="mx-auto mt-4 max-w-2xl text-ink-muted pretty-text">
-              의료법 검수를 마친 콘텐츠만 발행합니다. AI 검색에서 인용 가능한
-              형식(Article + FAQ + MedicalWebPage Schema)으로 구조화되어 있습니다.
-            </p>
-            <div className="mt-7 inline-flex flex-wrap items-center justify-center gap-2 rounded-pill border border-line/80 bg-white/80 px-3 py-1.5 text-xs text-ink-muted backdrop-blur">
-              <span className="inline-flex items-center gap-1 num">
-                <FileText size={12} className="text-brand" /> {posts.length}편 발행
-              </span>
-              <span className="meta-divider" />
-              <span className="inline-flex items-center gap-1">
-                <ShieldCheck size={12} className="text-brand" /> 의료법 9룰 검수
-              </span>
-              <span className="meta-divider" />
-              <span className="inline-flex items-center gap-1">
-                <Sparkles size={12} className="text-accent" /> AI 인용 최적화
-              </span>
-            </div>
+
           </header>
 
           {posts.length === 0 ? (
