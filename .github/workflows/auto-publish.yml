@@ -1,0 +1,62 @@
+name: Auto-publish content (cron)
+
+on:
+  schedule:
+    # 매 시간 정각 (UTC). 한국시간 9시,10시,...,8시.
+    - cron: '0 * * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auto-publish
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    name: Generate + publish 1 cycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify required secrets
+        run: |
+          if [ -z "${{ secrets.DATABASE_URL }}" ]; then
+            echo "::error::DATABASE_URL secret 미설정"
+            exit 1
+          fi
+
+      - name: Run daily_auto_content_job
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          LLM_PROVIDER: ${{ secrets.LLM_PROVIDER || 'gemini' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MAX_DAILY_USD: ${{ secrets.MAX_DAILY_USD || '10' }}
+          IMAGE_GEN_ENABLED: ${{ secrets.IMAGE_GEN_ENABLED || 'true' }}
+        run: python scripts/run_auto_content_once.py
+
+      - name: Trigger Vercel deploy hook (ISR 캐시 즉시 무효화)
+        if: success() && env.VERCEL_DEPLOY_HOOK != ''
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          curl -sS -X POST "$VERCEL_DEPLOY_HOOK" || true
