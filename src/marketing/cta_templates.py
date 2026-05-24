@@ -88,7 +88,7 @@ def _html_cta(brand: str, body: str, kakao: str, naver: str, phone: str) -> str:
     return (
         '<aside class="cta-block" data-cta-block="standard" '
         'style="margin:32px 0;padding:24px;border-radius:16px;'
-        'background:linear-gradient(135deg,#FF4D5E,#FF6B35);color:#fff;">\n'
+        'background:linear-gradient(135deg,#1B68FF,#1AD2A4);color:#fff;">\n'
         f'  <h3 style="margin:0 0 8px;font-size:20px;font-weight:700;">{brand} 안내</h3>\n'
         f'  <p style="margin:0 0 16px;line-height:1.6;color:rgba(255,255,255,0.92);">{body}</p>\n'
         '  <div style="display:flex;flex-wrap:wrap;gap:8px;">\n'
@@ -100,7 +100,7 @@ def _html_cta(brand: str, body: str, kakao: str, naver: str, phone: str) -> str:
         'color:#fff;text-decoration:none;font-weight:600;">네이버 플레이스</a>\n'
         f'    <a href="tel:{phone}" '
         'style="padding:10px 18px;border-radius:999px;background:#fff;'
-        'color:#FF4D5E;text-decoration:none;font-weight:700;">전화 ' + phone + '</a>\n'
+        'color:#1B68FF;text-decoration:none;font-weight:700;">전화 ' + phone + '</a>\n'
         '  </div>\n'
         '</aside>'
     )

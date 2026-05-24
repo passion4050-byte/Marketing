@@ -31,12 +31,12 @@ export default async function AdminDashboard() {
     {
       label: formTypeLabel.partnership,
       value: stats.byFormType.partnership,
-      color: "#FF4D5E",
+      color: "#1B68FF",
     },
     {
       label: formTypeLabel.listing,
       value: stats.byFormType.listing,
-      color: "#FF6B35",
+      color: "#1AD2A4",
     },
     {
       label: formTypeLabel.contact,

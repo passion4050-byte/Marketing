@@ -31,7 +31,7 @@ export default async function BlogPostOgImage({
           height: "100%",
           display: "flex",
           flexDirection: "column",
-          background: "linear-gradient(135deg, #FF4D5E 0%, #FF6B35 100%)",
+          background: "linear-gradient(135deg, #1B68FF 0%, #1AD2A4 100%)",
           padding: 80,
           color: "#FFFFFF",
           fontFamily:

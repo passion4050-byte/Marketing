@@ -17,9 +17,9 @@ from __future__ import annotations
 
 class GnColors:
     # Brand mark (강남언니 워드마크/포인트)
-    BRAND = "#FF4D5E"
+    BRAND = "#1B68FF"
     BRAND_DARK = "#E63E51"
-    BRAND_LIGHT = "#FFE9EC"
+    BRAND_LIGHT = "#DCE9FF"
 
     # Primary interaction (active 탭/체크박스/CTA)
     PRIMARY = "#4F5DF8"
@@ -172,7 +172,7 @@ ADMIN_CSS = f"""
   .admin-brand-mark {{
     width: 38px; height: 38px;
     border-radius: 11px;
-    background: linear-gradient(135deg, {GnColors.BRAND} 0%, #FF6E7C 100%);
+    background: linear-gradient(135deg, {GnColors.BRAND} 0%, #5290FF 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -180,7 +180,7 @@ ADMIN_CSS = f"""
     font-weight: 800;
     font-size: 13px;
     letter-spacing: -0.02em;
-    box-shadow: 0 4px 10px rgba(255, 77, 94, 0.28);
+    box-shadow: 0 4px 10px rgba(27, 104, 255, 0.28);
   }}
   .admin-brand-name {{
     font-size: 18px;
@@ -437,7 +437,7 @@ ADMIN_CSS = f"""
   .admin-chip-pink {{
     background: {GnColors.BRAND_LIGHT};
     color: {GnColors.BRAND_DARK};
-    border-color: rgba(255, 77, 94, 0.22);
+    border-color: rgba(27, 104, 255, 0.22);
   }}
   .admin-chip-mint {{
     background: {GnColors.MINT_LIGHT};
@@ -537,8 +537,8 @@ ADMIN_CSS = f"""
   }}
   /* 첫 번째 KPI tile 만 핑크 강조 (강남언니 파트너센터의 포인트 카드 톤) */
   .admin-kpi-tile.is-accent {{
-    background: linear-gradient(180deg, {GnColors.SURFACE} 0%, #FFF6F7 100%);
-    border-color: rgba(255, 77, 94, 0.20);
+    background: linear-gradient(180deg, {GnColors.SURFACE} 0%, #EEF4FF 100%);
+    border-color: rgba(27, 104, 255, 0.20);
   }}
   .admin-kpi-tile.is-accent::before {{
     content: '';

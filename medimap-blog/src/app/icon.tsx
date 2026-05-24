@@ -5,7 +5,7 @@ export const contentType = "image/png";
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
-// Brand canonical (CLAUDE.md "Cross-site design sync"): #FF4D5E → #FF6B35.
+// Brand canonical (CLAUDE.md "Cross-site design sync"): #1B68FF → #1AD2A4.
 // Inline hex permitted here — `next/og` ImageResponse runs outside Tailwind.
 export default function Icon() {
   return new ImageResponse(
@@ -17,7 +17,7 @@ export default function Icon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "linear-gradient(135deg, #FF4D5E 0%, #FF6B35 100%)",
+          background: "linear-gradient(135deg, #1B68FF 0%, #1AD2A4 100%)",
           color: "#FFFFFF",
           fontSize: 22,
           fontWeight: 800,

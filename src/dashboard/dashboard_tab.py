@@ -24,7 +24,7 @@ from src.dashboard.theme import kpi_strip
 from src.storage.models import GeneratedContent, Mention, Query, Response
 
 # 강남언니 핑크 (브랜드) — 차트 통일 색상
-_BRAND = "#FF4D5E"
+_BRAND = "#1B68FF"
 _BRAND_SOFT = "#FFA0AE"
 
 # Engine ID → 사용자가 알아보는 라벨

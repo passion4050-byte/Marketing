@@ -20,7 +20,7 @@ import asyncio
 import streamlit as st
 
 
-_BRAND_PINK = "#FF4D5E"
+_BRAND_PINK = "#1B68FF"
 _BRAND_GRAY = "#9CA3AF"
 
 
@@ -275,7 +275,7 @@ def render_measurement_tab(SessionLocal, tenant) -> None:
                 if own_cited:
                     st.markdown(
                         f"<div style='margin-top:8px;padding:10px 14px;background:#FFF1F3;"
-                        f"border:1px solid rgba(255,77,94,0.20);border-radius:10px;'>"
+                        f"border:1px solid rgba(27,104,255,0.20);border-radius:10px;'>"
                         f"<div style='font-size:11px;font-weight:700;color:#C2202F;"
                         f"text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;'>"
                         f"🎯 내 발행 콘텐츠 인용 ({len(own_cited)}건)</div>"

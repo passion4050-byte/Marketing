@@ -41,7 +41,7 @@ export function Header() {
         }`}
         style={{
           background:
-            "linear-gradient(90deg, transparent 0%, rgba(255,77,94,0.40) 50%, transparent 100%)",
+            "linear-gradient(90deg, transparent 0%, rgba(27,104,255,0.40) 50%, transparent 100%)",
         }}
       />
       <div className="container-content flex h-16 items-center justify-between">
@@ -138,7 +138,7 @@ function Logo() {
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden
-        className="drop-shadow-[0_2px_8px_rgba(255,77,94,0.22)]"
+        className="drop-shadow-[0_2px_8px_rgba(27,104,255,0.22)]"
       >
         <defs>
           <linearGradient id="logoGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">

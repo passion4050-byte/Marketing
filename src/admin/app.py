@@ -81,14 +81,14 @@ def main() -> None:
             <div style="display:flex;align-items:center;gap:11px;
                         padding:6px 0 18px 0;">
               <div style="width:38px;height:38px;border-radius:11px;
-                          background:linear-gradient(135deg,#FF4D5E 0%,#FF6E7C 100%);
+                          background:linear-gradient(135deg,#1B68FF 0%,#5290FF 100%);
                           display:flex;align-items:center;justify-content:center;
                           color:white;font-weight:800;font-size:15px;
-                          box-shadow:0 4px 10px rgba(255,77,94,0.28);">M</div>
+                          box-shadow:0 4px 10px rgba(27,104,255,0.28);">M</div>
               <div style="line-height:1.15;">
                 <div style="font-size:15px;font-weight:800;color:#1F2937 !important;
                             letter-spacing:-0.025em;">
-                  메디맵 <span style="color:#FF4D5E;">파트너센터</span>
+                  메디맵 <span style="color:#1B68FF;">파트너센터</span>
                 </div>
                 <div style="font-size:10px;letter-spacing:0.14em;
                             color:#6B7280 !important;

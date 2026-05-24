@@ -1,8 +1,8 @@
 """중앙화된 디자인 시스템 — 강남언니 톤 매칭 (Phase 9-06).
 
 레퍼런스: 강남언니 모바일 앱 + 파트너센터 로그인.
-- Brand mark: 핫핑크-레드 ``#FF4D5E`` 워드마크
-- Action accent: 오렌지-레드 ``#FF6B35`` (검색/CTA)
+- Brand mark: 핫핑크-레드 ``#1B68FF`` 워드마크
+- Action accent: 오렌지-레드 ``#1AD2A4`` (검색/CTA)
 - Surface: 흰색 + 옅은 그레이
 - Card: hairline 1px + 충분한 패딩 + 약한 그림자
 - Tab active: 핑크 underline + 굵은 텍스트 (배경색 사용 안 함)
@@ -19,14 +19,14 @@ from __future__ import annotations
 
 class Colors:
     # Primary (강남언니 핫핑크-레드 시그니처)
-    PRIMARY = "#FF4D5E"
+    PRIMARY = "#1B68FF"
     PRIMARY_DARK = "#E63E51"
-    PRIMARY_LIGHT = "#FFEFF1"
+    PRIMARY_LIGHT = "#EEF4FF"
 
     # Action accent (검색바/CTA — 오렌지-레드)
-    ACCENT = "#FF6B35"
+    ACCENT = "#1AD2A4"
     ACCENT_DARK = "#E55A28"
-    ACCENT_LIGHT = "#FFF1EA"
+    ACCENT_LIGHT = "#E8FBF6"
 
     # Status
     SUCCESS = "#10B981"
@@ -144,14 +144,14 @@ GLOBAL_CSS = f"""
     font-size: 14px;
     letter-spacing: -0.02em;
     box-shadow:
-      0 4px 10px rgba(255, 77, 94, 0.28),
+      0 4px 10px rgba(27, 104, 255, 0.28),
       inset 0 1px 0 rgba(255, 255, 255, 0.32);
     transition: transform 0.18s cubic-bezier(.2,.8,.2,1),
                 box-shadow 0.18s ease;
   }}
   .gsd-app-header:hover .gsd-brand-mark {{
     transform: translateY(-1px) scale(1.04);
-    box-shadow: 0 6px 14px rgba(255, 77, 94, 0.40);
+    box-shadow: 0 6px 14px rgba(27, 104, 255, 0.40);
   }}
   .gsd-brand-mark svg {{
     filter: drop-shadow(0 1px 1px rgba(0,0,0,0.18));
@@ -249,7 +249,7 @@ GLOBAL_CSS = f"""
     border-radius: {Radius.SM};
     font-size: 12.5px;
     margin-bottom: 14px;
-    border: 1px solid rgba(255, 77, 94, 0.18);
+    border: 1px solid rgba(27, 104, 255, 0.18);
     font-weight: 600;
   }}
   .gsd-inline-note code {{
@@ -317,7 +317,7 @@ GLOBAL_CSS = f"""
     color: {Colors.WHITE} !important;
     font-weight: 700;
     border-radius: {Radius.SM};
-    box-shadow: 0 1px 2px rgba(255, 77, 94, 0.18);
+    box-shadow: 0 1px 2px rgba(27, 104, 255, 0.18);
     transition: all 0.15s ease;
   }}
   div[data-testid="stButton"] > button[kind="primary"]:hover,
@@ -382,7 +382,7 @@ GLOBAL_CSS = f"""
   div[data-baseweb="textarea"]:focus-within,
   div[data-baseweb="select"]:focus-within > div {{
     border-color: {Colors.PRIMARY} !important;
-    box-shadow: 0 0 0 3px rgba(255, 77, 94, 0.14) !important;
+    box-shadow: 0 0 0 3px rgba(27, 104, 255, 0.14) !important;
   }}
   div[data-baseweb="input"] input,
   div[data-baseweb="textarea"] textarea {{
@@ -442,7 +442,7 @@ GLOBAL_CSS = f"""
   div[data-testid="stCheckbox"] > label {{ border-radius: {Radius.SM}; }}
   div[data-testid="stSlider"] [role="slider"] {{
     background: {Colors.PRIMARY} !important;
-    box-shadow: 0 0 0 4px rgba(255, 77, 94, 0.18) !important;
+    box-shadow: 0 0 0 4px rgba(27, 104, 255, 0.18) !important;
   }}
   div[data-testid="stToggle"] [role="switch"][aria-checked="true"] {{
     background: {Colors.PRIMARY} !important;
@@ -495,12 +495,12 @@ GLOBAL_CSS = f"""
   .gsd-chip-pink {{
     background: {Colors.PRIMARY_LIGHT};
     color: {Colors.PRIMARY_DARK};
-    border-color: rgba(255, 77, 94, 0.22);
+    border-color: rgba(27, 104, 255, 0.22);
   }}
   .gsd-chip-orange {{
     background: {Colors.ACCENT_LIGHT};
     color: {Colors.ACCENT_DARK};
-    border-color: rgba(255, 107, 53, 0.22);
+    border-color: rgba(26, 210, 164, 0.22);
   }}
   .gsd-chip-green {{
     background: {Colors.SUCCESS_LIGHT};
@@ -530,7 +530,7 @@ GLOBAL_CSS = f"""
   .gsd-chip-purple {{
     background: {Colors.PRIMARY_LIGHT};
     color: {Colors.PRIMARY_DARK};
-    border-color: rgba(255, 77, 94, 0.22);
+    border-color: rgba(27, 104, 255, 0.22);
   }}
 
   /* ─ Section title ─ */
@@ -584,7 +584,7 @@ GLOBAL_CSS = f"""
     padding: 1px 6px;
     font-size: 12.5px;
     font-weight: 600;
-    border: 1px solid rgba(255, 77, 94, 0.16);
+    border: 1px solid rgba(27, 104, 255, 0.16);
   }}
 
   /* ─ Caption ─ */
@@ -737,7 +737,7 @@ GLOBAL_CSS = f"""
   }}
   .gsd-kpi-tile:hover {{
     transform: translateY(-1px);
-    box-shadow: 0 8px 22px -10px rgba(255, 77, 94, 0.20);
+    box-shadow: 0 8px 22px -10px rgba(27, 104, 255, 0.20);
     border-color: {Colors.PRIMARY};
   }}
   .gsd-kpi-tile-label {{
@@ -766,7 +766,7 @@ GLOBAL_CSS = f"""
   /* 첫 번째 KPI tile 만 핑크 강조 */
   .gsd-kpi-tile.is-accent {{
     background: linear-gradient(180deg, {Colors.WHITE} 0%, {Colors.PRIMARY_LIGHT} 100%);
-    border-color: rgba(255, 77, 94, 0.20);
+    border-color: rgba(27, 104, 255, 0.20);
   }}
   .gsd-kpi-tile.is-accent::before {{
     content: '';
@@ -842,7 +842,7 @@ GLOBAL_CSS = f"""
     background: linear-gradient(135deg, {Colors.PRIMARY} 0%, {Colors.ACCENT} 100%);
     display: flex; align-items: center; justify-content: center;
     color: white; font-weight: 800; font-size: 13px;
-    box-shadow: 0 4px 10px rgba(255, 77, 94, 0.28);
+    box-shadow: 0 4px 10px rgba(27, 104, 255, 0.28);
   }}
   .gsd-login-brand-name {{
     font-size: 16px;
@@ -876,7 +876,7 @@ GLOBAL_CSS = f"""
     padding: 6px 14px 6px 10px;
     border-radius: 999px;
     background: {Colors.PRIMARY_LIGHT};
-    border: 1px solid rgba(255, 77, 94, 0.20);
+    border: 1px solid rgba(27, 104, 255, 0.20);
     color: {Colors.GRAY_900};
     font-size: 13px;
     font-weight: 600;
@@ -885,7 +885,7 @@ GLOBAL_CSS = f"""
   .gsd-active-tenant .dot {{
     width: 8px; height: 8px; border-radius: 50%;
     background: linear-gradient(135deg, {Colors.PRIMARY} 0%, {Colors.ACCENT} 100%);
-    box-shadow: 0 0 0 3px rgba(255, 77, 94, 0.12);
+    box-shadow: 0 0 0 3px rgba(27, 104, 255, 0.12);
   }}
   .gsd-active-tenant .meta {{
     color: {Colors.GRAY_500};

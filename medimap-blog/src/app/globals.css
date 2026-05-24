@@ -12,8 +12,8 @@
     /* Brand canonical — keep in sync with tailwind.config.ts brand/accent.
        Used by SVG <linearGradient stop-color="var(--color-brand)"> where
        Tailwind utility classes do not reach (CLAUDE.md "Cross-site design sync"). */
-    --color-brand: #FF4D5E;
-    --color-accent: #FF6B35;
+    --color-brand: #1B68FF;
+    --color-accent: #1AD2A4;
   }
   html {
     -webkit-text-size-adjust: 100%;
@@ -41,13 +41,13 @@
   ::-webkit-scrollbar { width: 12px; height: 12px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: rgba(16,24,40,0.14);
+    background: rgba(11,18,36,0.14);
     border: 3px solid transparent;
     background-clip: padding-box;
     border-radius: 999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255,77,94,0.42);
+    background: rgba(27,104,255,0.42);
     background-clip: padding-box;
   }
 }
@@ -99,7 +99,7 @@
   /* Reading progress bar (client component sets --scroll-progress) */
   .reading-progress {
     @apply pointer-events-none fixed inset-x-0 top-0 z-50 h-[3px] origin-left;
-    background: linear-gradient(90deg, #FF4D5E 0%, #FF6B35 100%);
+    background: linear-gradient(90deg, #1B68FF 0%, #1AD2A4 100%);
     transform: scaleX(var(--scroll-progress, 0));
     will-change: transform;
     transition: transform 80ms linear;
@@ -207,7 +207,7 @@
   .pretty-text { text-wrap: pretty; }
   /* Subtle dotted texture for hero/blog headers */
   .bg-grid-dots {
-    background-image: radial-gradient(rgba(16,24,40,0.06) 1px, transparent 1px);
+    background-image: radial-gradient(rgba(11,18,36,0.06) 1px, transparent 1px);
     background-size: 24px 24px;
   }
 }
@@ -264,7 +264,7 @@
   [class*="bg-brand"] button.bg-white,
   [class*="bg-gradient"] a.bg-white,
   [class*="bg-gradient"] button.bg-white {
-    color: #d83547 !important;
+    color: #0E44AD !important;
     font-weight: 700;
   }
 
@@ -282,7 +282,7 @@
   /* 키보드 포커스 링 — 접근성 */
   a:focus-visible,
   button:focus-visible {
-    outline: 3px solid #ff4d5e;
+    outline: 3px solid #1B68FF;
     outline-offset: 3px;
     border-radius: 8px;
   }

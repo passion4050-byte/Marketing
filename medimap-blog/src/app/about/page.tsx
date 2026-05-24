@@ -509,7 +509,7 @@ function BlogStories({
               <div className="grid gap-0 md:grid-cols-[1.2fr_1fr]">
                 <div className="relative aspect-[16/9] bg-gradient-to-br from-brand-100 via-accent-50 to-brand-50 md:aspect-auto">
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-[44px] font-extrabold tracking-tight text-white/90 drop-shadow-[0_4px_24px_rgba(255,77,94,0.45)]">
+                    <div className="text-[44px] font-extrabold tracking-tight text-white/90 drop-shadow-[0_4px_24px_rgba(27,104,255,0.45)]">
                       MEDIMAP
                     </div>
                   </div>
