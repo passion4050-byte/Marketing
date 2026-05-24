@@ -19,7 +19,7 @@ export const revalidate = false;
 const CONTACT = {
   phone: "010-9024-8500",
   phoneTel: "01090248500",
-  email: "cs@medimap.co.kr",
+  email: "sales@medimap.team",
   website: "www.medi-map.co.kr",
   websiteUrl: "https://www.medi-map.co.kr",
   office: "서울시 강남구 봉은사로 215, 11층",

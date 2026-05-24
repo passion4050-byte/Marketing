@@ -497,7 +497,7 @@ function PartnerReviews() {
 /* ────────────────── 5. CTA + PDF 다운로드 ────────────────── */
 
 function PartnerCta() {
-  const brochureMail = `mailto:cs@medimap.co.kr?subject=${encodeURIComponent(
+  const brochureMail = `mailto:sales@medimap.team?subject=${encodeURIComponent(
     "[메디맵] 소개서(PDF) 요청",
   )}&body=${encodeURIComponent(
     "안녕하세요. 메디맵 소개서 PDF 자료를 요청드립니다.\n\n- 병원/기관명: \n- 담당자: \n- 연락처: \n\n감사합니다.",
