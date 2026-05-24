@@ -10,7 +10,7 @@ export const siteConfig = {
     process.env.NEXT_PUBLIC_SHORTLINK_BASE || "https://m.medimap.kr/r",
   contact: {
     kakao: "https://pf.kakao.com/_xnWQkG",
-    naverPlace: "https://map.naver.com/p/search/%EB%A9%94%EB%94%94%EB%A7%B5/place/1091694610?c=15.00,0,0,0,dh&placePath=/home?bk_query=%EB%A9%94%EB%94%94%EB%A7%B5&entry=bmp&from=map&fromPanelNum=2&timestamp=202605242028&locale=ko&svcName=map_pcv5&searchText=%EB%A9%94%EB%94%94%EB%A7%B5",
+    naverPlace: "https://map.naver.com/p/search/%EB%A9%94%EB%94%94%EB%A7%B5/place/1091694610?c=15.00,0,0,0,dh&placePath=/home?bk_query=%EB%A9%94%EB%94%94%EB%A7%B5&entry=bmp&from=map&fromPanelNum=2&timestamp=202605242051&locale=ko&svcName=map_pcv5&searchText=%EB%A9%94%EB%94%94%EB%A7%B5",
     phone: process.env.NEXT_PUBLIC_PHONE || "02-0000-0000",
     medimapMain: "https://medi-map.co.kr",
   },
