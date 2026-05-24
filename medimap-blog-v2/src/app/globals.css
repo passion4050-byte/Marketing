@@ -1,0 +1,157 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================
+   MEDIMAP GEO · 글로벌 토큰
+   ========================= */
+
+:root {
+  --brand: #0E5A6B;
+  --brand-dark: #0B4C5A;
+  --brand-tint: #E0EDEF;
+  --brand-tint-soft: #F0F7F8;
+  --accent: #15B8A6;
+  --surface: #FFFFFF;
+  --surface-subtle: #F7F9FA;
+  --border: #E5EBED;
+  --ink: #0F172A;
+  --ink-muted: #64748B;
+  --status-success: #10B981;
+  --status-warning: #F59E0B;
+  --status-danger: #EF4444;
+  --status-neutral: #94A3B8;
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.03);
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body {
+  background: var(--surface-subtle);
+  color: var(--ink);
+  font-feature-settings: 'ss01', 'ss02', 'cv11';
+}
+
+::selection {
+  background: rgba(14, 90, 107, 0.18);
+  color: var(--brand-dark);
+}
+
+/* 공용 컴포넌트 클래스 — 시안 100% 싱크로 */
+@layer components {
+  .card {
+    @apply rounded-xl border border-border bg-surface-base shadow-card;
+  }
+  .card-pad {
+    @apply p-6;
+  }
+  .kpi-card {
+    @apply card card-pad flex flex-col gap-2;
+  }
+  .kpi-label {
+    @apply text-sm font-medium text-ink-muted;
+  }
+  .kpi-value {
+    @apply text-kpi text-ink;
+  }
+  .kpi-delta-up {
+    @apply inline-flex items-center gap-1 text-sm font-semibold text-status-success;
+  }
+  .kpi-delta-down {
+    @apply inline-flex items-center gap-1 text-sm font-semibold text-status-danger;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium;
+  }
+  .chip-success {
+    @apply chip bg-status-successSoft text-emerald-700;
+  }
+  .chip-warning {
+    @apply chip bg-status-warningSoft text-amber-700;
+  }
+  .chip-danger {
+    @apply chip bg-status-dangerSoft text-red-700;
+  }
+  .chip-neutral {
+    @apply chip bg-status-neutralSoft text-slate-600;
+  }
+  .chip-brand {
+    @apply chip bg-brand-100 text-brand-700;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-dark focus:outline-none focus:ring-2 focus:ring-brand/50 disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-surface-base px-4 py-2.5 text-sm font-semibold text-ink-soft transition hover:bg-surface-muted disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-ink-muted transition hover:bg-surface-muted hover:text-ink;
+  }
+  .section-title {
+    @apply text-sm font-semibold text-ink;
+  }
+  .section-subtle {
+    @apply text-xs font-medium text-ink-muted;
+  }
+  .input-base {
+    @apply w-full rounded-lg border border-border bg-surface-base px-3 py-2.5 text-sm text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/15;
+  }
+  .progress-track {
+    @apply h-2 w-full overflow-hidden rounded-full bg-brand-100;
+  }
+  .progress-fill {
+    @apply h-full rounded-full bg-brand transition-[width] duration-500;
+  }
+  .sidebar-link {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-ink-soft transition hover:bg-brand-50 hover:text-brand-700;
+  }
+  .sidebar-link-active {
+    @apply sidebar-link bg-brand-50 text-brand-700;
+  }
+}
+
+/* DB-HTML 콘텐츠 (자동 생성된 블로그 본문) 톤 정렬 */
+.db-html-content {
+  @apply text-ink-soft leading-relaxed;
+}
+.db-html-content h1 {
+  display: none;
+}
+.db-html-content h2 {
+  @apply mt-8 mb-3 text-xl font-bold text-ink;
+}
+.db-html-content h3 {
+  @apply mt-6 mb-2 text-base font-semibold text-ink;
+}
+.db-html-content p {
+  @apply mb-4;
+}
+.db-html-content ul,
+.db-html-content ol {
+  @apply mb-4 pl-6;
+}
+.db-html-content li {
+  @apply mb-1 list-disc;
+}
+.db-html-content a {
+  @apply text-brand underline-offset-2 hover:underline;
+}
+
+/* JSON 미리보기 (다크) */
+.json-preview {
+  @apply rounded-xl border border-brand-ink bg-brand-ink p-6 font-mono text-[13px] leading-relaxed text-brand-100;
+  font-family: 'JetBrains Mono', Menlo, Consolas, monospace;
+}
+.json-preview .tk-key { color: #7DD3FC; }
+.json-preview .tk-str { color: #FCD34D; }
+.json-preview .tk-num { color: #F0ABFC; }
+.json-preview .tk-punct { color: #94A3B8; }
+
+/* 스크롤바 톤 */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(15, 23, 42, 0.18); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 0.28); }

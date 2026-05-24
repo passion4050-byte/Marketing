@@ -1,0 +1,44 @@
+{
+  "name": "medimap-blog-v2",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MEDIMAP GEO — Hospital AI Platform. AEO/GEO 자동 발행 + LLM 인용 추적 + Schema.org 자동 생성.",
+  "scripts": {
+    "dev": "next dev -p 3002",
+    "build": "next build",
+    "start": "next start -p 3002",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "seed": "tsx scripts/seed.ts",
+    "generate:llms": "tsx scripts/generate-llms-txt.ts",
+    "generate:sitemap": "tsx scripts/generate-sitemap.ts",
+    "publish:tick": "tsx scripts/publish-tick.ts",
+    "monitor:tick": "tsx scripts/monitor-tick.ts"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.45.4",
+    "clsx": "^2.1.1",
+    "date-fns": "^3.6.0",
+    "lucide-react": "^0.441.0",
+    "nanoid": "^5.0.7",
+    "next": "14.2.13",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.12.7",
+    "tailwind-merge": "^2.5.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.5",
+    "@types/react": "^18.3.6",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "14.2.13",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.12",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2"
+  }
+}
