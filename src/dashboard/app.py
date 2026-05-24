@@ -142,8 +142,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-_db_safety_banner()
-
 # ─── 글로벌 디자인 시스템 ────────────────────────────────────────
 st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
 
@@ -1006,23 +1004,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-
-def _db_safety_banner() -> None:
-    """DB 종류 안전 배너 — sqlite-fallback 시 빨간 경고. 2026-05-24"""
-    import streamlit as _st
-    try:
-        from src.storage.db import get_db_kind
-        kind = get_db_kind()
-    except Exception:
-        return
-    if kind == "postgres":
-        return
-    if kind == "sqlite-fallback":
-        _st.error(
-            "🚨 DATABASE_URL 미설정 — SQLite 임시 저장 모드. "
-            "컨테이너 재시작 시 데이터 휘발. Streamlit Cloud Secrets 추가 필요."
-        )
-    elif kind == "sqlite":
-        _st.warning("⚠️ SQLite 로컬 DB 사용 중 — Production 환경 PostgreSQL 권장.")
 
