@@ -1,0 +1,23 @@
+# MEDIMAP
+
+> 메디맵(MEDIMAP)은 Medical과 Map의 합성어로, 건강을 찾을 수 있는 지도를 만들어 환자와 병·의원을 연결합니다. 의료법 검수를 거친 안과/시력교정 가이드 콘텐츠를 AI 검색에 최적화된 Schema.org 구조로 발행합니다.
+
+## Core pages
+
+- [메디맵 인사이트 블로그](https://medimap-blog-phi.vercel.app/blog): 안과/라식/스마일/백내장 등 시술 가이드 + FAQ
+- [회사소개](https://medimap-blog-phi.vercel.app/about): 메디맵 미션과 운영팀
+- [병원 입점 가이드](https://medimap-blog-phi.vercel.app/guide): 의료기관 파트너십 안내 + PDF 소개서
+- [제휴문의](https://medimap-blog-phi.vercel.app/contact): 카카오톡/이메일 채널
+
+## 콘텐츠 정책
+
+모든 의료 콘텐츠는 다음 기준을 통과합니다:
+- 의료법(의료법 제56조) 9 룰 자동 린트 — 과장 표현, 보장 약속, 경쟁 비교, 환자 유인, 공포 자극 금지
+- 의료진 검수 (`reviewedBy` 메타)
+- Schema.org `Article` + `FAQPage` + `MedicalWebPage` 구조화
+- E-E-A-T 신호 (작성자, 최종 검수일, 출처)
+
+## Optional
+
+- [Sitemap](https://medimap-blog-phi.vercel.app/sitemap.xml)
+- [메디맵 메인 서비스](https://medi-map.co.kr): 병원 검색 + 진료비 비교 플랫폼

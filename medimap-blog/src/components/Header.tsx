@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { siteConfig, navItems } from "@/lib/site";
 
@@ -27,11 +26,6 @@ export function Header() {
       document.body.style.overflow = "";
     };
   }, [open]);
-
-  const pathname = usePathname() ?? "";
-  if (pathname.startsWith("/admin") || pathname.startsWith("/client")) {
-    return null;
-  }
 
   return (
     <header

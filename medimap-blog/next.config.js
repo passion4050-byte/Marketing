@@ -1,14 +1,24 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 2026-05-24: SSG 빌드타임에 Supabase pooler 연결이 hang 걸려
-  // 기본 60초 timeout 으로 SIGTERM. 180초로 늘려 안전 마진 확보.
-  // 동시에 lib/posts.ts 의 DB 쿼리에 명시적 8초 timeout 가드 추가됐음.
+  // 2026-05-24: SSG 빌드타임 Supabase pooler hang 회피.
   staticPageGenerationTimeout: 180,
-
-  // Vercel Edge runtime 인식 경고 회피 (twitter-image.tsx 등)
   experimental: {
     serverComponentsExternalPackages: ["postgres"],
   },
+  // 이미지 외부 호스트 허용 (next/image 또는 raw <img>).
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "image.pollinations.ai" },
+      { protocol: "https", hostname: "gifopyowyankfsfghhdi.supabase.co" },
+      { protocol: "https", hostname: "*.supabase.co" },
+    ],
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 60,
+  },
+  // 정적 자원 압축 (기본 true 지만 명시)
+  compress: true,
+  // poweredByHeader 제거 (보안 + 미세 byte 절약)
+  poweredByHeader: false,
 };
 
 module.exports = nextConfig;

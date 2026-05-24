@@ -17,12 +17,12 @@ export function PublicChrome({
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const isAdmin = pathname?.startsWith("/admin") ?? false;
+  const isPortal = (pathname?.startsWith("/admin") || pathname?.startsWith("/client")) ?? false;
   return (
     <>
-      {!isAdmin && header}
+      {!isPortal && header}
       <main className="flex-1">{children}</main>
-      {!isAdmin && footer}
+      {!isPortal && footer}
     </>
   );
 }
