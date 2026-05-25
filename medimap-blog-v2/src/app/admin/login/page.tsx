@@ -59,7 +59,11 @@ export default function AdminLoginPage() {
           </h1>
           <p className="mt-4 text-base text-ink-soft sm:text-lg">
             <span className="font-semibold text-brand-700">ChatGPT · Claude · Gemini · Perplexity</span>
-            가 당신의 병원을 추천하도록 — 한국 최초의 의료 특화 AI 검색 최적화 (GEO) SaaS.
+            가 당신의 병원을 추천하도록.
+          </p>
+          <p className="mt-2 text-sm text-ink-muted">
+            월평균 AI 인용 28회 · 신규 문의 전환 11명{' '}
+            <span className="text-ink-faint">(파일럿 데이터)</span>
           </p>
 
           {/* 소셜 프루프 — 신뢰 빌딩 */}
@@ -69,7 +73,7 @@ export default function AdminLoginPage() {
                 <Zap className="h-3.5 w-3.5" /> AI 인용
               </div>
               <div className="mt-1 text-2xl font-bold text-ink">28<span className="ml-1 text-xs font-medium text-ink-muted">회/월</span></div>
-              <div className="text-[11px] text-ink-muted">파일럿 평균</div>
+              <div className="text-[11px] text-ink-muted">파일럿 데이터</div>
             </div>
             <div className="rounded-2xl border border-border bg-surface-base px-4 py-3 shadow-card">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-brand-700">
@@ -83,7 +87,7 @@ export default function AdminLoginPage() {
                 <BarChart3 className="h-3.5 w-3.5" /> 4 엔진
               </div>
               <div className="mt-1 text-2xl font-bold text-ink">100<span className="ml-1 text-xs font-medium text-ink-muted">%</span></div>
-              <div className="text-[11px] text-ink-muted">동시 측정</div>
+              <div className="text-[11px] text-ink-muted">동시 측정 · 파일럿 데이터</div>
             </div>
           </div>
         </div>

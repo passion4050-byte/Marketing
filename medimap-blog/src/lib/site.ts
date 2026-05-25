@@ -27,6 +27,7 @@ export const navItems = [
   { href: "/about", label: "회사소개" },
   { href: "/guide", label: "병원 입점 가이드", primary: true },
   { href: "/blog", label: "블로그" },
+  { href: "/with-partners", label: "파트너 콘텐츠" },
   { href: "/contact", label: "제휴문의" },
 ] as const;
 

@@ -33,13 +33,18 @@ export interface ContentQueueItem {
   createdAt: string;
   lintScore: number; // 0-100
   lintIssues: string[];
+  cover_image_url?: string;
+  cover_image_alt?: string;
 }
 
+const POLLI = (q: string) =>
+  `https://image.pollinations.ai/prompt/${encodeURIComponent(q)}?width=1200&height=630&nologo=true`;
+
 export const contentQueue: ContentQueueItem[] = [
-  { id: 'q-1', tenantId: 't-bgn', tenantName: 'BGN 밝은눈안과', keyword: '잠실 라식', title: '잠실 라식 추천 안과 5곳 비교 — 회복기·비용 정리', body: '잠실 지역에서 라식 수술을 고려한다면 회복기와 비용을 함께 비교해야 한다. 본 가이드는…', generator: 'gemini', createdAt: '2026-05-25T03:15:00+09:00', lintScore: 96, lintIssues: [] },
-  { id: 'q-2', tenantId: 't-bgn', tenantName: 'BGN 밝은눈안과', keyword: '스마일라식', title: '스마일라식 환자 후기 — 1개월차 시력 회복기', body: '스마일라식 수술을 받은 환자가 직접 1개월간의 회복 과정을 기록했다…', generator: 'gemini', createdAt: '2026-05-25T03:18:00+09:00', lintScore: 91, lintIssues: ['최저가 단정형 표현 1건'] },
-  { id: 'q-3', tenantId: 't-tete', tenantName: 'TETE 강남 안과', keyword: '강남 라섹', title: '강남 라섹 비용 평균 — 2026년 상반기 기준', body: '강남 안과에서 라섹 수술 평균 비용은 양안 기준 100만원 ~ 180만원…', generator: 'gemini', createdAt: '2026-05-25T03:22:00+09:00', lintScore: 88, lintIssues: ['수술 결과 보장 표현', '환자 모집 직접 표현'] },
-  { id: 'q-4', tenantId: 't-mourim', tenantName: '모우림', keyword: '강남 모발이식', title: '강남 모발이식 절개법 vs 비절개법 비교', body: '모발이식 시술은 크게 절개법(FUT) 과 비절개법(FUE) 으로 나뉜다…', generator: 'gemini', createdAt: '2026-05-25T03:30:00+09:00', lintScore: 100, lintIssues: [] }
+  { id: 'q-1', tenantId: 't-bgn', tenantName: 'BGN 밝은눈안과', keyword: '잠실 라식', title: '잠실 라식 추천 안과 5곳 비교 — 회복기·비용 정리', body: '잠실 지역에서 라식 수술을 고려한다면 회복기와 비용을 함께 비교해야 한다. 본 가이드는…', generator: 'gemini', createdAt: '2026-05-25T03:15:00+09:00', lintScore: 96, lintIssues: [], cover_image_url: POLLI('modern clean ophthalmology clinic lasik surgery'), cover_image_alt: '잠실 라식 안과 진료 환경' },
+  { id: 'q-2', tenantId: 't-bgn', tenantName: 'BGN 밝은눈안과', keyword: '스마일라식', title: '스마일라식 환자 후기 — 1개월차 시력 회복기', body: '스마일라식 수술을 받은 환자가 직접 1개월간의 회복 과정을 기록했다…', generator: 'gemini', createdAt: '2026-05-25T03:18:00+09:00', lintScore: 91, lintIssues: ['최저가 단정형 표현 1건'], cover_image_url: POLLI('SMILE laser eye surgery recovery patient diary illustration'), cover_image_alt: '스마일라식 회복 일지' },
+  { id: 'q-3', tenantId: 't-tete', tenantName: 'TETE 강남 안과', keyword: '강남 라섹', title: '강남 라섹 비용 평균 — 2026년 상반기 기준', body: '강남 안과에서 라섹 수술 평균 비용은 양안 기준 100만원 ~ 180만원…', generator: 'gemini', createdAt: '2026-05-25T03:22:00+09:00', lintScore: 88, lintIssues: ['수술 결과 보장 표현', '환자 모집 직접 표현'], cover_image_url: POLLI('LASEK cost comparison chart medical infographic'), cover_image_alt: '강남 라섹 비용 비교' },
+  { id: 'q-4', tenantId: 't-mourim', tenantName: '모우림', keyword: '강남 모발이식', title: '강남 모발이식 절개법 vs 비절개법 비교', body: '모발이식 시술은 크게 절개법(FUT) 과 비절개법(FUE) 으로 나뉜다…', generator: 'gemini', createdAt: '2026-05-25T03:30:00+09:00', lintScore: 100, lintIssues: [], cover_image_url: POLLI('FUT vs FUE hair transplant comparison infographic clean medical'), cover_image_alt: '모발이식 FUT 비절개 비교' }
 ];
 
 export interface KeywordRow {
