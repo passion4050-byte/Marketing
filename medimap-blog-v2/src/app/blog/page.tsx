@@ -4,20 +4,14 @@
  */
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Copy, Download, Edit3, Send, Sparkles } from 'lucide-react';
 import { Header } from '@/components/Header';
-import { blogStats, contentTopics } from '@/lib/mock-data';
+import { blogStats, contentTopics as baseTopics } from '@/lib/mock-data';
 import { formatKstDateTime } from '@/lib/format';
 import { cn } from '@/lib/cn';
-import type { PublishStatus } from '@/lib/types';
-
-const KPIS = [
-  { label: '이번 달 생성 소재', value: blogStats.topicsThisMonth, suffix: '개' },
-  { label: '누적 블로그 글', value: blogStats.totalPosts, suffix: '건' },
-  { label: '배포 완료', value: blogStats.distributed, suffix: '건' },
-  { label: '검수 대기', value: blogStats.reviewing, suffix: '건' }
-];
+import { copyToClipboard, downloadMarkdownBundle, showToast } from '@/lib/clientActions';
+import type { BlogPostVariant, ContentTopic, PublishStatus } from '@/lib/types';
 
 const STATUS_CHIP: Record<PublishStatus, { label: string; cls: string }> = {
   draft: { label: '초안', cls: 'chip-warning' },
@@ -35,8 +29,102 @@ const BADGE_CHIP: Record<string, string> = {
 };
 
 export default function BlogPage() {
-  const [activeTopicId, setActiveTopicId] = useState(contentTopics[0].id);
-  const active = contentTopics.find((t) => t.id === activeTopicId)!;
+  const [topics, setTopics] = useState<ContentTopic[]>(baseTopics);
+  const [activeTopicId, setActiveTopicId] = useState(baseTopics[0].id);
+  const [newTopic, setNewTopic] = useState('');
+  const [generating, setGenerating] = useState(false);
+
+  const active = useMemo(
+    () => topics.find((t) => t.id === activeTopicId) ?? topics[0],
+    [topics, activeTopicId]
+  );
+
+  const KPIS = [
+    { label: '이번 달 생성 소재', value: blogStats.topicsThisMonth, suffix: '개' },
+    { label: '누적 블로그 글', value: blogStats.totalPosts, suffix: '건' },
+    { label: '배포 완료', value: blogStats.distributed, suffix: '건' },
+    { label: '검수 대기', value: blogStats.reviewing, suffix: '건' }
+  ];
+
+  const onGenerate = async () => {
+    const topic = newTopic.trim();
+    if (!topic) {
+      showToast('소재를 입력하세요', { kind: 'error' });
+      return;
+    }
+    setGenerating(true);
+    try {
+      const res = await fetch('/api/blog/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic })
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error ?? 'generate failed');
+      const newId = `topic-gen-${Date.now()}`;
+      const created: ContentTopic = {
+        id: newId,
+        label: topic,
+        badge: '수술정보',
+        brief: data.brief,
+        posts: data.posts.map((p: any) => ({
+          ...p,
+          topicId: newId,
+          format: p.format ?? 'info'
+        })) as BlogPostVariant[],
+        createdAt: new Date().toISOString()
+      };
+      setTopics((prev) => [created, ...prev]);
+      setActiveTopicId(newId);
+      setNewTopic('');
+      showToast(`5글 생성 완료 — ${topic.slice(0, 18)}`);
+    } catch (err) {
+      showToast(`오류: ${(err as Error).message}`, { kind: 'error' });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const copyPost = async (post: BlogPostVariant) => {
+    const md = [
+      `# ${post.title}`,
+      '',
+      post.lead,
+      '',
+      post.body ?? '',
+      ...(post.bullets ? ['', ...post.bullets.map((b) => `- ${b}`)] : [])
+    ].join('\n');
+    const ok = await copyToClipboard(md);
+    showToast(ok ? '본문 복사됨 (markdown)' : '복사 실패', { kind: ok ? 'success' : 'error' });
+  };
+
+  const onBundleDownload = () => {
+    if (!active || active.posts.length === 0) {
+      showToast('이 소재에 발행 글이 없습니다', { kind: 'error' });
+      return;
+    }
+    downloadMarkdownBundle(
+      `medimap-${active.label.replace(/\s+/g, '-')}.md`,
+      active.posts.map((p) => ({ title: p.title, body: `${p.lead}\n\n${p.body ?? ''}` }))
+    );
+    showToast('5글 .md 묶음 다운로드 시작');
+  };
+
+  const onNaverPublish = (postId: string) => {
+    setTopics((prev) =>
+      prev.map((t) =>
+        t.id !== activeTopicId
+          ? t
+          : {
+              ...t,
+              posts: t.posts.map((p) =>
+                p.id === postId ? { ...p, status: 'published' as PublishStatus } : p
+              )
+            }
+      )
+    );
+    showToast('네이버 발행 대기열에 추가됨 (운영 환경 연동 시 즉시 발행)');
+  };
 
   return (
     <>
@@ -57,30 +145,36 @@ export default function BlogPage() {
         ))}
       </section>
 
-      {/* 소재 입력 */}
       <section className="px-8">
         <div className="card flex items-center gap-3 px-5 py-4">
           <input
             className="input-base"
-            placeholder="새 소재 입력 (예: 인구건조증 관리 방법, 노안 초기 증상...)"
+            placeholder="새 소재 입력 (예: 안구건조증 관리 방법, 노안 초기 증상...)"
+            value={newTopic}
+            onChange={(e) => setNewTopic(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !generating && onGenerate()}
+            disabled={generating}
           />
-          <button type="button" className="btn-primary shrink-0">
-            <Sparkles className="h-4 w-4" /> 소재 + 5글 생성
+          <button
+            type="button"
+            onClick={onGenerate}
+            disabled={generating}
+            className="btn-primary shrink-0 disabled:opacity-60"
+          >
+            <Sparkles className="h-4 w-4" /> {generating ? '생성 중…' : '소재 + 5글 생성'}
           </button>
         </div>
       </section>
 
-      {/* 좌우 분할 */}
       <section className="grid grid-cols-1 gap-6 px-8 py-6 lg:grid-cols-[380px_1fr]">
-        {/* 좌: 생성된 소재 리스트 */}
         <aside className="card">
           <header className="flex items-center justify-between border-b border-border px-5 py-4">
-            <h2 className="section-title">생성된 소재 ({contentTopics.length})</h2>
+            <h2 className="section-title">생성된 소재 ({topics.length})</h2>
             <span className="section-subtle">1소재 = 5글</span>
           </header>
           <ul className="divide-y divide-border">
-            {contentTopics.map((t) => {
-              const active = t.id === activeTopicId;
+            {topics.map((t) => {
+              const isActive = t.id === activeTopicId;
               const fillCount = t.posts.length;
               return (
                 <li key={t.id}>
@@ -89,7 +183,7 @@ export default function BlogPage() {
                     onClick={() => setActiveTopicId(t.id)}
                     className={cn(
                       'w-full px-5 py-4 text-left transition',
-                      active ? 'bg-brand-50' : 'hover:bg-surface-subtle'
+                      isActive ? 'bg-brand-50' : 'hover:bg-surface-subtle'
                     )}
                   >
                     <div className="mb-1 flex items-center justify-between gap-2">
@@ -118,7 +212,6 @@ export default function BlogPage() {
           </p>
         </aside>
 
-        {/* 우: 5글 변형 카드 */}
         <div className="card">
           <header className="flex items-center justify-between border-b border-border px-6 py-5">
             <div>
@@ -126,14 +219,14 @@ export default function BlogPage() {
               <h2 className="mt-1 text-lg font-bold text-ink">{active.label}</h2>
               <p className="mt-1 text-xs text-ink-muted">{active.brief}</p>
             </div>
-            <button type="button" className="btn-secondary text-xs">
+            <button type="button" onClick={onBundleDownload} className="btn-secondary text-xs">
               <Download className="h-3.5 w-3.5" /> 5글 일괄 다운로드 (.md)
             </button>
           </header>
 
           {active.posts.length === 0 ? (
             <div className="px-6 py-12 text-center text-sm text-ink-muted">
-              아직 생성된 글이 없습니다. 우측 상단 ‘5글 생성’으로 자동 작성하세요.
+              아직 생성된 글이 없습니다. 우측 상단 '5글 생성'으로 자동 작성하세요.
             </div>
           ) : (
             <ul className="divide-y divide-border">
@@ -156,9 +249,7 @@ export default function BlogPage() {
                       <h3 className="text-base font-bold text-ink">{p.title}</h3>
                       <p className="mt-2 text-sm leading-relaxed text-ink-soft">{p.lead}</p>
 
-                      {p.body && (
-                        <p className="mt-3 text-sm leading-relaxed text-ink-soft">{p.body}</p>
-                      )}
+                      {p.body && <p className="mt-3 text-sm leading-relaxed text-ink-soft">{p.body}</p>}
                       {p.bullets && (
                         <ul className="mt-3 space-y-1.5 text-sm text-ink-soft">
                           {p.bullets.map((b, i) => (
@@ -184,14 +275,23 @@ export default function BlogPage() {
                     </div>
 
                     <div className="flex shrink-0 flex-col items-end gap-2">
-                      <button type="button" className="btn-secondary text-xs">
+                      <button
+                        type="button"
+                        onClick={() => showToast('편집 기능은 차후 발행 워크플로에 통합 예정', { kind: 'info' })}
+                        className="btn-secondary text-xs"
+                      >
                         <Edit3 className="h-3.5 w-3.5" /> 편집
                       </button>
-                      <button type="button" className="btn-secondary text-xs">
+                      <button type="button" onClick={() => copyPost(p)} className="btn-secondary text-xs">
                         <Copy className="h-3.5 w-3.5" /> 본문 복사
                       </button>
-                      <button type="button" className="btn-primary text-xs">
-                        <Send className="h-3.5 w-3.5" /> 네이버 발행
+                      <button
+                        type="button"
+                        onClick={() => onNaverPublish(p.id)}
+                        disabled={p.status === 'published'}
+                        className="btn-primary text-xs disabled:opacity-60"
+                      >
+                        <Send className="h-3.5 w-3.5" /> {p.status === 'published' ? '발행됨' : '네이버 발행'}
                       </button>
                     </div>
                   </div>

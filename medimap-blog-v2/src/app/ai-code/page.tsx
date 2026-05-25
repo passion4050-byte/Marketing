@@ -1,11 +1,7 @@
 /**
  * AI 코드 (JSON-LD) — Schema.org 자동 합성.
  * Figma 시안(node 804:401) IA 100% 싱크로.
- *
- * 사용자 목표(LLM 인용 유도)에서 가장 중요한 페이지 중 하나 —
- * 구조화 데이터 없으면 LLM이 자사 정보를 식별하지 못한다.
  */
-
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -14,6 +10,7 @@ import { Header } from '@/components/Header';
 import { schemaEntities } from '@/lib/mock-data';
 import { tokenizeJson } from '@/lib/aeo';
 import { cn } from '@/lib/cn';
+import { copyToClipboard, downloadJsonLdHtml, showToast } from '@/lib/clientActions';
 
 const KPIS = [
   { label: '활성 엔티티', value: '5 / 6', unit: '개' },
@@ -33,13 +30,25 @@ export default function AiCodePage() {
   };
 
   const copyJson = async () => {
+    if (payloads.length === 0) {
+      showToast('활성 엔티티가 없습니다', { kind: 'error' });
+      return;
+    }
     const raw = JSON.stringify(payloads, null, 2);
     const wrapped = `<script type="application/ld+json">\n${raw}\n</script>`;
-    try {
-      await navigator.clipboard.writeText(wrapped);
-    } catch {
-      /* clipboard 권한 부재 환경 대비 — silent */
+    const ok = await copyToClipboard(wrapped);
+    showToast(ok ? `JSON-LD ${payloads.length}개 엔티티 복사됨` : '복사 실패', {
+      kind: ok ? 'success' : 'error'
+    });
+  };
+
+  const downloadHtml = () => {
+    if (payloads.length === 0) {
+      showToast('활성 엔티티가 없습니다. 토글을 켜주세요', { kind: 'error' });
+      return;
     }
+    downloadJsonLdHtml(`medimap-geo-jsonld-${new Date().toISOString().slice(0, 10)}.html`, payloads);
+    showToast('.html 다운로드 시작');
   };
 
   return (
@@ -111,7 +120,7 @@ export default function AiCodePage() {
           <div className="flex items-center justify-between border-b border-border px-6 py-4">
             <h2 className="section-title">JSON-LD 코드 미리보기</h2>
             <div className="flex items-center gap-2">
-              <button type="button" className="btn-secondary text-xs">
+              <button type="button" onClick={downloadHtml} className="btn-secondary text-xs">
                 <Download className="h-3.5 w-3.5" /> .html 다운로드
               </button>
               <button type="button" onClick={copyJson} className="btn-primary text-xs">

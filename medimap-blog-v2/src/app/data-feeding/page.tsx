@@ -4,7 +4,7 @@
  */
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   BadgePercent,
   ChevronRight,
@@ -22,6 +22,9 @@ import { Header } from '@/components/Header';
 import { feedingCategories, feedingFields, currentTenant } from '@/lib/mock-data';
 import type { FeedingCategoryId } from '@/lib/types';
 import { cn } from '@/lib/cn';
+import { showToast } from '@/lib/clientActions';
+
+const LS_KEY = 'medimap-geo:data-feeding:v1';
 
 const iconMap = {
   Stethoscope,
@@ -43,9 +46,28 @@ const STATUS_CHIP = {
 
 export default function DataFeedingPage() {
   const [activeCat, setActiveCat] = useState<FeedingCategoryId>('doctor');
+  const [panelOpen, setPanelOpen] = useState(true);
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(LS_KEY);
+      if (raw) setValues(JSON.parse(raw));
+    } catch {
+      /* noop */
+    }
+  }, []);
+
+  const persistedCount = useMemo(
+    () => Object.values(values).filter((v) => v && v.trim().length > 0).length,
+    [values]
+  );
 
   const totalFields = feedingCategories.reduce((s, c) => s + c.totalFields, 0);
-  const filledFields = feedingCategories.reduce((s, c) => s + c.filledFields, 0);
+  const baseFilled = feedingCategories.reduce((s, c) => s + c.filledFields, 0);
+  const filledFields = Math.min(totalFields, baseFilled + persistedCount);
   const progress = Math.round((filledFields / totalFields) * 100);
 
   const expertise = feedingCategories.filter((c) => c.group === 'expertise');
@@ -62,6 +84,34 @@ export default function DataFeedingPage() {
   const activeCatMeta = feedingCategories.find((c) => c.id === activeCat)!;
   const nextField = fields.find((f) => f.required) ?? fields[0];
 
+  const onChangeField = (id: string, val: string) => setValues((prev) => ({ ...prev, [id]: val }));
+
+  const onPreview = () => {
+    const filled = fields.filter((f) => (values[f.id] ?? '').trim().length > 0);
+    if (filled.length === 0) {
+      showToast('입력값이 없습니다. 먼저 필드를 채워주세요', { kind: 'error' });
+      return;
+    }
+    showToast(`미리 검수 — ${filled.length}/${fields.length} 필드 입력됨`, { kind: 'info' });
+  };
+
+  const onSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const requiredMissing = fields.filter((f) => f.required && !(values[f.id] ?? '').trim());
+    if (requiredMissing.length > 0) {
+      showToast(`필수 필드 누락: ${requiredMissing.map((f) => f.label).join(', ')}`, { kind: 'error' });
+      return;
+    }
+    setSaving(true);
+    try {
+      window.localStorage.setItem(LS_KEY, JSON.stringify(values));
+      await new Promise((r) => setTimeout(r, 280));
+      showToast(`${activeCatMeta.title} 저장됨 — AI 프로필 완성도 ${progress}%`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <>
       <Header
@@ -73,7 +123,6 @@ export default function DataFeedingPage() {
         ]}
       />
 
-      {/* 상단 진행률 영역 */}
       <section className="grid grid-cols-1 gap-6 px-8 py-6 lg:grid-cols-[260px_1fr_280px]">
         <div className="card card-pad">
           <div className="kpi-label">AI 프로필 완성도</div>
@@ -109,7 +158,6 @@ export default function DataFeedingPage() {
         </div>
       </section>
 
-      {/* 카테고리 리스트 + 입력 패널 */}
       <section className="grid grid-cols-1 gap-6 px-8 pb-10 lg:grid-cols-[480px_1fr]">
         <div className="card">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
@@ -124,7 +172,10 @@ export default function DataFeedingPage() {
                 <li key={c.id}>
                   <button
                     type="button"
-                    onClick={() => setActiveCat(c.id)}
+                    onClick={() => {
+                      setActiveCat(c.id);
+                      setPanelOpen(true);
+                    }}
                     className={cn(
                       'flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-surface-subtle',
                       active && 'bg-brand-50'
@@ -153,45 +204,73 @@ export default function DataFeedingPage() {
           </ul>
         </div>
 
-        <div className="card">
-          <div className="flex items-start justify-between border-b border-border px-6 py-5">
-            <div>
-              <h2 className="text-sm font-bold text-ink">{activeCatMeta.title}</h2>
-              <p className="mt-1 text-xs text-ink-muted">{activeCatMeta.summary}</p>
+        {panelOpen ? (
+          <div className="card">
+            <div className="flex items-start justify-between border-b border-border px-6 py-5">
+              <div>
+                <h2 className="text-sm font-bold text-ink">{activeCatMeta.title}</h2>
+                <p className="mt-1 text-xs text-ink-muted">{activeCatMeta.summary}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPanelOpen(false)}
+                aria-label="입력 패널 닫기"
+                className="rounded-md p-1 text-ink-muted hover:bg-surface-muted"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <button type="button" className="rounded-md p-1 text-ink-muted hover:bg-surface-muted">
-              <X className="h-4 w-4" />
+
+            <form className="space-y-5 px-6 py-6" onSubmit={onSave}>
+              {fields.length === 0 && (
+                <p className="text-sm text-ink-muted">이 카테고리의 필드는 곧 추가됩니다.</p>
+              )}
+              {fields.map((f) => (
+                <div key={f.id}>
+                  <label className="mb-1 block text-xs font-semibold text-ink">
+                    {f.label}
+                    {f.required && <span className="ml-1 text-status-danger">*</span>}
+                  </label>
+                  {f.type === 'textarea' ? (
+                    <textarea
+                      className="input-base min-h-[110px] resize-y"
+                      placeholder={f.placeholder}
+                      value={values[f.id] ?? ''}
+                      onChange={(e) => onChangeField(f.id, e.target.value)}
+                    />
+                  ) : (
+                    <input
+                      className="input-base"
+                      placeholder={f.placeholder}
+                      value={values[f.id] ?? ''}
+                      onChange={(e) => onChangeField(f.id, e.target.value)}
+                    />
+                  )}
+                </div>
+              ))}
+
+              <div className="flex items-center justify-end gap-2 border-t border-border pt-5">
+                <button type="button" onClick={onPreview} className="btn-secondary">
+                  미리 검수
+                </button>
+                <button type="submit" disabled={saving} className="btn-primary disabled:opacity-60">
+                  {saving ? '저장 중…' : `+ ${activeCatMeta.title} 추가`}
+                </button>
+              </div>
+            </form>
+          </div>
+        ) : (
+          <div className="card flex h-full min-h-[160px] items-center justify-center px-6 py-8 text-sm text-ink-muted">
+            패널이 닫혔습니다 —
+            <button
+              type="button"
+              onClick={() => setPanelOpen(true)}
+              className="ml-2 font-semibold text-brand-700 underline"
+            >
+              다시 열기
             </button>
           </div>
-
-          <form className="space-y-5 px-6 py-6">
-            {fields.length === 0 && (
-              <p className="text-sm text-ink-muted">이 카테고리의 필드는 곧 추가됩니다.</p>
-            )}
-            {fields.map((f) => (
-              <div key={f.id}>
-                <label className="mb-1 block text-xs font-semibold text-ink">
-                  {f.label}
-                  {f.required && <span className="ml-1 text-status-danger">*</span>}
-                </label>
-                {f.type === 'textarea' ? (
-                  <textarea className="input-base min-h-[110px] resize-y" placeholder={f.placeholder} />
-                ) : (
-                  <input className="input-base" placeholder={f.placeholder} />
-                )}
-              </div>
-            ))}
-
-            <div className="flex items-center justify-end gap-2 border-t border-border pt-5">
-              <button type="button" className="btn-secondary">
-                미리 검수
-              </button>
-              <button type="submit" className="btn-primary">
-                + {activeCatMeta.title} 추가
-              </button>
-            </div>
-          </form>
-        </div>
+        )}
       </section>
     </>
   );

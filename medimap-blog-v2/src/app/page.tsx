@@ -2,6 +2,7 @@
  * 통합 대시보드 & AI 모니터링 — 메인 화면.
  * Figma 시안(node 804:386) IA 100% 싱크로.
  */
+'use client';
 
 import { Header } from '@/components/Header';
 import { KpiGrid } from '@/components/KpiCard';
@@ -13,6 +14,7 @@ import { OverallSentimentBars } from '@/components/charts/OverallSentimentBars';
 import { KeywordOptimizationTable } from '@/components/tables/KeywordOptimizationTable';
 import { LiveFeedPanel } from '@/components/feed/LiveFeedPanel';
 import { TopicsTable } from '@/components/tables/TopicsTable';
+import { printCurrentPage, showToast } from '@/lib/clientActions';
 import {
   aiInsightBanner,
   engineMetrics,
@@ -27,10 +29,12 @@ import {
   visibilityKpis
 } from '@/lib/mock-data';
 
-export const dynamic = 'force-static';
-export const revalidate = 60;
-
 export default function DashboardPage() {
+  const handlePdf = () => {
+    showToast('PDF 인쇄 다이얼로그 — "PDF로 저장" 선택', { kind: 'info', ms: 3000 });
+    setTimeout(() => printCurrentPage(), 280);
+  };
+
   return (
     <>
       <Header
@@ -41,6 +45,7 @@ export default function DashboardPage() {
           { label: '데이터 피딩', href: '/data-feeding' }
         ]}
         actionLabel="PDF 다운로드"
+        onAction={handlePdf}
       />
 
       <div className="space-y-6 px-8 py-6">
