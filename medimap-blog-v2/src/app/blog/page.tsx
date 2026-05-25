@@ -1,11 +1,10 @@
 /**
- * 블로그 콘텐츠 — 1소재 = 5글 변형 자동 생성.
- * Figma 시안(node 804:410) IA 100% 싱크로.
+ * 블로그 콘텐츠 — 1소재 = 5글 변형 자동 생성 + inline 편집.
  */
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Copy, Download, Edit3, Send, Sparkles } from 'lucide-react';
+import { Copy, Download, Edit3, Send, Sparkles, X } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { blogStats, contentTopics as baseTopics } from '@/lib/mock-data';
 import { formatKstDateTime } from '@/lib/format';
@@ -28,11 +27,21 @@ const BADGE_CHIP: Record<string, string> = {
   비교: 'chip-neutral'
 };
 
+interface DraftPost {
+  title: string;
+  lead: string;
+  body: string;
+  bullets: string;   // line-separated for textarea
+  keywords: string;  // comma-separated
+}
+
 export default function BlogPage() {
   const [topics, setTopics] = useState<ContentTopic[]>(baseTopics);
   const [activeTopicId, setActiveTopicId] = useState(baseTopics[0].id);
   const [newTopic, setNewTopic] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<DraftPost>({ title: '', lead: '', body: '', bullets: '', keywords: '' });
 
   const active = useMemo(
     () => topics.find((t) => t.id === activeTopicId) ?? topics[0],
@@ -126,6 +135,70 @@ export default function BlogPage() {
     showToast('네이버 발행 대기열에 추가됨 (운영 환경 연동 시 즉시 발행)');
   };
 
+  // === 편집 모달 ===
+  const openEdit = (p: BlogPostVariant) => {
+    setEditingPostId(p.id);
+    setDraft({
+      title: p.title,
+      lead: p.lead,
+      body: p.body ?? '',
+      bullets: (p.bullets ?? []).join('\n'),
+      keywords: p.keywords.join(', ')
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingPostId(null);
+  };
+
+  const saveEdit = () => {
+    if (!editingPostId) return;
+    if (!draft.title.trim()) {
+      showToast('제목은 필수입니다', { kind: 'error' });
+      return;
+    }
+    const bullets = draft.bullets
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const keywords = draft.keywords
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    setTopics((prev) =>
+      prev.map((t) =>
+        t.id !== activeTopicId
+          ? t
+          : {
+              ...t,
+              posts: t.posts.map((p) =>
+                p.id === editingPostId
+                  ? {
+                      ...p,
+                      title: draft.title.trim(),
+                      lead: draft.lead.trim(),
+                      body: draft.body.trim(),
+                      bullets: bullets.length ? bullets : undefined,
+                      keywords: keywords.length ? keywords : p.keywords,
+                      charCount: draft.body.length + draft.lead.length,
+                      readMinutes: Math.max(1, Math.ceil((draft.body.length + draft.lead.length) / 400)),
+                      status: 'review' as PublishStatus
+                    }
+                  : p
+              )
+            }
+      )
+    );
+    setEditingPostId(null);
+    showToast('수정됨 — 상태가 "검수 중" 으로 변경됨');
+  };
+
+  const editingPost = useMemo(
+    () => active?.posts.find((p) => p.id === editingPostId) ?? null,
+    [active, editingPostId]
+  );
+
   return (
     <>
       <Header
@@ -180,7 +253,10 @@ export default function BlogPage() {
                 <li key={t.id}>
                   <button
                     type="button"
-                    onClick={() => setActiveTopicId(t.id)}
+                    onClick={() => {
+                      setActiveTopicId(t.id);
+                      setEditingPostId(null);
+                    }}
                     className={cn(
                       'w-full px-5 py-4 text-left transition',
                       isActive ? 'bg-brand-50' : 'hover:bg-surface-subtle'
@@ -207,9 +283,6 @@ export default function BlogPage() {
               );
             })}
           </ul>
-          <p className="border-t border-border px-5 py-3 text-xs text-ink-muted">
-            ✨ 상단 입력창에서 소재를 생성하면 5개 글이 자동 작성됩니다.
-          </p>
         </aside>
 
         <div className="card">
@@ -275,11 +348,7 @@ export default function BlogPage() {
                     </div>
 
                     <div className="flex shrink-0 flex-col items-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => showToast('편집 기능은 차후 발행 워크플로에 통합 예정', { kind: 'info' })}
-                        className="btn-secondary text-xs"
-                      >
+                      <button type="button" onClick={() => openEdit(p)} className="btn-secondary text-xs">
                         <Edit3 className="h-3.5 w-3.5" /> 편집
                       </button>
                       <button type="button" onClick={() => copyPost(p)} className="btn-secondary text-xs">
@@ -301,6 +370,98 @@ export default function BlogPage() {
           )}
         </div>
       </section>
+
+      {/* 편집 모달 */}
+      {editingPost && (
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-ink/60 p-4"
+          onClick={cancelEdit}
+        >
+          <div
+            className="card w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border px-6 py-4">
+              <div>
+                <h3 className="text-base font-bold text-ink">글 편집</h3>
+                <p className="mt-0.5 text-xs text-ink-muted">
+                  {editingPost.formatLabel} · {editingPost.cue}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="rounded-md p-1 text-ink-muted hover:bg-surface-muted"
+                aria-label="닫기"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4 px-6 py-5">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink">
+                  제목 <span className="text-status-danger">*</span>
+                </label>
+                <input
+                  className="input-base"
+                  value={draft.title}
+                  onChange={(e) => setDraft((p) => ({ ...p, title: e.target.value }))}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink">리드 (요약)</label>
+                <textarea
+                  className="input-base min-h-[70px] resize-y"
+                  value={draft.lead}
+                  onChange={(e) => setDraft((p) => ({ ...p, lead: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink">본문</label>
+                <textarea
+                  className="input-base min-h-[200px] resize-y font-mono text-[13px]"
+                  value={draft.body}
+                  onChange={(e) => setDraft((p) => ({ ...p, body: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink">
+                  체크리스트 / 불릿 (줄 단위 입력, 선택)
+                </label>
+                <textarea
+                  className="input-base min-h-[90px] resize-y"
+                  placeholder="한 줄에 하나씩"
+                  value={draft.bullets}
+                  onChange={(e) => setDraft((p) => ({ ...p, bullets: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink">
+                  키워드 (쉼표 구분)
+                </label>
+                <input
+                  className="input-base"
+                  placeholder="잠실 라섹, 회복기간, BGN"
+                  value={draft.keywords}
+                  onChange={(e) => setDraft((p) => ({ ...p, keywords: e.target.value }))}
+                />
+              </div>
+              <div className="rounded-md bg-surface-subtle px-3 py-2 text-[11px] text-ink-muted">
+                저장 시 상태가 자동으로 “검수 중” 으로 변경되어 의료법 린터 검토 후 발행됩니다.
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-border px-6 py-4">
+              <button type="button" onClick={cancelEdit} className="btn-secondary text-xs">
+                취소
+              </button>
+              <button type="button" onClick={saveEdit} className="btn-primary text-xs">
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
