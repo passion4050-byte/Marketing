@@ -135,7 +135,7 @@ export default function IntegrationsPage() {
           <li>API & Services → Library → YouTube Data API v3 사용 설정</li>
           <li>OAuth 동의 화면 구성 (앱 이름 = MEDIMAP GEO, 사용자 유형 = External)</li>
           <li>사용자 인증 정보 → OAuth Client ID 생성 → Web application</li>
-          <li>승인된 리디렉션 URI 에 추가:<br/><code className="rounded bg-surface-base px-1 py-0.5">https://medimap-geo.vercel.app/api/admin/youtube/oauth/callback</code></li>
+          <li>승인된 리디렉션 URI 에 추가:<br/><code className="rounded bg-surface-base px-1 py-0.5">https://geo-v2-beta.vercel.app/api/admin/youtube/oauth/callback</code></li>
           <li>발급된 Client ID / Secret 을 Vercel env 에 <code>YOUTUBE_CLIENT_ID</code>, <code>YOUTUBE_CLIENT_SECRET</code> 으로 추가</li>
           <li>이 페이지에서 [연결하기] 클릭 → Google 인증 → 자동 토큰 저장</li>
         </ol>

@@ -812,7 +812,7 @@ export const publications: Publication[] = [
   {
     id: 'pub-001',
     channel: 'blog',
-    url: 'https://medimap-geo.vercel.app/blog/lasek-recovery-timeline',
+    url: 'https://geo-v2-beta.vercel.app/blog/lasek-recovery-timeline',
     title: '라섹 회복 기간, 평균 며칠이면 일상 복귀 가능할까?',
     publishedAt: '2026-05-01T10:00:00+09:00',
     citedByEngines: ['chatgpt', 'perplexity'],
@@ -832,7 +832,7 @@ export const publications: Publication[] = [
   {
     id: 'pub-003',
     channel: 'faq',
-    url: 'https://medimap-geo.vercel.app/faq/lasik-lasek-difference',
+    url: 'https://geo-v2-beta.vercel.app/faq/lasik-lasek-difference',
     title: '라식과 라섹의 차이는 무엇인가요?',
     publishedAt: '2026-05-08T11:30:00+09:00',
     citedByEngines: ['chatgpt', 'claude', 'gemini', 'perplexity'],

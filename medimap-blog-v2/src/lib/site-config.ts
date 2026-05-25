@@ -8,7 +8,7 @@ export const siteConfig = {
   subtitle: 'Hospital AI Platform',
   description:
     '병원 데이터를 구조화·발행하고 ChatGPT · Claude · Gemini · Perplexity 인용을 추적하는 AEO/GEO SaaS.',
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://medimap-geo.vercel.app',
+  url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://geo-v2-beta.vercel.app',
   copyright: '© MEDIMAP GEO',
   // 자동 발행 대상이 되는 외부 채널
   channels: [
