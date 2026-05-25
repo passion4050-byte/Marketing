@@ -11,6 +11,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
+import { logAudit } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,10 +22,14 @@ const ALLOWED_INSERT = new Set([
   'partner_slug', 'status', 'publish_count', 'monthly_cost', 'joined_at'
 ]);
 
+const NOT_NULL_PROTECT = new Set(['name', 'domain_category', 'region', 'business_model']);
+
 function pickAllowed(body: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(body)) {
-    if (ALLOWED_INSERT.has(k)) out[k] = v === '' ? null : v;
+    if (!ALLOWED_INSERT.has(k)) continue;
+    if (NOT_NULL_PROTECT.has(k) && (v === '' || v == null)) continue;
+    out[k] = v === '' ? null : v;
   }
   return out;
 }
@@ -70,5 +75,6 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await sb.from('tenants').insert(payload).select().single();
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  await logAudit(req, sb, 'create_tenant', `tenants:${data.id}`, { diff: { after: data } });
   return NextResponse.json({ ok: true, tenant: data });
 }

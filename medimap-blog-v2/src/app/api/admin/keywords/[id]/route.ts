@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
+import { logAudit } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,14 +27,16 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
   }
   const { data, error } = await sb.from('keywords').update(payload).eq('id', id).select().single();
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  await logAudit(req, sb, 'update_keyword', `keywords:${id}`, { diff: payload });
   return NextResponse.json({ ok: true, keyword: data });
 }
 
-export async function DELETE(_req: NextRequest, ctx: RouteCtx) {
+export async function DELETE(req: NextRequest, ctx: RouteCtx) {
   const sb = getServerClient();
   if (!sb) return notConfigured();
   const { id } = await ctx.params;
   const { error } = await sb.from('keywords').delete().eq('id', id);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  await logAudit(req, sb, 'delete_keyword', `keywords:${id}`);
   return NextResponse.json({ ok: true });
 }

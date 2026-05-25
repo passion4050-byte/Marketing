@@ -8,6 +8,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
+import { logAudit } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -63,5 +64,6 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await sb.from('keywords').insert(payload).select().single();
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  await logAudit(req, sb, 'create_keyword', `keywords:${data.id}`, { diff: { after: data } });
   return NextResponse.json({ ok: true, keyword: data });
 }

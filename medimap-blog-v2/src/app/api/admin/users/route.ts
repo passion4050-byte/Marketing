@@ -5,6 +5,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
+import { logAudit } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -46,5 +47,6 @@ export async function POST(req: NextRequest) {
   }
   const { data, error } = await sb.from('users').insert(payload).select().single();
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  await logAudit(req, sb, 'invite_user', `users:${data.id}`, { diff: { email: data.email, role: data.role } });
   return NextResponse.json({ ok: true, user: data });
 }

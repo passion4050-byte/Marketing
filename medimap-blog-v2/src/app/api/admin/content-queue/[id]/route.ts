@@ -6,6 +6,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
+import { logAudit } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -61,6 +62,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       .update({ status: 'rejected', updated_at: new Date().toISOString() })
       .eq('id', id);
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    await logAudit(req, sb, 'reject_content', `generated_contents:${id}`);
     return NextResponse.json({ ok: true, action: 'reject' });
   }
 
@@ -91,6 +93,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     .select()
     .single();
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  await logAudit(req, sb, 'approve_content', `generated_contents:${id}`, { diff: { partner_category: update.partner_category, is_partner_content: update.is_partner_content } });
 
   return NextResponse.json({
     ok: true,
@@ -101,7 +104,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
   });
 }
 
-export async function DELETE(_req: NextRequest, ctx: RouteCtx) {
+export async function DELETE(req: NextRequest, ctx: RouteCtx) {
   const sb = getServerClient();
   if (!sb) return NextResponse.json({ ok: false, error: 'supabase not configured' }, { status: 503 });
   const { id } = await ctx.params;
@@ -110,5 +113,6 @@ export async function DELETE(_req: NextRequest, ctx: RouteCtx) {
     .update({ status: 'rejected', updated_at: new Date().toISOString() })
     .eq('id', id);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  await logAudit(req, sb, 'reject_content', `generated_contents:${id}`);
   return NextResponse.json({ ok: true });
 }

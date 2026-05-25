@@ -21,7 +21,7 @@ export async function generateMetadata(
   const post = await getPartnerPost(meta.slug, partner, slug);
   if (!post) return { title: "파트너 글 — 메디맵" };
   return {
-    title: `${post.title} | ${post.tenant_name} · 메디맵`,
+    title: `${post.title} | ${post.tenant_name}`,
     description: post.excerpt,
     alternates: {
       canonical: absoluteUrl(`/with-partners/${category}/${partner}/${slug}`),
@@ -42,6 +42,16 @@ export async function generateMetadata(
         : undefined,
     },
   };
+}
+
+
+/** body 의 첫 <h1> 가 page title 과 (정규화 후) 동일하면 제거 — H1 중복 회피 (SEO). */
+function stripFirstH1IfMatchesTitle(body: string, title: string): string {
+  if (!body) return body;
+  const norm = (s: string) => s.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+  return body.replace(/<h1[^>]*>([\s\S]*?)<\/h1>\s*/i, (m, inner) => {
+    return norm(inner) === norm(title) ? '' : m;
+  });
 }
 
 export default async function PartnerPostPage({ params }: PageProps) {
@@ -130,7 +140,7 @@ export default async function PartnerPostPage({ params }: PageProps) {
 
       <article
         className="prose prose-slate max-w-none prose-headings:text-ink prose-a:text-brand"
-        dangerouslySetInnerHTML={{ __html: post.body }}
+        dangerouslySetInnerHTML={{ __html: stripFirstH1IfMatchesTitle(post.body, post.title) }}
       />
 
       <footer className="mt-12 rounded-2xl border border-slate-200 bg-white p-6">

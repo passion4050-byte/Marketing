@@ -108,10 +108,10 @@ export default function ReportsListPage() {
                   onClick={() => sendEmail(t.id)}
                   disabled={sending === t.id || !t.email}
                   className="btn-primary text-xs disabled:opacity-60"
-                  title={!t.email ? '이메일 미등록 — tenants 편집에서 이메일 입력 필요' : ''}
+                  title={t.email ? `${t.email} 로 발송` : '이메일 미등록 — tenants 편집에서 이메일 입력 필요'}
                 >
                   <Mail className="h-3.5 w-3.5" />
-                  {sending === t.id ? '발송 중…' : (t.email ? `${t.email} 로 발송` : '이메일 미등록')}
+                  {sending === t.id ? '발송 중…' : (t.email ? '이메일 보내기' : '이메일 미등록')}
                 </button>
               </div>
             </div>
