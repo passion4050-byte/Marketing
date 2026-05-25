@@ -5,6 +5,11 @@
  * URL 영문 slug 만 사용 (encodeURIComponent 불필요).
  *
  * 카테고리 6종: eyeclinic / derma / plastic / dental / internal / hair
+ *
+ * Round 10 (2026-05-26): withTimeout 의 빈 배열 fallback 제거.
+ *   기존: 8초 timeout 시 [] 반환 → ISR 이 빈 결과 캐싱 → 0개 표시 + BGN 404
+ *   수정: 에러를 throw → Next.js 가 페이지를 캐싱하지 않고 다음 요청에서 재시도
+ *   결과: cold start 시 첫 요청은 느릴 수 있으나, 일관된 정확한 결과 보장
  */
 import { getSql } from "./db";
 
@@ -169,36 +174,42 @@ function rowToPost(row: PartnerPostRow): PartnerPost | null {
   };
 }
 
-async function withTimeout<T>(p: Promise<T>, fallback: T, ms = 8000): Promise<T> {
-  let to: ReturnType<typeof setTimeout> | undefined;
-  const timer = new Promise<T>((resolve) => {
-    to = setTimeout(() => resolve(fallback), ms);
-  });
-  try {
-    return await Promise.race([p, timer]);
-  } catch {
-    return fallback;
-  } finally {
-    if (to) clearTimeout(to);
-  }
-}
-
-/** 모든 파트너 콘텐츠 — sitemap / hub 페이지에서 사용 */
+/**
+ * Round 10 (2026-05-26): withTimeout 의 빈 배열 fallback 제거.
+ *
+ * 이전 동작:
+ *   - sql.unsafe 가 8초 안에 응답 없으면 [] 반환
+ *   - Next.js ISR 이 [] 를 캐싱 → 60초간 모든 카테고리 0 개 표시
+ *   - detail 페이지는 [] → null → notFound() → 404
+ *
+ * 변경 후 동작:
+ *   - sql.unsafe 가 실패하면 throw
+ *   - Next.js ISR 이 실패한 페이지를 캐싱하지 않음 → 다음 요청에서 재시도
+ *   - 성공한 결과만 캐싱 → 0 개 stuck 현상 사라짐
+ *   - getSql() 가 null 인 경우 (빌드 시점 env 미설정 등) 만 [] 반환
+ */
 export async function getAllPartnerPosts(): Promise<PartnerPost[]> {
   const sql = getSql();
-  if (!sql) return [];
-  const rows = await withTimeout<PartnerPostRow[]>(
-    sql.unsafe<PartnerPostRow[]>(`
+  if (!sql) {
+    console.warn("[partners] getSql() returned null — env not configured?");
+    return [];
+  }
+  try {
+    const rows = await sql.unsafe<PartnerPostRow[]>(`
       SELECT ${POST_SELECT}
       FROM generated_contents gc
       LEFT JOIN tenants t ON t.id = gc.tenant_id
       WHERE ${POST_FILTER}
       ORDER BY COALESCE(gc.published_at, gc.created_at) DESC
       LIMIT 500
-    `),
-    [],
-  );
-  return rows.map(rowToPost).filter((p): p is PartnerPost => p !== null);
+    `);
+    console.log(`[partners] fetched ${rows.length} partner posts`);
+    return rows.map(rowToPost).filter((p): p is PartnerPost => p !== null);
+  } catch (err) {
+    console.error("[partners] getAllPartnerPosts query failed:", err);
+    // throw → Next.js ISR does not cache failed result → retry on next request
+    throw err;
+  }
 }
 
 export async function getPartnerPostsByCategory(
