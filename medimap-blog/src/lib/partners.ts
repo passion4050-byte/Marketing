@@ -6,10 +6,15 @@
  *
  * 카테고리 6종: eyeclinic / derma / plastic / dental / internal / hair
  *
- * Round 10 (2026-05-26): withTimeout 의 빈 배열 fallback 제거.
- *   기존: 8초 timeout 시 [] 반환 → ISR 이 빈 결과 캐싱 → 0개 표시 + BGN 404
- *   수정: 에러를 throw → Next.js 가 페이지를 캐싱하지 않고 다음 요청에서 재시도
- *   결과: cold start 시 첫 요청은 느릴 수 있으나, 일관된 정확한 결과 보장
+ * Round 11 (2026-05-26):
+ *   배경: Round 10 에서 withTimeout 8초 fallback 을 제거했더니, Vercel 빌드 시점에
+ *         6개 카테고리 + hub + ... 각 페이지가 generateStaticParams 호출 시 매번 SQL
+ *         쿼리 발생 → 누적 180초 초과 → SIGTERM 빌드 fail.
+ *   해결: 모듈 레벨 cache (60초 TTL) — 같은 worker process 내에서 query 는 한 번만
+ *         실제 실행, 나머지 페이지는 cache hit. runtime 에서도 같은 serverless instance
+ *         내 60초 동안 cache 적중 → 비용/latency 절감.
+ *   안전장치: 60초 query timeout (Vercel ↔ Supabase 일시적 지연 대비). 실패 시 throw
+ *         → Next.js ISR 이 실패 결과를 캐싱하지 않음 → 다음 요청에서 재시도.
  */
 import { getSql } from "./db";
 
@@ -174,37 +179,60 @@ function rowToPost(row: PartnerPostRow): PartnerPost | null {
   };
 }
 
+/* ───────────────────────── Module-level cache (Round 11) ───────────────────────── */
+
+let _allPostsCache: { data: PartnerPost[]; ts: number } | null = null;
+const ALL_POSTS_CACHE_TTL_MS = 60_000; // 60s — single Vercel worker shares this
+const QUERY_TIMEOUT_MS = 60_000;        // 60s — generous timeout for cold start
+
+function isCacheFresh(ts: number): boolean {
+  return Date.now() - ts < ALL_POSTS_CACHE_TTL_MS;
+}
+
 /**
- * Round 10 (2026-05-26): withTimeout 의 빈 배열 fallback 제거.
- *
- * 이전 동작:
- *   - sql.unsafe 가 8초 안에 응답 없으면 [] 반환
- *   - Next.js ISR 이 [] 를 캐싱 → 60초간 모든 카테고리 0 개 표시
- *   - detail 페이지는 [] → null → notFound() → 404
- *
- * 변경 후 동작:
- *   - sql.unsafe 가 실패하면 throw
- *   - Next.js ISR 이 실패한 페이지를 캐싱하지 않음 → 다음 요청에서 재시도
- *   - 성공한 결과만 캐싱 → 0 개 stuck 현상 사라짐
- *   - getSql() 가 null 인 경우 (빌드 시점 env 미설정 등) 만 [] 반환
+ * 모듈 레벨 cache 사용.
+ *   - 빌드 시점: 첫 페이지가 query 실행, 나머지 페이지는 cache hit → 빌드 timeout 회피.
+ *   - runtime:  같은 serverless instance 내 60초 동안 fresh, 그 후 다시 fetch.
+ *   - 실패 시:  throw → Next.js ISR 캐시 안 함 → 다음 요청 재시도.
+ *   - getSql() null (env 미설정): warn + 빈 배열 (cache 안 함 — 다음 호출에 재시도).
  */
 export async function getAllPartnerPosts(): Promise<PartnerPost[]> {
+  if (_allPostsCache && isCacheFresh(_allPostsCache.ts)) {
+    return _allPostsCache.data;
+  }
+
   const sql = getSql();
   if (!sql) {
     console.warn("[partners] getSql() returned null — env not configured?");
     return [];
   }
+
+  const queryPromise = sql.unsafe<PartnerPostRow[]>(`
+    SELECT ${POST_SELECT}
+    FROM generated_contents gc
+    LEFT JOIN tenants t ON t.id = gc.tenant_id
+    WHERE ${POST_FILTER}
+    ORDER BY COALESCE(gc.published_at, gc.created_at) DESC
+    LIMIT 500
+  `);
+
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(
+      () => reject(new Error(`[partners] query timeout (${QUERY_TIMEOUT_MS}ms)`)),
+      QUERY_TIMEOUT_MS,
+    ),
+  );
+
   try {
-    const rows = await sql.unsafe<PartnerPostRow[]>(`
-      SELECT ${POST_SELECT}
-      FROM generated_contents gc
-      LEFT JOIN tenants t ON t.id = gc.tenant_id
-      WHERE ${POST_FILTER}
-      ORDER BY COALESCE(gc.published_at, gc.created_at) DESC
-      LIMIT 500
-    `);
-    console.log(`[partners] fetched ${rows.length} partner posts`);
-    return rows.map(rowToPost).filter((p): p is PartnerPost => p !== null);
+    const rows = await Promise.race([queryPromise, timeoutPromise]);
+    const posts = rows
+      .map(rowToPost)
+      .filter((p): p is PartnerPost => p !== null);
+    _allPostsCache = { data: posts, ts: Date.now() };
+    console.log(
+      `[partners] fetched ${rows.length} partner posts (cached for ${ALL_POSTS_CACHE_TTL_MS / 1000}s)`,
+    );
+    return posts;
   } catch (err) {
     console.error("[partners] getAllPartnerPosts query failed:", err);
     // throw → Next.js ISR does not cache failed result → retry on next request
