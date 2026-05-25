@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Beaker, Plus, Trophy, X } from 'lucide-react';
+import { MockBanner } from '@/components/admin/MockBanner';
 import { abTests as base, adminTenants, type AbTest } from '@/lib/admin-mock';
 import { showToast } from '@/lib/clientActions';
 import { cn } from '@/lib/cn';
@@ -39,6 +40,7 @@ export default function AbTestsPage() {
 
   return (
     <div className="px-8 py-6">
+      <MockBanner source="자동발행 cron 의 A/B 변형 생성 + 측정" />
       <header className="mb-5 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">A/B 콘텐츠 테스트 ({tests.length})</h1>

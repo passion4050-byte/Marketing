@@ -1,5 +1,7 @@
 'use client';
 
+import { MockBanner } from '@/components/admin/MockBanner';
+
 import { funnelRows } from '@/lib/admin-mock';
 
 export default function FunnelPage() {
@@ -9,6 +11,7 @@ export default function FunnelPage() {
 
   return (
     <div className="px-8 py-6">
+      <MockBanner source="ShortLink 클릭 + GA4" />
       <header className="mb-5">
         <h1 className="text-2xl font-bold text-ink">Funnel · ROI</h1>
         <p className="mt-1 text-sm text-ink-muted">ShortLink 클릭 → 문의 매칭 → 클라이언트 ROI</p>

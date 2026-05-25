@@ -1,5 +1,7 @@
 'use client';
 
+import { MockBanner } from '@/components/admin/MockBanner';
+
 import { costDaily, adminTenants } from '@/lib/admin-mock';
 
 export default function CostPage() {
@@ -11,6 +13,7 @@ export default function CostPage() {
 
   return (
     <div className="px-8 py-6">
+      <MockBanner source="Gemini API billing + Vercel function invocation" />
       <header className="mb-5">
         <h1 className="text-2xl font-bold text-ink">비용 모니터</h1>
         <p className="mt-1 text-sm text-ink-muted">Gemini API + 인프라 비용 (USD)</p>

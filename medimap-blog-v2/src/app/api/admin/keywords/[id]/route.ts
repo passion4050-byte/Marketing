@@ -4,11 +4,7 @@ import { getServerClient } from '@/lib/supabase';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const ALLOWED_PATCH = new Set([
-  'name', 'domain_category', 'region', 'business_model', 'address',
-  'naver_place_url', 'phone', 'homepage',
-  'partner_slug', 'status', 'publish_count', 'monthly_cost', 'joined_at'
-]);
+const ALLOWED = new Set(['text', 'category', 'target_brand', 'is_active']);
 
 interface RouteCtx { params: Promise<{ id: string }>; }
 
@@ -23,22 +19,21 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const payload: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(body)) {
-    if (ALLOWED_PATCH.has(k)) payload[k] = v === '' ? null : v;
+    if (ALLOWED.has(k)) payload[k] = v === '' ? null : v;
   }
   if (Object.keys(payload).length === 0) {
-    return NextResponse.json({ ok: false, error: 'no fields to update' }, { status: 400 });
+    return NextResponse.json({ ok: false, error: 'no fields' }, { status: 400 });
   }
-  const { data, error } = await sb
-    .from('tenants').update(payload).eq('id', id).select().single();
+  const { data, error } = await sb.from('keywords').update(payload).eq('id', id).select().single();
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, tenant: data });
+  return NextResponse.json({ ok: true, keyword: data });
 }
 
 export async function DELETE(_req: NextRequest, ctx: RouteCtx) {
   const sb = getServerClient();
   if (!sb) return notConfigured();
   const { id } = await ctx.params;
-  const { error } = await sb.from('tenants').delete().eq('id', id);
+  const { error } = await sb.from('keywords').delete().eq('id', id);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

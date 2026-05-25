@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Bell, BellOff, ExternalLink } from 'lucide-react';
+import { MockBanner } from '@/components/admin/MockBanner';
 import { citationEvents as base, type CitationEvent } from '@/lib/admin-mock';
 import { cn } from '@/lib/cn';
 
@@ -19,6 +20,7 @@ export default function CitationsPage() {
 
   return (
     <div className="px-8 py-6">
+      <MockBanner source="4 엔진 API (ChatGPT/Claude/Gemini/Perplexity) 또는 수동 모니터링 결과" />
       <header className="mb-5">
         <h1 className="text-2xl font-bold text-ink">AI 인용 추적</h1>
         <p className="mt-1 text-sm text-ink-muted">4 엔진에서 자사 콘텐츠가 인용된 이벤트 + 알림 설정</p>
