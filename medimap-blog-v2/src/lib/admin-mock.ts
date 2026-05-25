@@ -154,3 +154,43 @@ export const calendarItems: CalendarItem[] = Array.from({ length: 30 }).map((_, 
     status: i < 14 ? 'published' : i < 18 ? 'review' : 'scheduled'
   };
 });
+
+// ===== A/B Test =====
+export interface AbTest {
+  id: string;
+  tenantId: string;
+  tenantName: string;
+  keyword: string;
+  hypothesis: string;
+  variantA: { title: string; cta: string; metric: { mentions: number; clicks: number; inquiries: number } };
+  variantB: { title: string; cta: string; metric: { mentions: number; clicks: number; inquiries: number } };
+  startedAt: string;
+  status: 'running' | 'concluded' | 'paused';
+  winner?: 'A' | 'B' | 'tie';
+}
+
+export const abTests: AbTest[] = [
+  {
+    id: 'ab-1',
+    tenantId: 't-bgn',
+    tenantName: 'BGN',
+    keyword: '잠실 라식',
+    hypothesis: '"평균 회복기" 강조 vs "비용 명시" 어떤 CTA가 더 효과적인가',
+    variantA: { title: '잠실 라식 — 평균 회복기 3일', cta: '회복기 상담 톡톡', metric: { mentions: 12, clicks: 84, inquiries: 5 } },
+    variantB: { title: '잠실 라식 — 양안 89만원부터', cta: '가격 견적 받기', metric: { mentions: 14, clicks: 142, inquiries: 11 } },
+    startedAt: '2026-05-15',
+    status: 'concluded',
+    winner: 'B'
+  },
+  {
+    id: 'ab-2',
+    tenantId: 't-tete',
+    tenantName: 'TETE',
+    keyword: '강남 안과',
+    hypothesis: '"30대 직장인" vs "직장인 시력교정" 타겟팅 비교',
+    variantA: { title: '30대 직장인 라식 후기', cta: '평일 야간 상담', metric: { mentions: 6, clicks: 52, inquiries: 3 } },
+    variantB: { title: '직장인 시력교정 가이드', cta: '비대면 상담 예약', metric: { mentions: 8, clicks: 71, inquiries: 4 } },
+    startedAt: '2026-05-20',
+    status: 'running'
+  }
+];

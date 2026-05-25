@@ -155,3 +155,10 @@ body {
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: rgba(15, 23, 42, 0.18); border-radius: 8px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 0.28); }
+
+/* === 월간 보고서 인쇄 전용 === */
+@media print {
+  body.print-report { background: white; }
+  body.print-report aside,
+  body.print-report header.flex.items-center.justify-between { display: none !important; }
+}

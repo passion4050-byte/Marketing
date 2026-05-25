@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  Beaker,
   CalendarDays,
   ClipboardCheck,
   DollarSign,
-  Eye,
+  FileText,
   History,
   LayoutDashboard,
   LinkIcon,
@@ -14,6 +15,7 @@ import {
   Plug,
   ShieldCheck,
   Tag,
+  UserCog,
   Users,
   Zap
 } from 'lucide-react';
@@ -26,14 +28,17 @@ const NAV = [
     { href: '/admin/tenants', label: '클라이언트', icon: Users },
     { href: '/admin/content-queue', label: '콘텐츠 검수', icon: ClipboardCheck },
     { href: '/admin/keywords', label: '키워드 풀', icon: Tag },
-    { href: '/admin/calendar', label: '콘텐츠 캘린더', icon: CalendarDays }
+    { href: '/admin/calendar', label: '콘텐츠 캘린더', icon: CalendarDays },
+    { href: '/admin/ab-tests', label: 'A/B 테스트', icon: Beaker }
   ]},
   { group: '인사이트', items: [
     { href: '/admin/citations', label: 'AI 인용 추적', icon: Zap },
     { href: '/admin/funnel', label: 'Funnel · ROI', icon: LinkIcon },
-    { href: '/admin/cost', label: '비용 모니터', icon: DollarSign }
+    { href: '/admin/cost', label: '비용 모니터', icon: DollarSign },
+    { href: '/admin/reports', label: '월간 보고서', icon: FileText }
   ]},
   { group: '시스템', items: [
+    { href: '/admin/users', label: '사용자 관리', icon: UserCog },
     { href: '/admin/integrations', label: '연동 (YouTube 등)', icon: Plug },
     { href: '/admin/audit', label: '감사 로그', icon: History }
   ]}
@@ -64,7 +69,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </div>
-
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           {NAV.map((g) => (
             <div key={g.group} className="mb-5">
@@ -96,7 +100,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </div>
           ))}
         </nav>
-
         <div className="border-t border-border px-3 py-3">
           <button
             type="button"
@@ -107,7 +110,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
       </aside>
-
       <main className="flex-1 min-w-0">{children}</main>
     </div>
   );

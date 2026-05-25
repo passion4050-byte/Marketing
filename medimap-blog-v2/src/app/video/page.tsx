@@ -1,15 +1,15 @@
 /**
- * 영상 스크립트 — Shorts / Reels / YouTube 자동 합성.
- * 사용자 목표 보강: 영상 컨텐츠는 메타·캡션 텍스트로 LLM 인덱싱.
+ * 영상 스크립트 — Shorts / Reels / YouTube 자동 합성 + YouTube 실 업로드.
  */
 'use client';
 
 import { useState } from 'react';
-import { Clapperboard, Copy, Send, Sparkles } from 'lucide-react';
+import { Clapperboard, Copy, Send, Sparkles, Youtube } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { videoScripts as baseScripts } from '@/lib/mock-data';
 import { cn } from '@/lib/cn';
 import { copyToClipboard, showToast } from '@/lib/clientActions';
+import { YouTubeUploadModal } from '@/components/video/YouTubeUploadModal';
 import type { VideoScript } from '@/lib/types';
 
 const CHANNEL_LABEL: Record<string, string> = {
@@ -34,13 +34,11 @@ export default function VideoScriptPage() {
   const [scripts, setScripts] = useState<VideoScript[]>(baseScripts);
   const [topic, setTopic] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [uploadTarget, setUploadTarget] = useState<VideoScript | null>(null);
 
   const onGenerate = async () => {
     const t = topic.trim();
-    if (!t) {
-      showToast('소재를 입력하세요', { kind: 'error' });
-      return;
-    }
+    if (!t) { showToast('소재를 입력하세요', { kind: 'error' }); return; }
     setGenerating(true);
     try {
       const res = await fetch('/api/video/generate', {
@@ -75,9 +73,8 @@ export default function VideoScriptPage() {
     showToast(ok ? '스크립트 복사됨' : '복사 실패', { kind: ok ? 'success' : 'error' });
   };
 
-  const onUpload = (id: string) => {
+  const onUploadSuccess = (id: string) => {
     setScripts((prev) => prev.map((v) => (v.id === id ? { ...v, status: 'published' } : v)));
-    showToast('채널 업로드 대기열에 추가됨 (운영 환경 연동 시 즉시 업로드)');
   };
 
   return (
@@ -97,12 +94,7 @@ export default function VideoScriptPage() {
             onKeyDown={(e) => e.key === 'Enter' && !generating && onGenerate()}
             disabled={generating}
           />
-          <button
-            type="button"
-            onClick={onGenerate}
-            disabled={generating}
-            className="btn-primary shrink-0 disabled:opacity-60"
-          >
+          <button type="button" onClick={onGenerate} disabled={generating} className="btn-primary shrink-0 disabled:opacity-60">
             <Sparkles className="h-4 w-4" /> {generating ? '생성 중…' : '스크립트 생성'}
           </button>
         </div>
@@ -118,47 +110,55 @@ export default function VideoScriptPage() {
                 </span>
                 <div>
                   <div className="text-sm font-bold text-ink">{v.title}</div>
-                  <div className="text-[11px] text-ink-muted">
-                    {CHANNEL_LABEL[v.channel]} · {v.duration}
-                  </div>
+                  <div className="text-[11px] text-ink-muted">{CHANNEL_LABEL[v.channel]} · {v.duration}</div>
                 </div>
               </div>
               <span className={cn(STATUS_CHIP[v.status])}>{STATUS_LABEL[v.status]}</span>
             </header>
             <div className="px-5 py-5">
-              <div className="rounded-lg bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-700">
-                Hook · {v.hook}
-              </div>
+              <div className="rounded-lg bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-700">Hook · {v.hook}</div>
               <ol className="mt-4 space-y-2">
                 {v.beats.map((b, i) => (
                   <li key={i} className="grid grid-cols-[56px_1fr] items-baseline gap-3 text-sm text-ink-soft">
-                    <span className="rounded bg-surface-muted px-1.5 py-0.5 text-center font-mono text-xs text-ink-muted">
-                      {b.start}
-                    </span>
+                    <span className="rounded bg-surface-muted px-1.5 py-0.5 text-center font-mono text-xs text-ink-muted">{b.start}</span>
                     <span>{b.line}</span>
                   </li>
                 ))}
               </ol>
-              <div className="mt-4 rounded-lg border border-brand-200 bg-brand-50/40 px-3 py-2 text-xs text-brand-700">
-                CTA · {v.cta}
-              </div>
+              <div className="mt-4 rounded-lg border border-brand-200 bg-brand-50/40 px-3 py-2 text-xs text-brand-700">CTA · {v.cta}</div>
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
               <button type="button" onClick={() => copyScript(v)} className="btn-secondary text-xs">
-                <Copy className="h-3.5 w-3.5" /> 스크립트 복사
+                <Copy className="h-3.5 w-3.5" /> 복사
               </button>
+              {(v.channel === 'youtube' || v.channel === 'shorts') && (
+                <button type="button" onClick={() => setUploadTarget(v)} className="btn-secondary text-xs">
+                  <Youtube className="h-3.5 w-3.5 text-red-600" /> YouTube 업로드
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => onUpload(v.id)}
+                onClick={() => {
+                  setScripts((prev) => prev.map((s) => (s.id === v.id ? { ...s, status: 'published' } : s)));
+                  showToast('채널 업로드 대기열에 추가됨');
+                }}
                 disabled={v.status === 'published'}
                 className="btn-primary text-xs disabled:opacity-60"
               >
-                <Send className="h-3.5 w-3.5" /> {v.status === 'published' ? '업로드됨' : '채널 업로드'}
+                <Send className="h-3.5 w-3.5" /> {v.status === 'published' ? '발행됨' : '발행'}
               </button>
             </div>
           </article>
         ))}
       </section>
+
+      {uploadTarget && (
+        <YouTubeUploadModal
+          script={uploadTarget}
+          onClose={() => setUploadTarget(null)}
+          onSuccess={() => onUploadSuccess(uploadTarget.id)}
+        />
+      )}
     </>
   );
 }
