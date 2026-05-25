@@ -226,7 +226,7 @@ export default function BlogPage() {
 
           {active.posts.length === 0 ? (
             <div className="px-6 py-12 text-center text-sm text-ink-muted">
-              아직 생성된 글이 없습니다. 우측 상단 "5글 생성"으로 자동 작성하세요.
+              아직 생성된 글이 없습니다. 우측 상단 “5글 생성”으로 자동 작성하세요.
             </div>
           ) : (
             <ul className="divide-y divide-border">
