@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
 
 const ALLOWED_INSERT = new Set([
   'name', 'domain_category', 'region', 'business_model', 'address',
-  'naver_place_url', 'phone', 'homepage',
+  'naver_place_url', 'phone', 'homepage', 'email',
   'partner_slug', 'status', 'publish_count', 'monthly_cost', 'joined_at'
 ]);
 

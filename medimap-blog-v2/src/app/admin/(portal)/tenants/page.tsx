@@ -16,6 +16,7 @@ interface SbTenant {
   naver_place_url: string | null;
   phone: string | null;
   homepage: string | null;
+  email: string | null;
   partner_slug: string | null;
   status: TenantStatus | null;
   publish_count: number | null;
@@ -220,6 +221,8 @@ export default function TenantsPage() {
                 value={draft.homepage ?? ''} onChange={(v) => setDraft((p) => ({ ...p, homepage: v }))} />
               <Field label="전화번호" placeholder="02-0000-0000"
                 value={draft.phone ?? ''} onChange={(v) => setDraft((p) => ({ ...p, phone: v }))} />
+              <Field label="이메일 (보고서 발송용)" placeholder="manager@example.com"
+                value={draft.email ?? ''} onChange={(v) => setDraft((p) => ({ ...p, email: v }))} />
               <Field label="partner_slug (URL용 영문)" placeholder="bgn / tete / mourim"
                 value={draft.partner_slug ?? ''} onChange={(v) => setDraft((p) => ({ ...p, partner_slug: v }))} />
 

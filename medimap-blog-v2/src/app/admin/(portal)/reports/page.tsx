@@ -10,6 +10,7 @@ interface SbTenant {
   id: number | string;
   name: string;
   phone: string | null;
+  email: string | null;
   publish_count: number | null;
   partner_slug: string | null;
 }
@@ -105,12 +106,12 @@ export default function ReportsListPage() {
                 </Link>
                 <button
                   onClick={() => sendEmail(t.id)}
-                  disabled={sending === t.id || !t.phone}
+                  disabled={sending === t.id || !t.email}
                   className="btn-primary text-xs disabled:opacity-60"
-                  title={!t.phone ? '연락처 미등록 — tenants 에 phone/email 설정 필요' : ''}
+                  title={!t.email ? '이메일 미등록 — tenants 편집에서 이메일 입력 필요' : ''}
                 >
                   <Mail className="h-3.5 w-3.5" />
-                  {sending === t.id ? '발송 중…' : (t.phone ? `${t.phone} 로 발송` : '연락처 미등록')}
+                  {sending === t.id ? '발송 중…' : (t.email ? `${t.email} 로 발송` : '이메일 미등록')}
                 </button>
               </div>
             </div>
