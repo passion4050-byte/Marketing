@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { Sidebar } from '@/components/Sidebar';
+import { SidebarShell } from '@/components/SidebarShell';
 import { siteConfig } from '@/lib/site-config';
 
 export const metadata: Metadata = {
@@ -25,10 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <body className="min-h-screen bg-surface-subtle text-ink antialiased">
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <main className="min-w-0 flex-1">{children}</main>
-        </div>
+        <SidebarShell>{children}</SidebarShell>
       </body>
     </html>
   );
