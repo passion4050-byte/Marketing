@@ -7,8 +7,8 @@ import {
 } from "@/lib/partners";
 import { siteConfig, absoluteUrl } from "@/lib/site";
 
-export const revalidate = 60;
-export const dynamicParams = true;
+// Round 12: force-dynamic 으로 빌드 시점 prerender 회피
+export const dynamic = 'force-dynamic';
 
 interface PageProps {
   params: Promise<{ category: string; partner: string }>;

@@ -3,14 +3,26 @@ import { getAllPosts } from "@/lib/posts";
 import { getAllPartnerPosts, PARTNER_CATEGORY_SLUGS } from "@/lib/partners";
 import { absoluteUrl } from "@/lib/site";
 
-// 60초 ISR — 자동 발행 신규 글이 sitemap 에 1분 내 반영. 기존 빌드 타임 정적 응답이
-// 옛 슬러그(`auto-{id}`) 를 캐시하던 문제 해결.
-export const revalidate = 60;
+// Round 12 (2026-05-26): force-dynamic 으로 빌드 시점 prerender skip.
+//   이전 revalidate=60 은 빌드 시점에 partners.ts query 호출 → 누적 timeout → 빌드 fail.
+//   sitemap 은 검색엔진이 요청 시 runtime 에 생성. partners.ts 모듈 캐시(60s) 로 cost 절감.
+// 추가 안전장치: getAllPartnerPosts throw 시 try/catch 로 partner 섹션만 비우고
+//   blog/static 섹션은 유지 (graceful degradation).
+export const dynamic = 'force-dynamic';
+
+async function safeGetPartnerPosts(): Promise<Awaited<ReturnType<typeof getAllPartnerPosts>>> {
+  try {
+    return await getAllPartnerPosts();
+  } catch (err) {
+    console.error("[sitemap] getAllPartnerPosts failed, omitting partner URLs:", err);
+    return [];
+  }
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [posts, partnerPosts] = await Promise.all([
     getAllPosts(),
-    getAllPartnerPosts(),
+    safeGetPartnerPosts(),
   ]);
   const now = new Date();
 
@@ -44,27 +56,4 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (partnerListSeen.has(key)) continue;
     partnerListSeen.add(key);
     partnerListPages.push({
-      url: absoluteUrl(`/with-partners/${p.partner_category}/${p.partner_slug}`),
-      lastModified: new Date(p.published_at),
-      changeFrequency: "weekly",
-      priority: 0.7,
-    });
-  }
-
-  const partnerPostPages: MetadataRoute.Sitemap = partnerPosts.map((p) => ({
-    url: absoluteUrl(
-      `/with-partners/${p.partner_category}/${p.partner_slug}/${p.slug}`,
-    ),
-    lastModified: new Date(p.published_at),
-    changeFrequency: "monthly",
-    priority: 0.8,
-  }));
-
-  return [
-    ...staticPages,
-    ...partnerCategoryPages,
-    ...postPages,
-    ...partnerListPages,
-    ...partnerPostPages,
-  ];
-}
+      url: absoluteUrl(`/with-partners/${p.partner_category}/${p.par

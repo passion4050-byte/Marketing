@@ -5,8 +5,8 @@ import { notFound } from "next/navigation";
 import { getCategoryMeta, getPartnerPost } from "@/lib/partners";
 import { siteConfig, absoluteUrl } from "@/lib/site";
 
-export const revalidate = 60;
-export const dynamicParams = true;
+// Round 12: force-dynamic 으로 빌드 시점 prerender 회피 + dynamicParams 자동 활성
+export const dynamic = 'force-dynamic';
 
 interface PageProps {
   params: Promise<{ category: string; partner: string; slug: string }>;
@@ -33,19 +33,12 @@ export async function generateMetadata(
       siteName: siteConfig.name,
       type: "article",
       images: post.cover_image_url
-        ? [
-            {
-              url: post.cover_image_url,
-              alt: post.cover_image_alt || post.title,
-            },
-          ]
+        ? [{ url: post.cover_image_url, alt: post.cover_image_alt || post.title }]
         : undefined,
     },
   };
 }
 
-
-/** body 의 첫 <h1> 가 page title 과 (정규화 후) 동일하면 제거 — H1 중복 회피 (SEO). */
 function stripFirstH1IfMatchesTitle(body: string, title: string): string {
   if (!body) return body;
   const norm = (s: string) => s.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
@@ -68,46 +61,25 @@ export default async function PartnerPostPage({ params }: PageProps) {
     description: post.excerpt,
     datePublished: post.published_at,
     image: post.cover_image_url ? [post.cover_image_url] : undefined,
-    author: {
-      "@type": "Organization",
-      name: post.tenant_name,
-    },
+    author: { "@type": "Organization", name: post.tenant_name },
     publisher: {
       "@type": "Organization",
       name: siteConfig.publisher.name,
-      logo: {
-        "@type": "ImageObject",
-        url: absoluteUrl(siteConfig.publisher.logo),
-      },
+      logo: { "@type": "ImageObject", url: absoluteUrl(siteConfig.publisher.logo) },
     },
-    mainEntityOfPage: absoluteUrl(
-      `/with-partners/${category}/${partner}/${slug}`,
-    ),
+    mainEntityOfPage: absoluteUrl(`/with-partners/${category}/${partner}/${slug}`),
   };
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-10 sm:py-14">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(ldJson) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ldJson) }} />
 
       <nav className="mb-6 text-xs text-ink-muted">
-        <Link href="/with-partners" className="hover:text-brand">
-          파트너 콘텐츠
-        </Link>{" "}
-        /{" "}
-        <Link
-          href={`/with-partners/${meta.slug}`}
-          className="hover:text-brand"
-        >
-          {meta.ko}
-        </Link>{" "}
-        /{" "}
-        <Link
-          href={`/with-partners/${meta.slug}/${post.partner_slug}`}
-          className="hover:text-brand"
-        >
+        <Link href="/with-partners" className="hover:text-brand">파트너 콘텐츠</Link>
+        {" / "}
+        <Link href={`/with-partners/${meta.slug}`} className="hover:text-brand">{meta.ko}</Link>
+        {" / "}
+        <Link href={`/with-partners/${meta.slug}/${post.partner_slug}`} className="hover:text-brand">
           {post.tenant_name}
         </Link>
       </nav>
@@ -144,9 +116,7 @@ export default async function PartnerPostPage({ params }: PageProps) {
       />
 
       <footer className="mt-12 rounded-2xl border border-slate-200 bg-white p-6">
-        <div className="text-xs font-bold uppercase tracking-widest text-brand-700">
-          파트너 병원
-        </div>
+        <div className="text-xs font-bold uppercase tracking-widest text-brand-700">파트너 병원</div>
         <h3 className="mt-1 text-lg font-bold text-ink">{post.tenant_name}</h3>
         <p className="mt-2 text-sm text-ink-soft">
           진료/상담 문의는 메디맵 카카오 채널을 통해 연결됩니다.

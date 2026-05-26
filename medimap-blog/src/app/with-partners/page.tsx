@@ -3,7 +3,8 @@ import Link from "next/link";
 import { PARTNER_CATEGORIES, getAllPartnerPosts } from "@/lib/partners";
 import { siteConfig, absoluteUrl } from "@/lib/site";
 
-export const revalidate = 60;
+// Round 12: force-dynamic으로 빌드 시점 prerender 회피, runtime에 모듈 캐시(60s)로 cost 절감
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: "파트너 병원 콘텐츠 — 메디맵",

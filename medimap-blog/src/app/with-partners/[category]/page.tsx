@@ -2,19 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  PARTNER_CATEGORY_SLUGS,
   getCategoryMeta,
   getPartnerPostsByCategory,
   getPartnersInCategory,
 } from "@/lib/partners";
 import { siteConfig, absoluteUrl } from "@/lib/site";
 
-export const revalidate = 60;
-export const dynamicParams = true;
-
-export async function generateStaticParams() {
-  return PARTNER_CATEGORY_SLUGS.map((category) => ({ category }));
-}
+// Round 12: force-dynamic으로 빌드 시점 prerender 회피.
+// generateStaticParams 제거 — runtime에 매번 fetch + partners.ts 모듈 캐시(60s) 활용.
+export const dynamic = 'force-dynamic';
 
 interface PageProps {
   params: Promise<{ category: string }>;
