@@ -1,16 +1,19 @@
 import type { MetadataRoute } from "next";
 import { getAllPosts } from "@/lib/posts";
-import { getAllPartnerPosts, PARTNER_CATEGORY_SLUGS } from "@/lib/partners";
+import {
+  getAllPartnerPosts,
+  PARTNER_CATEGORY_SLUGS,
+  type PartnerPost,
+} from "@/lib/partners";
 import { absoluteUrl } from "@/lib/site";
 
-// Round 12 (2026-05-26): force-dynamic 으로 빌드 시점 prerender skip.
-//   이전 revalidate=60 은 빌드 시점에 partners.ts query 호출 → 누적 timeout → 빌드 fail.
-//   sitemap 은 검색엔진이 요청 시 runtime 에 생성. partners.ts 모듈 캐시(60s) 로 cost 절감.
-// 추가 안전장치: getAllPartnerPosts throw 시 try/catch 로 partner 섹션만 비우고
-//   blog/static 섹션은 유지 (graceful degradation).
-export const dynamic = 'force-dynamic';
+// Round 12 (2026-05-26): sitemap.ts 는 Next.js metadata route — `dynamic` export
+//   가 webpack metadata-route-loader 와 충돌해 빌드 fail. 다시 revalidate=60 으로
+//   되돌리고, partners 호출만 try/catch 로 graceful degradation. partners.ts 의
+//   throw 가 sitemap 빌드를 막지 못하도록 보호.
+export const revalidate = 60;
 
-async function safeGetPartnerPosts(): Promise<Awaited<ReturnType<typeof getAllPartnerPosts>>> {
+async function safeGetPartnerPosts(): Promise<PartnerPost[]> {
   try {
     return await getAllPartnerPosts();
   } catch (err) {
@@ -56,4 +59,27 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (partnerListSeen.has(key)) continue;
     partnerListSeen.add(key);
     partnerListPages.push({
-      url: absoluteUrl(`/with-partners/${p.partner_category}/${p.par
+      url: absoluteUrl(`/with-partners/${p.partner_category}/${p.partner_slug}`),
+      lastModified: new Date(p.published_at),
+      changeFrequency: "weekly",
+      priority: 0.7,
+    });
+  }
+
+  const partnerPostPages: MetadataRoute.Sitemap = partnerPosts.map((p) => ({
+    url: absoluteUrl(
+      `/with-partners/${p.partner_category}/${p.partner_slug}/${p.slug}`,
+    ),
+    lastModified: new Date(p.published_at),
+    changeFrequency: "monthly",
+    priority: 0.8,
+  }));
+
+  return [
+    ...staticPages,
+    ...partnerCategoryPages,
+    ...postPages,
+    ...partnerListPages,
+    ...partnerPostPages,
+  ];
+}
