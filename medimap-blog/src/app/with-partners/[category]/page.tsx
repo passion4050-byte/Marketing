@@ -138,21 +138,21 @@ export default async function CategoryPage({ params }: PageProps) {
                   </p>
                   <div className="mt-auto flex items-center justify-between pt-4 text-xs text-ink-muted">
                     <span>{p.published_at}</span>
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-ink-muted transition-all group-hover:border-emerald-500 group-hover:bg-emerald-600 group-hover:text-white">
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white transition-all group-hover:border-emerald-500 group-hover:bg-emerald-600">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         width="16"
                         height="16"
                         viewBox="0 0 24 24"
                         fill="none"
-                        stroke="currentColor"
                         strokeWidth="2.5"
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         aria-hidden="true"
+                        className="text-slate-500 transition-colors group-hover:text-white"
                       >
-                        <path d="M7 17L17 7" />
-                        <path d="M7 7h10v10" />
+                        <path stroke="currentColor" d="M7 17L17 7" />
+                        <path stroke="currentColor" d="M7 7h10v10" />
                       </svg>
                     </span>
                   </div>
