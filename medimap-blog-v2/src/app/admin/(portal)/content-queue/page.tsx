@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  AlertTriangle, Check, ClipboardCopy, ExternalLink, Eye, FileText,
-  ImageOff, Loader2, MessageSquare, X
+  AlertTriangle, Check, ClipboardCopy, Edit3, ExternalLink, Eye, FileText,
+  ImageOff, Loader2, MessageSquare, Save, X
 } from 'lucide-react';
 import { showToast } from '@/lib/clientActions';
 import { cn } from '@/lib/cn';
@@ -128,6 +128,11 @@ export default function ContentManagementPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<QueueItem['id'] | null>(null);
   const [preview, setPreview] = useState<QueueItem | null>(null);
+  // Round 18 (2026-05-28): 미리보기 모달 안 인라인 편집 모드
+  const [editing, setEditing] = useState<boolean>(false);
+  const [editTitle, setEditTitle] = useState<string>('');
+  const [editBody, setEditBody] = useState<string>('');
+  const [savingEdit, setSavingEdit] = useState<boolean>(false);
 
   const load = useCallback(async (which: TabKey | 'both' = 'both') => {
     setLoading(true);
@@ -189,6 +194,41 @@ export default function ContentManagementPage() {
     showToast(ok
       ? (q.cover_image_url ? '본문 복사됨 (이미지 URL 포함)' : '본문 복사됨')
       : '복사 실패', { kind: ok ? 'success' : 'error' });
+  };
+
+  // Round 18 — 인라인 편집 진입 / 저장 / 취소
+  const startEdit = (q: QueueItem) => {
+    setEditTitle(q.title ?? '');
+    setEditBody(q.body ?? '');
+    setEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setEditing(false);
+    setEditTitle('');
+    setEditBody('');
+  };
+
+  const saveEdit = async (q: QueueItem) => {
+    setSavingEdit(true);
+    try {
+      const res = await fetch(`/api/admin/content-queue/${q.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: editTitle, body: editBody })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error ?? 'edit failed');
+      // 모달 안 preview 즉시 반영
+      setPreview((cur) => (cur && cur.id === q.id ? { ...cur, title: editTitle, body: editBody } : cur));
+      showToast('수정 저장됨');
+      setEditing(false);
+      await load('both');
+    } catch (e) {
+      showToast(`수정 실패: ${(e as Error).message}`, { kind: 'error' });
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   return (
@@ -253,17 +293,35 @@ export default function ContentManagementPage() {
         <PublishedTab items={published} />
       )}
 
-      {/* === 본문 미리보기 모달 === */}
+      {/* === 본문 미리보기 + 인라인 편집 모달 === */}
       {preview && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-ink/60 p-4" onClick={() => setPreview(null)}>
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-ink/60 p-4"
+          onClick={() => { if (!editing) { setPreview(null); cancelEdit(); } }}
+        >
           <div className="card w-full max-w-3xl max-h-[88vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-border px-6 py-4">
-              <h3 className="text-base font-bold text-ink">{preview.title || '(제목 없음)'}</h3>
-              <button onClick={() => setPreview(null)} className="rounded-md p-1 text-ink-muted hover:bg-surface-muted">
+              {editing ? (
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder="제목"
+                  className="flex-1 rounded-md border border-border px-3 py-1.5 text-sm font-semibold text-ink focus:border-brand focus:outline-none"
+                />
+              ) : (
+                <h3 className="text-base font-bold text-ink">{preview.title || '(제목 없음)'}</h3>
+              )}
+              <button
+                onClick={() => { setPreview(null); cancelEdit(); }}
+                className="ml-3 rounded-md p-1 text-ink-muted hover:bg-surface-muted"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <CoverHero src={preview.cover_image_url} alt={preview.cover_image_alt || preview.title || 'cover'} />
+            {!editing && (
+              <CoverHero src={preview.cover_image_url} alt={preview.cover_image_alt || preview.title || 'cover'} />
+            )}
             <div className="px-6 py-5 text-sm leading-relaxed text-ink-soft">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-muted">
                 <span>
@@ -272,11 +330,27 @@ export default function ContentManagementPage() {
                   {preview.domain_category ? ` · ${preview.domain_category}` : ''}
                   {preview.keyword_text ? ` · ${preview.keyword_text}` : ''}
                 </span>
-                <button onClick={() => void copyBody(preview)} className="text-brand-700 hover:underline">
-                  <ClipboardCopy className="inline h-3.5 w-3.5" /> 본문 복사
-                </button>
+                {!editing && (
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => startEdit(preview)} className="text-brand-700 hover:underline">
+                      <Edit3 className="inline h-3.5 w-3.5" /> 편집
+                    </button>
+                    <button onClick={() => void copyBody(preview)} className="text-brand-700 hover:underline">
+                      <ClipboardCopy className="inline h-3.5 w-3.5" /> 본문 복사
+                    </button>
+                  </div>
+                )}
               </div>
-              {preview.body?.includes('<') ? (
+              {editing ? (
+                <textarea
+                  value={editBody}
+                  onChange={(e) => setEditBody(e.target.value)}
+                  placeholder="본문 HTML"
+                  rows={20}
+                  className="block w-full rounded-md border border-border bg-surface-subtle px-3 py-3 font-mono text-xs text-ink focus:border-brand focus:outline-none"
+                  spellCheck={false}
+                />
+              ) : preview.body?.includes('<') ? (
                 <article
                   className="prose prose-slate max-w-none prose-headings:text-ink prose-a:text-brand"
                   dangerouslySetInnerHTML={{ __html: preview.body }}
@@ -285,17 +359,33 @@ export default function ContentManagementPage() {
                 <p className="whitespace-pre-wrap">{preview.body}</p>
               )}
             </div>
-            {preview.status === 'pending' && (
-              <div className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-border bg-surface-base/95 px-6 py-3 backdrop-blur">
-                <button onClick={() => void reject(preview)} disabled={busyId === preview.id} className="btn-secondary text-xs">
-                  <X className="h-3.5 w-3.5" /> 거부
-                </button>
-                <button onClick={() => void approve(preview)} disabled={busyId === preview.id} className="btn-primary text-xs">
-                  {busyId === preview.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                  발행 승인
-                </button>
-              </div>
-            )}
+            <div className="sticky bottom-0 flex items-center justify-between gap-2 border-t border-border bg-surface-base/95 px-6 py-3 backdrop-blur">
+              {editing ? (
+                <>
+                  <button onClick={cancelEdit} disabled={savingEdit} className="btn-secondary text-xs">
+                    <X className="h-3.5 w-3.5" /> 취소
+                  </button>
+                  <button onClick={() => void saveEdit(preview)} disabled={savingEdit} className="btn-primary text-xs">
+                    {savingEdit ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                    저장
+                  </button>
+                </>
+              ) : preview.status === 'pending' ? (
+                <>
+                  <button onClick={() => void reject(preview)} disabled={busyId === preview.id} className="btn-secondary text-xs">
+                    <X className="h-3.5 w-3.5" /> 거부
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => void approve(preview)} disabled={busyId === preview.id} className="btn-primary text-xs">
+                      {busyId === preview.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                      발행 승인
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <span className="text-xs text-ink-muted">발행 완료 콘텐츠 — 편집은 가능, 발행 상태 유지</span>
+              )}
+            </div>
           </div>
         </div>
       )}

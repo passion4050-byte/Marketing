@@ -116,3 +116,41 @@ export async function DELETE(req: NextRequest, ctx: RouteCtx) {
   await logAudit(req, sb, 'reject_content', `generated_contents:${id}`);
   return NextResponse.json({ ok: true });
 }
+
+/**
+ * Round 18 (2026-05-28): 콘텐츠 인라인 편집 — title / body / excerpt 수정.
+ * 발행 전 검수 단계에서 운영자가 직접 수정 가능. NOT NULL 컬럼 (body, title)
+ * 은 빈 값이면 기존 값 유지.
+ */
+const ALLOWED_PATCH = new Set(['title', 'body', 'excerpt']);
+const NOT_NULL_FIELDS = new Set(['title', 'body']);
+
+export async function PATCH(req: NextRequest, ctx: RouteCtx) {
+  const sb = getServerClient();
+  if (!sb) return NextResponse.json({ ok: false, error: 'supabase not configured' }, { status: 503 });
+  const { id } = await ctx.params;
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+
+  const update: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(body)) {
+    if (!ALLOWED_PATCH.has(k)) continue;
+    // NOT NULL 보호 — 빈 문자열은 스킵 (기존 값 유지)
+    if (NOT_NULL_FIELDS.has(k) && (v === '' || v == null)) continue;
+    update[k] = v === '' ? null : v;
+  }
+
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ ok: false, error: '변경할 내용이 없습니다.' }, { status: 400 });
+  }
+  update.updated_at = new Date().toISOString();
+
+  const { data: updated, error } = await sb
+    .from('generated_contents')
+    .update(update)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  await logAudit(req, sb, 'edit_content', `generated_contents:${id}`, { diff: { after: Object.keys(update) } });
+  return NextResponse.json({ ok: true, action: 'patch', updated });
+}
