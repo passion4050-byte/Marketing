@@ -5,8 +5,10 @@ import { JsonLd } from "@/components/JsonLd";
 import { breadcrumbLd } from "@/lib/schema";
 import { getAllPosts, BLOG_CATEGORIES } from "@/lib/posts";
 
-// 60초 ISR — DB published 글이 새로 생기면 1분 내 인덱스에 반영.
-export const revalidate = 60;
+// Round 16 (2026-05-27): force-dynamic + middleware no-store —
+// ISR 60초 캐싱 + 8초 timeout fallback이 빈 결과를 stuck시키던 with-partners
+// 와 동일한 문제 재발. 일관된 fix 적용.
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "메디맵 인사이트",

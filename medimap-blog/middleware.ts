@@ -6,16 +6,19 @@ import {
 } from "@/lib/admin-auth";
 
 export const config = {
-  matcher: ["/admin/:path*", "/with-partners/:path*"],
+  matcher: ["/admin/:path*", "/with-partners/:path*", "/blog/:path*"],
 };
 
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
-  // Round 14 (2026-05-27): with-partners 경로 — force-dynamic 만으론 Vercel CDN
-  // edge cache 가 옛 응답 hold. middleware 에서 Cache-Control: no-store 강제.
-  // Next.js 응답 헤더가 Vercel CDN 의 cache 정책을 override.
-  if (pathname.startsWith("/with-partners")) {
+  // Round 14/16 (2026-05-27): with-partners + blog 경로 — force-dynamic 만으론
+  // Vercel CDN edge cache 가 옛 응답 hold. middleware 에서 Cache-Control: no-store
+  // 강제. Next.js 응답 헤더가 Vercel CDN 의 cache 정책을 override.
+  if (
+    pathname.startsWith("/with-partners") ||
+    pathname.startsWith("/blog")
+  ) {
     const res = NextResponse.next();
     res.headers.set("Cache-Control", "private, no-store, no-cache, must-revalidate, max-age=0");
     res.headers.set("CDN-Cache-Control", "no-store");
