@@ -49,19 +49,30 @@ export default async function BlogIndexPage() {
             </p>
           </header>
 
-          {/* Round 16 — 자사 인사이트 카테고리 3종 카드 */}
+          {/* Round 16 — 자사 인사이트 카테고리 3종 카드 (색상 분리, 이모지 제거, 제목 강조) */}
           <section className="mt-12 grid gap-5 sm:grid-cols-3">
             {BLOG_CATEGORIES.map((cat) => (
               <Link
                 key={cat.slug}
                 href={`/blog/category/${cat.slug}`}
-                className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-brand hover:shadow-md"
+                className={`group rounded-2xl border-2 border-transparent ${cat.style.bg} p-7 shadow-sm transition hover:-translate-y-1 ${cat.style.border} hover:shadow-lg`}
               >
-                <div className="text-3xl">{cat.emoji}</div>
-                <h2 className="mt-3 text-lg font-bold text-ink group-hover:text-brand">
+                <span
+                  className={`inline-block rounded-full ${cat.style.pillBg} ${cat.style.pillText} px-3 py-1 text-xs font-bold uppercase tracking-wider`}
+                >
+                  Category
+                </span>
+                <h2
+                  className={`mt-4 text-2xl font-extrabold leading-tight text-ink ${cat.style.accent} tracking-tight`}
+                >
                   {cat.ko}
                 </h2>
-                <p className="mt-2 text-sm text-ink-soft">{cat.description}</p>
+                <p className="mt-3 text-sm text-ink-soft leading-relaxed">
+                  {cat.description}
+                </p>
+                <span className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-ink-muted group-hover:text-ink">
+                  글 보기 →
+                </span>
               </Link>
             ))}
           </section>

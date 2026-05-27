@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getAllPosts } from "@/lib/posts";
+import { getAllPostsIncludingLegacy as getAllPosts } from "@/lib/posts";
 import {
   getAllPartnerPosts,
   PARTNER_CATEGORY_SLUGS,

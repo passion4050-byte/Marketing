@@ -27,24 +27,53 @@ export interface BlogCategoryMeta {
   emoji: string;
 }
 
-export const BLOG_CATEGORIES: BlogCategoryMeta[] = [
+export interface BlogCategoryStyle {
+  bg: string;        // Tailwind background class
+  border: string;    // hover border
+  accent: string;    // text accent on hover
+  pillBg: string;    // 카테고리 표시 pill 배경
+  pillText: string;
+}
+
+export const BLOG_CATEGORIES: (BlogCategoryMeta & { style: BlogCategoryStyle })[] = [
   {
     slug: "content_marketing",
     ko: "콘텐츠 마케팅",
     description: "병원 마케팅을 위한 콘텐츠 전략 인사이트",
-    emoji: "📝",
+    emoji: "",
+    style: {
+      bg: "bg-blue-50",
+      border: "hover:border-blue-500",
+      accent: "group-hover:text-blue-700",
+      pillBg: "bg-blue-100",
+      pillText: "text-blue-700",
+    },
   },
   {
     slug: "ai_trend",
     ko: "AI · 마케팅 트렌드",
     description: "AI 검색 시대의 마케팅 변화와 활용법",
-    emoji: "🤖",
+    emoji: "",
+    style: {
+      bg: "bg-violet-50",
+      border: "hover:border-violet-500",
+      accent: "group-hover:text-violet-700",
+      pillBg: "bg-violet-100",
+      pillText: "text-violet-700",
+    },
   },
   {
     slug: "hospital_marketing",
     ko: "병원 마케팅 노하우",
     description: "현장 의료 마케터를 위한 실전 가이드",
-    emoji: "🏥",
+    emoji: "",
+    style: {
+      bg: "bg-emerald-50",
+      border: "hover:border-emerald-500",
+      accent: "group-hover:text-emerald-700",
+      pillBg: "bg-emerald-100",
+      pillText: "text-emerald-700",
+    },
   },
 ];
 
@@ -307,14 +336,42 @@ export async function getAllPostSlugs(): Promise<string[]> {
   ];
 }
 
+/**
+ * Round 16 — /blog (자사 인사이트) 페이지용. blog_category 가 채워진 글만 반환.
+ *   - mdx 의료 콘텐츠 (송파라식/스마일라식/강남라식/백내장 등) 제외
+ *   - blog_category=NULL 인 자동 발행 의료 글 제외
+ *   - /blog 의 마케팅 에이전시 정체성 보장
+ */
 export async function getAllPosts(): Promise<PostMeta[]> {
+  const [mdxSlugs, dbRows] = await Promise.all([getMdxSlugs(), getDbPostRows()]);
+  const mdxPosts = await Promise.all(mdxSlugs.map((s) => readPostFile(s)));
+  // mdx 파일은 frontmatter 의 blogCategory 필드 (custom) 가 있을 때만 노출.
+  // 기존 의료 mdx 글은 blogCategory 가 없으므로 자동 제외.
+  const fileMetas = mdxPosts
+    .filter((p): p is Post => p !== null)
+    .filter((p) => p.blogCategory !== undefined)
+    .map(({ source: _source, ...meta }) => meta);
+  const dbMetas = dbRows
+    .map(dbRowToPostMeta)
+    .filter((m) => m.slug)
+    .filter((m) => m.blogCategory !== undefined);
+  // mdx slug 와 DB slug 가 어쩌다 겹치면 mdx 우선
+  const seen = new Set(fileMetas.map((m) => m.slug));
+  const dedupedDb = dbMetas.filter((m) => !seen.has(m.slug));
+  return [...fileMetas, ...dedupedDb].sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+
+/**
+ * 전체 글 (mdx + DB) — sitemap.xml, getPostBySlug 등 라우팅 검증용.
+ * /blog hub 가 아닌 곳에서 사용.
+ */
+export async function getAllPostsIncludingLegacy(): Promise<PostMeta[]> {
   const [mdxSlugs, dbRows] = await Promise.all([getMdxSlugs(), getDbPostRows()]);
   const mdxPosts = await Promise.all(mdxSlugs.map((s) => readPostFile(s)));
   const fileMetas = mdxPosts
     .filter((p): p is Post => p !== null)
     .map(({ source: _source, ...meta }) => meta);
   const dbMetas = dbRows.map(dbRowToPostMeta).filter((m) => m.slug);
-  // mdx slug 와 DB slug 가 어쩌다 겹치면 mdx 우선 (사용자가 손으로 큐레이션한 글)
   const seen = new Set(fileMetas.map((m) => m.slug));
   const dedupedDb = dbMetas.filter((m) => !seen.has(m.slug));
   return [...fileMetas, ...dedupedDb].sort((a, b) => (a.date < b.date ? 1 : -1));
