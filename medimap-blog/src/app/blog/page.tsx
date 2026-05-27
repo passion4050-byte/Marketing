@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { BlogIndex } from "@/components/BlogIndex";
 import { JsonLd } from "@/components/JsonLd";
 import { breadcrumbLd } from "@/lib/schema";
-import { getAllPosts } from "@/lib/posts";
+import { getAllPosts, BLOG_CATEGORIES } from "@/lib/posts";
 
 // 60초 ISR — DB published 글이 새로 생기면 1분 내 인덱스에 반영.
 export const revalidate = 60;
@@ -40,10 +41,30 @@ export default async function BlogIndexPage() {
           <header className="mx-auto max-w-3xl text-center">
             <span className="pill-label">메디맵 인사이트</span>
             <h1 className="mt-4 text-[40px] font-extrabold tracking-[-0.025em] balance-text md:text-[48px]">
-              신뢰할 수 있는 의료 가이드
+              병원 마케팅을 바꾸는 인사이트
             </h1>
-
+            <p className="mt-4 text-base text-ink-soft">
+              메디맵이 운영하는 마케팅 에이전시 관점의 콘텐츠 — AI 검색 시대의
+              병원 마케팅 전략을 다룹니다.
+            </p>
           </header>
+
+          {/* Round 16 — 자사 인사이트 카테고리 3종 카드 */}
+          <section className="mt-12 grid gap-5 sm:grid-cols-3">
+            {BLOG_CATEGORIES.map((cat) => (
+              <Link
+                key={cat.slug}
+                href={`/blog/category/${cat.slug}`}
+                className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-brand hover:shadow-md"
+              >
+                <div className="text-3xl">{cat.emoji}</div>
+                <h2 className="mt-3 text-lg font-bold text-ink group-hover:text-brand">
+                  {cat.ko}
+                </h2>
+                <p className="mt-2 text-sm text-ink-soft">{cat.description}</p>
+              </Link>
+            ))}
+          </section>
 
           {posts.length === 0 ? (
             <div className="mt-16 rounded-card border border-dashed border-line bg-white p-16 text-center">

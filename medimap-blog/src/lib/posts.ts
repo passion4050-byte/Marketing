@@ -11,6 +11,53 @@ const POSTS_DIR = path.join(process.cwd(), "content", "blog");
  */
 export type PostSourceType = "mdx" | "html";
 
+/**
+ * Round 16 (2026-05-27): /blog 자사 인사이트 카테고리 3종.
+ * generated_contents.blog_category 컬럼과 동일한 값 (Migration 010).
+ */
+export type BlogCategorySlug =
+  | "content_marketing"
+  | "ai_trend"
+  | "hospital_marketing";
+
+export interface BlogCategoryMeta {
+  slug: BlogCategorySlug;
+  ko: string;
+  description: string;
+  emoji: string;
+}
+
+export const BLOG_CATEGORIES: BlogCategoryMeta[] = [
+  {
+    slug: "content_marketing",
+    ko: "콘텐츠 마케팅",
+    description: "병원 마케팅을 위한 콘텐츠 전략 인사이트",
+    emoji: "📝",
+  },
+  {
+    slug: "ai_trend",
+    ko: "AI · 마케팅 트렌드",
+    description: "AI 검색 시대의 마케팅 변화와 활용법",
+    emoji: "🤖",
+  },
+  {
+    slug: "hospital_marketing",
+    ko: "병원 마케팅 노하우",
+    description: "현장 의료 마케터를 위한 실전 가이드",
+    emoji: "🏥",
+  },
+];
+
+export const BLOG_CATEGORY_SLUGS: BlogCategorySlug[] = BLOG_CATEGORIES.map(
+  (c) => c.slug,
+);
+
+export function getBlogCategoryMeta(
+  slug: string,
+): BlogCategoryMeta | undefined {
+  return BLOG_CATEGORIES.find((c) => c.slug === slug);
+}
+
 export interface PostMeta {
   slug: string;
   title: string;
@@ -33,6 +80,8 @@ export interface PostMeta {
   source_type: PostSourceType;
   cover_image_url?: string;
   cover_image_alt?: string;
+  /** Round 16 — 자사 인사이트 카테고리 (content_marketing / ai_trend / hospital_marketing). 파트너 콘텐츠는 undefined. */
+  blogCategory?: BlogCategorySlug;
 }
 
 export interface Post extends PostMeta {
@@ -102,6 +151,7 @@ interface DbPostRow {
   slug: string | null;
   title: string | null;
   excerpt: string | null;
+  blog_category: string | null;
   published_at: string | null;
   created_at: string;
   updated_at: string;
@@ -113,7 +163,8 @@ const DB_SELECT = `
   gc.id, gc.tenant_id, t.name AS tenant_name,
   gc.channel, gc.keyword_text, gc.body,
   gc.compliance_status, gc.status,
-  gc.slug, gc.title, gc.excerpt, gc.published_at,
+  gc.slug, gc.title, gc.excerpt, gc.blog_category,
+  gc.published_at,
   gc.created_at, gc.updated_at,
   gc.cover_image_url, gc.cover_image_alt
 `;
@@ -219,17 +270,23 @@ function dbRowToPostMeta(row: DbPostRow): PostMeta {
     toIsoDate(row.created_at) ??
     new Date().toISOString().slice(0, 10);
   const updated = toIsoDate(row.updated_at) ?? toIsoDate(row.published_at) ?? toIsoDate(row.created_at);
+  const blogCategorySlug =
+    row.blog_category && BLOG_CATEGORY_SLUGS.includes(row.blog_category as BlogCategorySlug)
+      ? (row.blog_category as BlogCategorySlug)
+      : undefined;
+  const blogCategoryMeta = blogCategorySlug ? getBlogCategoryMeta(blogCategorySlug) : undefined;
   return {
     slug: (row.slug || "").trim(),
     title,
     description,
     date,
     updated,
-    category: "메디맵 인사이트",
+    category: blogCategoryMeta?.ko ?? "메디맵 인사이트",
     tags: row.keyword_text ? [row.keyword_text] : undefined,
     author: row.tenant_name ?? undefined,
     readingMinutes: readingTimeMinutes(stripHtml(row.body)),
     source_type: "html",
+    blogCategory: blogCategorySlug,
   };
 }
 
@@ -265,6 +322,17 @@ export async function getAllPosts(): Promise<PostMeta[]> {
 
 export async function getPostsForList(): Promise<PostMeta[]> {
   return getAllPosts();
+}
+
+/**
+ * Round 16 — 카테고리별 자사 인사이트 글 목록.
+ * blogCategory 가 undefined 인 mdx 파일은 제외 (자동 발행 + 카테고리 부여된 글만).
+ */
+export async function getPostsByBlogCategory(
+  category: BlogCategorySlug,
+): Promise<PostMeta[]> {
+  const all = await getAllPosts();
+  return all.filter((p) => p.blogCategory === category);
 }
 
 export async function getPostBySlug(slug: string): Promise<Post | null> {
