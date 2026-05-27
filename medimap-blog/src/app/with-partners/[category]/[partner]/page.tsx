@@ -78,25 +78,55 @@ export default async function PartnerListPage({ params }: PageProps) {
       </header>
 
       <section>
-        <h2 className="mb-4 text-lg font-bold text-ink">전체 글</h2>
-        <ul className="divide-y divide-slate-200">
+        <h2 className="mb-6 text-lg font-bold text-ink">전체 글</h2>
+        <div className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white">
           {posts.map((p) => (
-            <li key={p.id} className="py-4">
-              <Link
-                href={`/with-partners/${meta.slug}/${p.partner_slug}/${p.slug}`}
-                className="block hover:text-brand"
-              >
-                <div className="text-xs text-ink-muted">{p.published_at}</div>
-                <div className="mt-1 text-base font-bold text-ink">
-                  {p.title}
+            <Link
+              key={p.id}
+              href={`/with-partners/${meta.slug}/${p.partner_slug}/${p.slug}`}
+              className="group flex items-start gap-5 p-5 transition hover:bg-emerald-50/40"
+            >
+              {p.cover_image_url && (
+                <div className="relative hidden shrink-0 overflow-hidden rounded-lg bg-slate-100 sm:block sm:w-36 sm:aspect-[16/10]">
+                  <img
+                    src={p.cover_image_url}
+                    alt={p.cover_image_alt ?? p.title}
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    loading="lazy"
+                  />
                 </div>
-                <p className="mt-1 text-sm text-ink-soft line-clamp-2">
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                  {p.published_at}
+                </div>
+                <h3 className="mt-1 text-base font-bold leading-snug text-ink transition-colors group-hover:text-emerald-700 sm:text-lg">
+                  {p.title}
+                </h3>
+                <p className="mt-1.5 line-clamp-2 text-sm text-ink-soft">
                   {p.excerpt}
                 </p>
-              </Link>
-            </li>
+              </div>
+              <span className="hidden shrink-0 self-center sm:inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-ink-muted transition-all group-hover:border-emerald-500 group-hover:bg-emerald-600 group-hover:text-white">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M7 17L17 7" />
+                  <path d="M7 7h10v10" />
+                </svg>
+              </span>
+            </Link>
           ))}
-        </ul>
+        </div>
       </section>
 
       <footer className="mt-12 rounded-2xl bg-brand/5 p-6">

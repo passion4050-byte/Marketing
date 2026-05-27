@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 import type { PostMeta } from "@/lib/posts";
 
 interface Props {
@@ -69,8 +69,22 @@ export function ArticleCard({ post, variant = "default" }: Props) {
             {post.readingMinutes}분
           </span>
         </div>
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-line bg-white text-ink-muted transition-all group-hover:border-brand group-hover:bg-brand group-hover:text-white">
-          <ArrowUpRight size={16} strokeWidth={2.5} className="text-current" />
+        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-ink-muted transition-all group-hover:border-brand group-hover:bg-brand group-hover:text-white">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M7 17L17 7" />
+            <path d="M7 7h10v10" />
+          </svg>
         </span>
       </div>
       </div>

@@ -130,13 +130,11 @@ export function Header() {
 
 function Logo() {
   return (
-    <img
-      src="/medimap-logo.svg"
-      alt="MEDIMAP"
-      width={188}
-      height={31}
-      className="h-6 w-auto"
-      // eslint-disable-next-line @next/next/no-img-element
-    />
+    <span
+      className="text-base font-extrabold tracking-tight text-brand md:text-lg"
+      style={{ letterSpacing: "-0.02em" }}
+    >
+      MEDIMAP
+    </span>
   );
 }
