@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Suspense } from "react";
-import { BlogIndex } from "@/components/BlogIndex";
+import { ArticleCard } from "@/components/ArticleCard";
 import { JsonLd } from "@/components/JsonLd";
 import { breadcrumbLd } from "@/lib/schema";
 import { getAllPosts, BLOG_CATEGORIES } from "@/lib/posts";
@@ -19,9 +18,6 @@ export const metadata: Metadata = {
 
 export default async function BlogIndexPage() {
   const posts = await getAllPosts();
-  const categories = Array.from(
-    new Set(posts.map((p) => p.category).filter(Boolean) as string[]),
-  );
 
   return (
     <>
@@ -77,38 +73,34 @@ export default async function BlogIndexPage() {
             ))}
           </section>
 
-          {posts.length === 0 ? (
-            <div className="mt-16 rounded-card border border-dashed border-line bg-white p-16 text-center">
-              <div className="text-3xl">📝</div>
-              <p className="mt-3 text-ink-subtle">
-                아직 발행된 글이 없습니다.
+          {/* Round 16 — 최근 발행 인사이트 리스트 (ArticleCard 그리드, hover 가능) */}
+          {posts.length > 0 && (
+            <section className="mt-16">
+              <div className="mb-6 flex items-baseline justify-between">
+                <h2 className="text-2xl font-bold tracking-tight text-ink">
+                  최근 발행 인사이트
+                </h2>
+                <span className="text-sm text-ink-muted">
+                  총 {posts.length}편
+                </span>
+              </div>
+              <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                {posts.map((p) => (
+                  <ArticleCard key={p.slug} post={p} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {posts.length === 0 && (
+            <div className="mt-16 rounded-2xl border border-dashed border-line bg-white p-16 text-center">
+              <p className="text-ink-subtle">
+                새로운 인사이트가 곧 발행됩니다. 매일 아침 새 글이 업데이트됩니다.
               </p>
             </div>
-          ) : (
-            <Suspense fallback={<BlogIndexFallback count={posts.length - 1} />}>
-              <BlogIndex posts={posts} categories={categories} />
-            </Suspense>
           )}
         </div>
       </section>
     </>
-  );
-}
-
-function BlogIndexFallback({ count }: { count: number }) {
-  return (
-    <div
-      className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3"
-      aria-busy
-      aria-label="콘텐츠를 불러오는 중"
-    >
-      {Array.from({ length: Math.min(6, Math.max(3, count)) }).map((_, i) => (
-        <div
-          key={i}
-          className="card-base h-56 animate-pulse"
-          style={{ animationDelay: `${i * 60}ms` }}
-        />
-      ))}
-    </div>
   );
 }

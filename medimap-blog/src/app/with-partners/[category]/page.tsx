@@ -101,30 +101,47 @@ export default async function CategoryPage({ params }: PageProps) {
       </section>
 
       <section>
-        <h2 className="mb-4 text-lg font-bold text-ink">최근 글</h2>
+        <h2 className="mb-6 text-lg font-bold text-ink">최근 글</h2>
         {posts.length === 0 ? (
           <p className="text-sm text-ink-muted">아직 게시된 글이 없습니다.</p>
         ) : (
-          <ul className="divide-y divide-slate-200">
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {posts.slice(0, 20).map((p) => (
-              <li key={p.id} className="py-4">
-                <Link
-                  href={`/with-partners/${meta.slug}/${p.partner_slug}/${p.slug}`}
-                  className="block hover:text-brand"
-                >
-                  <div className="text-xs text-ink-muted">
-                    {p.tenant_name} · {p.published_at}
+              <Link
+                key={p.id}
+                href={`/with-partners/${meta.slug}/${p.partner_slug}/${p.slug}`}
+                className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-brand hover:shadow-md"
+              >
+                {p.cover_image_url && (
+                  <div className="relative aspect-[16/9] w-full overflow-hidden bg-slate-100">
+                    <img
+                      src={p.cover_image_url}
+                      alt={p.cover_image_alt ?? p.title}
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      loading="lazy"
+                    />
                   </div>
-                  <div className="mt-1 text-base font-bold text-ink">
+                )}
+                <div className="flex flex-1 flex-col p-5">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-brand-700">
+                    {p.tenant_name}
+                  </div>
+                  <h3 className="mt-2 text-base font-bold leading-snug text-ink transition-colors group-hover:text-brand">
                     {p.title}
-                  </div>
-                  <p className="mt-1 text-sm text-ink-soft line-clamp-2">
+                  </h3>
+                  <p className="mt-2 line-clamp-2 text-sm text-ink-soft">
                     {p.excerpt}
                   </p>
-                </Link>
-              </li>
+                  <div className="mt-4 flex items-center justify-between text-xs text-ink-muted">
+                    <span>{p.published_at}</span>
+                    <span className="font-semibold text-ink-muted group-hover:text-brand">
+                      읽기 →
+                    </span>
+                  </div>
+                </div>
+              </Link>
             ))}
-          </ul>
+          </div>
         )}
       </section>
     </main>

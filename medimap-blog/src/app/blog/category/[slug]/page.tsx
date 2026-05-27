@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArticleCard } from "@/components/ArticleCard";
 import {
   BLOG_CATEGORY_SLUGS,
   getBlogCategoryMeta,
@@ -72,27 +73,11 @@ export default async function BlogCategoryPage({ params }: PageProps) {
             </p>
           </div>
         ) : (
-          <ul className="divide-y divide-slate-200">
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {posts.map((p) => (
-              <li key={p.slug} className="py-5">
-                <Link
-                  href={`/blog/${p.slug}`}
-                  className="block hover:text-brand"
-                >
-                  <div className="text-xs text-ink-muted">
-                    {p.author && `${p.author} · `}
-                    {p.date} · {p.readingMinutes}분 읽기
-                  </div>
-                  <div className="mt-1 text-lg font-bold text-ink">
-                    {p.title}
-                  </div>
-                  <p className="mt-1 text-sm text-ink-soft line-clamp-2">
-                    {p.description}
-                  </p>
-                </Link>
-              </li>
+              <ArticleCard key={p.slug} post={p} />
             ))}
-          </ul>
+          </div>
         )}
       </section>
     </main>
