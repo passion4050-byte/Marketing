@@ -8,9 +8,13 @@ import {
 } from "@/lib/partners";
 import { siteConfig, absoluteUrl } from "@/lib/site";
 
-// Round 12: force-dynamic으로 빌드 시점 prerender 회피.
-// generateStaticParams 제거 — runtime에 매번 fetch + partners.ts 모듈 캐시(60s) 활용.
+// Round 13 (2026-05-27): 강한 cache busting — force-dynamic만으론 부족했음.
+//   debug API 는 3 rows 정확히 반환하는데 같은 partners.ts 를 호출하는 이 페이지는
+//   0개로 stuck. 원인 추정: Vercel edge cache 또는 build-time prerender 잔존.
+//   fetchCache + revalidate=0 으로 모든 캐시 경로 차단.
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
 
 interface PageProps {
   params: Promise<{ category: string }>;
@@ -45,10 +49,16 @@ export default async function CategoryPage({ params }: PageProps) {
   const meta = getCategoryMeta(category);
   if (!meta) notFound();
 
-  const [posts, partners] = await Promise.all([
-    getPartnerPostsByCategory(meta.slug),
-    getPartnersInCategory(meta.slug),
-  ]);
+  // Round 13: sequential await (Promise.all → 모듈 캐시 race condition 제거)
+  // 두 함수 모두 내부적으로 getAllPartnerPosts() 호출. sequential 로 첫 호출이
+  // 캐시를 채우고 두 번째 호출이 캐시 hit → 결과 일관성 보장.
+  const posts = await getPartnerPostsByCategory(meta.slug);
+  const partners = await getPartnersInCategory(meta.slug);
+
+  // Round 13 debug: Vercel runtime logs 확인용 (진단 끝나면 제거)
+  console.log(
+    `[category page] slug=${meta.slug}, posts=${posts.length}, partners=${partners.length}`,
+  );
 
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-10 sm:py-14">
