@@ -22,9 +22,19 @@ async function safeGetPartnerPosts(): Promise<PartnerPost[]> {
   }
 }
 
+// Round 17 (2026-05-28): posts.ts 의 getDbPostRows 가 throw 할 수 있으므로 wrap.
+async function safeGetAllPosts(): Promise<Awaited<ReturnType<typeof getAllPosts>>> {
+  try {
+    return await getAllPosts();
+  } catch (err) {
+    console.error("[sitemap] getAllPosts failed, omitting blog URLs:", err);
+    return [];
+  }
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [posts, partnerPosts] = await Promise.all([
-    getAllPosts(),
+    safeGetAllPosts(),
     safeGetPartnerPosts(),
   ]);
   const now = new Date();

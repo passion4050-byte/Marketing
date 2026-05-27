@@ -212,30 +212,45 @@ function toIsoDate(v: unknown): string | undefined {
   return undefined;
 }
 
+// Round 17 (2026-05-28): 모듈 캐시 + timeout 30s — partners.ts 와 동일 패턴.
+// 8초 timeout 으로 빈 배열 fallback 하던 이전 코드는 ISR/CDN 이 빈 결과를 stuck 시켜
+// /blog 페이지가 글이 있는데도 "발행된 글 없음" 표시되는 버그 원인이었음.
+// throw on error → Next.js ISR 캐시 안 함 → 다음 요청 재시도.
+let _allPostsCache: { data: DbPostRow[]; ts: number } | null = null;
+const POSTS_CACHE_TTL_MS = 60_000;
+const POSTS_QUERY_TIMEOUT_MS = 30_000;
+
 async function getDbPostRows(): Promise<DbPostRow[]> {
+  if (_allPostsCache && Date.now() - _allPostsCache.ts < POSTS_CACHE_TTL_MS) {
+    return _allPostsCache.data;
+  }
   const sql = getSql();
-  if (!sql) return [];
-  // 2026-05-24: 빌드타임에 Supabase pooler 가 hang 걸려 SIGTERM 발생했었음.
-  // 8초 명시적 timeout — 늦으면 빈 배열, build 진행 멈추지 않음.
-  // ISR(revalidate=60) 이 첫 요청 시 다시 페치하므로 사용자 영향 0.
-  let to: ReturnType<typeof setTimeout> | undefined;
-  const timer = new Promise<DbPostRow[]>((resolve) => {
-    to = setTimeout(() => resolve([]), 8000);
-  });
-  try {
-    const query = sql.unsafe<DbPostRow[]>(`
-      SELECT ${DB_SELECT}
-      FROM generated_contents gc
-      LEFT JOIN tenants t ON t.id = gc.tenant_id
-      WHERE ${DB_FILTER}
-      ORDER BY COALESCE(gc.published_at, gc.created_at) DESC
-      LIMIT 200
-    `);
-    return await Promise.race([query, timer]);
-  } catch {
+  if (!sql) {
+    console.warn("[posts] getSql() returned null — env not configured?");
     return [];
-  } finally {
-    if (to) clearTimeout(to);
+  }
+  const queryPromise = sql.unsafe<DbPostRow[]>(`
+    SELECT ${DB_SELECT}
+    FROM generated_contents gc
+    LEFT JOIN tenants t ON t.id = gc.tenant_id
+    WHERE ${DB_FILTER}
+    ORDER BY COALESCE(gc.published_at, gc.created_at) DESC
+    LIMIT 200
+  `);
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(
+      () => reject(new Error(`[posts] query timeout (${POSTS_QUERY_TIMEOUT_MS}ms)`)),
+      POSTS_QUERY_TIMEOUT_MS,
+    ),
+  );
+  try {
+    const rows = await Promise.race([queryPromise, timeoutPromise]);
+    _allPostsCache = { data: rows, ts: Date.now() };
+    console.log(`[posts] fetched ${rows.length} rows (cached for 60s)`);
+    return rows;
+  } catch (err) {
+    console.error("[posts] getDbPostRows query failed:", err);
+    throw err;
   }
 }
 
