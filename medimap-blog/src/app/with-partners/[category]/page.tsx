@@ -110,7 +110,7 @@ export default async function CategoryPage({ params }: PageProps) {
               <Link
                 key={p.id}
                 href={`/with-partners/${meta.slug}/${p.partner_slug}/${p.slug}`}
-                className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-brand hover:shadow-md"
+                className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-500 hover:shadow-md"
               >
                 {p.cover_image_url && (
                   <div className="relative aspect-[16/9] w-full overflow-hidden bg-slate-100">
@@ -120,22 +120,40 @@ export default async function CategoryPage({ params }: PageProps) {
                       className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       loading="lazy"
                     />
+                    {/* 파트너 콘텐츠 인디케이터 — 우상단 pill */}
+                    <span className="absolute right-3 top-3 rounded-full bg-emerald-500/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
+                      Partner
+                    </span>
                   </div>
                 )}
                 <div className="flex flex-1 flex-col p-5">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-brand-700">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
                     {p.tenant_name}
                   </div>
-                  <h3 className="mt-2 text-base font-bold leading-snug text-ink transition-colors group-hover:text-brand">
+                  <h3 className="mt-2 text-base font-bold leading-snug text-ink transition-colors group-hover:text-emerald-700">
                     {p.title}
                   </h3>
                   <p className="mt-2 line-clamp-2 text-sm text-ink-soft">
                     {p.excerpt}
                   </p>
-                  <div className="mt-4 flex items-center justify-between text-xs text-ink-muted">
+                  <div className="mt-auto flex items-center justify-between pt-4 text-xs text-ink-muted">
                     <span>{p.published_at}</span>
-                    <span className="font-semibold text-ink-muted group-hover:text-brand">
-                      읽기 →
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-ink-muted transition-all group-hover:border-emerald-500 group-hover:bg-emerald-600 group-hover:text-white">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M7 17L17 7" />
+                        <path d="M7 7h10v10" />
+                      </svg>
                     </span>
                   </div>
                 </div>

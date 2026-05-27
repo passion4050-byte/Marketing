@@ -69,8 +69,8 @@ export function ArticleCard({ post, variant = "default" }: Props) {
             {post.readingMinutes}분
           </span>
         </div>
-        <span className="inline-flex h-7 w-7 items-center justify-center rounded-pill border border-line bg-white text-ink-muted transition-all group-hover:border-brand-200 group-hover:bg-brand group-hover:text-white">
-          <ArrowUpRight size={14} />
+        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-line bg-white text-ink-muted transition-all group-hover:border-brand group-hover:bg-brand group-hover:text-white">
+          <ArrowUpRight size={16} strokeWidth={2.5} className="text-current" />
         </span>
       </div>
       </div>

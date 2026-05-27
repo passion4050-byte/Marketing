@@ -133,9 +133,9 @@ function Logo() {
     <img
       src="/medimap-logo.svg"
       alt="MEDIMAP"
-      width={268}
-      height={44}
-      className="h-8 w-auto md:h-9"
+      width={188}
+      height={31}
+      className="h-6 w-auto"
       // eslint-disable-next-line @next/next/no-img-element
     />
   );
