@@ -19,13 +19,17 @@ const CATEGORY_MAP: Record<string, string> = {
   '치과': 'dental',
   '내과': 'internal',
   '모발이식': 'hair',
+  // Round 23 (2026-05-28): 한방 카테고리 추가
+  '한방의원': 'oriental',
+  '한방': 'oriental',
   // 영문 별칭도 허용
   'eyeclinic': 'eyeclinic',
   'derma': 'derma',
   'plastic': 'plastic',
   'dental': 'dental',
   'internal': 'internal',
-  'hair': 'hair'
+  'hair': 'hair',
+  'oriental': 'oriental'
 };
 
 function mapCategory(domainCategory: string | null | undefined): string | null {

@@ -24,7 +24,8 @@ export type PartnerCategory =
   | "plastic"
   | "dental"
   | "internal"
-  | "hair";
+  | "hair"
+  | "oriental";  // Round 23 (2026-05-28): 한방의원 추가
 
 export interface PartnerCategoryMeta {
   slug: PartnerCategory;
@@ -69,6 +70,12 @@ export const PARTNER_CATEGORIES: PartnerCategoryMeta[] = [
     ko: "모발이식",
     description: "FUT 절개·FUE 비절개·헤어라인",
     exampleKeywords: ["절개법", "비절개법", "헤어라인", "정수리"],
+  },
+  {
+    slug: "oriental",
+    ko: "한방",
+    description: "한약·체형교정·다이어트·통증·면역",
+    exampleKeywords: ["한약", "체형교정", "한방다이어트", "통증치료"],
   },
 ];
 

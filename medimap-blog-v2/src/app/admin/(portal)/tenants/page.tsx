@@ -84,8 +84,18 @@ export default function TenantsPage() {
     } finally { setSaving(false); }
   };
 
-  const remove = async (id: SbTenant['id']) => {
-    if (!confirm('이 클라이언트를 삭제할까요? (복구 불가)')) return;
+  const remove = async (id: SbTenant['id'], name?: string) => {
+    // Round 23 (2026-05-28): CASCADE DELETE 사고 재발 방지 — 명시적 경고 강화.
+    // 클라이언트 삭제 시 generated_contents·keywords·auto_content_settings 모두 함께 삭제됨.
+    const label = name ? `"${name}"` : '이 클라이언트';
+    const msg =
+      `${label} 을(를) 삭제하시겠습니까?\n\n` +
+      `⚠️  이 클라이언트와 연결된 모든 데이터가 함께 삭제됩니다:\n` +
+      `  • 발행된 모든 글 (generated_contents)\n` +
+      `  • 키워드 풀 (keywords)\n` +
+      `  • 자동 발행 정책 (auto_content_settings)\n\n` +
+      `복구 불가입니다. 정말 진행하시겠습니까?`;
+    if (!confirm(msg)) return;
     try {
       const res = await fetch(`/api/admin/tenants/${id}`, { method: 'DELETE' });
       const data = await res.json();
@@ -172,7 +182,7 @@ export default function TenantsPage() {
                       <button onClick={() => openEdit(t)} className="rounded-md p-1.5 text-ink-muted hover:bg-surface-base hover:text-brand-700" aria-label="편집">
                         <Edit3 className="h-3.5 w-3.5" />
                       </button>
-                      <button onClick={() => remove(t.id)} className="rounded-md p-1.5 text-ink-muted hover:bg-surface-base hover:text-status-danger" aria-label="삭제">
+                      <button onClick={() => remove(t.id, t.name)} className="rounded-md p-1.5 text-ink-muted hover:bg-surface-base hover:text-status-danger" aria-label="삭제">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
