@@ -1,9 +1,11 @@
 name: Auto-publish content (cron)
 
+# 2026-05-28: Phase 3 (generator.py prompt 분리 + Round 15 v3 스타일 + 일러스트 5장 정책)
+# 완성 전까지 자동 발행 일시 정지. 수동 실행은 workflow_dispatch (Actions UI) 로만.
+# Phase 3 완료 후 schedule 주석 해제 + 매일 23:00 UTC (8AM KST) 단일 실행 예정.
 on:
-  schedule:
-    # 매 시간 정각 (UTC). 한국시간 9시,10시,...,8시.
-    - cron: '0 * * * *'
+  # schedule:
+  #   - cron: '0 * * * *'   # 정지됨 (Round 20 — Phase 3 완료 후 재활성)
   workflow_dispatch: {}
 
 permissions:
