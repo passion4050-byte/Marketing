@@ -249,8 +249,10 @@ async function getDbPostRows(): Promise<DbPostRow[]> {
     console.log(`[posts] fetched ${rows.length} rows (cached for 60s)`);
     return rows;
   } catch (err) {
-    console.error("[posts] getDbPostRows query failed:", err);
-    throw err;
+    console.error("[posts] getDbPostRows query failed (fallback empty):", err);
+    // Round 17 fix → 18: throw 가 page 에서 잡혀 빈 결과 stuck → 명시적 빈 배열
+    // ISR/CDN 캐시는 middleware no-store 헤더로 무효화. 다음 요청에서 재시도.
+    return [];
   }
 }
 
