@@ -37,12 +37,7 @@ export function Footer() {
             >
               <MapPin size={13} /> 네이버
             </a>
-            <a
-              href={`tel:${siteConfig.contact.phone}`}
-              className="inline-flex items-center gap-1.5 rounded-pill bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/85 transition hover:bg-white/20 hover:text-white"
-            >
-              <Phone size={13} /> {siteConfig.contact.phone}
-            </a>
+            {/* Round 21 (2026-05-28): 사용자 요청으로 전화번호 표시 제거 */}
           </div>
         </div>
         <div className="md:col-span-3">
