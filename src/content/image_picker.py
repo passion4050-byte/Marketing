@@ -178,3 +178,117 @@ def attach_image_html(body_html: str, image: dict) -> str:
     if "</h1>" in body_html:
         return body_html.replace("</h1>", "</h1>" + figure, 1)
     return figure + body_html
+
+
+# ============================================================================
+# 2026-05-28 Round 22 — Phase 3 body 일러스트 N장 정책
+# ============================================================================
+
+BODY_FIGURE_TEMPLATE = (
+    '<figure style="margin: 2.5em 0;">\n'
+    '  <img src="{url}" alt="{alt}" loading="lazy" '
+    'style="width: 100%; height: auto; border-radius: 12px;" />\n'
+    '  <figcaption style="text-align: center; color: #64748b; '
+    'font-size: 0.9em; margin-top: 0.6em;">{caption}</figcaption>\n'
+    '</figure>\n\n'
+)
+
+
+def generate_body_illustration_for_section(
+    keyword: str,
+    section_heading: str,
+    *,
+    index: int,
+    width: int = 1200,
+    height: int = 630,
+) -> Optional[dict]:
+    """본문 H2 섹션 1개당 일러스트 1장 — Round 17 마이그레이션과 동일한 톤.
+
+    Round 17 와 동일하게 Pollinations URL 을 직접 사용 (Supabase Storage 우회).
+    seed 는 index 로 분기해 같은 키워드 안에서도 그림이 겹치지 않도록 함.
+    """
+    if not is_enabled():
+        return None
+
+    # 섹션 제목에서 이모지/특수문자 제거 (Pollinations prompt 정화)
+    clean_heading = re.sub(r"[^\w가-힣\s]+", " ", section_heading).strip()
+    en_ctx = keyword_to_english_context(keyword)
+    prompt = (
+        f"Pixar 3D animation, korean medical scene about {en_ctx}, "
+        f"context: {clean_heading or 'consultation'}, "
+        f"warm pastel lighting, expressive friendly characters, "
+        f"modern clinic interior, no text, no logo"
+    )
+    model = os.environ.get("POLLINATIONS_MODEL", "flux")
+    today = datetime.now(timezone.utc).strftime("%Y%m%d")
+    seed = (abs(hash(keyword + clean_heading)) % (2**24)) + index
+
+    encoded = urllib.parse.quote(prompt)
+    url = (
+        f"https://image.pollinations.ai/prompt/{encoded}"
+        f"?width={width}&height={height}&model={model}&seed={seed}&nologo=true&enhance=true"
+    )
+
+    return {
+        "url": url,
+        "alt": (section_heading or keyword)[:120],
+        "caption": (section_heading or keyword)[:120],
+        "prompt": prompt,
+    }
+
+
+def inject_body_illustrations(
+    body_html: str,
+    keyword: str,
+    *,
+    max_count: int = 4,
+) -> str:
+    """본문 HTML 의 <h2> 직전에 figure 를 max_count 개까지 삽입.
+
+    Round 17 SQL 패턴과 동일한 결과(<h2> 앞 figure) 를 코드로 생성.
+    이미 figure 가 충분히 있는 글은 건드리지 않음 (멱등).
+    """
+    if not body_html or max_count <= 0:
+        return body_html
+
+    # 이미 figure 가 max_count 이상이면 skip — 재실행 시 중복 방지(멱등).
+    # cover_image_url 은 별도 컬럼이라 body figure 카운트에 포함하지 않음.
+    existing = body_html.count("<figure")
+    if existing >= max_count:
+        return body_html
+
+    # <h2 ...>제목</h2> 추출 — 본문 H2 만 (제목 h1 제외)
+    h2_pattern = re.compile(r'(<h2[^>]*>)(.*?)(</h2>)', re.IGNORECASE | re.DOTALL)
+    matches = list(h2_pattern.finditer(body_html))
+    if not matches:
+        return body_html
+
+    # 첫 H2 는 인사이트 글에서 보통 hook 이므로 두 번째부터 사용
+    target_indices = list(range(1, min(len(matches), max_count + 1)))
+    if not target_indices:
+        target_indices = [0]
+
+    # 뒤에서부터 삽입 — 앞 인덱스 offset 변동 회피
+    insertions: list[tuple[int, str]] = []
+    for k, idx in enumerate(target_indices):
+        m = matches[idx]
+        # 텍스트만 추출 (inner HTML 의 이모지/스타일은 보존)
+        heading_text = re.sub(r"<[^>]+>", "", m.group(2)).strip()
+        img = generate_body_illustration_for_section(
+            keyword, heading_text, index=k
+        )
+        if not img:
+            continue
+        figure = BODY_FIGURE_TEMPLATE.format(
+            url=img["url"], alt=img["alt"], caption=img["caption"]
+        )
+        insertions.append((m.start(), figure))
+
+    if not insertions:
+        return body_html
+
+    # 뒤에서부터 substring insert
+    result = body_html
+    for pos, figure in sorted(insertions, key=lambda x: -x[0]):
+        result = result[:pos] + figure + result[pos:]
+    return result

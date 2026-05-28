@@ -231,12 +231,28 @@ def _generate_draft(
     )
     from src.storage.models import GeneratedContent
 
+    # 2026-05-28 Round 22 — content_settings 로 발행 정책 주입.
+    # DB 미설정/조회 실패 시 DEFAULTS 가 동일 정책으로 채워짐.
+    try:
+        from src.content.content_settings import get_settings
+        settings = get_settings()
+        blog_target_chars = settings.length_max
+    except Exception:  # noqa: BLE001
+        settings = None
+        blog_target_chars = 2000  # 기존 default 보존
+
     saved_id: int | None = None
     with session_factory() as s:
         if channel == "schema_org":
             r = generate_faq_content(s, tenant_id=tenant_id, keyword=keyword, save=True)
         elif channel == "blog_html":
-            r = generate_blog_post(s, tenant_id=tenant_id, keyword=keyword, save=True)
+            r = generate_blog_post(
+                s,
+                tenant_id=tenant_id,
+                keyword=keyword,
+                save=True,
+                target_chars=blog_target_chars,
+            )
         elif channel == "naver_blog":
             r = generate_naver_blog_content(s, tenant_id=tenant_id, keyword=keyword, save=True)
         elif channel == "instagram":
@@ -270,10 +286,15 @@ def _generate_draft(
         s.commit()
 
         # 2026-05-24: blog_html 자동 발행 시 Pollinations.AI 일러스트 자동 첨부.
+        # 2026-05-28 Round 22: cover 1장 + 본문 N장 (content_settings.image_count_total - 1).
         # IMAGE_GEN_ENABLED=true 일 때만. 실패해도 발행 자체는 진행 (graceful).
         if obj.status == "published" and channel == "blog_html":
             try:
-                from src.content.image_picker import generate_image_for_content, is_enabled
+                from src.content.image_picker import (
+                    generate_image_for_content,
+                    inject_body_illustrations,
+                    is_enabled,
+                )
                 if is_enabled():
                     img = generate_image_for_content(keyword, obj.title)
                     if img:
@@ -293,6 +314,23 @@ def _generate_draft(
                             },
                         )
                         s.commit()
+
+                    # 본문 H2 앞에 body 일러스트 N 장 삽입 — Round 17 SQL 패턴 동등.
+                    body_count = settings.body_image_count() if settings else 4
+                    if body_count > 0 and obj.body:
+                        new_body = inject_body_illustrations(
+                            obj.body, keyword, max_count=body_count
+                        )
+                        if new_body != obj.body:
+                            from sqlalchemy import text as _sql_text2
+                            s.execute(
+                                _sql_text2(
+                                    "UPDATE generated_contents SET body=:b, "
+                                    "updated_at=NOW() WHERE id=:id"
+                                ),
+                                {"b": new_body, "id": obj.id},
+                            )
+                            s.commit()
             except Exception:
                 # 이미지 실패는 발행 차단 사유 아님 — silent log only
                 pass

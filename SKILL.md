@@ -1,0 +1,313 @@
+---
+name: geo-aeo-saas
+description: 메디맵 GEO/AEO SaaS — Done For You 모델 풀스택. (1) 클라이언트 SaaS 콘솔 medimap-blog-v2 (geo-v2-beta.vercel.app, 딥 티얼 #0E5A6B, /admin 13개 페이지, /admin/login 세일즈 랜딩, ADMIN_PASSWORD 가드, middleware 가드, noindex). (2) 콘텐츠 채널 medimap-blog (medimap-blog-phi.vercel.app, 메디맵 블루 #1B68FF, /with-partners 6 카테고리 hub, AI 크롤러 13종 노출). (3) 같은 Supabase DB (gifopyowyankfsfghhdi), 같은 GH Actions cron. 사용자가 '메디맵 GEO SaaS', 'geo-v2-beta', 'with-partners', 'medimap-blog-phi', 'tenants CRUD', '카카오 채널 pf.kakao.com/_xnWQkG', 'BGN/TETE/모우림 파트너', 'Resend 보고서', 'Pollinations 일러스트', '안과/피부과/성형외과/치과/내과/모발이식 카테고리' 같은 표현 쓰면 반드시 이 스킬을 사용한다. 같은 GitHub 레포 passion4050-byte/Marketing 의 medimap-blog/ + medimap-blog-v2/ 모노레포 통합 운영.
+---
+
+# 메디맵 GEO/AEO SaaS — 풀스택 통합 (2026-05-25)
+
+## 무엇
+
+메디맵의 GEO/AEO Done-For-You SaaS. 두 사이트 분리 운영:
+
+- **medimap-blog-v2/** = 클라이언트/운영자 콘솔 (geo-v2-beta.vercel.app, 딥 티얼)
+- **medimap-blog/** = 공개 콘텐츠 채널 (medimap-blog-phi.vercel.app, 메디맵 블루)
+
+같은 `passion4050-byte/Marketing` 모노레포 + 같은 Supabase DB + 같은 GH Actions cron.
+
+## 라이브 URL
+
+| 사이트 | URL | 역할 | 디자인 토큰 |
+|---|---|---|---|
+| 콘솔 (v2) | https://geo-v2-beta.vercel.app | 클라이언트 + 운영자 SaaS | brand #0E5A6B (딥 티얼) |
+| 콘텐츠 채널 (v1) | https://medimap-blog-phi.vercel.app | AI 크롤러용 공개 콘텐츠 | brand #1B68FF (메디맵 블루) |
+| 메디맵 본 사이트 | https://medi-map.co.kr | 의료뷰티 플랫폼 본체 | 메디맵 본 톤 |
+
+## v2 (콘솔) 라우트 풀세트
+
+```
+geo-v2-beta.vercel.app/
+├── /                          통합 대시보드 (4 엔진 비교)
+├── /data-feeding              다중 entry (의사 N명, 장비 M개) + localStorage
+├── /simulator                 4 엔진 BEFORE/AFTER 비교
+├── /ai-code                   JSON-LD 자동 합성
+├── /faq                       FAQPage Schema
+├── /blog                      소재 → 5 변형 자동 + inline 편집
+├── /video                     Shorts/Reels/YouTube 스크립트 + mp4 업로드
+│
+├── /admin/login               🎯 Sales landing 톤 (28회/11명 파일럿 데이터)
+├── /admin/(portal)/...        ADMIN_PASSWORD + middleware 가드
+│   ├── /                      운영 대시보드 (KPI 4 + 최근 큐/인용)
+│   ├── /tenants               클라이언트 CRUD ⚠️ Supabase 직접 연결 필요 (저장 안 됨)
+│   ├── /content-queue         검수 큐 + 린트 점수 + 미리보기
+│   ├── /keywords              테넌트별 키워드 풀
+│   ├── /cost                  14일 비용 차트
+│   ├── /funnel                ShortLink ROI
+│   ├── /reports               월간 PDF 보고서 (Resend)
+│   ├── /reports/[tenantId]    print-friendly HTML 보고서
+│   ├── /calendar              콘텐츠 캘린더
+│   ├── /citations             4 엔진 AI 인용 + Slack/Email 토글
+│   ├── /ab-tests              A/B 변형 비교 + 승자
+│   ├── /audit                 감사 로그
+│   ├── /users                 사용자 초대 + role (owner/editor/viewer)
+│   └── /integrations          YouTube OAuth + Reels/Slack/카톡 (4 카드)
+│
+└── /api/admin/
+    ├── /login + /logout
+    ├── /youtube/oauth/start + /callback + /upload
+    ├── /reports/email
+    └── /notify (Slack/Email/카톡 dispatcher)
+```
+
+## v1 (콘텐츠 채널) 라우트
+
+```
+medimap-blog-phi.vercel.app/
+├── /                                      메디맵 자사 홈
+├── /blog/[slug]                           메디맵 자사 블로그 (cover image hero)
+├── /admin/* (legacy)                      v1 admin (deprecate 예정)
+├── /client/* (legacy)                     v1 클라이언트 포털 (deprecate 예정)
+│
+├── /with-partners                         ⭐ 6 카테고리 hub (NEW)
+├── /with-partners/[category]              카테고리 hub (eyeclinic/derma/plastic/dental/internal/hair)
+├── /with-partners/[category]/[partner]    파트너별 글 list
+└── /with-partners/[category]/[partner]/[slug]  개별 글 (cover image hero)
+```
+
+## 카테고리 6종 (영문 slug 확정)
+
+| 영문 slug | 한글 | 키워드 예시 |
+|---|---|---|
+| `eyeclinic` | 안과 | 라식, 라섹, 스마일라식, 백내장, 노안교정 |
+| `derma` | 피부과 | 여드름, 색소침착, 레이저, 필러, 보톡스 |
+| `plastic` | 성형외과 | 안면윤곽, 가슴, 코, 양악, 쌍꺼풀 |
+| `dental` | 치과 | 임플란트, 교정, 미백, 신경치료 |
+| `internal` | 내과 | 건강검진, 내시경, 갑상선, 당뇨 |
+| `hair` | 모발이식 | FUT 절개, FUE 비절개, 헤어라인 |
+
+## URL 구조 (with-partners)
+
+- `/with-partners/eyeclinic/bgn/lasik-recovery` 형태
+- 영문 only (한글 slug 사용 X)
+- 파트너 표기: 글 헤더 + 푸터 양쪽 (BGN 카드 + 카카오 CTA)
+
+## Supabase 스키마 — 핵심 컬럼
+
+### `tenants`
+- 기존 + `partner_slug text unique` ⭐ 추가 (URL용)
+- BGN→bgn, TETE→tete, 모우림→mourim (TETE 만 시드 완료, BGN/모우림 수동 update 필요)
+
+### `generated_contents`
+- 기존: id, tenant_id, channel, keyword_text, body, slug, title, excerpt, status, compliance_status, cover_image_url, cover_image_alt, published_at
+- 신규 ⭐: `partner_category text` (eyeclinic/derma/plastic/dental/internal/hair)
+- 신규 ⭐: `is_partner_content boolean default false`
+
+### 마이그레이션 파일
+`medimap-blog/db/migrations/002_with_partners.sql` — 실행 완료 (TETE 시드까지)
+
+## 디자인 토큰 (v2 = 딥 티얼)
+
+| 토큰 | 값 |
+|---|---|
+| `brand.DEFAULT` | `#0E5A6B` |
+| `accent.DEFAULT` | `#15B8A6` |
+| 4 엔진 컬러 | chatgpt `#10A37F` / claude `#D97706` / gemini `#4285F4` / perplexity `#20B2AA` |
+| KPI 폰트 | 2.5rem / weight 700 / -0.02em |
+
+## 디자인 토큰 (v1 = 메디맵 블루)
+
+| 토큰 | 값 |
+|---|---|
+| `brand.DEFAULT` | `#1B68FF` |
+| meta-theme-color | `#1B68FF` |
+
+## Env 셋업 (Vercel geo-v2 프로젝트)
+
+| Key | 상태 | 용도 |
+|---|---|---|
+| `DATABASE_URL` | ✅ | Supabase Postgres (PgBouncer port 6543) |
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | https://gifopyowyankfsfghhdi.supabase.co |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | server-side write (admin CRUD 에서 사용) |
+| `LLM_PROVIDER` | ✅ gemini | |
+| `GEMINI_API_KEY` | ✅ | (GOOGLE_API_KEY fallback 지원) |
+| `IMAGE_GEN_ENABLED` | ✅ true | Pollinations.AI 이미지 자동 |
+| `ADMIN_PASSWORD` | ✅ | /admin 로그인 |
+| `ADMIN_SESSION_SECRET` | ✅ | 32자 cookie 서명 |
+| `RESEND_API_KEY` | ✅ | 월간 보고서 이메일 |
+| `RESEND_FROM` | ✅ `onboarding@resend.dev` (임시) | 도메인 verify 후 본인 도메인으로 |
+| `ADMIN_EMAIL` | ✅ `passion4050@gmail.com` | 보고서 받을 메일 |
+| `SLACK_WEBHOOK_URL` | ⏸ 미설정 | 알림 (옵션) |
+| `YOUTUBE_CLIENT_ID/SECRET` | ⏸ 미설정 | YouTube 업로드 (옵션, /admin/integrations 가이드) |
+| `NEXT_PUBLIC_SITE_URL` | (default) | siteConfig fallback = geo-v2-beta.vercel.app |
+
+## Vercel Deployment Protection
+
+- geo-v2 프로젝트: Vercel Authentication **OFF** (외부 server-to-server 호출 가능)
+- 보안은 자체 `ADMIN_PASSWORD` + `middleware.ts` cookie 가드로
+- `/api/admin/*` (login/logout 제외): cookie 없으면 401
+- `/admin/*` (login 제외): cookie 없으면 /admin/login 리다이렉트
+
+## SEO 정책
+
+| 사이트 | 정책 |
+|---|---|
+| v2 (콘솔) | **noindex/nofollow** — /admin layout + login layout 에 metadata robots |
+| v1 (콘텐츠) | **public** — robots.txt 에 AI 크롤러 13종 명시 허용 (GPTBot/ChatGPT-User/OAI-SearchBot/ClaudeBot/Claude-Web/anthropic-ai/Google-Extended/Googlebot/PerplexityBot/Perplexity-User/Bingbot/CCBot 등) |
+
+## Sales Landing (`/admin/login`) — 카피라이팅 확정
+
+- **헤드라인:** "AI 검색 시대, 병원 마케팅 게임이 바뀝니다"
+- **서브:** "ChatGPT · Claude · Gemini · Perplexity 가 당신의 병원을 추천하도록"
+- **소셜 프루프:** "월평균 AI 인용 28회 · 신규 문의 전환 11명 (파일럿 데이터)"
+- **CTA:** 카카오톡 채널 https://pf.kakao.com/_xnWQkG (노란 #FEE500 버튼)
+- **2 column 구조:** 좌측 로그인 폼 + 우측 잠재 클라이언트 CTA 카드
+
+## Commit 이력 (최근)
+
+```
+9223cf6 feat(v2/admin): sales landing login + noindex + API middleware guard
+06b1ec9 fix(v2): remove duplicate /admin/funnel — route conflict with (portal)/funnel
+26deb21 fix(v2): correct production URL — medimap-geo → geo-v2-beta.vercel.app
+1ffc8e8 feat(db): add with-partners migration
+bf1dcac feat(v2): Phase 2 — monthly PDF reports + YouTube upload + A/B + multi-user
+49d913f feat(v2/admin): full admin console — 10 pages + YouTube OAuth + Slack/Email notify
+2106d00 feat(v2): multi-entry data-feeding + real blog post editor
+d1579f0 feat(v2): interactive UI fixes - all dead buttons now working
+099b527 feat(v2): medimap-blog-v2 신설 — 광고대행사 시안 (딥 티얼)
+```
+
+## 🚧 미완료 작업 (다음 세션에서 진행)
+
+### 1. with-partners 라우트 4종 push (90% 작성됨)
+
+이미 /tmp/Marketing 에 작성된 파일들:
+- `medimap-blog/src/lib/partners.ts` (cover_image_url 포함)
+- `medimap-blog/src/app/with-partners/page.tsx` (6 카테고리 hub)
+- `medimap-blog/src/app/with-partners/[category]/page.tsx`
+- `medimap-blog/src/app/with-partners/[category]/[partner]/page.tsx`
+- `medimap-blog/src/app/with-partners/[category]/[partner]/[slug]/page.tsx`
+- `medimap-blog/src/app/sitemap.ts` (with-partners URL 자동 포함)
+- `medimap-blog/src/lib/site.ts` (navItems 에 파트너 콘텐츠 추가)
+
+**작업:** /tmp/Marketing 다시 클론 → 위 파일들 그대로 작성 → commit + push.
+
+### 2. /api/admin/tenants/* CRUD (저장 안 되는 문제 fix)
+
+현재 `/admin/(portal)/tenants/page.tsx` 가 useState 만 사용 → 새로고침 시 사라짐. 
+
+해결책:
+- `medimap-blog-v2/src/app/api/admin/tenants/route.ts` — GET (list), POST (create)
+- `medimap-blog-v2/src/app/api/admin/tenants/[id]/route.ts` — PATCH, DELETE
+- 페이지를 fetch 기반으로 변경
+- Supabase tenants 테이블 직접 CRUD (SUPABASE_SERVICE_ROLE_KEY 사용)
+
+같은 패턴 `/api/admin/keywords/*` 에도 적용 (keywords 테이블이 있다면).
+
+### 3. /admin/content-queue 이미지 미리보기 + 본문 복사 시 이미지 URL
+
+`medimap-blog-v2/src/app/admin/(portal)/content-queue/page.tsx`:
+- 카드에 cover_image_url thumbnail 표시
+- 미리보기 모달에 hero image
+- "본문 복사" 시 markdown 에 `![alt](url)` 포함
+
+### 4. /admin/login 카피 미세조정
+
+`medimap-blog-v2/src/app/admin/login/page.tsx`:
+- 서브 텍스트에서 "한국 최초의 의료 특화 AI 검색 최적화 (GEO) SaaS" 제거
+- 카드 3번째 "100% 4 엔진" → "(파일럿 데이터)" 명시
+- 카피라이팅 확정안 그대로 적용
+
+### 5. BGN/모우림 partner_slug Supabase 수동 update
+
+Supabase SQL Editor:
+```sql
+select id, name, partner_slug from tenants order by name;
+-- 결과 보고 정확한 update:
+update tenants set partner_slug = 'bgn'    where id = '<BGN tenant id>' and partner_slug is null;
+update tenants set partner_slug = 'mourim' where id = '<모우림 id>' and partner_slug is null;
+```
+
+## 다음 세션 시작 명령어 (그대로 복사)
+
+```
+geo-aeo-saas 스킬 활성화. 다음 작업 진행:
+1. /tmp/Marketing 클론 (passion4050-byte/Marketing)
+2. medimap-blog 에 with-partners 4 라우트 + sitemap + nav 적용 (스킬 명세 그대로)
+3. medimap-blog-v2 에 /api/admin/tenants/* CRUD 추가 (Supabase service_role 사용)
+4. /admin/content-queue 이미지 미리보기 + copy 에 image URL
+5. /admin/login 카피 미세조정 (28회/11명/파일럿)
+6. build + commit + push
+끝나면 검증 URL 알려줘.
+```
+
+## 학습된 함정 (Pitfalls Catalog — 2026-05-25 round 4 누적)
+
+### Supabase / DB
+- **Multi-statement transaction wrap**: Supabase SQL Editor 는 multi-statement 를 single transaction 으로 래핑한다. ALTER TABLE + INSERT 를 한 블록에 묶으면 INSERT 실패 시 ALTER 도 rollback 되어 컬럼 추가가 사라진다. **DDL 과 DML 은 반드시 분리 실행**.
+- **prod tenants 스키마 vs admin-mock 컬럼명 mismatch (치명적)**:
+  | mock | prod 실제 |
+  |---|---|
+  | `category` | `domain_category` |
+  | `domain` | (없음 — `naver_place_url` / `homepage` 분리) |
+  | `contact` | `phone` |
+  | `publishCount` `monthlyCost` `joinedAt` `status` | snake_case + ALTER 로 추가 필요 (`publish_count`, `monthly_cost`, `joined_at`, `status`) |
+  새 admin CRUD 작성 전 반드시 `information_schema.columns` 로 실제 컬럼명 확인.
+- **tenants NOT NULL 컬럼 6개**: `name, domain_category, region, business_model, created_at, password_hash` — INSERT 시 모두 채워야 함. `created_at` 은 default 없음 → `now()` 명시. `password_hash` 도 default 없음 → placeholder string 또는 nullable 검증.
+- **generated_contents NOT NULL 컬럼 12개**: 자주 빠뜨리는 것 → `correction_iterations` (default 없음, 0 채워야), `created_at` (default 없음, now() 채워야). updated_at, is_partner_content 는 default 있음.
+- **keywords prod 스키마**: `id, tenant_id, text, category, target_brand, is_active` — mock 의 `keyword/dailyTarget/status` 와 완전히 다름. text/category/target_brand 사용.
+- **tenant 의 domain_category 가 '기타' 인 경우**: 자동 매핑 함수에서 partner_category=NULL 로 떨어져 /with-partners 라우트 미노출. 운영 보정 SQL 권장: `update tenants set domain_category='안과' where partner_slug='tete';`.
+
+### Admin 화면 전수 mock 상태 (round 4 시점)
+프로젝트 시작 시 admin 12개 페이지 중 **content-queue 만** live DB. 나머지 11개 (tenants/keywords/calendar/citations/cost/reports/ab-tests/funnel/audit/users/integrations) 는 mock. **작업 시작 첫 단계로 admin 페이지 전수 mock vs live 매트릭스를 그려야 함** — 단계별 발견은 사용자 신뢰 깎고 비효율.
+
+### Git / GitHub
+- **Windows Git Credential Manager 캐시**: 기본 캐시 PAT 가 다른 계정 (예: `marketingdreamus`) 이면 `passion4050-byte/Marketing` push 시 403. 해결: `git remote set-url origin https://<username>@github.com/<owner>/<repo>.git` 으로 username 명시 → 첫 push 시 브라우저 OAuth 또는 PAT 입력 prompt.
+- **Sandbox 의 GitHub push 불가**: 자격증명 없음. 모든 코드 변경은 `git format-patch -1 HEAD --stdout > patch` 로 패키징해서 handoff 폴더에 떨군 뒤 사용자가 `git am` 으로 적용.
+- **handoff 폴더 구조**: `handoff/round<N>-YYYY-MM-DD/` 에 patch + SQL migrations + README 묶음. 사용자가 운동 가도 한 번에 적용 가능하게.
+
+### Next.js / Vercel
+- **Vercel 빌드 캐시 + 브라우저 캐시**: 새 push 후 admin 페이지가 옛 mock 으로 보이면 → 빌드 진행중이거나 브라우저 캐시. `Ctrl + Shift + R` hard reload 필요. 확인 방법: GitHub commits 페이지의 CI 체크 ✓ + Vercel deployment 상태 READY.
+- **`/api/admin/*` middleware 가드**: `medimap-blog-v2/src/middleware.ts` 가 `/api/admin/:path*` 매처로 cookie 검증. login/logout 제외 모든 API 가 admin cookie 없으면 401. 같은 도메인 fetch 는 cookie 자동 전송 OK.
+- **next/image remotePatterns**: medimap-blog 의 next.config.js 에 `image.pollinations.ai`, `gifopyowyankfsfghhdi.supabase.co`, `*.supabase.co` 허용. medimap-blog-v2 는 admin 콘솔이라 native `<img>` 사용 (remotePatterns 설정 없음).
+- **ISR revalidate=60** + `dynamicParams=true`: 빌드타임 SSG 후 새 데이터는 60초 ISR. `/with-partners/*` 라우트는 이 패턴.
+
+### Pollinations / 외부 이미지
+- **seed 파라미터 필수**: `https://image.pollinations.ai/prompt/<...>?width=1200&height=630&seed=<N>&nologo=true` — seed 없으면 매 호출마다 새로 생성 (5~15초 소요, 가끔 timeout). seed 박으면 deterministic 캐시 hit.
+- **클라이언트 fallback**: 그래도 timeout 시 broken 표시되므로 `<img onError>` fallback (ImageOff icon) 필수.
+
+### 효율 워크플로 (Efficient Workflow — Repeat-Avoidance Rules)
+
+1. **작업 시작 첫 단계** = admin 전수 점검 + prod 스키마 진단. 코드 작성보다 먼저.
+2. **prod 스키마 진단 1줄**:
+   ```sql
+   select column_name, data_type, is_nullable, column_default
+   from information_schema.columns
+   where table_name = '<table>' order by ordinal_position;
+   ```
+   특히 `is_nullable='NO'` + `column_default IS NULL` 인 컬럼 = INSERT 시 반드시 채워야 함.
+3. **NOT NULL 진단 후 INSERT**:
+   ```sql
+   select column_name from information_schema.columns
+   where table_name = '<table>' and is_nullable = 'NO'
+     and column_default is null;
+   ```
+4. **DDL/DML 분리 실행**: ALTER → 검증 → INSERT → 검증 단계별.
+5. **mock 페이지를 발견하면 즉시 매트릭스화** (라이브/즉시 가능/외부 ETL 분류) → 사용자 동의 후 일괄 처리. 단계별 발견 금지.
+6. **라이브 검증 자동**: 발행/저장 작업 후 `web_fetch` 로 즉시 라이브 확인. 캐시 이슈 회피 위해 사용자에게 hard reload 안내.
+7. **patch 묶음 packaging**: handoff 폴더에 SQL + patch + README 한 세트. 운동 가도 한 번에 적용 가능하게.
+8. **Vercel 빌드 검증 흐름**: push → GitHub commits 페이지 체크 ✓ → Vercel deployment READY → hard reload → 라이브 검증.
+9. **신뢰 회복 패턴**: 사용자가 mock/문제 발견 시 변명 X, 인정 + 전수 매트릭스 + 우선순위 + 작업 시간 약속.
+
+## 알려진 함정 (구 기록 — 기존 항목 유지)
+
+
+- SSG 빌드 timeout: `staticPageGenerationTimeout: 180` + DB 쿼리 8 초 Promise.race
+- 한글 slug: `encodeURIComponent` + `decodeURIComponent`
+- PgBouncer transaction mode: `prepare: false`
+- Gemini JSON 깨짐: `response_mime_type: "application/json"` + lenient parser
+- Next.js route group 중복: `/admin/funnel/page.tsx` 와 `/admin/(portal)/funnel/page.tsx` 동시 존재 시 빌드 실패
+- ESLint `react/no-unescaped-entities`: 한국어 콘텐츠에서 `'` `"` 사용 시 빌드 실패 — `.eslintrc.json` 에 룰 OFF 설정
+- Vercel root layout 의 Sidebar 가 /admin 라우트 가로채는 문제: `SidebarShell` 패턴으로 pathname 분기
+- Supabase 컬럼명: `partner_slug` (tenants), `partner_category` + `is_partner_content` (generated_contents)
+- 한글 commit message: PowerShell 에서 dash 파싱 에러 — 영문으로 작성
+- 디스크 ENOSPC: /tmp 가득 시 `.next` 캐시 제거 (다음 build 전)

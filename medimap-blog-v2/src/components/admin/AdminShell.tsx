@@ -13,6 +13,7 @@ import {
   LinkIcon,
   LogOut,
   Plug,
+  Settings,
   ShieldCheck,
   Tag,
   UserCog,
@@ -27,6 +28,7 @@ const NAV = [
     { href: '/admin', label: '대시보드', icon: LayoutDashboard },
     { href: '/admin/tenants', label: '클라이언트', icon: Users },
     { href: '/admin/content-queue', label: '콘텐츠 관리', icon: ClipboardCheck },
+    { href: '/admin/content-settings', label: '콘텐츠 설정', icon: Settings },
     { href: '/admin/keywords', label: '키워드 풀', icon: Tag },
     { href: '/admin/calendar', label: '콘텐츠 캘린더', icon: CalendarDays },
     { href: '/admin/ab-tests', label: 'A/B 테스트', icon: Beaker }
