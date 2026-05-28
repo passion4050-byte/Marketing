@@ -311,3 +311,141 @@ geo-aeo-saas 스킬 활성화. 다음 작업 진행:
 - Supabase 컬럼명: `partner_slug` (tenants), `partner_category` + `is_partner_content` (generated_contents)
 - 한글 commit message: PowerShell 에서 dash 파싱 에러 — 영문으로 작성
 - 디스크 ENOSPC: /tmp 가득 시 `.next` 캐시 제거 (다음 build 전)
+
+---
+
+## Round 22-23 (2026-05-28) — 자동 발행 정책 DB + 콘텐츠 운영 인프라
+
+### Round 22 — Phase 3 content_settings 시스템
+
+**완성된 모듈**
+- DB: `medimap-blog/db/migrations/022_content_settings_table.sql` — key-value 12개 정책 (tone, length_min/max, cta_target, keyword_seed_mode, disclaimer_style, image_count_total, image_style, image_realistic_only_for, publish_schedule, content_pattern_pool, lead_pattern_pool)
+- Admin UI: `medimap-blog-v2/src/app/admin/(portal)/content-settings/page.tsx` + `src/app/api/admin/content-settings/route.ts`
+- Sidebar: `AdminShell.tsx` 에 "콘텐츠 설정" 메뉴 추가 (Settings 아이콘)
+- Python loader: `src/content/content_settings.py` — Supabase REST 직접 호출, 모듈 캐시, DEFAULTS fallback
+- `image_picker.py` — `inject_body_illustrations()` 본문 H2 직전 figure 자동 삽입
+- `scheduler.py` — `_generate_draft` 가 settings.length_max → target_chars 전달 + body 일러스트 호출
+- `auto-publish.yml` — cron 매시간 → `0 23 * * *` (매일 08:00 KST) 단일 실행
+
+**검증 단계에서 발견·수정한 버그 2건**
+1. `inject_body_illustrations` 멱등성 깨짐: `existing >= max_count + 1` 가 cover figure 를 body 안에 있다고 잘못 가정 → cover 는 별도 컬럼이라 `existing >= max_count` 로 수정. 재실행 시 figure 도배 위험 제거.
+2. `_coerce_pool` 빈 문자열에서 `[]` 반환: 빈/whitespace 도 DEFAULTS 로 폴백하도록 수정.
+
+### Round 23 — 한방 카테고리 + 자동화 인프라 + 콘텐츠 batch
+
+**한방 카테고리 신설**
+- `partners.ts` PartnerCategory 에 `'oriental'` 추가 (한글 라벨 "한방", description "한약·체형교정·다이어트·통증·면역")
+- `/api/admin/content-queue/[id]` CATEGORY_MAP 에 `'한방의원' → 'oriental'`, `'한방' → 'oriental'`
+- DB CHECK constraint 교체:
+  ```sql
+  ALTER TABLE generated_contents DROP CONSTRAINT IF EXISTS generated_contents_partner_category_check;
+  ALTER TABLE generated_contents ADD CONSTRAINT generated_contents_partner_category_check
+    CHECK (partner_category IS NULL OR partner_category IN ('eyeclinic','derma','plastic','dental','internal','hair','oriental'));
+  ```
+
+**자동화 인프라 (Migration 024)**
+- `auto_content_settings` 테이블 CREATE TABLE IF NOT EXISTS + `ALTER TABLE ... ALTER COLUMN updated_at SET DEFAULT NOW()` 보강
+- PostgreSQL trigger: `tenants` INSERT 시 `auto_content_settings` row 자동 생성 (enabled=false, daily_count=1)
+- 모든 기존 tenant 에 누락 row backfill
+- 자사 tenant 신설: `partner_slug='medimap-self', business_model='self', domain_category='자사인사이트', region='서울'` → id=12
+- 자사 키워드 3개: '의료 GEO 최적화' / '의료법 광고 가이드' / '병원 마케팅 GEO' (id 29/30/31)
+- 자사 auto_content_settings: `enabled=true, daily_count=3, auto_publish=true, channels=["blog_html"]`
+
+**파트너 6편 v3 스타일 SQL (Migration 025)**
+- id 81 BGN 잠실 — 잠실 노안교정 EDOF·다초점 비교 (eyeclinic)
+- id 82 밴스모자이너의원 — 강남 모발이식 회복 6개월 (hair)
+- id 83 지우피부과 — 강남 리쥬란 힐러 (derma)
+- id 84 바를정 한방의원 — 한방 다이어트 6주 (oriental — 첫 한방 글)
+- id 85 벨리셀 피부과 — 여드름 흉터 (derma)
+- id 86 밝은눈안과 부산 — 부산 라식 비교 (eyeclinic)
+- 각 글 본문 6500~7000자, cover 1 + 본문 4 figure, 이모지 H2, 배지 H3, amber disclaimer, 테이블, FAQ
+- 사용자 검수 후 보정: 본문 끝 그라디언트 CTA 박스 제거 (사이드바와 중복) + FAQ `<details>` → 펼친 박스
+
+**자사 인사이트 3편 cron 발행** (id 87, 88, 89)
+- Gemini 503 UNAVAILABLE 2회 발생했지만 retry 로 최종 3편 모두 published
+- 1m 50s 소요, last_run_at 정상 업데이트
+
+**삭제 안전망**
+- `/admin/(portal)/tenants/page.tsx` 삭제 confirm 강화: 클라이언트 이름 + "연결된 모든 글·키워드·발행 정책이 함께 삭제됩니다" 명시
+
+---
+
+## 알려진 함정 (Round 22-23 추가)
+
+### ORM-only default vs DB-level default 차이
+SQLAlchemy `default=_now`, `default=0`, `default=False` 등은 Python ORM 레벨이지 DB constraint 가 아님. 직접 SQL INSERT 하면 NOT NULL violation. **Migration 024/025 작성 중 4개 컬럼에서 발생**:
+- `auto_content_settings.updated_at` → `ALTER TABLE ... ALTER COLUMN updated_at SET DEFAULT NOW()`
+- `generated_contents.correction_iterations` → `SET DEFAULT 0`
+- `generated_contents.llm_provider` → `SET DEFAULT 'manual'`
+- `generated_contents.status` → `SET DEFAULT 'draft'`
+- `generated_contents.compliance_status` → `SET DEFAULT 'pass'`
+- **Lesson**: 신규 SQLAlchemy 컬럼 추가 시 `server_default=` 도 함께 명시. 이미 default 없이 만든 컬럼은 ALTER 로 보강.
+
+### CREATE TABLE IF NOT EXISTS 한계
+기존 테이블의 컬럼 default/constraint 를 변경하지 못함. 새 default 추가/스키마 변경은 별도 `ALTER TABLE` 필요. **재실행 안전한 마이그레이션 작성 시 `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE ... IF EXISTS ALTER COLUMN ...` 패턴 권장.**
+
+### tenants NOT NULL 컬럼 — region
+tenants.region 이 NOT NULL. 자사 tenant 처럼 region 이 무의미한 경우도 placeholder ('서울', '본사' 등) 명시 필수. address/naver_place_url/phone/homepage 도 안전망 차원에서 명시 권장 (각 마이그레이션이 NOT NULL 추가하기 전이라면).
+
+### partner_category CHECK constraint 교체 패턴
+DB 레벨 enum 역할. 새 카테고리 추가 시 DROP + ADD 두 단계:
+```sql
+ALTER TABLE generated_contents DROP CONSTRAINT IF EXISTS generated_contents_partner_category_check;
+ALTER TABLE generated_contents ADD CONSTRAINT generated_contents_partner_category_check
+  CHECK (partner_category IS NULL OR partner_category IN (...));
+```
+
+### Pollinations.AI lazy generation
+새 URL 첫 요청 시 5~30초 생성 시간 — 그 동안 broken image (X 박스). 페이지 새로고침 + 1~2분 대기로 회복. 다수 (30장+) 동시 요청 시 더 두드러짐. **장기 해결: cover_image 처럼 Supabase Storage 업로드 후 public URL 사용**. 현재는 cover 만 Storage, body figure 는 Pollinations URL 직접.
+
+### Vercel serverless module-level cache (60s TTL)
+`posts.ts` / `partners.ts` 의 `_postsCache`, `_allPostsCache` 가 인스턴스 메모리에 stale 한 응답을 들고 있음. cron 으로 새 글 발행 후 즉시 표시 안 됨. **해결**:
+1. Vercel redeploy (즉시)
+2. `VERCEL_DEPLOY_HOOK` secret → GitHub Actions cron 끝에 자동 호출
+3. 60s 기다리기
+
+### Gemini 503 UNAVAILABLE
+무료 tier 라 우선순위 낮음. 503 이 잦음. retry 또는 Anthropic/OpenAI fallback 필요. 현재 generator.py retry 로 1m 50s 안에 회복.
+
+### Vercel build duplicate identifier error
+TypeScript 가 같은 `const` 두 번 정의되면 빌드 실패. sandbox edit 동기화 문제로 같은 edit 두 번 일어날 가능성 주의. **Round 22 의 PATCH endpoint 중복 사고**. push 전 `git diff` 또는 untracked 파일까지 한 번 검토.
+
+### scheduler.py 의 한글 slug
+`_make_slug()` 가 한글 그대로 유지. SEO·AEO (Perplexity·ChatGPT URL 파싱) 측면에서 영문 권장. 영문 transliteration 또는 keyword 영문 매핑 풀 필요 — 별도 라운드 작업.
+
+### auto_content_settings 비어있으면 cron 0편 발행
+GitHub Actions cron 트리거하기 전에 자사 또는 파트너 tenant 에 `auto_content_settings` row 가 `enabled=true` 로 있어야 함. 이전 사고 (CASCADE DELETE 11 row) 로 자사 tenant 와 함께 사라졌던 경험. **trigger 추가 후 신규 클라이언트 부터는 자동 row 생성. 기존은 backfill SQL 필요.**
+
+---
+
+## 운영 흐름 — 신규 클라이언트 추가 (Round 23 이후)
+
+**SQL 실행 0회 — 어드민 UI 클릭만으로 완결**:
+
+```
+1. /admin/tenants → "추가" → 이름·partner_slug·카테고리·지역 입력 → 저장
+   ↓ (PostgreSQL trigger 가 auto_content_settings row 자동 생성, enabled=false default)
+2. /admin/keywords → 그 테넌트 선택 → 키워드 2~3개 입력 → 저장
+   ↓ (is_active=true 로 자동 등록)
+3. 자동 발행 활성화 원하면 /admin/content-settings 또는 별도 토글 UI 에서 enabled=true 변경
+4. 다음 날 08:00 KST 에 cron 이 알아서 발행
+```
+
+**관리자 운영 사이클**:
+- 매일 08:00 KST: cron 발행
+- 매일 09:00 KST: `/admin/content-queue` 검수 (필요 시 인라인 편집)
+- 매일 09:30 KST: 미승인 글은 reject 또는 draft 보존
+- 매주 월요일: `/admin/content-settings` 에서 정책 미세 조정 (톤·길이·키워드 풀)
+
+---
+
+## 다음 라운드 후보 (Round 24+)
+
+- **VERCEL_DEPLOY_HOOK secret 등록** — cron 끝에 자동 redeploy 트리거 (5분 작업)
+- **한글 slug → 영문 변환** — `scheduler._make_slug` 보정 + 기존 87/88/89 slug 마이그레이션
+- **본문 figure 도 Supabase Storage 업로드** — Pollinations lazy gen 회피
+- **/admin/tenants UI 에 "자동 발행 활성화" 토글** — auto_content_settings 의 enabled 직접 켜기
+- **`/admin/keywords` 의 카테고리 옵션에 '한방' 추가** — 현재 CATEGORY_SUGGEST 7개 (한방 빠짐)
+- **Gemini 503 retry 안정화** — Anthropic Sonnet fallback provider 우선순위
+- **콘텐츠 검수 자동 알림** — Slack/이메일 webhook (매일 cron 끝나면)
+- **자사 tenant 의 키워드 풀 확장** — 현재 3개. 6편 추가 발행 후 / 운영 데이터 보고 12~20개로 확장
