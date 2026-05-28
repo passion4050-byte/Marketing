@@ -15,6 +15,14 @@
 -- ============================================================
 
 -- ────────────────────────────────────────────────────────────
+-- 0. 기존 테이블이 있다면 updated_at default 보강
+--    (Round 23 사고 후 추가 — DB-level default 가 없어서 INSERT 시 NULL violation)
+-- ────────────────────────────────────────────────────────────
+
+ALTER TABLE IF EXISTS auto_content_settings
+  ALTER COLUMN updated_at SET DEFAULT NOW();
+
+-- ────────────────────────────────────────────────────────────
 -- 1. auto_content_settings 테이블 존재 확인 (혹시 없으면 생성)
 -- ────────────────────────────────────────────────────────────
 
@@ -40,8 +48,8 @@ CREATE INDEX IF NOT EXISTS idx_auto_settings_enabled
 CREATE OR REPLACE FUNCTION auto_create_content_settings()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO auto_content_settings (tenant_id, enabled, daily_count, auto_publish)
-  VALUES (NEW.id, false, 1, false)
+  INSERT INTO auto_content_settings (tenant_id, enabled, daily_count, auto_publish, updated_at)
+  VALUES (NEW.id, false, 1, false, NOW())
   ON CONFLICT (tenant_id) DO NOTHING;
   RETURN NEW;
 END;
@@ -59,8 +67,8 @@ CREATE TRIGGER trg_auto_create_content_settings
 --    (default enabled=false. 운영자가 어드민에서 직접 토글.)
 -- ────────────────────────────────────────────────────────────
 
-INSERT INTO auto_content_settings (tenant_id, enabled, daily_count, auto_publish)
-SELECT t.id, false, 1, false
+INSERT INTO auto_content_settings (tenant_id, enabled, daily_count, auto_publish, updated_at)
+SELECT t.id, false, 1, false, NOW()
 FROM tenants t
 WHERE NOT EXISTS (
   SELECT 1 FROM auto_content_settings a WHERE a.tenant_id = t.id
@@ -72,15 +80,19 @@ WHERE NOT EXISTS (
 --    business_model='self' 로 파트너와 구분 → /with-partners 에서 노출 안 됨.
 -- ────────────────────────────────────────────────────────────
 
+-- region 은 NOT NULL 이므로 자사 본사 위치 '서울' 명시.
+-- address/naver_place_url/phone/homepage 도 안전망으로 명시 (혹시 다른 NOT NULL 보정).
 INSERT INTO tenants (
   name, domain_category, region, business_model,
   partner_slug, status, joined_at, created_at,
-  password_hash
+  password_hash,
+  address, naver_place_url, phone, homepage
 )
 VALUES (
-  '메디맵', '자사인사이트', NULL, 'self',
+  '메디맵', '자사인사이트', '서울', 'self',
   'medimap-self', 'active', '2026-05-28', NOW(),
-  'placeholder-self-tenant'
+  'placeholder-self-tenant',
+  '서울특별시', '', '', 'https://medi-map.co.kr'
 )
 ON CONFLICT (partner_slug) DO NOTHING;
 
