@@ -37,10 +37,34 @@ def _slugify(s: str) -> str:
     return s[:60] or "image"
 
 
+def _detect_content_type(img_bytes: bytes) -> tuple[str, str]:
+    """Magic bytes 로 image content_type + 확장자 추정.
+
+    Returns:
+        (content_type, ext)  예: ('image/jpeg', 'jpg') 또는 ('image/png', 'png').
+    """
+    head = bytes(img_bytes[:12])
+    # JPEG
+    if head[:3] == b"\xff\xd8\xff":
+        return ("image/jpeg", "jpg")
+    # PNG
+    if head[:8] == b"\x89PNG\r\n\x1a\n":
+        return ("image/png", "png")
+    # WebP
+    if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return ("image/webp", "webp")
+    # GIF (참고용, 버킷 MIME 에는 미허용)
+    if head[:6] in (b"GIF87a", b"GIF89a"):
+        return ("image/gif", "gif")
+    # 알 수 없으면 jpeg 로 fallback
+    return ("image/jpeg", "jpg")
+
+
 def fetch_image_bytes(url: str, *, timeout: int = 60) -> Optional[bytes]:
     """Pollinations 또는 임의 URL 에서 image bytes 다운로드.
 
     Pollinations 의 lazy gen 을 고려해 timeout 60s. 실패 시 None.
+    상세 진단 로그 — print 로 GitHub Actions stdout 에 표시.
     """
     if not url:
         return None
@@ -50,11 +74,14 @@ def fetch_image_bytes(url: str, *, timeout: int = 60) -> Optional[bytes]:
             r.raise_for_status()
             data = r.content
         if not data or len(data) < 1024:
-            logger.warning("image_uploader.too_small url=%s size=%d", url[:80], len(data))
+            print(f"      fetch_too_small size={len(data) if data else 0} url={url[-60:]}")
             return None
         return data
+    except httpx.HTTPStatusError as e:  # noqa: BLE001
+        print(f"      fetch_http_error status={e.response.status_code} url={url[-60:]}")
+        return None
     except Exception as e:  # noqa: BLE001
-        logger.warning("image_uploader.fetch_failed url=%s err=%s", url[:80], e)
+        print(f"      fetch_exception err={type(e).__name__}:{str(e)[:100]} url={url[-60:]}")
         return None
 
 
@@ -66,39 +93,49 @@ def upload_bytes_to_storage(
 ) -> Optional[str]:
     """bytes → Supabase Storage 업로드 → public URL 반환.
 
-    SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY 환경변수 필요. cron 컨테이너에는 이미 설정.
+    Round 26 보정 (2026-05-29):
+    - Magic bytes 로 Content-Type + 확장자 자동 감지 (PNG / JPEG / WebP)
+    - 잘못된 Content-Type 으로 인한 MIME 거부 방지
+    - 상세 진단 로그 (status_code + response body 일부) — GitHub Actions stdout 에 노출
+
     같은 bytes 면 같은 sha → 같은 path → upsert 로 멱등.
     """
     supa_url = os.environ.get("SUPABASE_URL")
     supa_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     if not (supa_url and supa_key):
-        logger.warning("image_uploader.no_creds")
+        print("      upload_no_creds — SUPABASE_URL or SERVICE_ROLE_KEY 미설정")
         return None
+
+    # Magic bytes 로 Content-Type + 확장자 추정
+    content_type, ext = _detect_content_type(img_bytes)
+
+    # supa_url 끝의 / 제거 (마이크로한 안전망)
+    supa_url = supa_url.rstrip("/")
 
     sha = hashlib.sha1(img_bytes).hexdigest()[:12]
     slug = _slugify(name_hint)
     today = datetime.now(timezone.utc).strftime("%Y%m%d")
-    path = f"{subdir}/{today}/{slug}-{sha}.jpg"
+    path = f"{subdir}/{today}/{slug}-{sha}.{ext}"
 
     endpoint = f"{supa_url}/storage/v1/object/{BUCKET}/{path}"
     headers = {
         "Authorization": f"Bearer {supa_key}",
         "apikey": supa_key,
-        "Content-Type": "image/jpeg",
+        "Content-Type": content_type,
         "x-upsert": "true",
     }
     try:
         with httpx.Client(timeout=30) as client:
             r = client.post(endpoint, content=img_bytes, headers=headers)
             if r.status_code not in (200, 201):
-                logger.warning(
-                    "image_uploader.upload_failed status=%s body=%s",
-                    r.status_code,
-                    r.text[:200],
+                print(
+                    f"      upload_failed status={r.status_code} "
+                    f"ct={content_type} ext={ext} bytes={len(img_bytes)} "
+                    f"body={r.text[:200]}"
                 )
                 return None
     except Exception as e:  # noqa: BLE001
-        logger.warning("image_uploader.upload_exception err=%s", e)
+        print(f"      upload_exception err={type(e).__name__}:{str(e)[:100]}")
         return None
 
     return f"{supa_url}/storage/v1/object/public/{BUCKET}/{path}"
