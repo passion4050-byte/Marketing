@@ -32,7 +32,13 @@ BUCKET = "post-images"
 
 
 def _slugify(s: str) -> str:
-    s = re.sub(r"[^a-zA-Z0-9가-힣\-_]", "-", (s or "").lower())
+    """Supabase Storage key 용 안전 slug.
+
+    Round 26 fix 3 (2026-05-29): 한글 제거 (가-힣 빼고 영문·숫자·하이픈·언더스코어만).
+    Supabase Storage 는 key(path) 에 비ASCII 문자 거부 — body 는 영문 name_hint 라 통과
+    했지만 cover 는 title 기반이라 한글 포함 → InvalidKey 400.
+    """
+    s = re.sub(r"[^a-zA-Z0-9\-_]", "-", (s or "").lower())
     s = re.sub(r"-+", "-", s).strip("-")
     return s[:60] or "image"
 

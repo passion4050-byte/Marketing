@@ -101,8 +101,10 @@ def main() -> int:
             if cover_url and "pollinations.ai" in cover_url and "storage/v1/object" not in cover_url:
                 bytes_ = fetch_image_bytes(cover_url)
                 if bytes_:
+                    # Round 26 fix 3: name_hint 에 한글 포함 시 Storage InvalidKey 400.
+                    # content_id + 짧은 영문 hash 로 통일.
                     new_url = upload_bytes_to_storage(
-                        bytes_, name_hint=f"cover-{title}", subdir="cover"
+                        bytes_, name_hint=f"cover-{content_id}", subdir="cover"
                     )
                     if new_url:
                         new_cover = new_url
