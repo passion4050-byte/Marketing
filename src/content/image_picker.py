@@ -202,10 +202,14 @@ def generate_body_illustration_for_section(
     width: int = 1200,
     height: int = 630,
 ) -> Optional[dict]:
-    """본문 H2 섹션 1개당 일러스트 1장 — Round 17 마이그레이션과 동일한 톤.
+    """본문 H2 섹션 1개당 일러스트 1장.
 
-    Round 17 와 동일하게 Pollinations URL 을 직접 사용 (Supabase Storage 우회).
+    Round 26 (2026-05-29): Pollinations URL 호출 → bytes → Supabase Storage 업로드 →
+    영구 public URL 반환. 이전 Round 22~25 는 Pollinations URL 직접 삽입 → lazy gen
+    으로 인한 X 박스 빈발. Storage 업로드 후 안정적인 CDN URL 사용.
+
     seed 는 index 로 분기해 같은 키워드 안에서도 그림이 겹치지 않도록 함.
+    Storage 업로드 실패 시 Pollinations URL fallback (graceful — figure 가 사라지지 않게).
     """
     if not is_enabled():
         return None
@@ -220,17 +224,31 @@ def generate_body_illustration_for_section(
         f"modern clinic interior, no text, no logo"
     )
     model = os.environ.get("POLLINATIONS_MODEL", "flux")
-    today = datetime.now(timezone.utc).strftime("%Y%m%d")
     seed = (abs(hash(keyword + clean_heading)) % (2**24)) + index
 
     encoded = urllib.parse.quote(prompt)
-    url = (
+    pollinations_url = (
         f"https://image.pollinations.ai/prompt/{encoded}"
         f"?width={width}&height={height}&model={model}&seed={seed}&nologo=true&enhance=true"
     )
 
+    # Round 26: Storage 업로드 → 영구 URL. 실패 시 Pollinations URL fallback.
+    final_url = pollinations_url
+    try:
+        from src.content.image_uploader import storage_url_for_section_figure
+        final_url = storage_url_for_section_figure(
+            pollinations_url,
+            keyword=keyword,
+            section_heading=clean_heading or keyword,
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.warning(
+            "image_picker.body.storage_upload_failed err=%s — fallback to pollinations URL",
+            e,
+        )
+
     return {
-        "url": url,
+        "url": final_url,
         "alt": (section_heading or keyword)[:120],
         "caption": (section_heading or keyword)[:120],
         "prompt": prompt,

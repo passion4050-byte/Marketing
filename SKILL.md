@@ -514,7 +514,46 @@ SQLAlchemy 가 모르는 컬럼에 `setattr(obj, "col", value)` 또는 `obj.col 
 
 ---
 
-## 다음 라운드 후보 (Round 26+)
+---
+
+## Round 26 (2026-05-29) — Pollinations → Supabase Storage 영구 해결
+
+### 배경
+
+Pollinations.AI 는 새 URL 의 첫 요청 시 5~30초 lazy generation. 그 동안 브라우저는 timeout → 빈 X 박스. 30장+ 동시 요청 시 일부 영구 실패. Round 22~25 의 자사 6편 + 파트너 6편 모두 이 패턴으로 일부 figure 가 X 박스로 노출.
+
+### 작업
+
+**1. `src/content/image_uploader.py` 신규**
+- `fetch_image_bytes(url)` — Pollinations bytes 다운로드 (60s timeout)
+- `upload_bytes_to_storage(bytes, name_hint, subdir)` — Supabase Storage 'post-images' 버킷 업로드
+- `migrate_url_to_storage(src_url, ...)` — URL → bytes → Storage URL 한 번에
+- `storage_url_for_section_figure(url, keyword, heading)` — scheduler 통합용 wrapper
+
+**2. `src/content/image_picker.py` 보정**
+- `generate_body_illustration_for_section()` 가 Pollinations URL 생성 후 Storage 업로드 → 영구 URL 사용
+- 업로드 실패 시 Pollinations URL fallback (graceful)
+- 다음 cron 부터 body figure 도 안정적 표시
+
+**3. `scripts/migrate_pollinations_to_storage.py` 신규**
+- 기존 status='published' 글 일괄 마이그레이션
+- cover_image_url (필드) + body 안 `<img src="...pollinations.ai/...">` (정규식 추출)
+- 멱등 — 이미 Storage URL 인 글은 skip
+- 진행 상황 stdout + 통계 JSON
+
+**4. `.github/workflows/migrate-images.yml` 신규**
+- workflow_dispatch 만 (한 번 수동 실행)
+- 마지막 step 에서 양 Vercel deploy hook 호출 → 자동 redeploy
+
+### 안정성
+
+- 마이그레이션 실패한 URL 은 그대로 Pollinations URL 유지 (graceful)
+- 다음 cron 부터는 발행 시점에 즉시 Storage 업로드
+- 향후 새 글 추가 시 X 박스 발생 안 함
+
+---
+
+## 다음 라운드 후보 (Round 27+)
 
 - **한글 slug → 영문 변환** — `scheduler._make_slug` 보정 + 87/88/89 slug 마이그레이션
 - **한글 slug → 영문 변환** — `scheduler._make_slug` 보정 + 기존 87/88/89 slug 마이그레이션
