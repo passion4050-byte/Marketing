@@ -35,16 +35,16 @@ export async function GET(req: NextRequest) {
       id, tenant_id, channel, keyword_text, body, title, excerpt, slug,
       status, compliance_status, compliance_report, llm_provider,
       cover_image_url, cover_image_alt,
-      is_partner_content, partner_category,
+      is_partner_content, partner_category, blog_category,
       created_at, updated_at, published_at,
       tenants:tenant_id ( id, name, partner_slug, domain_category )
     `)
     .eq('status', status);
 
-  // 완료 탭에서는 파트너 콘텐츠만 (with-partners 라우트에 노출되는 것)
-  if (status === 'published') {
-    query = query.eq('is_partner_content', true);
-  }
+  // Round 25 (2026-05-29): is_partner_content=true 필터 제거.
+  // 자사 인사이트 글(tenant=메디맵, is_partner_content=false) 도 콘텐츠 완료 탭에
+  // 같이 노출. 운영자가 한 곳에서 파트너+자사 모두 검수·관리 가능.
+  // UI 에서 is_partner_content 칩으로 시각적 구분 (Partner/자사 라벨).
 
   const { data, error } = await query
     .order(status === 'published' ? 'published_at' : 'created_at', { ascending: false })
@@ -59,9 +59,12 @@ export async function GET(req: NextRequest) {
     const t = (r as unknown as {
       tenants: { id: number; name: string; partner_slug: string | null; domain_category: string | null } | null;
     }).tenants;
+    // Round 25 (2026-05-29): 자사 글은 /blog/{slug} 로, 파트너 글은 /with-partners/.../{slug} 로 live_url 생성
     const liveUrl =
-      r.status === 'published' && r.is_partner_content && r.partner_category && t?.partner_slug && r.slug
-        ? `${PUBLIC_BLOG_BASE}/with-partners/${r.partner_category}/${t.partner_slug}/${r.slug}`
+      r.status === 'published' && r.slug
+        ? r.is_partner_content && r.partner_category && t?.partner_slug
+          ? `${PUBLIC_BLOG_BASE}/with-partners/${r.partner_category}/${t.partner_slug}/${r.slug}`
+          : `${PUBLIC_BLOG_BASE}/blog/${r.slug}`
         : null;
     return {
       id: r.id,

@@ -477,7 +477,44 @@ GitHub Actions cron 트리거하기 전에 자사 또는 파트너 tenant 에 `a
 
 ---
 
-## 다음 라운드 후보 (Round 25+)
+---
+
+## Round 25 (2026-05-29) — ORM 매핑 누락 + 어드민 자사 통합
+
+### Round 24 자동 매핑이 실제로 동작 안 했던 진짜 원인
+
+`scheduler.py` 의 `_map_blog_category` 함수가 키워드 → blog_category 자동 매핑 로직을 호출했지만 **DB UPDATE 가 발생 안 함**. 90~97 8편 모두 blog_category=NULL 로 발행됨.
+
+**원인**: `src/storage/models.py` 의 `GeneratedContent` 클래스에 `blog_category` 컬럼이 **ORM 매핑 정의 안 됨**. SQLAlchemy 가 모르는 컬럼이라 `obj.blog_category = ...` 가 Python attribute 만 설정하고 commit 시 무시. DB 컬럼은 Migration 010 에 추가됐지만 ORM 갱신 누락.
+
+### 작업
+
+**1. `models.py` 에 `blog_category` 컬럼 추가**
+- `blog_category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)`
+- 이제 scheduler 의 `obj.blog_category = _map_blog_category(...)` 가 commit 시 DB UPDATE 발생
+
+**2. 매핑 규칙 우선순위 수정 — 사용자 의도 반영**
+- 기존: GEO 우선 → "병원 마케팅 GEO" 가 ai_trend 로 분류돼 사용자 의도(hospital_marketing) 와 충돌
+- 수정: **의료법/광고/마케팅/병원 운영** 매칭 먼저 → 그 다음 GEO/AEO/AI 트렌드
+- 단위 테스트 검증 — 87/88/89 자사 시드 + 90~97 cron 발행 키워드 100% 사용자 SQL UPDATE 와 일치
+
+**3. SQL UPDATE — 90~97 blog_category 채우기**
+- ai_trend: 91, 95 (의료 GEO 최적화)
+- hospital_marketing: 89, 90, 92, 93, 94, 96, 97 (의료법 광고 가이드 / 병원 마케팅 GEO)
+
+**4. `/api/admin/content-queue` 의 `is_partner_content=true` 필터 제거**
+- 사용자 결정: "소속 탭에 같이 표시"
+- 콘텐츠 완료 탭에 파트너 + 자사 모두 노출
+- `select` 에 `blog_category` 추가 + `live_url` 자사 글 분기 (`/blog/{slug}` vs `/with-partners/...`)
+
+### 알려진 함정 (Round 25 추가)
+
+**ORM 컬럼 누락 → silent fail**:
+SQLAlchemy 가 모르는 컬럼에 `setattr(obj, "col", value)` 또는 `obj.col = value` 해도 commit 시 무시. 에러 없음. 자동 매핑이 동작하지 않은 이유. **DB 컬럼을 ALTER 로 추가했으면 반드시 ORM 모델에도 동기화** 필요. 검증 방법: `hasattr(obj, "col")` 가 False 면 누락.
+
+---
+
+## 다음 라운드 후보 (Round 26+)
 
 - **한글 slug → 영문 변환** — `scheduler._make_slug` 보정 + 87/88/89 slug 마이그레이션
 - **한글 slug → 영문 변환** — `scheduler._make_slug` 보정 + 기존 87/88/89 slug 마이그레이션

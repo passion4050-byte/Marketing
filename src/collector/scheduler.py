@@ -363,28 +363,29 @@ def _map_blog_category(keyword: str) -> str:
     medimap-blog/src/lib/posts.ts BLOG_CATEGORY_SLUGS 와 동일:
         content_marketing | ai_trend | hospital_marketing
 
-    매칭 우선순위:
-        1. AI/GEO/AEO 관련 → ai_trend
-        2. 의료법/광고/마케팅/SEO → hospital_marketing
-        3. 콘텐츠/포스팅/블로그 → content_marketing
+    매칭 우선순위 (Round 25, 2026-05-29 수정):
+        1. 의료법/광고/마케팅/병원 운영 → hospital_marketing (가장 구체적)
+        2. 콘텐츠/포스팅/블로그 → content_marketing
+        3. GEO/AEO/AI 트렌드 → ai_trend (마케팅 단어 없을 때만)
         4. default → hospital_marketing
 
-    Round 24 (2026-05-29): scheduler 가 자사 tenant 발행 시 호출.
-    posts.ts 가 blog_category=NULL 글을 제외하므로 자사 글이 /blog 에 안 나오던 이슈 해결.
+    Round 24 의 우선순위는 'GEO' 가 위였으나 "병원 마케팅 GEO" 가 ai_trend 로
+    분류되어 사용자 의도(hospital_marketing)와 충돌. 마케팅/광고/의료법이 더
+    구체적 의도이므로 GEO 보다 먼저 매칭.
     """
     k = (keyword or "").strip()
     if not k:
         return "hospital_marketing"
-    # AI/검색엔진 트렌드 키워드 우선
-    if any(t in k for t in ["GEO", "AEO", "AI 검색", "AI검색", "Perplexity", "ChatGPT", "Gemini", "Claude", "LLM"]):
-        return "ai_trend"
-    # 콘텐츠 운영 관련
+    # 1) 의료법/광고/마케팅/병원 운영 — 가장 구체적 → 먼저
+    if any(t in k for t in ["의료법", "광고", "마케팅", "SEO", "병원 운영", "병원 마케팅"]):
+        return "hospital_marketing"
+    # 2) 콘텐츠 운영 관련
     if any(t in k for t in ["콘텐츠", "포스팅", "블로그 글", "키워드 전략"]):
         return "content_marketing"
-    # 의료법/광고/마케팅 일반
-    if any(t in k for t in ["의료법", "광고", "마케팅", "SEO", "병원 운영"]):
-        return "hospital_marketing"
-    # default
+    # 3) AI/검색엔진 트렌드 (의료법·마케팅 단어 없을 때만)
+    if any(t in k for t in ["GEO", "AEO", "AI 검색", "AI검색", "Perplexity", "ChatGPT", "Gemini", "Claude", "LLM"]):
+        return "ai_trend"
+    # 4) default
     return "hospital_marketing"
 
 

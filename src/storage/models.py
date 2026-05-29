@@ -120,6 +120,12 @@ class GeneratedContent(Base):
     status: Mapped[str] = mapped_column(String(20), default="published")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
+    # Round 25 (2026-05-29): /blog 자사 인사이트 분류 컬럼 ORM 매핑 추가.
+    # DB 컬럼은 Migration 010 에 이미 있었으나 ORM 클래스에 누락돼 있어 scheduler.py 의
+    # _map_blog_category() 자동 매핑이 DB UPDATE 에 반영되지 않던 버그 해결.
+    # posts.ts BLOG_CATEGORY_SLUGS: content_marketing | ai_trend | hospital_marketing
+    blog_category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
     tenant: Mapped[Tenant] = relationship(back_populates="generated_contents")
 
 
