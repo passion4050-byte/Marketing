@@ -57,9 +57,31 @@ jobs:
           IMAGE_GEN_ENABLED: ${{ secrets.IMAGE_GEN_ENABLED || 'true' }}
         run: python scripts/run_auto_content_once.py
 
-      - name: Trigger Vercel deploy hook (ISR 캐시 즉시 무효화)
-        if: success() && env.VERCEL_DEPLOY_HOOK != ''
+      # 2026-05-29 Round 24: 두 사이트(medimap-blog + medimap-blog-v2) 모두 redeploy.
+      # 60s module-level cache 무효화 + 새 글 즉시 라이브 노출.
+      - name: Trigger Vercel deploy hook — medimap-blog (자사+파트너 노출)
+        if: success() && env.VERCEL_DEPLOY_HOOK_BLOG != ''
+        env:
+          VERCEL_DEPLOY_HOOK_BLOG: ${{ secrets.VERCEL_DEPLOY_HOOK_BLOG }}
+        run: |
+          echo "Triggering medimap-blog redeploy..."
+          curl -sS -X POST "$VERCEL_DEPLOY_HOOK_BLOG" || true
+          echo ""
+
+      - name: Trigger Vercel deploy hook — geo-v2 (어드민 콘솔)
+        if: success() && env.VERCEL_DEPLOY_HOOK_ADMIN != ''
+        env:
+          VERCEL_DEPLOY_HOOK_ADMIN: ${{ secrets.VERCEL_DEPLOY_HOOK_ADMIN }}
+        run: |
+          echo "Triggering geo-v2 (admin) redeploy..."
+          curl -sS -X POST "$VERCEL_DEPLOY_HOOK_ADMIN" || true
+          echo ""
+
+      # 하위 호환 — 기존 단일 VERCEL_DEPLOY_HOOK secret 도 지원
+      - name: Trigger Vercel deploy hook — legacy single
+        if: success() && env.VERCEL_DEPLOY_HOOK != '' && env.VERCEL_DEPLOY_HOOK_BLOG == ''
         env:
           VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
         run: |
+          echo "Triggering legacy single deploy hook..."
           curl -sS -X POST "$VERCEL_DEPLOY_HOOK" || true

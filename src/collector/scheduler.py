@@ -268,6 +268,25 @@ def _generate_draft(
         obj = s.get(GeneratedContent, saved_id)
         if obj is None:
             return ""
+
+        # Round 24 (2026-05-29): 자사 tenant 발행 시 blog_category 자동 할당.
+        # posts.ts getAllPosts() 가 blog_category=NULL 글을 제외하므로 자사 cron
+        # 글이 /blog 에 안 보였던 이슈 해결. 키워드 기반 매핑.
+        if channel == "blog_html" and hasattr(obj, "blog_category"):
+            cur_cat = (getattr(obj, "blog_category", None) or "").strip()
+            if not cur_cat:
+                try:
+                    from src.storage.models import Tenant as _Tenant
+                    _t = s.get(_Tenant, tenant_id)
+                    _is_self = bool(_t) and (
+                        getattr(_t, "business_model", "") == "self"
+                        or getattr(_t, "partner_slug", "") == "medimap-self"
+                    )
+                    if _is_self:
+                        obj.blog_category = _map_blog_category(keyword)
+                except Exception:  # noqa: BLE001
+                    pass  # 매핑 실패는 발행 차단 사유 아님
+
         # 의료법 통과 + auto_publish 일 때만 즉시 발행 — 그 외엔 draft 유지.
         if auto_publish and obj.compliance_status == "pass":
             obj.status = "published"
@@ -336,6 +355,37 @@ def _generate_draft(
                 pass
 
         return obj.status
+
+
+def _map_blog_category(keyword: str) -> str:
+    """자사 인사이트 키워드 → blog_category slug 매핑.
+
+    medimap-blog/src/lib/posts.ts BLOG_CATEGORY_SLUGS 와 동일:
+        content_marketing | ai_trend | hospital_marketing
+
+    매칭 우선순위:
+        1. AI/GEO/AEO 관련 → ai_trend
+        2. 의료법/광고/마케팅/SEO → hospital_marketing
+        3. 콘텐츠/포스팅/블로그 → content_marketing
+        4. default → hospital_marketing
+
+    Round 24 (2026-05-29): scheduler 가 자사 tenant 발행 시 호출.
+    posts.ts 가 blog_category=NULL 글을 제외하므로 자사 글이 /blog 에 안 나오던 이슈 해결.
+    """
+    k = (keyword or "").strip()
+    if not k:
+        return "hospital_marketing"
+    # AI/검색엔진 트렌드 키워드 우선
+    if any(t in k for t in ["GEO", "AEO", "AI 검색", "AI검색", "Perplexity", "ChatGPT", "Gemini", "Claude", "LLM"]):
+        return "ai_trend"
+    # 콘텐츠 운영 관련
+    if any(t in k for t in ["콘텐츠", "포스팅", "블로그 글", "키워드 전략"]):
+        return "content_marketing"
+    # 의료법/광고/마케팅 일반
+    if any(t in k for t in ["의료법", "광고", "마케팅", "SEO", "병원 운영"]):
+        return "hospital_marketing"
+    # default
+    return "hospital_marketing"
 
 
 def _make_slug(keyword: str, content_id: int) -> str:

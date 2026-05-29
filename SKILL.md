@@ -439,9 +439,47 @@ GitHub Actions cron 트리거하기 전에 자사 또는 파트너 tenant 에 `a
 
 ---
 
-## 다음 라운드 후보 (Round 24+)
+---
 
-- **VERCEL_DEPLOY_HOOK secret 등록** — cron 끝에 자동 redeploy 트리거 (5분 작업)
+## Round 24 (2026-05-29) — /blog 표시 복구 + cron 자동 redeploy
+
+### 발견 — Round 16 의 `blog_category=NULL` 필터가 자사 cron 글까지 막음
+
+`posts.ts` `getAllPosts()` 의 `.filter((m) => m.blogCategory !== undefined)` 가 자사 인사이트 자동 발행 글(id 87/88/89) 도 함께 제외. /with-partners 는 정상이지만 /blog 만 "0편" 표시. 캐시 문제로 오인 가능 — Round 16 의 의도적 필터가 원인.
+
+### 작업
+
+**1. Migration 026 — 자사 글 3편 blog_category 채우기**
+- id 87 (의료 GEO 최적화) → `ai_trend`
+- id 88 (의료법 광고 가이드) → `hospital_marketing`
+- id 89 (병원 마케팅 GEO) → `hospital_marketing`
+
+**2. `scheduler.py` 자동 매핑 — 자사 tenant 발행 시 blog_category 자동 할당**
+- 새 함수 `_map_blog_category(keyword: str) → str` 추가
+- 매칭 우선순위:
+  1. GEO/AEO/AI 검색/Perplexity/ChatGPT/Gemini/Claude/LLM → `ai_trend`
+  2. 콘텐츠/포스팅/블로그 글/키워드 전략 → `content_marketing`
+  3. 의료법/광고/마케팅/SEO/병원 운영 → `hospital_marketing`
+  4. default → `hospital_marketing`
+- `_generate_draft` 에서 자사 tenant (`business_model='self'` OR `partner_slug='medimap-self'`) 식별 후 `obj.blog_category` 미설정이면 매핑 적용
+- **알려진 한계**: 키워드에 GEO 와 마케팅 단어가 같이 있으면 (예: "병원 마케팅 GEO") GEO 우선매칭으로 ai_trend 로 분류됨. 사용자가 운영 도중 어드민에서 수정 가능.
+
+**3. `auto-publish.yml` 두 hook 호출 구조**
+- 기존 단일 `VERCEL_DEPLOY_HOOK` → 분리:
+  - `VERCEL_DEPLOY_HOOK_BLOG` (medimap-blog 자사+파트너 노출)
+  - `VERCEL_DEPLOY_HOOK_ADMIN` (geo-v2 어드민 콘솔)
+- 하위 호환 단일 hook 도 fallback 으로 유지
+
+### 알려진 함정 (Round 24 추가)
+
+- **Round 16 의 `blog_category=NULL` 필터** — `/blog` 가 의료 mdx + 자동 발행 파트너 글 섞이지 않도록 추가한 필터. 자사 cron 글까지 막혔던 부작용. 자동 매핑 추가로 해결.
+- **매핑 우선순위 충돌** — "병원 마케팅 GEO" 같이 두 카테고리 단어가 섞이면 첫 일치 카테고리로 떨어짐. 의도와 다르면 어드민 수정.
+
+---
+
+## 다음 라운드 후보 (Round 25+)
+
+- **한글 slug → 영문 변환** — `scheduler._make_slug` 보정 + 87/88/89 slug 마이그레이션
 - **한글 slug → 영문 변환** — `scheduler._make_slug` 보정 + 기존 87/88/89 slug 마이그레이션
 - **본문 figure 도 Supabase Storage 업로드** — Pollinations lazy gen 회피
 - **/admin/tenants UI 에 "자동 발행 활성화" 토글** — auto_content_settings 의 enabled 직접 켜기
