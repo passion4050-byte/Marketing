@@ -60,8 +60,10 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: python scripts/migrate_pollinations_to_storage.py
 
+      # Round 26 fix 4: errors > 0 (exit code 2) 이어도 부분 성공한 결과를
+      # 즉시 라이브 반영. !cancelled() = workflow 가 강제 취소 안 됐을 때 항상 실행.
       - name: Trigger Vercel redeploy
-        if: success()
+        if: ${{ !cancelled() }}
         env:
           VERCEL_DEPLOY_HOOK_BLOG: ${{ secrets.VERCEL_DEPLOY_HOOK_BLOG }}
           VERCEL_DEPLOY_HOOK_ADMIN: ${{ secrets.VERCEL_DEPLOY_HOOK_ADMIN }}
