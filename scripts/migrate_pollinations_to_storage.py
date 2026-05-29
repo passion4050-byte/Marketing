@@ -40,10 +40,17 @@ POLLINATIONS_PATTERN = re.compile(
 
 
 def _required_env() -> None:
+    """필수 env 검증 + trailing whitespace/quote 정리 (안전망)."""
     missing = []
     for key in ("DATABASE_URL", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"):
-        if not os.environ.get(key):
+        raw = os.environ.get(key) or ""
+        cleaned = raw.strip().strip('"').strip("'")
+        if not cleaned:
             missing.append(key)
+            continue
+        if cleaned != raw:
+            print(f"WARNING: {key} 에 공백/따옴표가 있어 정리함 (len {len(raw)} → {len(cleaned)})")
+            os.environ[key] = cleaned
     if missing:
         print(f"ERROR: 필수 env 미설정 — {', '.join(missing)}", file=sys.stderr)
         sys.exit(1)

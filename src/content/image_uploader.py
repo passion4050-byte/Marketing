@@ -100,8 +100,11 @@ def upload_bytes_to_storage(
 
     같은 bytes 면 같은 sha → 같은 path → upsert 로 멱등.
     """
-    supa_url = os.environ.get("SUPABASE_URL")
-    supa_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    # Round 26 fix 2 (2026-05-29): GitHub Secret 값에 trailing newline/quote 가 들어가는
+    # 케이스 대응. httpx 가 'Bearer "***\n"' 같은 헤더를 LocalProtocolError 로 거부.
+    # strip + 따옴표 제거로 안전망.
+    supa_url = (os.environ.get("SUPABASE_URL") or "").strip().strip('"').strip("'")
+    supa_key = (os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or "").strip().strip('"').strip("'")
     if not (supa_url and supa_key):
         print("      upload_no_creds — SUPABASE_URL or SERVICE_ROLE_KEY 미설정")
         return None
