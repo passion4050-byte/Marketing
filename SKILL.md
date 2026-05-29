@@ -553,7 +553,44 @@ Pollinations.AI 는 새 URL 의 첫 요청 시 5~30초 lazy generation. 그 동�
 
 ---
 
-## 다음 라운드 후보 (Round 27+)
+### Round 26 fix 2/3/4 — Storage 마이그레이션 함정 누적
+
+마이그레이션 워크플로 1차 실패 후 3번의 보정으로 cover 8/8 + body 누적 20개 성공.
+
+**알려진 함정 3가지 (Round 26 누적)**:
+- **GitHub Secret 끝의 newline/quote** → `httpx LocalProtocolError: Illegal header value`. SUPABASE_SERVICE_ROLE_KEY 등을 GitHub Secrets 에 복붙할 때 trailing newline 같이 들어감. **모든 env 읽을 때 `.strip().strip('"').strip("'")` 안전망 필수**.
+- **Supabase Storage path 에 한글 거부** — `InvalidKey` 400. `_slugify` 가 한글 허용하면 path 에 한글 들어가서 거부. **영문/숫자/하이픈/언더스코어만 허용**.
+- **Pollinations 402 Payment Required** — 일부 seed 가 영구 거부 또는 무료 한도 초과. 재시도해도 회복 불가. 마이그레이션이 100% 성공 못 할 수 있으니 `if: !cancelled()` 로 부분 성공만 있어도 redeploy 트리거.
+
+**남은 잔존 — 85번 글 (벨리셀 여드름 흉터)** 의 body figure 4개가 Pollinations 영구 거부. /with-partners 의 해당 글에 X 박스. 운영자가 어드민에서 수동 처리 또는 무시.
+
+---
+
+## Round 27 (2026-05-29 진행 중) — 자사 인사이트 v3 가이드 + 실사 이미지 정책
+
+### 배경
+
+사용자가 `/blog` 자사 인사이트 6편 (87/88/89/93/94/97) 의 가독성 + 정성 부족 + 이미지 부재 보고. LLM(Gemini) cron 자동 생성물의 본질적 한계 — 키워드 3개로 매일 반복 발행하면 일반론 누적.
+
+### 완료
+
+**1. `medimap-blog/docs/CONTENT_GUIDE_v3_SELF_INSIGHTS.md` 신규**
+- 자사 인사이트만의 시각 구조 (TL;DR 박스 + 이모지 H2 + 배지 H3 + 메디맵 자체 인용 박스 + 자사 CTA)
+- 운영 흐름: LLM 초안 → 운영자 정성 추가 (메디맵 데이터/사례/1인칭 시각/체크리스트)
+- 이미지 정책: 자사만 실사 톤 (Professional editorial photography), 파트너는 Pixar 톤 유지
+- LLM 만으로는 정성 한계 인정 — 운영자 검수가 필수임을 명시
+
+### 다음 라운드에 이어서 할 일 (Round 27 후속)
+
+- **87번 (의료 GEO 최적화) 샘플 본문 재작성** — 가이드 적용 사례 (TL;DR + 표 + 메디맵 인용 박스 + 실사 이미지 5장)
+- **사용자 OK 후 88/89/93/94/97 같은 패턴 일괄**
+- **scheduler.py / generator.py LLM prompt 에 가이드 system prompt 주입** — 자사 tenant 일 때만 v3 가이드 강제
+- **image_picker.py prompt 분기** — 자사 tenant 면 실사 톤, 파트너면 Pixar 톤
+- **Migration 028** — 자사 6편 body + 새 cover 일괄 UPDATE
+
+---
+
+## 다음 라운드 후보 (Round 28+)
 
 - **한글 slug → 영문 변환** — `scheduler._make_slug` 보정 + 87/88/89 slug 마이그레이션
 - **한글 slug → 영문 변환** — `scheduler._make_slug` 보정 + 기존 87/88/89 slug 마이그레이션
