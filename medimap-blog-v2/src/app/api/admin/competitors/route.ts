@@ -31,12 +31,24 @@ const MEDIMAP_DOMAINS = new Set<string>([
   'geo-v2-git-main-medimaps-projects.vercel.app',
 ]);
 const AUTHORITY_DOMAINS = new Set<string>([
+  // 종합병원
   'www.msdmanuals.com', 'msdmanuals.com',
   'www.amc.seoul.kr', 'amc.seoul.kr',
   'www.samsunghospital.com', 'samsunghospital.com',
   'www.snuh.org', 'snuh.org',
   'sev.iseverance.com',
   'www.snubh.org', 'snubh.org',
+  'www.apollohospitals.com', 'apollohospitals.com',  // 글로벌 종합병원 (Round 35)
+  // 학회 / 공식 (Round 35 — 실제 측정 결과에서 발견된 도메인 추가)
+  'www.akd.or.kr', 'akd.or.kr',          // 대한피부과학회
+  'www.derma.or.kr', 'derma.or.kr',      // 대한피부과학회 별 도메인
+  'www.kma.org', 'kma.org',              // 대한의사협회
+  'www.ophthalmology.or.kr', 'ophthalmology.or.kr',  // 대한안과학회
+  'www.kda.or.kr', 'kda.or.kr',          // 대한치과의사협회
+  // 의료 전문 매체
+  'www.k-health.com', 'k-health.com',    // 의료 전문매체
+  'www.dailymedi.com', 'dailymedi.com',  // 데일리메디
+  'news.docdocdoc.co.kr', 'www.docdocdoc.co.kr', 'docdocdoc.co.kr',  // 청년의사
 ]);
 const PLATFORM_DOMAINS = new Set<string>([
   'www.modoodoc.com', 'modoodoc.com',
@@ -48,6 +60,11 @@ const PLATFORM_DOMAINS = new Set<string>([
 const NOISE_DOMAINS = new Set<string>([
   'www.google.com', 'google.com',
   'www.youtube.com', 'youtube.com',
+  // Round 35 — 백과 / 검색 noise. 권위로 보기 애매 → 경쟁사 카운트에서 제외
+  'namu.wiki',
+  'ko.wikipedia.org', 'en.wikipedia.org', 'wikipedia.org',
+  'm.search.naver.com', 'search.naver.com',
+  'tistory.com',
 ]);
 
 type Tier = 'T1' | 'T2' | 'T3' | 'T4' | 'T5' | 'NOISE';
