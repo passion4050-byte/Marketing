@@ -74,6 +74,36 @@ def keyword_to_english_context(keyword: str) -> str:
     return f"korean medical clinic, friendly consultation about {k}"
 
 
+def keyword_to_unsplash_query(keyword: str) -> str:
+    """Unsplash 검색 전용 query — 영문만 (한글 query 는 매칭 0개).
+
+    Round 30 fix (2026-05-30): keyword_to_english_context 가 fallback 에서
+    원본 한글 키워드 `{k}` 를 query 에 포함 → Unsplash 매칭 0개 → Pollinations fallback.
+    Unsplash 전용 함수로 카테고리별 영문 query 만 반환.
+    """
+    k = keyword.strip()
+    # 1. KEYWORD_MAP 매칭 — 이미 영문 (단 fallback 의 영문도 한글 mix 가능, 정리 필요)
+    if k in KEYWORD_MAP:
+        return KEYWORD_MAP[k]
+    for ko, en in KEYWORD_MAP.items():
+        if ko in k or k in ko:
+            return en
+    # 2. 카테고리별 generic 영문 query
+    if any(kw in k for kw in ["안과", "라식", "라섹", "스마일", "시력", "백내장", "노안"]):
+        return "korean ophthalmology clinic"
+    if any(kw in k for kw in ["피부", "여드름", "필러", "보톡스", "레이저"]):
+        return "korean dermatology clinic"
+    if any(kw in k for kw in ["성형", "안면", "양악", "쌍꺼풀"]):
+        return "korean plastic surgery clinic"
+    if any(kw in k for kw in ["치과", "임플란트", "교정", "충치"]):
+        return "korean dental clinic"
+    if any(kw in k for kw in ["모발", "탈모", "헤어"]):
+        return "hair transplant clinic"
+    if any(kw in k for kw in ["GEO", "AEO", "마케팅", "광고", "콘텐츠", "의료법", "병원"]):
+        return "medical professional meeting discussion"
+    return "korean medical clinic professional"
+
+
 def build_prompt(keyword: str, title: Optional[str] = None, *, realistic: bool = False) -> str:
     """Pollinations prompt 빌더.
 
@@ -131,8 +161,9 @@ def generate_image_for_content(
     if is_self_tenant:
         try:
             from src.content.unsplash_client import fetch_unsplash_to_storage
-            # Unsplash 검색 query: 영문 컨텍스트로 변환
-            unsplash_query = keyword_to_english_context(keyword)
+            # Round 30 fix (2026-05-30): keyword_to_english_context 의 fallback 이
+            # 한글 keyword 를 query 에 포함시킴 → Unsplash 매칭 0개. 전용 함수로 대체.
+            unsplash_query = keyword_to_unsplash_query(keyword)
             storage_url = fetch_unsplash_to_storage(
                 unsplash_query,
                 name_hint=f"cover-{keyword}",
