@@ -640,9 +640,68 @@ Pollinations.AI 는 새 URL 의 첫 요청 시 5~30초 lazy generation. 그 동�
 
 ---
 
-## 다음 라운드 후보 (Round 29+)
+---
 
-- **한글 slug → 영문 변환** — `scheduler._make_slug` 보정 + 87/88/89 slug 마이그레이션
+## Round 29 (2026-05-30) — Unsplash + 영문 slug + Pollinations 강화 + 검수 reminder
+
+### 작업
+
+**1. `src/content/unsplash_client.py` 신규**
+- `fetch_unsplash_to_storage(query, ...)` — Unsplash 검색 + bytes + Storage 업로드 + 약관 download_location 트래킹
+- `UNSPLASH_ACCESS_KEY` env 필요 (사용자가 Unsplash Developers 에서 발급)
+- 자사 인사이트 글의 cover 생성 시 우선 사용 (실사 톤, 안정)
+
+**2. `image_picker.py` — Pollinations realistic + Unsplash fallback**
+- `PROMPT_TEMPLATE_REALISTIC` 신규 ("professional editorial photography, ...")
+- `generate_image_for_content(..., is_self_tenant=True)` 시:
+  1. Unsplash 우선 시도
+  2. 실패 시 Pollinations realistic prompt + 1600×900 큰 사이즈
+- 파트너 글은 기존 Pixar 톤 유지
+
+**3. `scheduler._make_slug` 영문화**
+- `KEYWORD_SLUG_MAP` 신규 — 자사·파트너 자주 쓰는 한글 → 영문 매핑
+- 매칭 안 되면 한글 제거 + 영문/숫자만 fallback
+- 옛 `_make_slug_LEGACY` 함수 참고용 보존
+
+**4. Migration 030 — 87/88/89/93/94/97 slug 영문화**
+- 한글 slug → 영문 slug 일괄 UPDATE
+- 옛 slug 외부 공유는 404 가능 (다음 라운드 redirect 처리)
+
+**5. `.github/workflows/review-reminder.yml` 신규**
+- 매일 09:00 KST (00:00 UTC) cron
+- Supabase REST API 로 draft 카운트
+- `SLACK_REMINDER_WEBHOOK` secret 있으면 Slack 알림
+- 운영자 검수 부담 자동 알림으로 보강
+
+### 운영 흐름 (Round 29 이후)
+
+```
+매일 08:00 KST → 자사 1편(draft) + 파트너 1편(draft) cron 발행
+매일 09:00 KST → review-reminder 가 draft 카운트 → Slack 알림
+   "📝 메디맵 어드민 검수 대기 2건"
+운영자 09:30 KST → 어드민 진입 → 검수 + 정성 추가 → published
+```
+
+### 사용자가 해야 할 secret 등록
+
+- `UNSPLASH_ACCESS_KEY` — Unsplash Developers (https://unsplash.com/developers) 무료 가입 → "New Application" → Access Key 복사 → GitHub Secrets 등록
+- `SLACK_REMINDER_WEBHOOK` — Slack workspace → 채널 → Incoming Webhooks 앱 → Webhook URL 복사 → GitHub Secrets 등록
+
+두 secret 모두 미설정이면 fallback 동작 (Pollinations / 알림 skip).
+
+### 알려진 함정 (Round 29 추가)
+
+- **Unsplash API 약관** — download_location 호출로 다운로드 카운트 트래킹 필수 (자동 처리)
+- **slug 영문화 후 옛 URL** — 외부 공유된 옛 한글 slug 는 404. Next.js redirects 또는 middleware fallback 별도 라운드.
+- **GitHub workflow 의 secret newline** — Round 26 fix 2 와 동일 패턴으로 모든 workflow 에 trailing whitespace 정리.
+
+---
+
+## 다음 라운드 후보 (Round 30+)
+
+- **옛 한글 slug → 새 영문 slug redirect** — Next.js redirects 또는 middleware
+- **Resend 이메일 알림 추가** — Slack 외 이메일도 지원
+- **검수 SLA 추적** — draft 가 N일 누적되면 별도 경고
 - **한글 slug → 영문 변환** — `scheduler._make_slug` 보정 + 기존 87/88/89 slug 마이그레이션
 - **본문 figure 도 Supabase Storage 업로드** — Pollinations lazy gen 회피
 - **/admin/tenants UI 에 "자동 발행 활성화" 토글** — auto_content_settings 의 enabled 직접 켜기

@@ -1,0 +1,79 @@
+name: Review reminder (daily 09:00 KST)
+
+# Round 29 (2026-05-30) — 검수 워크플로 자동 알림.
+# 매일 09:00 KST 에 어드민 검수 대기 큐 (status='draft') 카운트 확인 →
+# > 0 이면 Slack 으로 알림.
+#
+# 필요 secrets:
+#   - SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (이미 등록됨)
+#   - SLACK_REMINDER_WEBHOOK (사용자가 추가 등록 필요)
+
+on:
+  schedule:
+    - cron: '0 0 * * *'   # 매일 00:00 UTC = 09:00 KST
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: review-reminder
+  cancel-in-progress: false
+
+jobs:
+  remind:
+    name: Check draft queue and notify
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Verify required secrets
+        run: |
+          if [ -z "${{ secrets.SUPABASE_URL }}" ] || [ -z "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
+            echo "::error::SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY 미설정"
+            exit 1
+          fi
+
+      - name: Count draft queue via Supabase REST
+        id: count
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          # Trailing newline 정리 (Round 26 fix 2 와 동일)
+          SUPA_URL=$(echo -n "$SUPABASE_URL" | tr -d '\n\r' | sed 's/[[:space:]]*$//' | sed 's:/*$::')
+          SUPA_KEY=$(echo -n "$SUPABASE_SERVICE_ROLE_KEY" | tr -d '\n\r' | sed 's/[[:space:]]*$//')
+
+          RESP=$(curl -sS "$SUPA_URL/rest/v1/generated_contents?status=eq.draft&select=id" \
+            -H "apikey: $SUPA_KEY" \
+            -H "Authorization: Bearer $SUPA_KEY")
+
+          DRAFT_COUNT=$(echo "$RESP" | jq 'length')
+          echo "Draft count: $DRAFT_COUNT"
+          echo "draft_count=$DRAFT_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Notify Slack if draft count > 0
+        if: ${{ steps.count.outputs.draft_count != '0' && env.SLACK_REMINDER_WEBHOOK != '' }}
+        env:
+          SLACK_REMINDER_WEBHOOK: ${{ secrets.SLACK_REMINDER_WEBHOOK }}
+          DRAFT_COUNT: ${{ steps.count.outputs.draft_count }}
+        run: |
+          WEBHOOK=$(echo -n "$SLACK_REMINDER_WEBHOOK" | tr -d '\n\r' | sed 's/[[:space:]]*$//')
+          MSG="📝 *메디맵 어드민 검수 대기 ${DRAFT_COUNT}건*
+어제 cron 으로 생성된 draft 글을 검수해 주세요.
+👉 https://geo-v2-git-main-medimaps-projects.vercel.app/admin/content-queue
+운영 흐름: LLM 초안 → 메디맵 자체 데이터·사례 정성 추가 → status=published 변경"
+
+          PAYLOAD=$(jq -n --arg text "$MSG" '{text: $text}')
+          curl -sS -X POST "$WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -d "$PAYLOAD" || true
+
+      - name: Summary
+        if: ${{ always() }}
+        env:
+          DRAFT_COUNT: ${{ steps.count.outputs.draft_count }}
+        run: |
+          echo "## 검수 알림 결과" >> $GITHUB_STEP_SUMMARY
+          echo "- Draft 대기: ${DRAFT_COUNT:-?} 건" >> $GITHUB_STEP_SUMMARY
+          echo "- Slack 알림 발송 여부: ${{ steps.count.outputs.draft_count != '0' && env.SLACK_REMINDER_WEBHOOK != '' && 'YES' || 'NO (draft=0 또는 webhook 미설정)' }}" >> $GITHUB_STEP_SUMMARY

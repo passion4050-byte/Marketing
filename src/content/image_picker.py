@@ -52,6 +52,15 @@ PROMPT_TEMPLATE = (
     "no text, no logo, not photorealistic"
 )
 
+# Round 29 (2026-05-30): 자사 인사이트 실사 톤. Pollinations + Unsplash 둘 다 사용.
+PROMPT_TEMPLATE_REALISTIC = (
+    "professional editorial photography, korean medical clinic environment, "
+    "scene depicting {context}, "
+    "natural daylight, documentary style, shot on DSLR, high quality, "
+    "shallow depth of field, clean composition, modern aesthetic, "
+    "no text, no logo, no watermark"
+)
+
 
 def keyword_to_english_context(keyword: str) -> str:
     k = keyword.strip()
@@ -65,12 +74,14 @@ def keyword_to_english_context(keyword: str) -> str:
     return f"korean medical clinic, friendly consultation about {k}"
 
 
-def build_prompt(keyword: str, title: Optional[str] = None) -> str:
+def build_prompt(keyword: str, title: Optional[str] = None, *, realistic: bool = False) -> str:
+    """Pollinations prompt 빌더.
+
+    Round 29 — realistic=True 면 자사 인사이트용 실사 톤. False 면 파트너용 Pixar 톤.
+    """
     context = keyword_to_english_context(keyword)
-    if title:
-        # 한국어 제목은 Pollinations 도 약함. 영문 컨텍스트만 강조.
-        pass
-    return PROMPT_TEMPLATE.format(context=context)
+    template = PROMPT_TEMPLATE_REALISTIC if realistic else PROMPT_TEMPLATE
+    return template.format(context=context)
 
 
 def is_enabled() -> bool:
@@ -89,20 +100,51 @@ def generate_image_for_content(
     *,
     width: int = 1280,
     height: int = 720,
+    is_self_tenant: bool = False,
 ) -> Optional[dict]:
-    """Pollinations.AI 호출 + Supabase Storage 업로드.
+    """Cover 이미지 생성 + Supabase Storage 업로드.
+
+    Round 29 (2026-05-30):
+        - is_self_tenant=True 면 자사 인사이트 → Unsplash 우선 (실사 톤) + Pollinations realistic fallback
+        - is_self_tenant=False 면 파트너 → Pollinations Pixar 톤 (기존 동작)
 
     Returns:
-        {url, alt, prompt, generated_at} | None
+        {url, alt, prompt, generated_at, source} | None
     """
     if not is_enabled():
         logger.info("IMAGE_GEN_ENABLED != true — 이미지 생성 skip")
         return None
 
-    prompt = build_prompt(keyword, title)
+    # Round 29 자사 인사이트 — Unsplash 우선
+    if is_self_tenant:
+        try:
+            from src.content.unsplash_client import fetch_unsplash_to_storage
+            # Unsplash 검색 query: 영문 컨텍스트로 변환
+            unsplash_query = keyword_to_english_context(keyword)
+            storage_url = fetch_unsplash_to_storage(
+                unsplash_query,
+                name_hint=f"cover-{keyword}",
+                subdir="cover",
+            )
+            if storage_url:
+                return {
+                    "url": storage_url,
+                    "alt": f"{title or keyword}",
+                    "prompt": f"unsplash:{unsplash_query}",
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                    "source": "unsplash",
+                }
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Unsplash fallback failed: %s — try Pollinations", e)
+        # Unsplash 실패 → Pollinations realistic fallback
+
+    prompt = build_prompt(keyword, title, realistic=is_self_tenant)
     model = os.environ.get("POLLINATIONS_MODEL", "flux")
-    seed = abs(hash(keyword + (title or ""))) % (2**31)  # deterministic
-    alt_text = f"{title or keyword} — 픽사 일러스트"
+    # Round 29: 자사는 width 1600 으로 더 큰 사이즈 (품질 개선)
+    if is_self_tenant:
+        width, height = 1600, 900
+    seed = abs(hash(keyword + (title or ""))) % (2**31)
+    alt_text = f"{title or keyword}"
 
     encoded = urllib.parse.quote(prompt)
     url = (
@@ -131,6 +173,7 @@ def generate_image_for_content(
         "alt": alt_text,
         "prompt": prompt,
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "source": "pollinations",
     }
 
 

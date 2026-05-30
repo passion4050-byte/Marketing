@@ -1,0 +1,142 @@
+"""Unsplash API 클라이언트 — 자사 인사이트 실사 톤 이미지.
+
+Round 29 (2026-05-30) — Pollinations 한도 이슈 영구 해결.
+
+흐름:
+    keyword → Unsplash search photos → 1개 선택 → bytes → Supabase Storage 업로드
+    → 영구 public URL.
+
+장점:
+    - 무료 (월 50 요청/시간, 시간당 5000 다운로드)
+    - 안정적 (대형 CDN, lazy gen 없음)
+    - 고품질 stock photo
+    - 의료·병원 톤 검색 결과 풍부
+
+env:
+    UNSPLASH_ACCESS_KEY  Unsplash Developers 에서 발급 (Free tier OK)
+
+API 문서: https://unsplash.com/documentation
+"""
+from __future__ import annotations
+
+import os
+import urllib.parse
+from typing import Optional
+
+import httpx
+
+
+def _clean_env(name: str) -> str:
+    return (os.environ.get(name) or "").strip().strip('"').strip("'")
+
+
+def search_unsplash_photo(
+    query: str,
+    *,
+    orientation: str = "landscape",
+    timeout: int = 10,
+) -> Optional[dict]:
+    """Unsplash 검색 → 가장 적합한 photo 1개 메타 반환.
+
+    Returns:
+        {"url": "...", "alt": "...", "author": "...", "unsplash_id": "..."} | None
+    """
+    access_key = _clean_env("UNSPLASH_ACCESS_KEY")
+    if not access_key:
+        return None
+    if not (query or "").strip():
+        return None
+
+    endpoint = "https://api.unsplash.com/search/photos"
+    params = {
+        "query": query.strip(),
+        "per_page": 10,
+        "orientation": orientation,
+        "content_filter": "high",  # 의료 sensitive 콘텐츠 회피
+        "order_by": "relevant",
+    }
+    headers = {"Authorization": f"Client-ID {access_key}"}
+
+    try:
+        with httpx.Client(timeout=timeout) as client:
+            r = client.get(endpoint, params=params, headers=headers)
+            if r.status_code != 200:
+                print(f"      unsplash_search_http status={r.status_code} body={r.text[:160]}")
+                return None
+            data = r.json()
+    except Exception as e:  # noqa: BLE001
+        print(f"      unsplash_search_exception err={type(e).__name__}:{str(e)[:100]}")
+        return None
+
+    results = (data or {}).get("results") or []
+    if not results:
+        return None
+
+    # 가장 첫 결과 사용 (relevant order)
+    photo = results[0]
+    return {
+        "url": photo["urls"]["regular"],          # 1080px wide JPEG
+        "alt": photo.get("alt_description") or query,
+        "author": (photo.get("user") or {}).get("name") or "Unsplash",
+        "unsplash_id": photo.get("id"),
+        "download_location": (photo.get("links") or {}).get("download_location"),
+    }
+
+
+def trigger_download_event(download_location: str) -> None:
+    """Unsplash API 약관 — download_location 호출로 다운로드 카운트 트래킹.
+
+    실패해도 무시 (fire-and-forget). 약관 준수용.
+    """
+    if not download_location:
+        return
+    access_key = _clean_env("UNSPLASH_ACCESS_KEY")
+    if not access_key:
+        return
+    try:
+        with httpx.Client(timeout=5) as client:
+            client.get(
+                download_location,
+                headers={"Authorization": f"Client-ID {access_key}"},
+            )
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def fetch_unsplash_to_storage(
+    query: str,
+    *,
+    name_hint: str,
+    subdir: str = "self",
+    orientation: str = "landscape",
+) -> Optional[str]:
+    """Unsplash 검색 → bytes → Supabase Storage 업로드 → public URL.
+
+    실패 시 None (image_picker 가 다른 fallback 으로).
+    """
+    meta = search_unsplash_photo(query, orientation=orientation)
+    if not meta:
+        return None
+
+    # 1) Image bytes
+    try:
+        from src.content.image_uploader import fetch_image_bytes, upload_bytes_to_storage
+    except ImportError:
+        return None
+
+    bytes_ = fetch_image_bytes(meta["url"], timeout=20)
+    if not bytes_:
+        return None
+
+    # 2) Storage 업로드
+    storage_url = upload_bytes_to_storage(
+        bytes_,
+        name_hint=f"unsplash-{name_hint}",
+        subdir=subdir,
+    )
+
+    # 3) Unsplash 약관 — 다운로드 카운트 트래킹
+    if storage_url and meta.get("download_location"):
+        trigger_download_event(meta["download_location"])
+
+    return storage_url

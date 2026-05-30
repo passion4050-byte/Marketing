@@ -354,7 +354,20 @@ def _generate_draft(
                     is_enabled,
                 )
                 if is_enabled():
-                    img = generate_image_for_content(keyword, obj.title)
+                    # Round 29: 자사 tenant 면 Unsplash 우선 + 실사 톤
+                    _is_self_for_image = False
+                    try:
+                        from src.storage.models import Tenant as _TenantImg
+                        _ti = s.get(_TenantImg, tenant_id)
+                        _is_self_for_image = bool(_ti) and (
+                            (getattr(_ti, "business_model", "") or "") == "self"
+                            or (getattr(_ti, "partner_slug", "") or "") == "medimap-self"
+                        )
+                    except Exception:  # noqa: BLE001
+                        pass
+                    img = generate_image_for_content(
+                        keyword, obj.title, is_self_tenant=_is_self_for_image
+                    )
                     if img:
                         from sqlalchemy import text as _sql_text
                         s.execute(
@@ -428,9 +441,74 @@ def _map_blog_category(keyword: str) -> str:
     return "hospital_marketing"
 
 
+# Round 29 (2026-05-30): 자주 쓰는 한글 키워드 → 영문 slug 매핑
+# AEO/GEO 측면에서 영문 URL 이 더 안정 (Perplexity·ChatGPT 가 한글 URL 잘못 파싱).
+KEYWORD_SLUG_MAP: dict[str, str] = {
+    # 자사 인사이트
+    "의료 GEO 최적화": "medical-geo-optimization",
+    "의료법 광고 가이드": "medical-law-advertising-guide",
+    "병원 마케팅 GEO": "hospital-marketing-geo",
+    "AI 검색 노출": "ai-search-visibility",
+    "병원 운영": "hospital-operation",
+    # 파트너 (자주 쓰는 의료 키워드)
+    "잠실 노안교정": "jamsil-presbyopia-correction",
+    "강남 모발이식 회복": "gangnam-hair-transplant-recovery",
+    "강남 리쥬란 힐러": "gangnam-rejuran-healer",
+    "한방 다이어트 한약": "korean-medicine-diet",
+    "여드름 흉터 치료": "acne-scar-treatment",
+    "부산 라식": "busan-lasik",
+    "잠실 라식": "jamsil-lasik",
+    "강남 라식": "gangnam-lasik",
+    "강남 라섹": "gangnam-lasek",
+    "스마일라식": "smile-lasik",
+    "백내장": "cataract",
+    "노안교정": "presbyopia-correction",
+    "모발이식": "hair-transplant",
+    "임플란트": "dental-implant",
+}
+
+
+def _romanize_korean(text: str) -> str:
+    """한글 → 로마자 음역 (간단 매핑).
+
+    Round 29: 매핑에 없는 키워드 fallback. 정확한 음역 아니지만 영문 URL 화.
+    """
+    import re as _re
+    # 한글 제거 + 영문/숫자만 남김
+    cleaned = _re.sub(r"[가-힣]+", "", text or "").strip()
+    return cleaned
+
+
 def _make_slug(keyword: str, content_id: int) -> str:
     """한글/영문 키워드를 URL-safe slug 로 변환. 항상 -{id} suffix 로 충돌 0.
 
+    Round 29 (2026-05-30): 한글 키워드 → 영문 slug 매핑 우선 적용.
+    매핑에 없으면 한글 제거 + 영문/숫자만 사용. id suffix 로 충돌 0.
+    """
+    import re as _re
+    k = (keyword or "").strip()
+
+    # 1) 정확 매칭 — KEYWORD_SLUG_MAP
+    if k in KEYWORD_SLUG_MAP:
+        return f"{KEYWORD_SLUG_MAP[k]}-{content_id}"
+
+    # 2) 부분 매칭 — keyword 안에 매핑 키가 포함되면 그것 사용
+    for ko, en in KEYWORD_SLUG_MAP.items():
+        if ko in k:
+            return f"{en}-{content_id}"
+
+    # 3) Fallback — 영문/숫자만 추출
+    base = _re.sub(r"[^a-zA-Z0-9\-\s]+", "", k).strip().lower()
+    base = _re.sub(r"[\s_]+", "-", base).strip("-")
+    if not base:
+        # 한글만 있는 경우 — id 만 사용
+        base = "post"
+    base = base[:40]
+    return f"{base}-{content_id}"
+
+
+def _make_slug_LEGACY(keyword: str, content_id: int) -> str:
+    """LEGACY — Round 29 이전 한글 slug. 참고용으로 보존.
     한글은 그대로 보존(Next.js URL 인코딩 OK), 공백/특수문자는 하이픈으로.
     """
     import re as _re
