@@ -25,7 +25,7 @@ export function HomepageAnalyzeButton({
   homepage,
   onApply,
 }: {
-  tenantId: number | undefined;
+  tenantId: number | string | undefined;
   homepage: string;
   onApply: (keywords: string) => void;
 }) {
@@ -33,7 +33,7 @@ export function HomepageAnalyzeButton({
   const [result, setResult] = useState<AnalyzeResult | null>(null);
 
   const run = async (mode: 'preview' | 'apply') => {
-    if (!tenantId) {
+    if (tenantId == null || tenantId === '') {
       setResult({ ok: false, error: '먼저 클라이언트를 저장한 후 분석 가능' });
       return;
     }
@@ -66,7 +66,7 @@ export function HomepageAnalyzeButton({
         <button
           type="button"
           onClick={() => run('preview')}
-          disabled={loading !== null || !tenantId}
+          disabled={loading !== null || tenantId == null || tenantId === ''}
           className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-base px-2.5 py-1 text-[11px] font-semibold text-ink-soft transition hover:border-brand-200 hover:text-brand disabled:opacity-50"
           title="홈페이지에서 키워드만 추출 — 검수 후 수동 적용"
         >
@@ -80,7 +80,7 @@ export function HomepageAnalyzeButton({
         <button
           type="button"
           onClick={() => run('apply')}
-          disabled={loading !== null || !tenantId}
+          disabled={loading !== null || tenantId == null || tenantId === ''}
           className="inline-flex items-center gap-1.5 rounded-md border border-brand/30 bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand transition hover:bg-brand-100 disabled:opacity-50"
           title="키워드 추출 + business_model 자동 UPDATE + trigger 발동 (검수 없음)"
         >
@@ -92,7 +92,7 @@ export function HomepageAnalyzeButton({
           분석 + 즉시 적용
         </button>
       </div>
-      {!tenantId && (
+      {(tenantId == null || tenantId === '') && (
         <div className="mt-1 text-[10px] text-ink-faint">
           💡 신규 등록 시 — 먼저 홈페이지 URL 입력 + 저장 → 그 후 분석 버튼 활성화
         </div>
