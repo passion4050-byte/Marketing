@@ -34,71 +34,59 @@ jobs:
             exit 1
           fi
 
-      - name: Count draft queue + fetch glance list via Supabase REST
-        id: count
+      # Round 29 fix 5 (2026-05-30): 두 step 합치기.
+      # multiline 변수가 step 간 잘 전달 안 되는 함정 → in-step bash 변수로 처리.
+      - name: Check draft queue and notify
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SLACK_REMINDER_WEBHOOK: ${{ secrets.SLACK_REMINDER_WEBHOOK }}
         run: |
-          # Trailing newline 정리 (Round 26 fix 2 와 동일)
           SUPA_URL=$(echo -n "$SUPABASE_URL" | tr -d '\n\r' | sed 's/[[:space:]]*$//' | sed 's:/*$::')
           SUPA_KEY=$(echo -n "$SUPABASE_SERVICE_ROLE_KEY" | tr -d '\n\r' | sed 's/[[:space:]]*$//')
 
-          # Round 29 fix 3 (2026-05-30): draft 글의 id·title·tenant_name 까지 fetch.
-          # Slack 메시지에 미리보기 목록 표시 → 어떤 글이 검수 대기인지 한눈에 파악.
-          # Round 29 fix 4: 어드민 /api/admin/content-queue 와 100% 동일 query
-          #   (status IN draft, pending) — Slack 목록과 어드민 검수 탭 결과 보장 일치.
+          # 어드민 /api/admin/content-queue 와 동일 query (status IN draft, pending)
           RESP=$(curl -sS "$SUPA_URL/rest/v1/generated_contents?status=in.(draft,pending)&select=id,title,keyword_text,tenants(name)&order=created_at.desc" \
             -H "apikey: $SUPA_KEY" \
             -H "Authorization: Bearer $SUPA_KEY")
 
           DRAFT_COUNT=$(echo "$RESP" | jq 'length')
           echo "Draft count: $DRAFT_COUNT"
-          echo "draft_count=$DRAFT_COUNT" >> $GITHUB_OUTPUT
 
-          # 글 목록 — 최대 10개. 메시지 길이 보호.
-          DRAFT_LIST=$(echo "$RESP" | jq -r '.[0:10] | .[] | "• [\(.id)] \(.tenants.name // "(unknown)") — \(.title // .keyword_text // "(제목 없음)")"' || echo "")
-          # Multiline 출력 시 GITHUB_OUTPUT 보호 — EOF delimiter 사용
+          # Summary 작성
           {
-            echo "draft_list<<DRAFTLIST_EOF"
-            echo "$DRAFT_LIST"
-            echo "DRAFTLIST_EOF"
-          } >> $GITHUB_OUTPUT
+            echo "## 검수 알림 결과"
+            echo "- Draft 대기: $DRAFT_COUNT 건"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Notify Slack if draft count > 0
-        if: ${{ steps.count.outputs.draft_count != '0' }}
-        env:
-          SLACK_REMINDER_WEBHOOK: ${{ secrets.SLACK_REMINDER_WEBHOOK }}
-          DRAFT_COUNT: ${{ steps.count.outputs.draft_count }}
-          DRAFT_LIST: ${{ steps.count.outputs.draft_list }}
-        run: |
+          if [ "$DRAFT_COUNT" -eq 0 ]; then
+            echo "Draft 0건 — 알림 skip"
+            exit 0
+          fi
           if [ -z "$SLACK_REMINDER_WEBHOOK" ]; then
             echo "SLACK_REMINDER_WEBHOOK 미설정 — 알림 skip"
             exit 0
           fi
+
+          # 글 목록 추출 (디버그 출력 포함)
+          DRAFT_LIST=$(echo "$RESP" | jq -r '.[0:10] | .[] | "• [\(.id)] \(.tenants.name // "(unknown)") — \(.title // .keyword_text // "(제목 없음)")"')
+          echo "--- DRAFT_LIST (debug) ---"
+          echo "$DRAFT_LIST"
+          echo "--- END DEBUG ---"
+
           WEBHOOK=$(echo -n "$SLACK_REMINDER_WEBHOOK" | tr -d '\n\r' | sed 's/[[:space:]]*$//')
           ADMIN_URL="https://geo-v2-git-main-medimaps-projects.vercel.app/admin/content-queue"
-          # Round 29 fix 3: 글 목록을 본문에 포함. <URL|텍스트> 로 링크 hide.
-          MSG=$(cat <<EOF
-          📝 *메디맵 어드민 검수 대기 ${DRAFT_COUNT}건*
-          어제 메디맵AI로 생성된 초안 글을 검수해 주세요.
 
-          *검수 대기 목록:*
-          ${DRAFT_LIST}
+          # 메시지 빌드 — bash 변수 concat + printf 로 줄바꿈 명시 (들여쓰기 영향 0)
+          NL=$'\n'
+          MSG="📝 *메디맵 어드민 검수 대기 ${DRAFT_COUNT}건*"
+          MSG="${MSG}${NL}어제 메디맵AI로 생성된 초안 글을 검수해 주세요."
+          MSG="${MSG}${NL}${NL}*검수 대기 목록:*"
+          MSG="${MSG}${NL}${DRAFT_LIST}"
+          MSG="${MSG}${NL}${NL}👉 <${ADMIN_URL}|바로가기>"
+          MSG="${MSG}${NL}운영 흐름: 초안 → 메디맵 자체 데이터·사례 정성 추가 → 발행 처리"
 
-          👉 <${ADMIN_URL}|바로가기>
-          운영 흐름: 초안 → 메디맵 자체 데이터·사례 정성 추가 → 발행 처리
-          EOF
-          )
           PAYLOAD=$(jq -n --arg text "$MSG" '{text: $text}')
           curl -sS -X POST "$WEBHOOK" \
             -H 'Content-Type: application/json' \
             -d "$PAYLOAD" || true
-
-      - name: Summary
-        if: ${{ always() }}
-        env:
-          DRAFT_COUNT: ${{ steps.count.outputs.draft_count }}
-        run: |
-          echo "## 검수 알림 결과" >> $GITHUB_STEP_SUMMARY
-          echo "- Draft 대기: ${DRAFT_COUNT:-?} 건" >> $GITHUB_STEP_SUMMARY
