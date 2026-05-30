@@ -53,17 +53,24 @@ jobs:
           echo "draft_count=$DRAFT_COUNT" >> $GITHUB_OUTPUT
 
       - name: Notify Slack if draft count > 0
-        if: ${{ steps.count.outputs.draft_count != '0' && env.SLACK_REMINDER_WEBHOOK != '' }}
+        if: ${{ steps.count.outputs.draft_count != '0' }}
         env:
           SLACK_REMINDER_WEBHOOK: ${{ secrets.SLACK_REMINDER_WEBHOOK }}
           DRAFT_COUNT: ${{ steps.count.outputs.draft_count }}
         run: |
+          if [ -z "$SLACK_REMINDER_WEBHOOK" ]; then
+            echo "SLACK_REMINDER_WEBHOOK 미설정 — 알림 skip"
+            exit 0
+          fi
           WEBHOOK=$(echo -n "$SLACK_REMINDER_WEBHOOK" | tr -d '\n\r' | sed 's/[[:space:]]*$//')
-          MSG="📝 *메디맵 어드민 검수 대기 ${DRAFT_COUNT}건*
-어제 cron 으로 생성된 draft 글을 검수해 주세요.
-👉 https://geo-v2-git-main-medimaps-projects.vercel.app/admin/content-queue
-운영 흐름: LLM 초안 → 메디맵 자체 데이터·사례 정성 추가 → status=published 변경"
-
+          # 멀티라인 메시지를 heredoc 으로 생성
+          MSG=$(cat <<EOF
+          📝 *메디맵 어드민 검수 대기 ${DRAFT_COUNT}건*
+          어제 cron 으로 생성된 draft 글을 검수해 주세요.
+          👉 https://geo-v2-git-main-medimaps-projects.vercel.app/admin/content-queue
+          운영 흐름: LLM 초안 → 메디맵 자체 데이터·사례 정성 추가 → status=published 변경
+          EOF
+          )
           PAYLOAD=$(jq -n --arg text "$MSG" '{text: $text}')
           curl -sS -X POST "$WEBHOOK" \
             -H 'Content-Type: application/json' \
@@ -76,4 +83,3 @@ jobs:
         run: |
           echo "## 검수 알림 결과" >> $GITHUB_STEP_SUMMARY
           echo "- Draft 대기: ${DRAFT_COUNT:-?} 건" >> $GITHUB_STEP_SUMMARY
-          echo "- Slack 알림 발송 여부: ${{ steps.count.outputs.draft_count != '0' && env.SLACK_REMINDER_WEBHOOK != '' && 'YES' || 'NO (draft=0 또는 webhook 미설정)' }}" >> $GITHUB_STEP_SUMMARY
