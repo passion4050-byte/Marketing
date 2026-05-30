@@ -807,172 +807,141 @@ fi
 - **콘텐츠 완료 탭 TETE → "메디맵" 오표시** — fix 12 의 별도 fetch 패턴으로 정리
 - **옛 한글 slug redirect** — Migration 030 후 옛 URL 404. Next.js redirects 또는 middleware fallback
 - **LLM provider fallback** — Gemini 503 시 Anthropic/OpenAI 자동 retry
-- **debug endpoint 삭제** — `/api/admin/debug-env/route.ts` 보안상 삭제 push 필수 (Round 29 마무리 직후) ✅ commit 6e16035
+- **debug endpoint 삭제** — `/api/admin/debug-env/route.ts` 보안상 삭제 push 필수 (Round 29 마무리 직후)
 
 ---
 
-## Round 30 마무리 (2026-05-30 저녁 후반) — 디자인 + Unsplash cover 검증
+## Round 31~34 (2026-05-30 → 05-31) — AI 인용 측정 + 5-tier 분류 + 경쟁사 분석 + 자동 분석
 
-### 추가 fix (Round 30 의 cover backfill 디버깅)
+### 진짜 가치 명제 (Round 30 ~ 31 사이 재발견)
 
-1. **psycopg2 driver 수정** — backfill 스크립트가 `+psycopg` (v3) → `+psycopg2` 로 변경
-2. **Storage path 한글 제거** — `_slugify_for_storage_path` 함수 신규 (InvalidKey 400 회피)
-3. **Unsplash query 영문 only** — `keyword_to_unsplash_query` 신규 (한글 포함 query → 매칭 0 회피)
-4. **DB reset → backfill 재실행** — `source=unsplash` 확정 (id=101)
+**문제 인식.** BGN 잠실 케이스에서 Gemini citation source 를 확인했더니, 인용 source 가 **메디맵 SaaS 콘텐츠가 아니라** 경쟁사 SU연세안과(`sueye.co.kr`)나 BGN 자체 사이트(`bgneye.com`)였음. 즉 "AI 인용 횟수 = 우리 가치" 는 거짓 명제. 클라이언트 BGN 의 기존 SEO 자체가 강하기 때문.
 
-### 어드민 디자인 시스템 블루 통합
+**재정의 가치.**
+1. **3~6 개월 누적**: 메디맵 SaaS 가 발행하는 GEO/AEO 최적화 콘텐츠가 T1(메디맵 도메인) 인용 share 를 점진 상승시킴
+2. **마케팅 컨설팅 도구**: 클라이언트가 "지금 우리는 어떤 source 가 AI 에 인용되는지" 를 실시간으로 보고, 경쟁사 대비 약점 / 강점을 진단 가능
+3. **5-tier 분류**: 인용 source 를 T1~T5 로 자동 분류 → 단순 카운트가 아니라 "메디맵 직접 효과 vs 클라이언트 자체 SEO vs 경쟁사 점유" 를 분리 시각화
 
-- `medimap-blog-v2/tailwind.config.ts` 의 brand 토큰 — `#0E5A6B` (딥 티얼) → `#1B68FF` (메디맵 블루)
-- brand-50~900 모두 Tailwind blue scale 기준 + brand-dark `#1453CC` + brand-ink `#091F50`
-- `medimap-blog-v2/src/app/globals.css` 의 CSS 변수 동기화
-- `::selection` rgba 블루로 변경
-- `api/admin/reports/email/route.ts` 의 hardcoded `#0E5A6B` 도 메디맵 블루로
-- 결과: 어드민 13 페이지 모두 brand 토큰 통해 자동 색상 갱신 (개별 페이지 수정 0)
+### 5-tier source classification (Round 31)
 
----
+| Tier | 정의 | 예시 (BGN 잠실 안과 기준) | 의미 |
+|---|---|---|---|
+| **T1** | 메디맵 SaaS 자사 콘텐츠 | `medi-map.co.kr`, `medimap-blog-phi.vercel.app` | SaaS 직접 효과 |
+| **T2** | 클라이언트 자체 사이트 | `bgneye.com`, `mourimclinic.com` | 클라이언트 기존 SEO 기준선 |
+| **T3** | 권위 매체 / 의료기관 | `msdmanuals.com`, `amc.seoul.kr`, `snuh.org` | 의료법 안전한 인용 |
+| **T4** | 의료 플랫폼 | `gangnamunni.com`, `babitalk.com`, `modoodoc.com` | 클라이언트가 입점한 채널 |
+| **T5** | 경쟁사 | `sueye.co.kr`, `chuneye.co.kr` | 점유 빼앗기는 경쟁 위협 |
 
-## Round 31 인프라 — AI 인용 추적 MVP skeleton (2026-05-30 저녁)
+분류는 `medimap-blog-v2/src/app/api/admin/competitors/route.ts` 와 `citations/route.ts` 에 정적 도메인 set + selectedClientDomain 매칭. unknown 도메인은 T5 default.
 
-### 기존 인프라 검증
+### DB 마이그레이션 (Round 31~33)
 
-이미 존재하는 모듈:
-- DB: `queries`, `responses`, `mentions` 테이블 (`src/storage/models.py`)
-- 4 엔진 client: `src/engines/{perplexity, openai_engine, claude, gemini, stub}.py`
-- collector: `src/collector/collect.py` 의 `collect_for_keyword()` — 비용 가드 + mention 추출 + DB INSERT
-- parser: `src/parser/mentions.py`, `ner.py`, `signals.py`
+| 마이그레이션 | 컬럼 / 객체 | 용도 |
+|---|---|---|
+| `add_source_domains_to_responses` | `responses.source_domains` (JSONB) | 4 엔진 응답에서 추출한 인용 hostname 배열 + final_url |
+| `add_keyword_purpose` | `keywords.purpose` ENUM('own', 'competitor_landscape') | 자사 측정 키워드 vs 경쟁사 측정 키워드 분리 |
+| `auto_sync_business_model_keywords` | PostgreSQL TRIGGER | `tenants.business_model` UPDATE 시 comma-split → `keywords` 자동 INSERT/DELETE (purpose='competitor_landscape') |
 
-### 신규 추가
-
-**1. measure cron workflow** (`.github/workflows/measure-ai-mentions.yml`)
-- 매일 22:00 UTC (07:00 KST) cron + workflow_dispatch
-- ENGINE_MODE 분기: `stub` (기본, 비용 0) / `production` (4 엔진 실제 호출)
-- KEYWORD_LIMIT (기본 20) / MAX_DAILY_USD (기본 1.0) 가드
-
-**2. measurement batch script** (`scripts/run_measurement_batch.py`)
-- is_active=true 키워드 조회 → 4 엔진 별로 `collect_for_keyword` 호출
-- API key 등록된 엔진만 활성 (key 없으면 skip — graceful)
-- 비용 가드 도달 시 즉시 중단
-
-**3. 어드민 대시보드 KPI 실데이터 연결**
-- "24h AI 인용" KPI = `mentions WHERE created_at >= 24h ago AND is_target=true` COUNT
-- "최근 AI 인용 (24h)" 섹션 = mentions/responses/queries JOIN (fix 12 패턴, 별도 fetch)
-- engine 별 색상 dot (chatgpt/claude/gemini/perplexity)
-
-### Round 31 활성화 단계 (사용자 직접)
-
-1. **4 엔진 API key 등록** (GitHub Secrets):
-   - `PERPLEXITY_API_KEY` — 가장 권장 (실제 web search + citation, $5/1k req)
-   - `OPENAI_API_KEY` — 이미 있을 가능성
-   - `ANTHROPIC_API_KEY` — Claude
-   - `GOOGLE_API_KEY` — Gemini (이미 있음, generator.py 와 공유)
-2. **ENGINE_MODE=production secret 등록** (또는 workflow_dispatch 로 한 번씩 manual run)
-3. **MAX_DAILY_USD=1.0 secret 등록** (가드)
-4. **첫 manual run** — workflow_dispatch 로 engine_mode=stub 먼저 → mentions 테이블 INSERT 검증
-5. **production 전환** — stub 검증 후 ENGINE_MODE=production 으로 실제 측정 시작
-
-### 비용 예상 (production 모드, 자사 6편 × 4 엔진 × 1 sample)
-
-- Perplexity ($5/1k req): $0.12/일
-- OpenAI GPT-4o-mini ($0.15/1M in + $0.6/1M out): $0.005/일
-- Claude 3.5 Sonnet ($3/1M in + $15/1M out): $0.13/일
-- Gemini 1.5 Flash ($0.075/1M in + $0.3/1M out): $0.003/일
-- **합계: ~$0.26/일 ≈ $8/월** (매우 저렴)
-
-키워드 풀 확장 (20개로 늘리면) — $1/일 정도. MAX_DAILY_USD 가드로 안전.
-
-### Round 31 검증 후 추가 후보
-
-- `/admin/citations` 페이지 실데이터 연결 (현재는 mock)
-- mention_share 차트 (엔진 별 점유율 시각화)
-- 자사 vs 경쟁사 mention 비교 (competitors 테이블 활용)
-- AI 인용된 URL 의 traffic 추적 (shortlinks 와 연동)
-
----
-
----
-
-## Round 30 (2026-05-30 저녁) — 운영 안정화 + 대시보드 실데이터 + 디자인 보류
-
-### 적용한 fix
-
-**1. 자사 글 라벨 fix (content-queue/page.tsx)**
-- 옛: `partner_slug` 있으면 무조건 "파트너 · slug" 표시 → 자사인데 "파트너 medimap-self" 오표시
-- 새: `is_partner_content === false` 면 "자사" 칩 (brand 톤), 아니면 "파트너 · slug" 칩 (accent 톤)
-- 검수 탭 + 완료 탭 두 곳 동시 적용
-
-**2. scheduler.py cover 이미지 조건 fix (운영 정상화)**
-- 옛: `if obj.status == "published" and channel == "blog_html":` — Round 28 부터 cron 이 draft 만 생성하므로 이미지 생성 안 됨 → 자사 글 cover ❌ 표시
-- 새: `if obj.status in ("published", "draft") and channel == "blog_html":` — draft 도 cover 생성. 운영자가 검수 화면에서 미리 cover 확인.
-
-**3. 옛 draft 글 cover backfill 스크립트** (`scripts/backfill_drafts_cover.py`)
-- 자사/파트너 draft 중 cover_image_url IS NULL 대상
-- `image_picker.generate_image_for_content(is_self_tenant=...)` 호출
-- `--dry-run` / `--self-only` 옵션
-- 사용자가 로컬에서 수동 실행 (DATABASE_URL + UNSPLASH_ACCESS_KEY env 필요)
-
-**4. 옛 한글 slug → 영문 slug 301 redirect** (`medimap-blog/next.config.js`)
-- `next.config.js` 의 `redirects()` 함수 추가
-- Migration 030 (Round 29) 의 6편 매핑
-- 외부 공유 AEO 손실 방지
-
-**5. 대시보드 mock → 실데이터 연동** (`admin/(portal)/page.tsx`)
-- `'use client'` 제거 + server component (`force-dynamic`) 전환
-- `getServerClient()` (service_role) 로 직접 supabase query
-- KPI: 활성 클라이언트 (자사 제외 tenants COUNT), 검수 대기 (draft/pending COUNT), 오늘 LLM 비용 (llm_call_logs.cost_usd 합산), 24h AI 인용 (Round 31 placeholder)
-- 최근 검수 대기 Top 3: draft/pending top 3 + tenant 이름 (fix 12 패턴 — 별도 fetch + Map merge)
-- 최근 AI 인용: empty state ("Round 31 활성 예정")
-- mock delta (+2 / +4 / +12% / +8) 제거 — 어제 대비 delta 계산은 별도 라운드 후보
-
-### 보류 — 어드민 디자인 시스템 적용
-
-스파링 결정 — **다음 라운드로 미룸**. 이유:
-- 페이지별 영향이 큼 (13개 어드민 페이지)
-- 사용자 부재 중 시각 검증 불가 → 디버깅 위험
-- 토큰은 이미 잘 짜여있음 (`tailwind.config.ts` + `globals.css` 의 brand/accent/surface/ink/status/engine 체계)
-- 다음 라운드에 페이지별 스크린샷 받으면서 점진 적용 권장
-
-### 검수 대기 표시 미스터리 (캡처 — 이번 진단)
-
-캡처: 활성 클라이언트 2개, 검수 대기 4건. 모두 mock data (admin-mock.ts). 실제 DB:
-- tenants 자사 제외 = 6~7개 (BGN/TETE/모우림/추가 파트너)
-- draft = 1건 (id=101 자사)
-
-→ 실데이터 연동 후 KPI 정확 표시 예정.
-
-### Round 30 fix 가 적용된 후 운영 흐름 (변경점)
+### 어드민 신규 페이지 (Round 32~34)
 
 ```
-매일 23:00 UTC cron:
-  scheduler.daily_auto_content_job() →
-    자사 1편 + 파트너 1편 draft INSERT
-    + cover 이미지 자동 생성 (Round 30 fix — draft 포함)
-    + 본문 figure 자동 생성
-  ↓
-어드민 대시보드 (Round 30 fix — 실데이터):
-  - 활성 클라이언트 = 실제 파트너 tenants 수
-  - 검수 대기 = 실제 draft/pending COUNT
-  - 오늘 LLM 비용 = 실제 cost_usd 합산
-  - 최근 검수 대기 Top 3 = 실제 draft 글 + tenant 이름
-  ↓
-어드민 검수 탭 (Round 30 fix — 자사 칩):
-  - 자사 글: "메디맵" tenant 칩 + "자사" 라벨 (brand 톤)
-  - 파트너 글: "BGN 밝은눈안과" 등 tenant 칩 + "파트너 · bgn" 라벨 (accent 톤)
-  - cover 이미지 정상 표시 (Round 30 scheduler fix 가 다음 cron 부터 효력)
+/admin/citations         자사 현황 보기 — 메디맵 + 클라이언트 자체 인용 (T1 + T2 중심)
+  - KPI: 총 인용 횟수, T1 share, T2 share, 메디맵 도메인 share trend
+  - Chart: 최근 30일 인용 추세 / Source tier 도넛 / Top 10 도메인 / 메디맵 share 추이
+  - 키워드 클릭 → AI 응답 원문 모달
+
+/admin/competitors       경쟁사 현황 보기 — business_model 키워드 기준 (T3 + T4 + T5)
+  - KPI: T3/T4/T5 분포, 키워드 × 경쟁사 매트릭스
+  - 클릭 → 실제 인용된 URL 직접 진입
 ```
 
-### Round 31 후보 (옵션 C — AI 인용 추적 MVP)
+두 페이지는 `CitationsTabs` 컴포넌트로 묶여 있고, **`tenantId` 가 URL searchParams 로 공유**되어 자사 ↔ 경쟁사 탭 전환 시 클라이언트 재선택 불필요 (Round 34 phase 5).
 
-목표: 자사 글이 실제 AI 검색 (Perplexity / ChatGPT / Claude / Gemini) 에 인용되는지 측정.
+### 자사 / 경쟁사 API 분리 패턴 (Round 32)
 
-작업:
-1. `mentions` 테이블 활용 (이미 models.py 에 존재) — 또는 새 `citations` 테이블
-2. 자사 글 6편 → 키워드 추출 → 4 엔진 query 변환
-3. 각 엔진 API 호출 → 응답 텍스트 수집
-4. 응답에서 medi-map.co.kr / medimap-blog-phi.vercel.app domain mention 감지 + URL 매칭
-5. `mention_share`, `citation_count` 업데이트 → 대시보드 KPI 활성화
-6. 어드민 `/admin/citations` 페이지 실데이터 표시
+```typescript
+// /api/admin/citations/route.ts — 자사
+.from('keywords').eq('purpose', 'own')
 
-위험:
-- 4 엔진 API 비용 (ChatGPT GPT-4 + Claude 가 비쌈) → 자사 6편 × 4 엔진 = 24 query/일 × $0.01~0.03 ≈ $1/일
-- 응답 변동성 + mention 매칭 false positive
-- Perplexity 가 가장 적합 (정확한 인용 + 출처 URL 명시), 나머지는 paraphrase 가능
+// /api/admin/competitors/route.ts — 경쟁사
+.from('keywords').eq('purpose', 'competitor_landscape')
+```
+
+같은 responses 테이블을 보지만 **WHERE 절의 keyword.purpose** 가 다름.
+
+### 홈페이지 자동 분석 (Round 33~34)
+
+```
+POST /api/admin/tenants/[id]/analyze-homepage              preview only
+POST /api/admin/tenants/[id]/analyze-homepage?apply=true   business_model 즉시 UPDATE + trigger 발동
+```
+
+**다단계 fetch 흐름 (SPA / redirect 사이트 대응):**
+
+```
+Step 1: tenant.homepage 직접 fetch (8초 timeout)
+Step 2: 텍스트 < 300자면 → meta refresh / JS location / 첫 internal link 추적
+Step 3: 그래도 짧으면 → robots.txt 에서 Sitemap 자동 발견 → sitemap.xml 파싱
+         → priority 높은 URL top 3 순차 시도 (sitemap index 도 depth 1 follow)
+Step 4: 그래도 짧으면 → common paths (/main/index.php, /about, /intro 등) 시도
+Final fallback: 모든 fetch 실패 시 domain_category default 키워드
+   (안과 → 라식/라섹/스마일라식/백내장/노안교정)
+```
+
+전체 timeout = Vercel 30초 limit 안 (각 fetch 8초 + AbortController). 결과는 UI 에 fetched_url 링크 + fallback_used 경고로 투명하게 표시.
+
+**의료 키워드 사전**: `medimap-blog-v2/src/lib/medical-keywords.ts` 의 카테고리별 사전(안과/피부과/성형외과/치과/모발이식/내과/한방)과 매칭 → 빈도순 top 8 추출 → 상위 5 개를 `business_model` 후보로 반환.
+
+---
+
+## Round 35 (2026-05-31) — 경쟁사 측정 cron 분리 (own/competitor LIMIT 충돌 해결)
+
+### 진단 — raw 데이터 기반
+
+BGN tenant(id=4) 의 경쟁사 페이지가 모든 카운트 0건 표시. 진짜 원인 확인:
+
+```sql
+-- BGN keywords 분포 (DB 직접 확인)
+own 6개 (id 12~17): 측정 queries 각 5~7건씩 정상 (2026-05-30 14:22 까지)
+competitor_landscape 5개 (id 54~58): 측정 queries 0건 ← !!!
+
+-- 전체 활성 키워드
+total_active=32 (own 24 + competitor_landscape 8)
+```
+
+**진짜 원인**: `scripts/run_measurement_batch.py` 의 `WHERE is_active=true ORDER BY k.id LIMIT 20` 가 own 키워드(id 낮음)만 픽업하고 competitor 키워드(id 54+)까지 도달 못함. 트리거는 정상이지만 측정 cron 이 잘랐음.
+
+### 해결 — 측정 workflow 분리
+
+**1. `measure-ai-mentions.yml` 수정**
+- `purpose_filter` workflow_dispatch input 추가 (own | competitor_landscape | all)
+- env `PURPOSE_FILTER` 기본값 'own' → 매일 cron 은 own 만 측정
+- 기존 own 24개 → KEYWORD_LIMIT 20 안에서 측정 (overflow 4개는 다음 cron 또는 round-robin 필요 — Round 36 후보)
+
+**2. `measure-competitor-mentions.yml` 신규**
+- Cron: `0 21 * * 1,4` (매주 월/목 21:00 UTC = 화/금 06:00 KST)
+- env `PURPOSE_FILTER=competitor_landscape` 고정
+- 동일 `scripts/run_measurement_batch.py` 재활용 (PURPOSE_FILTER env 만 다름)
+- Gemini free tier 20/day 도 자사 측정과 분리되어 quota 안 겹침
+
+**3. UI 문구 갱신**
+- `/admin/competitors` 비즈니스 모델 박스 — "Round 35 별도 batch 추가 예정" → "경쟁사 측정 cron 분리됨 (매주 월·목 06:00 KST 자동, manual run 가능)"
+
+### Round 35 함정 (cron 운영)
+
+**(I) Sandbox bash mount 와 cowork Edit/Write 의 파일 view 불일치**
+- 증상: cowork Read 가 1100+ 라인 보여주는데 bash `wc -l` 은 810 라인
+- 원인: Windows path → cowork Edit/Write 가 disk 에 직접 write, 그러나 sandbox `/sessions/.../mnt/` 의 cache 가 stale
+- 정답: 변경 sanity check 은 sandbox bash `tail` / `cat` / `python3 read` 로. cowork Read 결과를 disk 의 진실로 가정하지 말 것. 큰 SKILL 갱신은 bash heredoc 으로 직접 append 하는 게 안전.
+
+**(J) 측정 batch ORDER BY k.id LIMIT N 의 누적 누락**
+- 증상: 신규 키워드가 id 큰 쪽으로 등록되면 LIMIT 안에서 영원히 측정 못 받음
+- 정답: purpose 분리 cron + KEYWORD_LIMIT 상향 + 또는 `ORDER BY last_measured_at NULLS FIRST` 같은 fairness 정책 (Round 36 후보)
+
+### Round 35 후속 / Round 36 후보
+
+- **즉시 backfill**: `gh workflow run "Measure competitor mentions (weekly Mon/Thu 06:00 KST)" -f engine_mode=production -f keyword_limit=20` 또는 GitHub UI Actions → manual run. 다음 자동 cron 까지 기다리지 말고 1회 수동.
+- **own 24개 vs LIMIT 20** — own 도 4개 overflow. KEYWORD_LIMIT 상향(30) 또는 fairness ORDER BY 도입 필요
+- **fairness ORDER BY**: `ORDER BY last_measured_at ASC NULLS FIRST, id` 같이 변경하면 매 cron 신선한 키워드 우선 픽업
+- **경쟁사 신규 도메인 알림** — T5 분류된 신규 hostname 등장 시 Slack notify
+- **business_model 키워드 검수 UI** — auto-extract 결과를 chip-style 으로 추가/삭제

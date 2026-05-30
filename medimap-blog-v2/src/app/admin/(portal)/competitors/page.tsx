@@ -217,7 +217,8 @@ export default function CompetitorsPage() {
             <span className="font-semibold text-brand-700">비즈니스 모델:</span>{' '}
             <span className="text-ink-soft">{businessModel}</span>
             <div className="mt-1 text-[10px] text-ink-muted">
-              ⚠️ Round 35 — 이 키워드들로 별도 측정 batch 추가 예정. 현재는 기존 측정 데이터 재구성.
+              ℹ️ 경쟁사 측정 cron 분리됨 — 매주 월·목 06:00 KST 자동 측정 (또는 GitHub Actions{' '}
+              <code className="font-mono">measure-competitor-mentions</code> manual run)
             </div>
           </div>
         )}

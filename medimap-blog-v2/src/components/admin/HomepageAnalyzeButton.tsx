@@ -8,7 +8,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Search, Zap } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Loader2, Search, Zap } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 type AnalyzeResult = {
@@ -18,6 +18,9 @@ type AnalyzeResult = {
   suggested_business_model?: string;
   fetched_url?: string;
   applied?: boolean;
+  fallback_used?: string | null;
+  note?: string;
+  tried_urls?: string[];
 };
 
 export function HomepageAnalyzeButton({
@@ -97,7 +100,18 @@ export function HomepageAnalyzeButton({
           💡 신규 등록 시 — 먼저 홈페이지 URL 입력 + 저장 → 그 후 분석 버튼 활성화
         </div>
       )}
-      {result && (
+      {loading && (
+        <div className="mt-2 rounded-md border border-border bg-surface-soft px-3 py-2 text-[11px] text-ink-muted">
+          <div className="flex items-center gap-1.5">
+            <Loader2 className="h-3 w-3 animate-spin text-brand" />
+            홈페이지 분석 중... (최대 30초 소요)
+          </div>
+          <div className="mt-1 text-[10px] text-ink-faint">
+            루트 URL → redirect 감지 → robots.txt/sitemap.xml → common paths 순차 시도
+          </div>
+        </div>
+      )}
+      {result && !loading && (
         <div
           className={cn(
             'mt-2 rounded-md border px-3 py-2 text-[11px]',
@@ -106,9 +120,34 @@ export function HomepageAnalyzeButton({
               : 'border-status-danger/30 bg-status-dangerSoft/40 text-status-danger'
           )}
         >
-          {!result.ok && <div>❌ {result.error}</div>}
+          {!result.ok && (
+            <>
+              <div className="font-semibold">❌ {result.error}</div>
+              {result.tried_urls && result.tried_urls.length > 0 && (
+                <div className="mt-1 text-[10px] text-ink-muted">
+                  시도한 URL ({result.tried_urls.length}개):{' '}
+                  {result.tried_urls.slice(0, 3).map((u, i) => (
+                    <span key={i} className="font-mono">
+                      {u}
+                      {i < Math.min(2, result.tried_urls!.length - 1) ? ', ' : ''}
+                    </span>
+                  ))}
+                  {result.tried_urls.length > 3 && <span> 외 {result.tried_urls.length - 3}개</span>}
+                </div>
+              )}
+            </>
+          )}
           {result.ok && result.keywords && (
             <>
+              {result.fallback_used && (
+                <div className="mb-2 flex items-start gap-1.5 rounded border border-status-warning/30 bg-status-warningSoft/40 px-2 py-1 text-status-warning">
+                  <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                  <div className="text-[10px]">
+                    <strong>홈페이지 텍스트 추출 실패</strong> — SPA/redirect 사이트로 추정.{' '}
+                    {result.note || '카테고리 default 키워드로 fallback.'} 운영자 직접 검수 권장.
+                  </div>
+                </div>
+              )}
               <div className="mb-1 flex items-center justify-between">
                 <strong className="text-ink">
                   추출 키워드 ({result.keywords.length}개)
@@ -139,8 +178,19 @@ export function HomepageAnalyzeButton({
                 </button>
               )}
               {result.fetched_url && (
-                <div className="mt-1 text-[10px] text-ink-muted">
-                  분석한 URL: <span className="font-mono">{result.fetched_url}</span>
+                <div className="mt-1.5 flex items-center gap-1 text-[10px] text-ink-muted">
+                  <span>분석한 URL:</span>
+                  <a
+                    href={result.fetched_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-0.5 font-mono text-brand hover:underline"
+                  >
+                    {result.fetched_url.length > 60
+                      ? result.fetched_url.slice(0, 60) + '...'
+                      : result.fetched_url}
+                    <ExternalLink className="h-2.5 w-2.5" />
+                  </a>
                 </div>
               )}
             </>

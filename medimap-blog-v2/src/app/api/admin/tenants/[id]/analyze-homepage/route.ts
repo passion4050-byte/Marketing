@@ -25,6 +25,70 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
+ * robots.txt 에서 Sitemap 위치 추출.
+ * 예: "Sitemap: https://example.com/sitemap.xml"
+ */
+async function discoverSitemapFromRobots(baseUrl: string): Promise<string | null> {
+  try {
+    const robotsUrl = new URL('/robots.txt', baseUrl).href;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 4000);
+    const res = await fetch(robotsUrl, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const txt = await res.text();
+    const m = txt.match(/^\s*Sitemap:\s*(\S+)/im);
+    return m ? m[1].trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * sitemap.xml 파싱 — priority 높은 또는 lastmod 최신 URL top N 추출.
+ * sitemap index 인 경우 첫 sitemap 만 따라감 (depth 1).
+ */
+async function discoverUrlsFromSitemap(sitemapUrl: string, maxUrls = 5): Promise<string[]> {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 6000);
+    const res = await fetch(sitemapUrl, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!res.ok) return [];
+    const xml = await res.text();
+
+    // sitemap index 인 경우 첫 sitemap follow
+    if (/<sitemapindex/i.test(xml)) {
+      const childMatch = xml.match(/<sitemap>[\s\S]*?<loc>([^<]+)<\/loc>/i);
+      if (childMatch) {
+        return discoverUrlsFromSitemap(childMatch[1].trim(), maxUrls);
+      }
+      return [];
+    }
+
+    // urlset — <url><loc>..</loc><priority>..</priority></url>
+    const entries: Array<{ loc: string; priority: number }> = [];
+    const urlRegex = /<url>([\s\S]*?)<\/url>/gi;
+    let m: RegExpExecArray | null;
+    while ((m = urlRegex.exec(xml)) !== null) {
+      const block = m[1];
+      const locM = block.match(/<loc>([^<]+)<\/loc>/i);
+      const prM = block.match(/<priority>([\d.]+)<\/priority>/i);
+      if (locM) {
+        entries.push({
+          loc: locM[1].trim(),
+          priority: prM ? parseFloat(prM[1]) : 0.5,
+        });
+      }
+    }
+    entries.sort((a, b) => b.priority - a.priority);
+    return entries.slice(0, maxUrls).map((e) => e.loc);
+  } catch {
+    return [];
+  }
+}
+
+/**
  * HTML 에서 redirect 대상 URL 감지.
  * - <meta http-equiv="refresh" content="0; url=...">
  * - JS location.href / window.location.replace
@@ -223,7 +287,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
   }
 
-  // Step 3: 그래도 짧으면 common paths 시도
+  // Step 3: robots.txt → sitemap.xml 파싱 → priority 가장 높은 URL top 3 fetch
+  if (!bestResult || (bestResult as { text: string }).text.length < 300) {
+    let sitemapUrl = await discoverSitemapFromRobots(tenant.homepage);
+    if (!sitemapUrl) {
+      // robots.txt 없거나 Sitemap 미선언 — 표준 위치 시도
+      sitemapUrl = new URL('/sitemap.xml', tenant.homepage).href;
+    }
+    const sitemapUrls = await discoverUrlsFromSitemap(sitemapUrl, 3);
+    for (const url of sitemapUrls) {
+      if (triedUrls.includes(url)) continue;
+      await tryFetch(url);
+      if (bestResult && (bestResult as { text: string }).text.length > 500) break;
+    }
+  }
+
+  // Step 4: 그래도 짧으면 common paths 시도
   if (!bestResult || (bestResult as { text: string }).text.length < 300) {
     const baseUrl = tenant.homepage.replace(/\/$/, '');
     const candidates = [

@@ -1,18 +1,24 @@
-name: Measure AI mentions (daily 07:00 KST)
+name: Measure competitor mentions (weekly Mon/Thu 06:00 KST)
 
-# Round 31 (2026-05-30) — AI 인용 추적 MVP.
-# 매일 07:00 KST 에 자사 + 파트너 키워드를 4 엔진 (perplexity/openai/claude/gemini) 에
-# 호출 → response/mention DB 저장 → 어드민 대시보드 KPI 갱신.
+# Round 35 (2026-05-31) — 경쟁사 (purpose='competitor_landscape') 키워드 전용 측정 cron.
 #
-# 안전 모드 — ENGINE_MODE secret 으로 분기:
-#   - `stub` (기본): 외부 API 호출 없음, demo 데이터로 파이프라인 검증
-#   - `production`: 실제 4 엔진 API 호출, $0.20~0.30/일 비용 발생
+# 분리 이유:
+#   - 자사 own 측정 cron (measure-ai-mentions.yml) 은 매일 07:00 KST 실행 (KEYWORD_LIMIT=20)
+#   - own 키워드(24개) 만으로 LIMIT 거의 채워서 competitor 키워드(id 54+) 가 픽업 안 됨
+#   - Gemini free tier 20 req/day 제한도 있어 한 batch 에 모두 못 담음
 #
-# 비용 가드: MAX_DAILY_USD secret 으로 일일 USD 한도 강제 (collect.py 내장).
+# 운영 정책:
+#   - 자사 own = 매일 측정 (T1/T2 share trend 추적)
+#   - 경쟁사 competitor_landscape = 주 2회 (월/목) 측정 (T5 점유 변화는 더 느리게 변함)
+#   - quota 분리로 Gemini paid tier 전까지도 운영 가능
+#
+# 안전 모드 — ENGINE_MODE secret 동일 (stub | production).
 
 on:
   schedule:
-    - cron: '0 22 * * *'   # 매일 22:00 UTC = 07:00 KST — 자사 own 측정
+    # 주 2회 — 매주 월 21:00 UTC (화 06:00 KST), 목 21:00 UTC (금 06:00 KST)
+    # 자사 측정(매일 22:00 UTC) 보다 1시간 일찍 끝나도록 배치
+    - cron: '0 21 * * 1,4'
   workflow_dispatch:
     inputs:
       engine_mode:
@@ -21,25 +27,20 @@ on:
         options: [stub, production]
         default: stub
       keyword_limit:
-        description: '최대 키워드 수 (테스트용)'
+        description: '최대 키워드 수 (경쟁사 키워드 총 8개 + 여유)'
         type: string
         default: '20'
-      purpose_filter:
-        description: 'keyword purpose 필터 (own | competitor_landscape | all)'
-        type: choice
-        options: [own, competitor_landscape, all]
-        default: own
 
 permissions:
   contents: read
 
 concurrency:
-  group: measure-ai-mentions
+  group: measure-competitor-mentions
   cancel-in-progress: false
 
 jobs:
   measure:
-    name: Run AI engine measurement
+    name: Run competitor measurement (purpose=competitor_landscape)
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -64,17 +65,14 @@ jobs:
             exit 1
           fi
 
-      - name: Run measurement
+      - name: Run measurement (competitor_landscape only)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           ENGINE_MODE: ${{ inputs.engine_mode || secrets.ENGINE_MODE || 'stub' }}
           KEYWORD_LIMIT: ${{ inputs.keyword_limit || '20' }}
           MAX_DAILY_USD: ${{ secrets.MAX_DAILY_USD || '1.0' }}
-          # Round 35 (2026-05-31): 자사 own 키워드만 측정 (기본).
-          # 'all' 선택 시 own + competitor 섞임 → ORDER BY k.id + LIMIT 20 로 competitor 누락 위험.
-          # competitor_landscape 측정은 measure-competitor-mentions.yml 분리 운영.
-          PURPOSE_FILTER: ${{ inputs.purpose_filter == 'all' && '' || (inputs.purpose_filter || 'own') }}
-          # 4 엔진 API keys (production 모드만)
+          # 핵심 — 경쟁사 키워드만 픽업
+          PURPOSE_FILTER: competitor_landscape
           PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -82,15 +80,15 @@ jobs:
         run: |
           echo "ENGINE_MODE=$ENGINE_MODE"
           echo "KEYWORD_LIMIT=$KEYWORD_LIMIT"
-          echo "MAX_DAILY_USD=$MAX_DAILY_USD"
-          echo "PURPOSE_FILTER=${PURPOSE_FILTER:-(all)}"
+          echo "PURPOSE_FILTER=$PURPOSE_FILTER"
           python scripts/run_measurement_batch.py
 
       - name: Job summary
         if: always()
         run: |
           {
-            echo "## AI 측정 결과"
+            echo "## 경쟁사 측정 결과"
             echo "- engine_mode: ${ENGINE_MODE:-stub}"
-            echo "- 자세한 결과는 어드민 \`/admin/citations\` 페이지 참조"
+            echo "- purpose: competitor_landscape"
+            echo "- 자세한 결과는 어드민 \`/admin/competitors\` 페이지 참조"
           } >> "$GITHUB_STEP_SUMMARY"
