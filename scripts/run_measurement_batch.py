@@ -42,32 +42,33 @@ def _build_engines(mode: str) -> list:
         return [StubEngine()]
 
     # production — 4 엔진 활성. key 없는 엔진은 skip.
+    # Round 31 fix (2026-05-30): 모든 engine 의 __init__ 이 api_key 를 positional 첫 인자로 요구.
     engines = []
-    if os.environ.get("PERPLEXITY_API_KEY"):
+    if (k := os.environ.get("PERPLEXITY_API_KEY")):
         try:
             from src.engines.perplexity import PerplexityEngine
-            engines.append(PerplexityEngine())
+            engines.append(PerplexityEngine(k))
             logger.info("✓ Perplexity engine 활성")
         except Exception as e:  # noqa: BLE001
             logger.warning("Perplexity engine init 실패: %s", e)
-    if os.environ.get("OPENAI_API_KEY"):
+    if (k := os.environ.get("OPENAI_API_KEY")):
         try:
             from src.engines.openai_engine import OpenAIEngine
-            engines.append(OpenAIEngine())
+            engines.append(OpenAIEngine(k))
             logger.info("✓ OpenAI engine 활성")
         except Exception as e:  # noqa: BLE001
             logger.warning("OpenAI engine init 실패: %s", e)
-    if os.environ.get("ANTHROPIC_API_KEY"):
+    if (k := os.environ.get("ANTHROPIC_API_KEY")):
         try:
             from src.engines.claude import ClaudeEngine
-            engines.append(ClaudeEngine())
+            engines.append(ClaudeEngine(k))
             logger.info("✓ Claude engine 활성")
         except Exception as e:  # noqa: BLE001
             logger.warning("Claude engine init 실패: %s", e)
-    if os.environ.get("GOOGLE_API_KEY"):
+    if (k := os.environ.get("GOOGLE_API_KEY")):
         try:
             from src.engines.gemini import GeminiEngine
-            engines.append(GeminiEngine())
+            engines.append(GeminiEngine(k))
             logger.info("✓ Gemini engine 활성")
         except Exception as e:  # noqa: BLE001
             logger.warning("Gemini engine init 실패: %s", e)
