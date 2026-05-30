@@ -29,6 +29,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'invalid status' }, { status: 400 });
   }
 
+  // Round 29 fix 2 (2026-05-30): scheduler.py 는 cron 발행 시 status='draft' 로 저장
+  // ('pending' 아님). 어드민 '검수 대기' 탭이 draft 도 같이 가져오도록 분기.
+  const statusFilter: string[] =
+    status === 'pending' ? ['draft', 'pending'] : [status];
+
   let query = sb
     .from('generated_contents')
     .select(`
@@ -39,7 +44,7 @@ export async function GET(req: NextRequest) {
       created_at, updated_at, published_at,
       tenants:tenant_id ( id, name, partner_slug, domain_category )
     `)
-    .eq('status', status);
+    .in('status', statusFilter);
 
   // Round 25 (2026-05-29): is_partner_content=true 필터 제거.
   // 자사 인사이트 글(tenant=메디맵, is_partner_content=false) 도 콘텐츠 완료 탭에

@@ -63,12 +63,13 @@ jobs:
             exit 0
           fi
           WEBHOOK=$(echo -n "$SLACK_REMINDER_WEBHOOK" | tr -d '\n\r' | sed 's/[[:space:]]*$//')
-          # 멀티라인 메시지를 heredoc 으로 생성
+          # Slack mrkdwn: <URL|텍스트> 형식으로 링크 hide → "바로가기" 버튼 형태
+          ADMIN_URL="https://geo-v2-git-main-medimaps-projects.vercel.app/admin/content-queue"
           MSG=$(cat <<EOF
           📝 *메디맵 어드민 검수 대기 ${DRAFT_COUNT}건*
-          어제 cron 으로 생성된 draft 글을 검수해 주세요.
-          👉 https://geo-v2-git-main-medimaps-projects.vercel.app/admin/content-queue
-          운영 흐름: LLM 초안 → 메디맵 자체 데이터·사례 정성 추가 → status=published 변경
+          어제 메디맵AI로 생성된 초안 글을 검수해 주세요.
+          👉 <${ADMIN_URL}|바로가기>
+          운영 흐름: 초안 → 메디맵 자체 데이터·사례 정성 추가 → 발행 처리
           EOF
           )
           PAYLOAD=$(jq -n --arg text "$MSG" '{text: $text}')
