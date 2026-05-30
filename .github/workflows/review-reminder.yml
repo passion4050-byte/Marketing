@@ -68,8 +68,16 @@ jobs:
             exit 0
           fi
 
-          # 글 목록 추출 (디버그 출력 포함)
-          DRAFT_LIST=$(echo "$RESP" | jq -r '.[0:10] | .[] | "• [\(.id)] \(.tenants.name // "(unknown)") — \(.title // .keyword_text // "(제목 없음)")"')
+          # 글 목록 추출 — PostgREST join 결과는 환경에 따라 object 또는 array 반환.
+          # 둘 다 처리: type 검사 후 분기.
+          DRAFT_LIST=$(echo "$RESP" | jq -r '
+            .[0:10]
+            | .[]
+            | (if (.tenants | type) == "array" then (.tenants[0].name // "(unknown)")
+               else (.tenants.name // "(unknown)")
+               end) as $tname
+            | "• [\(.id)] \($tname) — \(.title // .keyword_text // "(제목 없음)")"
+          ')
           echo "--- DRAFT_LIST (debug) ---"
           echo "$DRAFT_LIST"
           echo "--- END DEBUG ---"
