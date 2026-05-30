@@ -31,10 +31,31 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { ChevronDown, ChevronRight, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  Loader2,
+  Printer,
+  RefreshCw,
+  Search,
+  X,
+} from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 type TenantOption = { id: number; name: string; is_self: boolean };
+
+type KeywordResponseDetail = {
+  response_id: number;
+  engine: string;
+  prompt: string;
+  tenant_name: string;
+  raw_text: string;
+  cited_urls: string[];
+  source_domains: Array<{ domain: string; final_url: string | null }>;
+  mentions: Array<{ brand: string; weight: number; context_snippet: string; is_target: boolean }>;
+  created_at: string;
+};
 
 type CitationsData = {
   tenants: TenantOption[];
@@ -75,6 +96,13 @@ export default function CitationsPage() {
   const [error, setError] = useState<string | null>(null);
   // 도메인 expand state (URL 목록 펼치기)
   const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
+  // 클라이언트 selector 검색 + 드롭다운
+  const [tenantSearch, setTenantSearch] = useState('');
+  const [tenantDropdownOpen, setTenantDropdownOpen] = useState(false);
+  // 키워드 클릭 → modal
+  const [modalKeyword, setModalKeyword] = useState<string | null>(null);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [modalResponses, setModalResponses] = useState<KeywordResponseDetail[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -125,49 +153,122 @@ export default function CitationsPage() {
 
   const tenants = data?.tenants ?? [];
   const selectedName = data?.selected_tenant?.name ?? '전체 클라이언트';
+  const filteredTenants = tenants.filter((t) =>
+    !tenantSearch || t.name.toLowerCase().includes(tenantSearch.toLowerCase())
+  );
+
+  const openKeywordModal = async (keyword: string) => {
+    setModalKeyword(keyword);
+    setModalLoading(true);
+    setModalResponses([]);
+    try {
+      const url = tenantId
+        ? `/api/admin/citations/keyword?keyword=${encodeURIComponent(keyword)}&tenantId=${tenantId}`
+        : `/api/admin/citations/keyword?keyword=${encodeURIComponent(keyword)}`;
+      const res = await fetch(url, { cache: 'no-store' });
+      const json = await res.json();
+      if (res.ok && json.ok) setModalResponses(json.responses ?? []);
+    } catch {
+      // graceful
+    } finally {
+      setModalLoading(false);
+    }
+  };
 
   return (
-    <div className="px-8 py-6">
-      <header className="mb-5 flex items-center justify-between">
+    <div className="px-8 py-6 print:px-0 print:py-0">
+      <header className="mb-5 flex items-center justify-between print:hidden">
         <h1 className="text-2xl font-bold text-ink">AI 인용 추적</h1>
-        <button onClick={() => void load()} className="btn-secondary text-xs">
-          <RefreshCw className="h-3.5 w-3.5" /> 새로고침
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => window.print()} className="btn-secondary text-xs">
+            <Printer className="h-3.5 w-3.5" /> PDF 출력
+          </button>
+          <button onClick={() => void load()} className="btn-secondary text-xs">
+            <RefreshCw className="h-3.5 w-3.5" /> 새로고침
+          </button>
+        </div>
       </header>
 
-      {/* === 클라이언트 selector === */}
-      <section className="card mb-5 p-4">
+      {/* 프린트 헤더 (PDF 출력 시만 표시) */}
+      <div className="hidden print:mb-6 print:block">
+        <h1 className="text-2xl font-bold text-ink">AI 인용 추적 — {selectedName}</h1>
+        <p className="mt-1 text-xs text-ink-muted">
+          MEDIMAP GEO · {new Date().toLocaleString('ko-KR')} · 최근 30일 기준
+        </p>
+      </div>
+
+      {/* === 클라이언트 selector — 드롭다운 + 검색 === */}
+      <section className="card mb-5 p-4 print:hidden">
         <div className="mb-2 text-xs font-semibold text-ink-muted">클라이언트 선택</div>
-        <div className="flex flex-wrap gap-2">
+        <div className="relative max-w-md">
           <button
-            onClick={() => setTenantId(null)}
-            className={cn(
-              'rounded-lg border px-3 py-1.5 text-xs font-semibold transition',
-              tenantId === null
-                ? 'border-brand bg-brand text-white'
-                : 'border-border bg-surface-base text-ink-muted hover:border-brand-200'
-            )}
+            type="button"
+            onClick={() => setTenantDropdownOpen((v) => !v)}
+            className="flex w-full items-center justify-between rounded-lg border border-border bg-surface-base px-3 py-2 text-sm transition hover:border-brand-200"
           >
-            전체 보기
+            <span className="font-semibold text-ink">{selectedName}</span>
+            <ChevronDown className="h-4 w-4 text-ink-muted" />
           </button>
-          {tenants.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTenantId(t.id)}
-              className={cn(
-                'rounded-lg border px-3 py-1.5 text-xs font-semibold transition',
-                tenantId === t.id
-                  ? 'border-brand bg-brand text-white'
-                  : 'border-border bg-surface-base text-ink-muted hover:border-brand-200'
-              )}
-            >
-              {t.name}
-              {t.is_self && <span className="ml-1 text-[9px]">⭐</span>}
-            </button>
-          ))}
+          {tenantDropdownOpen && (
+            <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-auto rounded-lg border border-border bg-surface-base shadow-lg">
+              <div className="sticky top-0 border-b border-border bg-surface-base p-2">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted" />
+                  <input
+                    type="text"
+                    placeholder="병원명 검색…"
+                    value={tenantSearch}
+                    onChange={(e) => setTenantSearch(e.target.value)}
+                    className="w-full rounded-md border border-border bg-surface-subtle py-1.5 pl-7 pr-2 text-xs focus:border-brand focus:outline-none"
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <ul className="py-1">
+                <li>
+                  <button
+                    onClick={() => {
+                      setTenantId(null);
+                      setTenantDropdownOpen(false);
+                      setTenantSearch('');
+                    }}
+                    className={cn(
+                      'flex w-full items-center justify-between px-3 py-2 text-xs hover:bg-surface-subtle',
+                      tenantId === null && 'bg-brand-50 font-semibold text-brand'
+                    )}
+                  >
+                    <span>전체 보기</span>
+                    <span className="text-[10px] text-ink-muted">{tenants.length}개 통합</span>
+                  </button>
+                </li>
+                {filteredTenants.length === 0 && (
+                  <li className="px-3 py-2 text-xs text-ink-muted">검색 결과 없음</li>
+                )}
+                {filteredTenants.map((t) => (
+                  <li key={t.id}>
+                    <button
+                      onClick={() => {
+                        setTenantId(t.id);
+                        setTenantDropdownOpen(false);
+                        setTenantSearch('');
+                      }}
+                      className={cn(
+                        'flex w-full items-center justify-between px-3 py-2 text-xs hover:bg-surface-subtle',
+                        tenantId === t.id && 'bg-brand-50 font-semibold text-brand'
+                      )}
+                    >
+                      <span>{t.name}</span>
+                      {t.is_self && <span className="text-[10px]">⭐ 자사</span>}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
         <div className="mt-3 text-[11px] text-ink-muted">
-          현재 선택: <strong className="text-ink">{selectedName}</strong> · 최근 30일 기준
+          현재 선택: <strong className="text-ink">{selectedName}</strong> · 최근 30일 기준 ·
+          총 {tenants.length}개 병원
         </div>
       </section>
 
@@ -325,8 +426,15 @@ export default function CitationsPage() {
                     </thead>
                     <tbody>
                       {data.keyword_breakdown.map((k, i) => (
-                        <tr key={i} className="border-t border-border hover:bg-surface-subtle">
-                          <td className="px-3 py-2 font-semibold text-ink">{k.keyword}</td>
+                        <tr
+                          key={i}
+                          className="cursor-pointer border-t border-border hover:bg-brand-50/50"
+                          onClick={() => void openKeywordModal(k.keyword)}
+                          title="클릭하면 AI 응답 상세 보기"
+                        >
+                          <td className="px-3 py-2 font-semibold text-ink hover:text-brand">
+                            {k.keyword} <span className="text-[9px] text-ink-faint">▸</span>
+                          </td>
                           <td className="px-2 py-2 text-right font-mono">{k.mention_count}</td>
                           <td className="px-2 py-2 text-right font-mono">{k.source_count}</td>
                           <td className="px-2 py-2 text-right font-mono text-brand">{k.t1}</td>
@@ -437,6 +545,138 @@ export default function CitationsPage() {
             </div>
           </section>
         </>
+      )}
+
+      {/* === 키워드 클릭 → AI 응답 상세 modal === */}
+      {modalKeyword && (
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-ink/60 p-4 print:hidden"
+          onClick={() => setModalKeyword(null)}
+        >
+          <div
+            className="card max-h-[88vh] w-full max-w-4xl overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-surface-base px-6 py-4">
+              <div>
+                <h3 className="text-base font-bold text-ink">
+                  키워드: <span className="text-brand">{modalKeyword}</span>
+                </h3>
+                <p className="mt-0.5 text-[11px] text-ink-muted">
+                  최근 30일 AI 응답 raw 데이터 (영업 시연용)
+                </p>
+              </div>
+              <button
+                onClick={() => setModalKeyword(null)}
+                className="rounded-md p-1 text-ink-muted hover:bg-surface-muted"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="px-6 py-5">
+              {modalLoading ? (
+                <div className="flex items-center justify-center py-12 text-sm text-ink-muted">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 응답 데이터 로드 중…
+                </div>
+              ) : modalResponses.length === 0 ? (
+                <div className="py-12 text-center text-sm text-ink-muted">
+                  이 키워드의 측정 데이터 없음
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  {modalResponses.map((r, i) => (
+                    <div key={r.response_id} className="rounded-lg border border-border p-4">
+                      <div className="mb-2 flex items-center justify-between text-[11px]">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-md bg-brand/10 px-2 py-0.5 font-bold text-brand">
+                            {r.engine}
+                          </span>
+                          <span className="font-semibold text-ink">{r.tenant_name}</span>
+                          <span className="text-ink-muted">
+                            {new Date(r.created_at).toLocaleString('ko-KR')}
+                          </span>
+                        </div>
+                        <span className="font-mono text-ink-faint">#{i + 1}</span>
+                      </div>
+
+                      {/* AI 응답 raw text */}
+                      <div className="mb-3 rounded-md bg-surface-subtle px-4 py-3">
+                        <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+                          AI 응답 (raw)
+                        </div>
+                        <div className="whitespace-pre-wrap text-xs leading-relaxed text-ink-soft">
+                          {r.raw_text || '(응답 없음)'}
+                        </div>
+                      </div>
+
+                      {/* Mention 추출 결과 */}
+                      {r.mentions.length > 0 && (
+                        <div className="mb-3">
+                          <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+                            추출된 언급 ({r.mentions.length}건)
+                          </div>
+                          <ul className="space-y-1.5">
+                            {r.mentions.map((m, mi) => (
+                              <li key={mi} className="rounded bg-brand-50/40 px-3 py-2 text-xs">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={cn(
+                                      'rounded px-1.5 py-0.5 text-[10px] font-bold',
+                                      m.is_target
+                                        ? 'bg-brand text-white'
+                                        : 'bg-ink-muted/20 text-ink-muted'
+                                    )}
+                                  >
+                                    {m.is_target ? '자사' : '경쟁사'}
+                                  </span>
+                                  <span className="font-semibold text-ink">{m.brand}</span>
+                                  <span className="text-[10px] font-mono text-ink-muted">
+                                    weight {m.weight.toFixed(2)}
+                                  </span>
+                                </div>
+                                <div className="mt-1 text-ink-soft">{m.context_snippet}</div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Citation source URLs */}
+                      {r.source_domains.length > 0 && (
+                        <div>
+                          <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+                            인용 출처 ({r.source_domains.length}개)
+                          </div>
+                          <ul className="space-y-1">
+                            {r.source_domains.slice(0, 10).map((sd, si) => (
+                              <li key={si} className="flex items-start gap-2 text-[11px]">
+                                <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-brand" />
+                                <a
+                                  href={sd.final_url ?? '#'}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-brand-700 underline decoration-dotted hover:text-brand"
+                                >
+                                  <span className="font-mono">{sd.domain}</span>
+                                  {sd.final_url && (
+                                    <span className="ml-1 text-ink-muted">
+                                      — {decodeURIComponent(sd.final_url).slice(0, 80)}
+                                      {sd.final_url.length > 80 && '…'}
+                                    </span>
+                                  )}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
