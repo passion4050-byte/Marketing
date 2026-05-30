@@ -103,6 +103,9 @@ export default function UsersPage() {
       <header className="mb-5 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">사용자 관리 ({users.length})</h1>
+          <p className="mt-1 text-sm text-ink-muted">
+            admin 콘솔 권한 + 초대 관리 — Supabase users 실시간 (로그인은 ADMIN_PASSWORD 유지)
+          </p>
         </div>
         <button onClick={() => setShowInvite(true)} className="btn-primary text-xs">
           <Plus className="h-3.5 w-3.5" /> 사용자 초대

@@ -114,6 +114,9 @@ export default function KeywordsPage() {
     <div className="px-8 py-6">
       <header className="mb-5">
         <h1 className="text-2xl font-bold text-ink">키워드 풀 ({rows.length})</h1>
+        <p className="mt-1 text-sm text-ink-muted">
+          테넌트별 자동 생성 키워드 — Supabase keywords 실시간 연결
+        </p>
       </header>
 
       <div className="card mb-4 p-4">

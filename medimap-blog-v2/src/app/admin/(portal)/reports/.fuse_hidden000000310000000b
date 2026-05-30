@@ -62,6 +62,9 @@ export default function ReportsListPage() {
     <div className="px-8 py-6">
       <header className="mb-5">
         <h1 className="text-2xl font-bold text-ink">월간 보고서 — {period}</h1>
+        <p className="mt-1 text-sm text-ink-muted">
+          클라이언트별 발행/인용/ROI 보고서. [PDF] 클릭 시 브라우저 인쇄 다이얼로그 → &quot;PDF 로 저장&quot;.
+        </p>
       </header>
 
       <div className="mb-4 rounded-lg border border-border bg-surface-subtle px-4 py-3 text-xs text-ink-soft">

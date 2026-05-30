@@ -338,6 +338,9 @@ export default function ContentSettingsPage() {
     <div className="px-8 py-6">
       <header className="mb-5">
         <h1 className="text-2xl font-bold text-ink">콘텐츠 설정</h1>
+        <p className="mt-1 text-sm text-ink-muted">
+          자동 발행 정책 — 톤·길이·CTA·일러스트·디스클레이머. 매 발행 시 generator.py 가 이 값을 읽어 prompt 빌드.
+        </p>
       </header>
 
       <div className="card mb-5 flex items-start gap-3 border-l-4 border-l-status-warn bg-amber-50/70 p-4 text-[12px] text-ink-soft">

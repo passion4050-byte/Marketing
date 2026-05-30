@@ -45,6 +45,7 @@ export default function TenantReportPage() {
             MEDIMAP GEO · Monthly Report
           </div>
           <h1 className="mt-2 text-2xl font-bold text-ink">{tenant.name}</h1>
+          <p className="mt-1 text-sm text-ink-muted">기간: {period} · 카테고리: {tenant.category} · 지역: {tenant.region}</p>
         </header>
 
         <section className="mt-6">

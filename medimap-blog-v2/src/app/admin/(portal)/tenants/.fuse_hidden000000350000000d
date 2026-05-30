@@ -128,6 +128,7 @@ export default function TenantsPage() {
       <header className="mb-5 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">클라이언트 ({tenants.length})</h1>
+          <p className="mt-1 text-sm text-ink-muted">병원/의원 단위 멀티 테넌트 관리 — Supabase tenants 실시간 연결</p>
         </div>
         <button onClick={openNew} className="btn-primary text-xs">
           <Plus className="h-3.5 w-3.5" /> 신규 클라이언트

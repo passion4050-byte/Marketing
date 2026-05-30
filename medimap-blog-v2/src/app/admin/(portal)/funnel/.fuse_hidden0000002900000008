@@ -14,6 +14,7 @@ export default function FunnelPage() {
       <MockBanner source="ShortLink 클릭 + GA4" />
       <header className="mb-5">
         <h1 className="text-2xl font-bold text-ink">Funnel · ROI</h1>
+        <p className="mt-1 text-sm text-ink-muted">ShortLink 클릭 → 문의 매칭 → 클라이언트 ROI</p>
       </header>
 
       <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">

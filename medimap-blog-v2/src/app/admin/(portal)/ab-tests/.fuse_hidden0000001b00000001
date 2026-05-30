@@ -44,6 +44,7 @@ export default function AbTestsPage() {
       <header className="mb-5 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">A/B 콘텐츠 테스트 ({tests.length})</h1>
+          <p className="mt-1 text-sm text-ink-muted">변형 2개를 동시 발행하고 4 엔진 인용 + 전환을 비교</p>
         </div>
         <button onClick={() => setShowNew(true)} className="btn-primary text-xs">
           <Plus className="h-3.5 w-3.5" /> 신규 테스트

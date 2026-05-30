@@ -236,6 +236,9 @@ export default function ContentManagementPage() {
       <header className="mb-5 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">콘텐츠 관리</h1>
+          <p className="mt-1 text-sm text-ink-muted">
+            검수 대기 + 발행 완료 통합 관리 — 승인 시 Supabase status 변경 + /with-partners 자동 노출
+          </p>
         </div>
         <button onClick={() => void load('both')} className="btn-secondary text-xs">새로고침</button>
       </header>
@@ -543,4 +546,21 @@ function PublishedTab({ items }: { items: QueueItem[] }) {
                 <td className="px-4 py-3 text-right">
                   {q.live_url ? (
                     <Link href={q.live_url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text
+                      className="inline-flex items-center gap-1 text-xs text-brand-700 hover:underline">
+                      열기 <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  ) : (
+                    <span className="text-xs text-ink-muted">—</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <div className="border-t border-border bg-surface-subtle px-4 py-2.5 text-[11px] text-ink-muted">
+        조회수 / AI 인용 컬럼은 데이터 파이프라인 연결 후 자동 표시 (GA4 + /admin/citations 통합 예정)
+      </div>
+    </div>
+  );
+}
