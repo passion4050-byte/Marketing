@@ -68,22 +68,31 @@ jobs:
             exit 0
           fi
 
-          # 디버그 — 응답의 첫 row 구조 출력 (tenants 정확한 type 확인용)
-          echo "--- RESP 첫 row 구조 (debug) ---"
-          echo "$RESP" | jq '.[0]' || echo "(empty)"
-          echo "--- END FIRST ROW ---"
+          # 디버그 — RESP raw 첫 600자 + type 확인 (jq 거치지 않고)
+          echo "--- RESP raw (first 600 chars) ---"
+          echo "${RESP:0:600}"
+          echo "--- RESP TYPE ---"
+          RESP_TYPE=$(echo "$RESP" | jq -r 'type' 2>&1 || echo "(jq type failed)")
+          echo "$RESP_TYPE"
+          echo "--- END DEBUG ---"
 
-          # 글 목록 추출 — tenants 를 무조건 array 로 wrap (flatten) 후 첫 element.name.
-          # null/object/array/missing 모두 안전 처리. 가장 robust 패턴.
-          DRAFT_LIST=$(echo "$RESP" | jq -r '
+          # RESP 가 array 가 아니면 강제 wrap (예외 대응)
+          if [ "$RESP_TYPE" != "array" ]; then
+            RESP_ARRAY=$(echo "$RESP" | jq '[.]' 2>/dev/null || echo "[]")
+          else
+            RESP_ARRAY="$RESP"
+          fi
+
+          # 글 목록 추출 — tenants 무조건 array wrap 후 [0].name.
+          DRAFT_LIST=$(echo "$RESP_ARRAY" | jq -r '
             .[0:10][] |
             (([.tenants] | flatten | .[0]) // {}) as $t |
             ($t.name // "(unknown)") as $tname |
-            "• [\(.id)] \($tname) — \(.title // .keyword_text // "(제목 없음)")"
-          ')
+            "• [\(.id // "?")] \($tname) — \(.title // .keyword_text // "(제목 없음)")"
+          ' 2>&1 || echo "(목록 생성 실패)")
           echo "--- DRAFT_LIST (debug) ---"
           echo "$DRAFT_LIST"
-          echo "--- END DEBUG ---"
+          echo "--- END LIST DEBUG ---"
 
           WEBHOOK=$(echo -n "$SLACK_REMINDER_WEBHOOK" | tr -d '\n\r' | sed 's/[[:space:]]*$//')
           ADMIN_URL="https://geo-v2-git-main-medimaps-projects.vercel.app/admin/content-queue"
