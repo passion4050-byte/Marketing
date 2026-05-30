@@ -52,6 +52,24 @@ jobs:
             -H "apikey: $SUPA_KEY" \
             -H "Authorization: Bearer $SUPA_KEY")
 
+          # Round 29 fix 10 (2026-05-30): RESP type guard.
+          # SUPABASE_SERVICE_ROLE_KEY 가 invalid 하면 PostgREST 가 error object 반환:
+          #   {"message":"Invalid API key", "hint":"..."}
+          # 이전 코드는 jq 'length' 가 object key 개수(2)를 세서 false alarm "2건" 발송.
+          # type 이 array 가 아니면 명시적으로 에러 처리 + Slack 알림 skip.
+          RESP_TYPE=$(echo "$RESP" | jq -r 'type' 2>/dev/null || echo "error")
+          if [ "$RESP_TYPE" != "array" ]; then
+            echo "::error::PostgREST 응답이 array 가 아님 (type=$RESP_TYPE)"
+            echo "RESP (first 300): ${RESP:0:300}"
+            {
+              echo "## 검수 알림 결과"
+              echo "- ⚠️ Supabase API 에러 — SUPABASE_SERVICE_ROLE_KEY 확인 필요"
+              echo "- RESP type: $RESP_TYPE"
+              echo "- RESP head: \`${RESP:0:200}\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
           DRAFT_COUNT=$(echo "$RESP" | jq 'length')
           echo "Draft count: $DRAFT_COUNT"
 
