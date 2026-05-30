@@ -234,6 +234,8 @@ async def _resolve_recent_source_domains(sql_engine) -> None:
 
     import json
     with sql_engine.connect() as conn:
+        # cited_urls 는 json type (not jsonb) — json_array_length 사용 또는 jsonb cast.
+        # 또는 단순히 NULL 체크만 하고 Python 에서 list 검증.
         rows = conn.execute(text(
             """
             SELECT r.id, r.cited_urls
@@ -241,7 +243,6 @@ async def _resolve_recent_source_domains(sql_engine) -> None:
             WHERE r.created_at > NOW() - INTERVAL '10 min'
               AND r.source_domains IS NULL
               AND r.cited_urls IS NOT NULL
-              AND jsonb_array_length(r.cited_urls) > 0
             """
         )).mappings().all()
 
