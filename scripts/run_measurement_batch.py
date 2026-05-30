@@ -143,13 +143,21 @@ async def main() -> int:
     Session = sessionmaker(bind=sql_engine, autoflush=False, autocommit=False)
 
     # 대상 키워드 수집 — is_active=true
+    # Round 34 (2026-05-30): purpose 도 같이 가져옴 (own | competitor_landscape).
+    # responses 의 query 가 어느 카테고리인지 추적 가능.
+    purpose_filter = os.environ.get("PURPOSE_FILTER", "").strip().lower()  # 'own' | 'competitor_landscape' | ''
+    where_purpose = ""
+    if purpose_filter in ("own", "competitor_landscape"):
+        where_purpose = f"AND k.purpose = '{purpose_filter}'"
+        logger.info("PURPOSE_FILTER=%s", purpose_filter)
     with sql_engine.connect() as conn:
         rows = conn.execute(text(
-            """
+            f"""
             SELECT k.id, k.tenant_id, k.text AS keyword_text, t.name AS tenant_name,
-                   k.target_brand
+                   k.target_brand, k.purpose
             FROM keywords k JOIN tenants t ON t.id=k.tenant_id
             WHERE k.is_active = true
+              {where_purpose}
             ORDER BY k.id
             LIMIT :limit
             """

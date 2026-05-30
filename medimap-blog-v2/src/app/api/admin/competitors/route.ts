@@ -107,7 +107,23 @@ export async function GET(req: Request) {
 
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  // 2. queries → tenant 필터링
+  // 2. competitor_landscape keywords 만 추출 (Round 34 phase 2 — 비즈니스 모델 키워드)
+  let landscapeKwQuery = sb
+    .from('keywords')
+    .select('id, text, tenant_id')
+    .eq('purpose', 'competitor_landscape')
+    .eq('is_active', true);
+  if (tenantIdFilter) landscapeKwQuery = landscapeKwQuery.eq('tenant_id', tenantIdFilter);
+  const { data: landscapeKeywords } = await landscapeKwQuery;
+  const landscapeKwIds = new Set(
+    (landscapeKeywords ?? []).map((k: { id: number }) => k.id)
+  );
+  const keywordTextMap = new Map<number, string>();
+  (landscapeKeywords ?? []).forEach((k: { id: number; text: string }) => {
+    keywordTextMap.set(k.id, k.text);
+  });
+
+  // 3. queries — competitor_landscape 키워드 + tenant 필터
   let queriesQuery = sb
     .from('queries')
     .select('id, tenant_id, keyword_id')
@@ -116,19 +132,11 @@ export async function GET(req: Request) {
   const { data: queries } = await queriesQuery;
   const queryKeywordMap = new Map<number, number>();
   (queries ?? []).forEach((q: { id: number; keyword_id: number }) => {
-    queryKeywordMap.set(q.id, q.keyword_id);
+    if (landscapeKwIds.has(q.keyword_id)) {
+      queryKeywordMap.set(q.id, q.keyword_id);
+    }
   });
   const validQueryIds = new Set(queryKeywordMap.keys());
-
-  // 3. keywords text
-  const keywordIds = Array.from(new Set(Array.from(queryKeywordMap.values())));
-  const keywordTextMap = new Map<number, string>();
-  if (keywordIds.length > 0) {
-    const { data: kws } = await sb.from('keywords').select('id, text').in('id', keywordIds);
-    (kws ?? []).forEach((k: { id: number; text: string }) => {
-      keywordTextMap.set(k.id, k.text);
-    });
-  }
 
   // 4. responses 의 source_domains 집계 — 경쟁사 중심
   const { data: respRows } = await sb

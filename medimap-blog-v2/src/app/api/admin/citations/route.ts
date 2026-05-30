@@ -140,6 +140,19 @@ export async function GET(req: Request) {
     mentionTrend.push({ date: ds.slice(5), count: mentionByDate.get(ds) ?? 0 });
   }
 
+  // Round 34 phase 2 — purpose='own' 키워드만 (자사 추적 페이지)
+  // competitor_landscape 키워드 (BGN '라식', '라섹' 등) 는 별도 /admin/competitors 페이지에서 표시.
+  let ownKwQuery = sb
+    .from('keywords')
+    .select('id, text, tenant_id')
+    .or('purpose.eq.own,purpose.is.null') // null 도 자사로 (기존 데이터 호환)
+    .eq('is_active', true);
+  if (tenantIdFilter) ownKwQuery = ownKwQuery.eq('tenant_id', tenantIdFilter);
+  const { data: ownKeywords } = await ownKwQuery;
+  const ownKwIds = new Set(
+    (ownKeywords ?? []).map((k: { id: number }) => k.id)
+  );
+
   // 3. queries 의 tenant_id 매핑 (responses 의 tenant 필터링용)
   let queriesQuery = sb.from('queries').select('id, tenant_id, keyword_id').gte('requested_at', cutoff);
   if (tenantIdFilter) {
@@ -149,6 +162,8 @@ export async function GET(req: Request) {
   const queryTenantMap = new Map<number, number>();
   const queryKeywordMap = new Map<number, number>();
   (queriesRows ?? []).forEach((q: { id: number; tenant_id: number; keyword_id: number }) => {
+    // own 키워드만 포함
+    if (!ownKwIds.has(q.keyword_id)) return;
     queryTenantMap.set(q.id, q.tenant_id);
     queryKeywordMap.set(q.id, q.keyword_id);
   });
