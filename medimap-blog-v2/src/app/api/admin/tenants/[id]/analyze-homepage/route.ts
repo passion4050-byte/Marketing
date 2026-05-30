@@ -144,16 +144,30 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   // 3. 텍스트 signals 추출
   const text = extractTextSignals(html);
-  if (!text || text.length < 50) {
-    return NextResponse.json(
-      { ok: false, error: '홈페이지에서 텍스트 추출 실패 — 빈 페이지 또는 JS-only 사이트' },
-      { status: 422 }
-    );
-  }
 
   // 4. 의료 키워드 매칭
   const candidates = getKeywordCandidates(tenant.domain_category);
-  const matched = extractMatchedKeywords(text, candidates, 8);
+  let matched = extractMatchedKeywords(text, candidates, 8);
+  let fallbackUsed: string | null = null;
+
+  // Round 34 phase 4 fix (2026-05-30): SPA/redirect 사이트 대응.
+  // 추출 결과 0개면 domain_category 의 default 키워드로 fallback.
+  // 예: 안과 tenant → 라식/라섹/스마일라식/백내장/노안교정 (가장 대표적 5개)
+  if (matched.length === 0) {
+    fallbackUsed = 'domain_category_default';
+    const defaultsByCategory: Record<string, string[]> = {
+      안과: ['라식', '라섹', '스마일라식', '백내장', '노안교정'],
+      피부과: ['여드름', '필러', '보톡스', '리쥬란', '레이저토닝'],
+      성형외과: ['쌍꺼풀', '코성형', '안면윤곽', '가슴성형', '지방흡입'],
+      치과: ['임플란트', '교정', '치아미백', '신경치료', '라미네이트'],
+      모발이식: ['모발이식', '비절개', 'FUE', '헤어라인', '구레나룻'],
+      내과: ['건강검진', '내시경', '당뇨', '갑상선', '고혈압'],
+      한방: ['한약', '다이어트한약', '추나요법', '침구치료', '보약'],
+    };
+    const fallbackList =
+      defaultsByCategory[tenant.domain_category ?? ''] ?? ['진료', '시술', '상담', '치료', '예약'];
+    matched = fallbackList.map((kw) => ({ keyword: kw, count: 1 }));
+  }
 
   // 5. business_model 후보 생성 (top 4~5개)
   const suggestedBusinessModel = matched.slice(0, 5).map((m) => m.keyword).join(',');
@@ -184,8 +198,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     keywords: matched,
     suggested_business_model: suggestedBusinessModel,
     applied,
-    note: applied
-      ? 'tenant.business_model 자동 UPDATE 완료 → DB trigger 가 keywords 자동 등록함'
-      : 'preview only — apply=true 로 호출하면 자동 적용',
+    fallback_used: fallbackUsed,
+    note: fallbackUsed
+      ? `홈페이지가 SPA/redirect 사이트 — 텍스트 추출 실패. ${tenant.domain_category} 카테고리 default 키워드로 fallback. 운영자 직접 입력 권장.`
+      : applied
+        ? 'tenant.business_model 자동 UPDATE 완료 → DB trigger 가 keywords 자동 등록함'
+        : 'preview only — apply=true 로 호출하면 자동 적용',
   });
 }
