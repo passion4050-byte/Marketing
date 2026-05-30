@@ -709,3 +709,190 @@ Pollinations.AI 는 새 URL 의 첫 요청 시 5~30초 lazy generation. 그 동�
 - **Gemini 503 retry 안정화** — Anthropic Sonnet fallback provider 우선순위
 - **콘텐츠 검수 자동 알림** — Slack/이메일 webhook (매일 cron 끝나면)
 - **자사 tenant 의 키워드 풀 확장** — 현재 3개. 6편 추가 발행 후 / 운영 데이터 보고 12~20개로 확장
+
+---
+
+## Round 29 fix 10~12 (2026-05-30 오후) — 검수 알림 + 어드민 통합 end-to-end 완성
+
+### 시행착오 비용
+
+**fix 1~9** (약 1~2시간 낭비): 추측만으로 9차례 push 반복. 가설들이 전부 빗나감 (jq 파싱 / multiline output / tenants join 표기 / secret newline / bash scope).
+
+**fix 10~12** (약 30분, 정답까지 직진): stdout / Network Response / SQL raw 확인 후 진단.
+
+### 진짜 원인 3가지
+
+**1. SUPABASE_SERVICE_ROLE_KEY GitHub Secret 미설정 (review-reminder workflow)**
+- 증상: Slack "2건" false alarm (DB 0건)
+- 원인: PostgREST 가 invalid key 시 error object `{"message":"...", "hint":"..."}` 반환. `jq 'length'` 가 object key 개수(2) 카운트.
+- fix 10: workflow 에 `jq -r 'type'` 으로 array 검증 가드. object 면 ⚠️ 로그 + Slack skip.
+
+**2. Vercel 환경변수 SUPABASE_SERVICE_ROLE_KEY 미설정 (어드민)**
+- 증상: 어드민 검수 큐 0건 표시 (DB 1건)
+- 원인: `getServerClient()` 가 service_role 없으면 anon fallback. RLS 활성 + 정책 0개라 anon 으로는 draft 접근 차단.
+- fix: Vercel Project → Environment Variables 에 추가 (All Environments). Redeploy 시 **Build Cache 해제** 필수.
+
+**3. PostgREST nested embed 가 inner join 으로 작동 (content-queue API)**
+- 증상: service_role 정상 + DB 1건 정상인데 어드민 API 만 빈 array 반환
+- 원인: Supabase JS `.select('id, ..., tenants:tenant_id ( id, name )')` 가 inner join 으로 평가. tenant row 매칭 / schema cache 영향.
+- fix 12: embed 제거 + tenants 별도 `.in('id', tenantIds)` fetch + Map merge.
+
+### 새 함정 (Round 29 추가)
+
+**(A) PostgREST embed inner join 함정**
+
+```typescript
+// ❌ 위험 — embed 가 0건 반환 가능
+.select(`id, ..., tenants:tenant_id ( id, name )`)
+
+// ✅ 안전 — 별도 query + Map merge
+const { data } = await sb.from('main').select('id, fk_id, ...').filter(...);
+const ids = [...new Set(data.map(r => r.fk_id))];
+const { data: rels } = await sb.from('related').select(...).in('id', ids);
+const relMap = new Map(rels.map(r => [r.id, r]));
+const items = data.map(r => ({ ...r, related: relMap.get(r.fk_id) ?? null }));
+```
+
+적용: 어드민 multi-tenant 조회 전반. 신규 admin 라우트도 같은 패턴.
+
+**(B) PostgREST error object — jq length false alarm**
+
+```bash
+# workflow / cron 에서 PostgREST 응답 처리 시 type 가드 필수
+RESP_TYPE=$(echo "$RESP" | jq -r 'type' 2>/dev/null || echo "error")
+if [ "$RESP_TYPE" != "array" ]; then
+  echo "::error::PostgREST 응답이 array 아님 (type=$RESP_TYPE)"
+  exit 0  # workflow success 유지 + alert skip
+fi
+```
+
+### 운영 디버깅 원칙 (반드시 준수)
+
+데이터 처리 워크플로 (cron / API / DB query) 디버깅 시:
+
+1. **first action = raw 응답 확인** — 절대 코드부터 만지지 말 것
+   - GitHub Actions: step 로그 펼치기 (stdout)
+   - Next.js API: 브라우저 F12 → Network → Response
+   - DB query: Supabase SQL Editor 에서 직접 실행
+   - 환경변수 의심: debug endpoint 임시 추가 (사용 후 삭제 필수)
+2. 응답 보고 가설 세움 — 응답 안 보고 코드 수정 → push → 재시도 **금지**
+3. stdout / Response 확인이 어려운 환경이면 그것부터 fix (echo 추가, debug logging)
+4. **비용**: 추측 1회 ≈ 5~10분. 8회 ≈ 1시간+. 진단 1회 ≈ 1분.
+
+### Round 29 최종 운영 흐름 (검수 알림 end-to-end)
+
+```
+매일 23:00 UTC (08:00 KST 다음 날):
+  auto-publish cron → Round 28 rotation
+  → 자사 1편(tenant 12) + 파트너 1편 draft INSERT
+  ↓
+매일 00:00 UTC (09:00 KST):
+  review-reminder cron → Supabase REST → draft 카운트 + 목록
+  → Slack "메디맵 어드민 검수 대기 N건" + 글 목록 + 바로가기
+  ↓
+운영자:
+  → Slack 바로가기 → /admin/content-queue 검수 탭
+  → 본문 미리보기 → 메디맵 자체 데이터·사례 정성 추가
+  → 발행 승인 → status='published'
+  → Vercel deploy hook → medimap-blog 갱신
+  → /blog/{영문 slug} 공개
+```
+
+검증 완료: 2026-05-30. 자사 글 id=101 ("의료 GEO 최적화 #101") 이 Slack 알림 + 어드민 검수 탭 모두 정상 표시.
+
+### Round 30 후보 (이번 라운드에서 확인된 작은 이슈들)
+
+- **자사 글 cover_image_url 표시 깨짐** — 검수 큐 cover 회색 박스. UNSPLASH_ACCESS_KEY 등록 + Pollinations realistic fallback 검증
+- **자사 글 라벨 "파트너 medimap-self" 오표시** — 어드민 UI 칩 분기 (`is_partner_content=false` → "자사" 표시)
+- **콘텐츠 완료 탭 TETE → "메디맵" 오표시** — fix 12 의 별도 fetch 패턴으로 정리
+- **옛 한글 slug redirect** — Migration 030 후 옛 URL 404. Next.js redirects 또는 middleware fallback
+- **LLM provider fallback** — Gemini 503 시 Anthropic/OpenAI 자동 retry
+- **debug endpoint 삭제** — `/api/admin/debug-env/route.ts` 보안상 삭제 push 필수 (Round 29 마무리 직후) ✅ commit 6e16035
+
+---
+
+## Round 30 (2026-05-30 저녁) — 운영 안정화 + 대시보드 실데이터 + 디자인 보류
+
+### 적용한 fix
+
+**1. 자사 글 라벨 fix (content-queue/page.tsx)**
+- 옛: `partner_slug` 있으면 무조건 "파트너 · slug" 표시 → 자사인데 "파트너 medimap-self" 오표시
+- 새: `is_partner_content === false` 면 "자사" 칩 (brand 톤), 아니면 "파트너 · slug" 칩 (accent 톤)
+- 검수 탭 + 완료 탭 두 곳 동시 적용
+
+**2. scheduler.py cover 이미지 조건 fix (운영 정상화)**
+- 옛: `if obj.status == "published" and channel == "blog_html":` — Round 28 부터 cron 이 draft 만 생성하므로 이미지 생성 안 됨 → 자사 글 cover ❌ 표시
+- 새: `if obj.status in ("published", "draft") and channel == "blog_html":` — draft 도 cover 생성. 운영자가 검수 화면에서 미리 cover 확인.
+
+**3. 옛 draft 글 cover backfill 스크립트** (`scripts/backfill_drafts_cover.py`)
+- 자사/파트너 draft 중 cover_image_url IS NULL 대상
+- `image_picker.generate_image_for_content(is_self_tenant=...)` 호출
+- `--dry-run` / `--self-only` 옵션
+- 사용자가 로컬에서 수동 실행 (DATABASE_URL + UNSPLASH_ACCESS_KEY env 필요)
+
+**4. 옛 한글 slug → 영문 slug 301 redirect** (`medimap-blog/next.config.js`)
+- `next.config.js` 의 `redirects()` 함수 추가
+- Migration 030 (Round 29) 의 6편 매핑
+- 외부 공유 AEO 손실 방지
+
+**5. 대시보드 mock → 실데이터 연동** (`admin/(portal)/page.tsx`)
+- `'use client'` 제거 + server component (`force-dynamic`) 전환
+- `getServerClient()` (service_role) 로 직접 supabase query
+- KPI: 활성 클라이언트 (자사 제외 tenants COUNT), 검수 대기 (draft/pending COUNT), 오늘 LLM 비용 (llm_call_logs.cost_usd 합산), 24h AI 인용 (Round 31 placeholder)
+- 최근 검수 대기 Top 3: draft/pending top 3 + tenant 이름 (fix 12 패턴 — 별도 fetch + Map merge)
+- 최근 AI 인용: empty state ("Round 31 활성 예정")
+- mock delta (+2 / +4 / +12% / +8) 제거 — 어제 대비 delta 계산은 별도 라운드 후보
+
+### 보류 — 어드민 디자인 시스템 적용
+
+스파링 결정 — **다음 라운드로 미룸**. 이유:
+- 페이지별 영향이 큼 (13개 어드민 페이지)
+- 사용자 부재 중 시각 검증 불가 → 디버깅 위험
+- 토큰은 이미 잘 짜여있음 (`tailwind.config.ts` + `globals.css` 의 brand/accent/surface/ink/status/engine 체계)
+- 다음 라운드에 페이지별 스크린샷 받으면서 점진 적용 권장
+
+### 검수 대기 표시 미스터리 (캡처 — 이번 진단)
+
+캡처: 활성 클라이언트 2개, 검수 대기 4건. 모두 mock data (admin-mock.ts). 실제 DB:
+- tenants 자사 제외 = 6~7개 (BGN/TETE/모우림/추가 파트너)
+- draft = 1건 (id=101 자사)
+
+→ 실데이터 연동 후 KPI 정확 표시 예정.
+
+### Round 30 fix 가 적용된 후 운영 흐름 (변경점)
+
+```
+매일 23:00 UTC cron:
+  scheduler.daily_auto_content_job() →
+    자사 1편 + 파트너 1편 draft INSERT
+    + cover 이미지 자동 생성 (Round 30 fix — draft 포함)
+    + 본문 figure 자동 생성
+  ↓
+어드민 대시보드 (Round 30 fix — 실데이터):
+  - 활성 클라이언트 = 실제 파트너 tenants 수
+  - 검수 대기 = 실제 draft/pending COUNT
+  - 오늘 LLM 비용 = 실제 cost_usd 합산
+  - 최근 검수 대기 Top 3 = 실제 draft 글 + tenant 이름
+  ↓
+어드민 검수 탭 (Round 30 fix — 자사 칩):
+  - 자사 글: "메디맵" tenant 칩 + "자사" 라벨 (brand 톤)
+  - 파트너 글: "BGN 밝은눈안과" 등 tenant 칩 + "파트너 · bgn" 라벨 (accent 톤)
+  - cover 이미지 정상 표시 (Round 30 scheduler fix 가 다음 cron 부터 효력)
+```
+
+### Round 31 후보 (옵션 C — AI 인용 추적 MVP)
+
+목표: 자사 글이 실제 AI 검색 (Perplexity / ChatGPT / Claude / Gemini) 에 인용되는지 측정.
+
+작업:
+1. `mentions` 테이블 활용 (이미 models.py 에 존재) — 또는 새 `citations` 테이블
+2. 자사 글 6편 → 키워드 추출 → 4 엔진 query 변환
+3. 각 엔진 API 호출 → 응답 텍스트 수집
+4. 응답에서 medi-map.co.kr / medimap-blog-phi.vercel.app domain mention 감지 + URL 매칭
+5. `mention_share`, `citation_count` 업데이트 → 대시보드 KPI 활성화
+6. 어드민 `/admin/citations` 페이지 실데이터 표시
+
+위험:
+- 4 엔진 API 비용 (ChatGPT GPT-4 + Claude 가 비쌈) → 자사 6편 × 4 엔진 = 24 query/일 × $0.01~0.03 ≈ $1/일
+- 응답 변동성 + mention 매칭 false positive
+- Perplexity 가 가장 적합 (정확한 인용 + 출처 URL 명시), 나머지는 paraphrase 가능

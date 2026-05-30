@@ -346,7 +346,10 @@ def _generate_draft(
         # 2026-05-24: blog_html 자동 발행 시 Pollinations.AI 일러스트 자동 첨부.
         # 2026-05-28 Round 22: cover 1장 + 본문 N장 (content_settings.image_count_total - 1).
         # IMAGE_GEN_ENABLED=true 일 때만. 실패해도 발행 자체는 진행 (graceful).
-        if obj.status == "published" and channel == "blog_html":
+        # Round 30 (2026-05-30) fix: status='draft' 도 이미지 생성. Round 28 검수 단계 cron
+        #   (auto_publish=false) 으로 인해 draft 만 저장 → 옛 'published' 조건으로는 cover 가
+        #   비어있는 채 draft 가 검수 큐에 도착. 운영자가 검수 화면에서 미리 cover 확인하도록.
+        if obj.status in ("published", "draft") and channel == "blog_html":
             try:
                 from src.content.image_picker import (
                     generate_image_for_content,

@@ -1,37 +1,190 @@
-'use client';
-
+/**
+ * Round 30 (2026-05-30) — 어드민 운영 대시보드.
+ *
+ * 옛 코드는 mock data (adminTenants, contentQueue, citationEvents, costDaily) 사용.
+ * 이번 라운드에서 server component 로 전환 + Supabase 실데이터 직접 query.
+ *
+ * 표시 데이터:
+ *   - 활성 클라이언트 = 자사 제외 tenants 카운트
+ *   - 검수 대기 = generated_contents WHERE status IN ('draft', 'pending')
+ *   - 오늘 LLM 비용 = llm_call_logs 합산 (미수집 시 — 표시)
+ *   - 24h AI 인용 = citations 미구현 → "Round 31 활성 예정" placeholder
+ *   - 최근 검수 대기 Top 3 = draft/pending top 3 + tenant 이름 (별도 fetch — fix 12 패턴)
+ *   - 최근 AI 인용 = 미구현 → 빈 상태 메시지
+ */
 import { ArrowUpRight, ClipboardCheck, DollarSign, Users, Zap } from 'lucide-react';
 import Link from 'next/link';
-import { adminTenants, contentQueue, citationEvents, costDaily } from '@/lib/admin-mock';
+import { getServerClient } from '@/lib/supabase';
 import { cn } from '@/lib/cn';
 
-export default function AdminDashboardPage() {
-  const activeTenants = adminTenants.filter((t) => t.status === 'active').length;
-  const pendingQueue = contentQueue.length;
-  const todayCost = costDaily[costDaily.length - 1]?.usd ?? 0;
-  const recentCitations = citationEvents.slice(0, 3);
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+type DraftRow = {
+  id: number;
+  tenant_id: number;
+  title: string | null;
+  keyword_text: string | null;
+  llm_provider: string | null;
+  compliance_status: string | null;
+};
+
+type TenantRow = { id: number; name: string | null };
+
+async function fetchDashboardData() {
+  const sb = getServerClient();
+  if (!sb) {
+    return {
+      activeTenants: 0,
+      pendingQueue: 0,
+      todayCost: 0,
+      citations24h: 0,
+      recentDrafts: [] as Array<DraftRow & { tenant_name: string }>,
+      recentCitations: [] as Array<{
+        id: string;
+        query: string;
+        tenantName: string;
+        engine: string;
+        citedAt: string;
+      }>,
+      error: 'supabase not configured',
+    };
+  }
+
+  // 1. 활성 클라이언트 — 자사 제외 tenants 카운트
+  const { count: clientCount } = await sb
+    .from('tenants')
+    .select('id', { count: 'exact', head: true })
+    .neq('business_model', 'self')
+    .neq('partner_slug', 'medimap-self');
+
+  // 2. 검수 대기 — draft + pending COUNT
+  const { count: pendingCount } = await sb
+    .from('generated_contents')
+    .select('id', { count: 'exact', head: true })
+    .in('status', ['draft', 'pending']);
+
+  // 3. 오늘 LLM 비용 — llm_call_logs 합산 (today UTC)
+  // 컬럼 확인 — tokens_input, tokens_output, cost_usd 가 있을 것 (없을 수도)
+  let todayCost = 0;
+  let costError: string | null = null;
+  try {
+    const todayUtc = new Date().toISOString().slice(0, 10);
+    const { data: costRows, error: costErr } = await sb
+      .from('llm_call_logs')
+      .select('cost_usd')
+      .gte('called_at', `${todayUtc}T00:00:00Z`)
+      .lt('called_at', `${todayUtc}T23:59:59Z`);
+    if (costErr) {
+      costError = costErr.message;
+    } else {
+      todayCost = (costRows ?? []).reduce(
+        (sum, r: { cost_usd: number | null }) => sum + (r.cost_usd ?? 0),
+        0
+      );
+    }
+  } catch (e) {
+    costError = e instanceof Error ? e.message : String(e);
+  }
+
+  // 4. 24h AI 인용 — citations 테이블 미구현 → 0 + Round 31 안내
+  // (Round 31 에 mention_share/citations 테이블 구현 예정)
+  const citations24h = 0;
+
+  // 5. 최근 검수 대기 Top 3 — draft/pending top 3 + tenant 이름 (fix 12 패턴: 별도 fetch)
+  const { data: draftRows } = await sb
+    .from('generated_contents')
+    .select('id, tenant_id, title, keyword_text, llm_provider, compliance_status')
+    .in('status', ['draft', 'pending'])
+    .order('created_at', { ascending: false })
+    .limit(3);
+
+  const tenantIds = Array.from(
+    new Set((draftRows ?? []).map((r: DraftRow) => r.tenant_id).filter((x) => x != null))
+  );
+  const tenantMap = new Map<number, string>();
+  if (tenantIds.length > 0) {
+    const { data: tenantsData } = await sb
+      .from('tenants')
+      .select('id, name')
+      .in('id', tenantIds);
+    (tenantsData ?? []).forEach((t: TenantRow) => {
+      tenantMap.set(t.id, t.name ?? '(unknown)');
+    });
+  }
+
+  const recentDrafts = (draftRows ?? []).map((r: DraftRow) => ({
+    ...r,
+    tenant_name: tenantMap.get(r.tenant_id) ?? '(unknown)',
+  }));
+
+  return {
+    activeTenants: clientCount ?? 0,
+    pendingQueue: pendingCount ?? 0,
+    todayCost,
+    citations24h,
+    recentDrafts,
+    recentCitations: [] as Array<{
+      id: string;
+      query: string;
+      tenantName: string;
+      engine: string;
+      citedAt: string;
+    }>,
+    error: costError,
+  };
+}
+
+export default async function AdminDashboardPage() {
+  const d = await fetchDashboardData();
 
   const KPIS = [
-    { label: '활성 클라이언트', value: activeTenants, suffix: '개', delta: '+2', href: '/admin/tenants', icon: Users },
-    { label: '검수 대기', value: pendingQueue, suffix: '건', delta: '+4', href: '/admin/content-queue', icon: ClipboardCheck },
-    { label: '오늘 LLM 비용', value: `$${todayCost.toFixed(2)}`, suffix: '', delta: '+12%', href: '/admin/cost', icon: DollarSign },
-    { label: '24h AI 인용', value: citationEvents.length, suffix: '건', delta: '+8', href: '/admin/citations', icon: Zap }
+    {
+      label: '활성 클라이언트',
+      value: d.activeTenants,
+      suffix: '개',
+      href: '/admin/tenants',
+      icon: Users,
+    },
+    {
+      label: '검수 대기',
+      value: d.pendingQueue,
+      suffix: '건',
+      href: '/admin/content-queue',
+      icon: ClipboardCheck,
+    },
+    {
+      label: '오늘 LLM 비용',
+      value: `$${d.todayCost.toFixed(2)}`,
+      suffix: '',
+      href: '/admin/cost',
+      icon: DollarSign,
+    },
+    {
+      label: '24h AI 인용',
+      value: d.citations24h,
+      suffix: '건',
+      href: '/admin/citations',
+      icon: Zap,
+    },
   ];
 
   return (
     <div className="px-8 py-6">
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-ink">운영 대시보드</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          전체 클라이언트 현황을 한눈에 확인합니다.
-        </p>
+        <p className="mt-1 text-sm text-ink-muted">전체 클라이언트 현황을 한눈에 확인합니다.</p>
       </header>
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {KPIS.map((k) => {
           const Icon = k.icon;
           return (
-            <Link key={k.label} href={k.href} className="card card-pad transition hover:border-brand-200">
+            <Link
+              key={k.label}
+              href={k.href}
+              className="card card-pad transition hover:border-brand-200"
+            >
               <div className="flex items-start justify-between">
                 <div className="kpi-label">{k.label}</div>
                 <span className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-50 text-brand-700">
@@ -42,9 +195,6 @@ export default function AdminDashboardPage() {
                 <div className="kpi-value">{k.value}</div>
                 <span className="text-sm text-ink-muted">{k.suffix}</span>
               </div>
-              <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-status-successSoft px-2 py-0.5 text-xs font-semibold text-status-success">
-                ▲ {k.delta}
-              </div>
             </Link>
           );
         })}
@@ -54,65 +204,78 @@ export default function AdminDashboardPage() {
         <div className="card">
           <header className="flex items-center justify-between border-b border-border px-5 py-4">
             <h2 className="section-title">최근 검수 대기 (Top 3)</h2>
-            <Link href="/admin/content-queue" className="text-xs font-semibold text-brand-700 hover:underline">
+            <Link
+              href="/admin/content-queue"
+              className="text-xs font-semibold text-brand-700 hover:underline"
+            >
               전체 보기 <ArrowUpRight className="inline h-3 w-3" />
             </Link>
           </header>
-          <ul className="divide-y divide-border">
-            {contentQueue.slice(0, 3).map((q) => (
-              <li key={q.id} className="px-5 py-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold text-ink truncate">{q.title}</div>
-                    <div className="mt-1 text-[11px] text-ink-muted">
-                      {q.tenantName} · {q.keyword} · {q.generator}
+          {d.recentDrafts.length === 0 ? (
+            <div className="px-5 py-8 text-center text-sm text-ink-muted">
+              검수 대기 글이 없습니다. 다음 cron 사이클까지 대기.
+            </div>
+          ) : (
+            <ul className="divide-y divide-border">
+              {d.recentDrafts.map((q) => (
+                <li key={q.id} className="px-5 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-ink">
+                        {q.title || '(제목 없음)'}
+                      </div>
+                      <div className="mt-1 text-[11px] text-ink-muted">
+                        {q.tenant_name}
+                        {q.keyword_text ? ` · ${q.keyword_text}` : ''}
+                        {q.llm_provider ? ` · ${q.llm_provider}` : ''}
+                      </div>
                     </div>
-                  </div>
-                  <span
-                    className={cn(
-                      'shrink-0 inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold',
-                      q.lintScore >= 95 ? 'bg-status-successSoft text-status-success' :
-                      q.lintScore >= 85 ? 'bg-status-warningSoft text-status-warning' :
-                      'bg-status-dangerSoft text-status-danger'
+                    {q.compliance_status && (
+                      <span
+                        className={cn(
+                          'inline-flex shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold',
+                          q.compliance_status === 'pass'
+                            ? 'bg-status-successSoft text-status-success'
+                            : q.compliance_status === 'warn'
+                              ? 'bg-status-warningSoft text-status-warning'
+                              : 'bg-status-dangerSoft text-status-danger'
+                        )}
+                      >
+                        의료법 {q.compliance_status.toUpperCase()}
+                      </span>
                     )}
-                  >
-                    린트 {q.lintScore}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div className="card">
           <header className="flex items-center justify-between border-b border-border px-5 py-4">
             <h2 className="section-title">최근 AI 인용 (24h)</h2>
-            <Link href="/admin/citations" className="text-xs font-semibold text-brand-700 hover:underline">
+            <Link
+              href="/admin/citations"
+              className="text-xs font-semibold text-brand-700 hover:underline"
+            >
               전체 보기 <ArrowUpRight className="inline h-3 w-3" />
             </Link>
           </header>
-          <ul className="divide-y divide-border">
-            {recentCitations.map((c) => (
-              <li key={c.id} className="px-5 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold text-ink truncate">{c.query}</div>
-                    <div className="mt-1 text-[11px] text-ink-muted">
-                      {c.tenantName} · {c.engine} · {new Date(c.citedAt).toLocaleString('ko-KR')}
-                    </div>
-                  </div>
-                  <span className={cn(
-                    'shrink-0 inline-flex h-2 w-2 rounded-full',
-                    c.engine === 'chatgpt' ? 'bg-engine-chatgpt' :
-                    c.engine === 'claude' ? 'bg-engine-claude' :
-                    c.engine === 'gemini' ? 'bg-engine-gemini' : 'bg-engine-perplexity'
-                  )} />
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className="px-5 py-8 text-center text-sm text-ink-muted">
+            <Zap className="mx-auto mb-2 h-6 w-6 text-ink-faint" />
+            <div>AI 인용 추적 — Round 31 (예정)</div>
+            <div className="mt-1 text-[11px] text-ink-faint">
+              4 엔진 (Perplexity / ChatGPT / Claude / Gemini) 인용 측정 MVP 활성 후 표시
+            </div>
+          </div>
         </div>
       </section>
+
+      {d.error && (
+        <div className="mt-6 rounded-md border border-status-warningSoft bg-status-warningSoft/30 px-4 py-3 text-xs text-status-warning">
+          ⚠️ 일부 데이터 fetch 에러: {d.error}
+        </div>
+      )}
     </div>
   );
 }

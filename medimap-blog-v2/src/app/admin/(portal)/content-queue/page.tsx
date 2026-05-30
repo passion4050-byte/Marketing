@@ -421,11 +421,16 @@ function PendingTab({
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="chip-brand">{q.tenant_name}</span>
-                {q.partner_slug && (
+                {/* Round 30 (2026-05-30): is_partner_content 분기. 자사 글은 '자사' 칩, 파트너 글은 'partner · slug' 칩. */}
+                {q.is_partner_content === false ? (
+                  <span className="rounded-md bg-brand/10 px-1.5 py-0.5 text-[10px] font-bold text-brand">
+                    자사
+                  </span>
+                ) : q.partner_slug ? (
                   <span className="rounded-md bg-accent/10 px-1.5 py-0.5 text-[10px] font-bold text-accent">
                     파트너 · {q.partner_slug}
                   </span>
-                )}
+                ) : null}
                 <span className="text-[11px] text-ink-muted">{q.llm_provider || q.channel || '?'}</span>
                 {q.keyword_text && <span className="text-[11px] text-ink-muted">· {q.keyword_text}</span>}
               </div>
@@ -506,9 +511,12 @@ function PublishedTab({ items }: { items: QueueItem[] }) {
                 <td className="px-4 py-3 text-xs font-semibold text-brand-700">{ko}</td>
                 <td className="px-4 py-3">
                   <div className="text-sm font-semibold text-ink">{q.tenant_name}</div>
-                  {q.partner_slug && (
+                  {/* Round 30 (2026-05-30): 자사면 '자사' 라벨, 파트너면 partner_slug 라벨 */}
+                  {q.is_partner_content === false ? (
+                    <div className="text-[10px] font-mono text-brand">자사</div>
+                  ) : q.partner_slug ? (
                     <div className="text-[10px] font-mono text-ink-muted">{q.partner_slug}</div>
-                  )}
+                  ) : null}
                 </td>
                 <td className="px-4 py-3 max-w-md">
                   <div className="line-clamp-1 text-sm text-ink">{q.title || '(제목 없음)'}</div>
