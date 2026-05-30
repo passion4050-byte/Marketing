@@ -34,15 +34,20 @@ export async function GET(req: NextRequest) {
   const statusFilter: string[] =
     status === 'pending' ? ['draft', 'pending'] : [status];
 
-  let query = sb
+  // Round 29 fix 12 (2026-05-30): tenants 를 inner join 으로 embed 하면
+  // tenant row 가 매칭 안 되는 경우 (예: 자사 tenant_id 가 tenants 에 없거나
+  // PostgREST inner join 으로 작동) generated_contents 가 누락됨.
+  // → 별도 query 로 분리. tenants 가 없어도 generated_contents 는 항상 반환.
+  // 진단: debug-env endpoint 의 단순 query 는 1건 반환 / content-queue 는 0건 반환
+  //       → tenants embed 가 차이의 원인.
+  const query = sb
     .from('generated_contents')
     .select(`
       id, tenant_id, channel, keyword_text, body, title, excerpt, slug,
       status, compliance_status, compliance_report, llm_provider,
       cover_image_url, cover_image_alt,
       is_partner_content, partner_category, blog_category,
-      created_at, updated_at, published_at,
-      tenants:tenant_id ( id, name, partner_slug, domain_category )
+      created_at, updated_at, published_at
     `)
     .in('status', statusFilter);
 
@@ -59,11 +64,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
+  // tenants 별도 fetch — generated_contents 에 등장한 tenant_id 만 한 번에 조회
+  const tenantIds = Array.from(new Set((data ?? []).map((r) => r.tenant_id).filter((x) => x != null)));
+  const tenantMap = new Map<number, { id: number; name: string; partner_slug: string | null; domain_category: string | null }>();
+  if (tenantIds.length > 0) {
+    const { data: tenantsData } = await sb
+      .from('tenants')
+      .select('id, name, partner_slug, domain_category')
+      .in('id', tenantIds);
+    (tenantsData ?? []).forEach((t) => {
+      tenantMap.set(t.id, t as { id: number; name: string; partner_slug: string | null; domain_category: string | null });
+    });
+  }
+
   type Row = (NonNullable<typeof data>)[number];
   const items = (data ?? []).map((r: Row) => {
-    const t = (r as unknown as {
-      tenants: { id: number; name: string; partner_slug: string | null; domain_category: string | null } | null;
-    }).tenants;
+    const t = tenantMap.get(r.tenant_id) ?? null;
     // Round 25 (2026-05-29): 자사 글은 /blog/{slug} 로, 파트너 글은 /with-partners/.../{slug} 로 live_url 생성
     const liveUrl =
       r.status === 'published' && r.slug
