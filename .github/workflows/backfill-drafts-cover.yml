@@ -1,0 +1,93 @@
+name: Backfill drafts cover
+
+# Round 30 (2026-05-30) — draft 글의 빈 cover_image_url backfill.
+#
+# 배경: Round 28 부터 cron 이 status='draft' 로 저장하는데, 옛 scheduler 의 이미지 생성
+#       조건 (status='published') 으로 인해 draft 의 cover 가 비어있음.
+#       Round 30 의 scheduler fix 는 새 글부터 처리하지만, 기존 draft 들의 cover 는
+#       이 workflow 로 backfill.
+#
+# 실행:
+#   - workflow_dispatch (수동 트리거) 만 — 매일 cron 안 함
+#   - 인자: self_only (자사만 / 전체), dry_run (대상 목록만 출력)
+
+on:
+  workflow_dispatch:
+    inputs:
+      self_only:
+        description: '자사 글만 대상 (true/false)'
+        type: boolean
+        default: true
+      dry_run:
+        description: '대상 목록만 출력 (이미지 생성 안 함)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backfill-drafts-cover
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    name: Backfill draft cover images
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify required secrets
+        run: |
+          if [ -z "${{ secrets.DATABASE_URL }}" ]; then
+            echo "::error::DATABASE_URL 미설정"
+            exit 1
+          fi
+          if [ -z "${{ secrets.SUPABASE_URL }}" ] || [ -z "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 미설정 (Storage 업로드용)"
+            exit 1
+          fi
+
+      - name: Run backfill
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          IMAGE_GEN_ENABLED: 'true'
+          POLLINATIONS_MODEL: 'flux'
+        run: |
+          ARGS=""
+          if [ "${{ inputs.self_only }}" = "true" ]; then
+            ARGS="$ARGS --self-only"
+          fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          echo "Running: python scripts/backfill_drafts_cover.py $ARGS"
+          python scripts/backfill_drafts_cover.py $ARGS
+
+      - name: Trigger Vercel deploy hooks (medimap-blog + geo-v2)
+        if: success() && inputs.dry_run == false
+        run: |
+          if [ -n "${{ secrets.VERCEL_DEPLOY_HOOK_BLOG }}" ]; then
+            curl -sS -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_BLOG }}" || true
+            echo "medimap-blog deploy hook triggered"
+          fi
+          if [ -n "${{ secrets.VERCEL_DEPLOY_HOOK_ADMIN }}" ]; then
+            curl -sS -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_ADMIN }}" || true
+            echo "geo-v2 deploy hook triggered"
+          fi
