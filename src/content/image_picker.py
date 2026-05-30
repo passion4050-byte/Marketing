@@ -94,6 +94,18 @@ def _slugify_for_filename(s: str) -> str:
     return s[:60] or "image"
 
 
+def _slugify_for_storage_path(s: str) -> str:
+    """Supabase Storage path 용 — 한글 거부 (InvalidKey 400).
+
+    Round 30 fix (2026-05-30): _slugify_for_filename 은 alt/title 용도로 한글 유지.
+    Storage path 의 key 에 한글이 들어가면 400 InvalidKey 거부.
+    별도 함수로 영문/숫자/하이픈/언더스코어만 허용.
+    """
+    s = re.sub(r"[^a-zA-Z0-9\-_]", "-", s.lower())
+    s = re.sub(r"-+", "-", s).strip("-")
+    return s[:60] or "img"
+
+
 def generate_image_for_content(
     keyword: str,
     title: Optional[str] = None,
@@ -186,7 +198,9 @@ def _upload_to_supabase(img_bytes: bytes, keyword: str, title: Optional[str]) ->
 
     bucket = "post-images"
     sha = hashlib.sha1(img_bytes).hexdigest()[:10]
-    slug = _slugify_for_filename(title or keyword)
+    # Round 30 fix (2026-05-30): Storage path 는 한글 거부 (InvalidKey 400)
+    # → _slugify_for_storage_path 로 영문/숫자만. alt/title 용 slug 는 _slugify_for_filename.
+    slug = _slugify_for_storage_path(title or keyword)
     today = datetime.now(timezone.utc).strftime("%Y%m%d")
     path = f"{today}/{slug}-{sha}.jpg"
 
