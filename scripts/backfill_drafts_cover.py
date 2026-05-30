@@ -39,8 +39,9 @@ def main(self_only: bool = False, dry_run: bool = False) -> int:
     if not db_url:
         logger.error("DATABASE_URL 미설정")
         return 1
+    # requirements.txt 가 psycopg2-binary (v2) 사용. psycopg (v3) 아님.
     if "postgresql" in db_url and "+psycopg" not in db_url:
-        db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+        db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
 
     engine = create_engine(db_url, future=True)
 
