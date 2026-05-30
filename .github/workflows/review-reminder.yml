@@ -68,15 +68,18 @@ jobs:
             exit 0
           fi
 
-          # 글 목록 추출 — PostgREST join 결과는 환경에 따라 object 또는 array 반환.
-          # 둘 다 처리: type 검사 후 분기.
+          # 디버그 — 응답의 첫 row 구조 출력 (tenants 정확한 type 확인용)
+          echo "--- RESP 첫 row 구조 (debug) ---"
+          echo "$RESP" | jq '.[0]' || echo "(empty)"
+          echo "--- END FIRST ROW ---"
+
+          # 글 목록 추출 — tenants 를 무조건 array 로 wrap (flatten) 후 첫 element.name.
+          # null/object/array/missing 모두 안전 처리. 가장 robust 패턴.
           DRAFT_LIST=$(echo "$RESP" | jq -r '
-            .[0:10]
-            | .[]
-            | (if (.tenants | type) == "array" then (.tenants[0].name // "(unknown)")
-               else (.tenants.name // "(unknown)")
-               end) as $tname
-            | "• [\(.id)] \($tname) — \(.title // .keyword_text // "(제목 없음)")"
+            .[0:10][] |
+            (([.tenants] | flatten | .[0]) // {}) as $t |
+            ($t.name // "(unknown)") as $tname |
+            "• [\(.id)] \($tname) — \(.title // .keyword_text // "(제목 없음)")"
           ')
           echo "--- DRAFT_LIST (debug) ---"
           echo "$DRAFT_LIST"
