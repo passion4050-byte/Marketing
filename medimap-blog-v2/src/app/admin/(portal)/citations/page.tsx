@@ -42,6 +42,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { CitationsTabs } from '@/components/admin/CitationsTabs';
 
 type TenantOption = { id: number; name: string; is_self: boolean };
 
@@ -177,7 +178,7 @@ export default function CitationsPage() {
 
   return (
     <div className="px-8 py-6 print:px-0 print:py-0">
-      <header className="mb-5 flex items-center justify-between print:hidden">
+      <header className="mb-3 flex items-center justify-between print:hidden">
         <h1 className="text-2xl font-bold text-ink">AI 인용 추적</h1>
         <div className="flex items-center gap-2">
           <button onClick={() => window.print()} className="btn-secondary text-xs">
@@ -188,6 +189,8 @@ export default function CitationsPage() {
           </button>
         </div>
       </header>
+
+      <CitationsTabs />
 
       {/* 프린트 헤더 (PDF 출력 시만 표시) */}
       <div className="hidden print:mb-6 print:block">
