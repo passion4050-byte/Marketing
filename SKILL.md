@@ -590,7 +590,57 @@ Pollinations.AI 는 새 URL 의 첫 요청 시 5~30초 lazy generation. 그 동�
 
 ---
 
-## 다음 라운드 후보 (Round 28+)
+---
+
+## Round 28 (2026-05-30) — 발행 로테이션 + CTA + 검수 단계 cron
+
+### 배경
+
+- Pollinations 무료 한도 빠르게 소진 (자사 6편 + 파트너 6편 × 매일 × figure 5장 = 60장+)
+- 자사 cron 이 매일 옛 LLM 패턴 글 누적 — 운영자 정리 부담 가중
+- 모든 글 자동 발행 (auto_publish=true) — 정성 안 들어간 글이 라이브로 직행
+
+### 결정
+
+- 매일 발행 **자사 1편 + 파트너 1편 = 총 2편** (Pollinations 부담 90% 절감)
+- **last_run_at ASC 로테이션** — 가장 오래 안 만든 tenant 1개씩 선택 → 자연 라운드로빈
+- **검수 단계 cron**: `auto_publish=false` → status=draft. 운영자가 어드민 검수 후 발행
+- 자사 글 CTA href: `medi-map.co.kr/contact` → `/contact` (medimap-blog 내부)
+
+### 작업
+
+**1. `scheduler.daily_auto_content_job` 로테이션 로직**
+- 활성 setting 을 `last_run_at ASC NULLS FIRST` 정렬
+- 자사 set / 파트너 set 분리 (`business_model='self' or partner_slug='medimap-self'`)
+- 각 set 의 [0] 만 선택 → 매일 2 tenant 만 발행
+
+**2. Migration 029**
+- CTA href 일괄 REPLACE
+- 98/99/100 reject (자사 옛 cron 글)
+- auto_content_settings 일괄 `enabled=true, daily_count=1, auto_publish=false`
+
+### 운영 흐름 (Round 28 이후)
+
+```
+매일 08:00 KST cron 실행 → 자사 1편(draft) + 파트너 1편(draft) 발행
+→ 09:00 KST 운영자가 /admin/content-queue 검수 탭에서:
+   • LLM 초안 확인
+   • 메디맵 자체 데이터·사례 정성 추가
+   • status → published 변경
+→ 라이브 노출
+```
+
+매일 2편만 누적 + 검수 통과한 것만 발행 → 정성과 안정성 확보.
+
+### 알려진 함정 (Round 28 추가)
+
+- **자동 cron + 매일 누적** = 정성 부족 글이 라이브로 직행하는 함정. 검수 단계(auto_publish=false) 가 운영의 정성 안전망.
+- **Pollinations 한도** — 매일 figure 10장(2편 × 5장) 이면 안정. 그 이상이면 일부 X 박스.
+- **last_run_at NULL 처리** — `NULLS FIRST` 안 쓰면 신규 tenant 가 영원히 후순위로 밀림.
+
+---
+
+## 다음 라운드 후보 (Round 29+)
 
 - **한글 slug → 영문 변환** — `scheduler._make_slug` 보정 + 87/88/89 slug 마이그레이션
 - **한글 slug → 영문 변환** — `scheduler._make_slug` 보정 + 기존 87/88/89 slug 마이그레이션

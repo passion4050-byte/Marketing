@@ -140,13 +140,46 @@ def daily_auto_content_job(session_factory) -> dict:
         Keyword,
     )
 
+    from src.storage.models import Tenant as _Tenant
+
     summary = {"tenants": 0, "drafts": 0, "published": 0, "errors": 0}
     default_channels = ["schema_org", "blog_html", "naver_blog", "instagram"]
 
+    # Round 28 (2026-05-30): 로테이션 정책
+    #   - 매일 자사 1편 + 파트너 1편 (총 2편) 만 발행 → Pollinations 부담·운영 검수량 절감
+    #   - 각 set 에서 last_run_at 가장 오래된 tenant 1개 선택 → 자연 로테이션
+    #   - last_run_at NULL 인 신규 tenant 가 가장 먼저 발행됨
     with session_factory() as s:
-        settings = s.query(AutoContentSetting).filter(
-            AutoContentSetting.enabled == True  # noqa: E712
-        ).all()
+        active_settings = (
+            s.query(AutoContentSetting)
+            .filter(AutoContentSetting.enabled == True)  # noqa: E712
+            .order_by(
+                AutoContentSetting.last_run_at.asc().nullsfirst(),
+                AutoContentSetting.tenant_id.asc(),
+            )
+            .all()
+        )
+        self_settings = []
+        partner_settings = []
+        for st in active_settings:
+            tenant = s.get(_Tenant, st.tenant_id)
+            if tenant is None:
+                continue
+            bm = (getattr(tenant, "business_model", "") or "").strip().lower()
+            ps = (getattr(tenant, "partner_slug", "") or "").strip().lower()
+            is_self = bm == "self" or ps == "medimap-self"
+            if is_self:
+                self_settings.append(st)
+            else:
+                partner_settings.append(st)
+
+        # 각 set 에서 1개씩만 선택 (last_run_at ASC 이미 정렬됨 → [0] 이 가장 오래된 것)
+        rotated = []
+        if self_settings:
+            rotated.append(self_settings[0])
+        if partner_settings:
+            rotated.append(partner_settings[0])
+
         plans = [
             (
                 st.tenant_id,
@@ -154,8 +187,14 @@ def daily_auto_content_job(session_factory) -> dict:
                 list(st.channels) if st.channels else list(default_channels),
                 bool(getattr(st, "auto_publish", False)),
             )
-            for st in settings
+            for st in rotated
         ]
+        logger.info(
+            "scheduler.rotation_selected",
+            self_tenants=[st.tenant_id for st in self_settings],
+            partner_tenants=[st.tenant_id for st in partner_settings],
+            rotated_today=[st.tenant_id for st in rotated],
+        )
 
     for tenant_id, daily_count, channels, auto_publish in plans:
         with session_factory() as s:
