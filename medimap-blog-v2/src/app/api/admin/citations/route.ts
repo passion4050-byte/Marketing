@@ -1,22 +1,22 @@
 /**
- * Round 32 (2026-05-30) — AI 인용 분석 API.
+ * Round 32 phase C (2026-05-30) — AI 인용 분석 API + 클라이언트 필터링.
+ *
+ * Query parameter:
+ *   ?tenantId=4   — 특정 클라이언트만 필터링 (생략 시 전체)
  *
  * 5-Tier source 분류:
- *   T1 = 메디맵 자체 (medi-map.co.kr, medimap-blog-phi.vercel.app, pf.kakao.com/_xnWQkG)
- *        → SaaS 직접 효과 (영업 핵심 KPI)
+ *   T1 = 메디맵 자체 (medi-map.co.kr 등)
  *   T2 = 클라이언트 자체 (tenant.homepage)
- *        → 클라이언트 baseline (메디맵과 무관)
- *   T3 = 권위/공식 (msdmanuals, amc.seoul.kr, 종합병원 등)
- *   T4 = 의료 플랫폼 (modoodoc, gangnamunni, 강남언니 등)
- *   T5 = 기타 (경쟁사 + 노이즈)
+ *   T3 = 권위/공식 (MSD 매뉴얼, 종합병원)
+ *   T4 = 의료 플랫폼 (모두닥, 강남언니 등)
+ *   T5 = 기타 (경쟁사 의료 사이트)
  *
- * 응답 구조:
- *   {
- *     mention_trend: [{date, count}, ...30일],
- *     source_tier: {T1, T2, T3, T4, T5, total},
- *     top_domains: [{domain, count, tier}, ...10],
- *     medimap_share_trend: [{date, share_pct}, ...30일]
- *   }
+ * 응답:
+ *   - mention_trend, source_tier, top_domains, medimap_share_trend
+ *   - tenants: 전체 tenant 목록 (selector 용)
+ *   - selected_tenant: 선택된 tenant 정보
+ *   - keyword_breakdown: 키워드별 mention/source 통계
+ *   - competitor_breakdown: 도메인별 + 인용된 키워드 top 3
  */
 import { NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
@@ -24,7 +24,6 @@ import { getServerClient } from '@/lib/supabase';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// T1 — 메디맵 자체 (hard-coded)
 const MEDIMAP_DOMAINS = new Set<string>([
   'medi-map.co.kr',
   'www.medi-map.co.kr',
@@ -32,75 +31,44 @@ const MEDIMAP_DOMAINS = new Set<string>([
   'geo-v2-beta.vercel.app',
   'geo-v2-git-main-medimaps-projects.vercel.app',
 ]);
-
-// 메디맵 카톡 채널 (특정 URL path)
 const MEDIMAP_KAKAO_PATHS = ['_xnWQkG'];
-
-// T3 — 권위/공식 사이트
 const AUTHORITY_DOMAINS = new Set<string>([
-  'www.msdmanuals.com',
-  'msdmanuals.com',
-  'www.amc.seoul.kr',
-  'amc.seoul.kr',
-  'www.samsunghospital.com',
-  'samsunghospital.com',
-  'www.snuh.org',
-  'snuh.org',
+  'www.msdmanuals.com', 'msdmanuals.com',
+  'www.amc.seoul.kr', 'amc.seoul.kr',
+  'www.samsunghospital.com', 'samsunghospital.com',
+  'www.snuh.org', 'snuh.org',
   'sev.iseverance.com',
-  'www.snubh.org',
-  'snubh.org',
-  'www.cha.ac.kr',
+  'www.snubh.org', 'snubh.org',
 ]);
-
-// T4 — 의료 플랫폼
 const PLATFORM_DOMAINS = new Set<string>([
-  'www.modoodoc.com',
-  'modoodoc.com',
-  'www.ddmdandy.com',
-  'ddmdandy.com',
-  'www.gangnam-unni.com',
-  'gangnamunni.com',
-  'www.babitalk.com',
-  'babitalk.com',
-  'strawberry-ent.co.kr',
-  'www.strawberry-ent.co.kr',
+  'www.modoodoc.com', 'modoodoc.com',
+  'www.ddmdandy.com', 'ddmdandy.com',
+  'www.gangnam-unni.com', 'gangnamunni.com',
+  'www.babitalk.com', 'babitalk.com',
+  'strawberry-ent.co.kr', 'www.strawberry-ent.co.kr',
+]);
+const NOISE_DOMAINS = new Set<string>([
+  'www.google.com', 'google.com',
+  'www.youtube.com', 'youtube.com',
 ]);
 
-// 노이즈 도메인 (T5 에서 제외)
-const NOISE_DOMAINS = new Set<string>([
-  'www.google.com',
-  'google.com',
-  'www.youtube.com',
-  'youtube.com',
-]);
+type Tier = 'T1' | 'T2' | 'T3' | 'T4' | 'T5' | 'NOISE';
 
 function classifyDomain(
   domain: string | null,
   finalUrl: string | null,
   clientHomepageDomain: string | null
-): 'T1' | 'T2' | 'T3' | 'T4' | 'T5' | 'NOISE' {
+): Tier {
   if (!domain) return 'NOISE';
   const d = domain.toLowerCase();
-
-  // T1 — 메디맵 자체
   if (MEDIMAP_DOMAINS.has(d)) return 'T1';
   if (d === 'pf.kakao.com' && finalUrl) {
     if (MEDIMAP_KAKAO_PATHS.some((p) => finalUrl.includes(p))) return 'T1';
   }
-
-  // T2 — 클라이언트 자체
   if (clientHomepageDomain && d.endsWith(clientHomepageDomain)) return 'T2';
-
-  // T3 — 권위
   if (AUTHORITY_DOMAINS.has(d)) return 'T3';
-
-  // T4 — 플랫폼
   if (PLATFORM_DOMAINS.has(d)) return 'T4';
-
-  // 노이즈 — 통계에서 제외 (또는 T5 로)
   if (NOISE_DOMAINS.has(d)) return 'NOISE';
-
-  // T5 — 기타 (경쟁사 가능성 높음)
   return 'T5';
 }
 
@@ -119,32 +87,51 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: 'supabase not configured' }, { status: 503 });
   }
 
-  // 30일 전 cutoff
+  const url = new URL(req.url);
+  const tenantIdParam = url.searchParams.get('tenantId');
+  const tenantIdFilter = tenantIdParam ? Number(tenantIdParam) : null;
+
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  // 1. 모든 tenants 의 homepage → 도메인 매핑 (T2 용)
-  const { data: tenants } = await sb
+  // 1. 전체 tenants (selector 용)
+  const { data: tenantsAll } = await sb
     .from('tenants')
-    .select('id, name, homepage');
-  const tenantDomainMap = new Map<number, string>();
-  (tenants ?? []).forEach((t: { id: number; homepage: string | null }) => {
+    .select('id, name, homepage, business_model, partner_slug')
+    .order('id');
+  const tenantsList = (tenantsAll ?? []).map(
+    (t: { id: number; name: string; homepage: string | null; business_model: string | null; partner_slug: string | null }) => ({
+      id: t.id,
+      name: t.name,
+      is_self: t.business_model === 'self' || t.partner_slug === 'medimap-self',
+    })
+  );
+  const tenantHomepageMap = new Map<number, string>();
+  (tenantsAll ?? []).forEach((t: { id: number; homepage: string | null }) => {
     const d = extractDomainFromUrl(t.homepage);
-    if (d) tenantDomainMap.set(t.id, d);
+    if (d) tenantHomepageMap.set(t.id, d);
   });
+  const selectedTenant = tenantIdFilter
+    ? tenantsList.find((t) => t.id === tenantIdFilter) ?? null
+    : null;
+  const selectedClientDomain = tenantIdFilter
+    ? tenantHomepageMap.get(tenantIdFilter) ?? null
+    : null;
 
-  // 2. 30일 mentions trend (일별 count)
-  const { data: mentionRows } = await sb
+  // 2. mentions trend — tenant 필터 적용
+  let mentionsQuery = sb
     .from('mentions')
     .select('created_at, tenant_id, is_target')
     .gte('created_at', cutoff)
     .eq('is_target', true);
-
+  if (tenantIdFilter) {
+    mentionsQuery = mentionsQuery.eq('tenant_id', tenantIdFilter);
+  }
+  const { data: mentionRows } = await mentionsQuery;
   const mentionByDate = new Map<string, number>();
   (mentionRows ?? []).forEach((m: { created_at: string }) => {
     const date = m.created_at.slice(0, 10);
     mentionByDate.set(date, (mentionByDate.get(date) ?? 0) + 1);
   });
-  // 30일 채우기 (0 포함)
   const today = new Date();
   const mentionTrend: Array<{ date: string; count: number }> = [];
   for (let i = 29; i >= 0; i--) {
@@ -153,49 +140,77 @@ export async function GET(req: Request) {
     mentionTrend.push({ date: ds.slice(5), count: mentionByDate.get(ds) ?? 0 });
   }
 
-  // 3. responses 의 source_domains 집계
+  // 3. queries 의 tenant_id 매핑 (responses 의 tenant 필터링용)
+  let queriesQuery = sb.from('queries').select('id, tenant_id, keyword_id').gte('requested_at', cutoff);
+  if (tenantIdFilter) {
+    queriesQuery = queriesQuery.eq('tenant_id', tenantIdFilter);
+  }
+  const { data: queriesRows } = await queriesQuery;
+  const queryTenantMap = new Map<number, number>();
+  const queryKeywordMap = new Map<number, number>();
+  (queriesRows ?? []).forEach((q: { id: number; tenant_id: number; keyword_id: number }) => {
+    queryTenantMap.set(q.id, q.tenant_id);
+    queryKeywordMap.set(q.id, q.keyword_id);
+  });
+  const validQueryIds = new Set(queryTenantMap.keys());
+
+  // 4. keywords 정보 (text 매핑)
+  const keywordIds = Array.from(new Set(Array.from(queryKeywordMap.values())));
+  const keywordTextMap = new Map<number, string>();
+  if (keywordIds.length > 0) {
+    const { data: kws } = await sb.from('keywords').select('id, text').in('id', keywordIds);
+    (kws ?? []).forEach((k: { id: number; text: string }) => {
+      keywordTextMap.set(k.id, k.text);
+    });
+  }
+
+  // 5. responses 의 source_domains — tenant 필터링 후 집계
   const { data: respRows } = await sb
     .from('responses')
     .select('id, query_id, source_domains, created_at')
     .gte('created_at', cutoff)
     .not('source_domains', 'is', null);
-
-  // query_id → tenant_id 매핑 (T2 분류용)
-  const queryIds = Array.from(
-    new Set((respRows ?? []).map((r: { query_id: number }) => r.query_id))
+  const filteredResp = (respRows ?? []).filter(
+    (r: { query_id: number }) => validQueryIds.has(r.query_id)
   );
-  const queryTenantMap = new Map<number, number>();
-  if (queryIds.length > 0) {
-    const { data: queries } = await sb
-      .from('queries')
-      .select('id, tenant_id')
-      .in('id', queryIds);
-    (queries ?? []).forEach((q: { id: number; tenant_id: number }) => {
-      queryTenantMap.set(q.id, q.tenant_id);
-    });
-  }
 
-  // source domain 집계 + tier 분류
+  // 집계 변수
   const tierCount = { T1: 0, T2: 0, T3: 0, T4: 0, T5: 0 };
-  const domainCount = new Map<string, { count: number; tier: string }>();
+  const domainCount = new Map<string, { count: number; tier: Tier; keywords: Set<string> }>();
   const shareByDate = new Map<string, { total: number; t1: number }>();
+  // 키워드별 source 분포
+  const keywordStats = new Map<
+    number,
+    { keyword: string; source_count: number; t1: number; t2: number; t5: number; mention_count: number }
+  >();
 
-  (respRows ?? []).forEach(
+  filteredResp.forEach(
     (r: {
       id: number;
       query_id: number;
-      source_domains: Array<{
-        domain: string;
-        final_url: string | null;
-        is_self: boolean;
-      }> | null;
+      source_domains: Array<{ domain: string; final_url: string | null; is_self: boolean }> | null;
       created_at: string;
     }) => {
       const tenantId = queryTenantMap.get(r.query_id);
-      const clientDomain = tenantId ? tenantDomainMap.get(tenantId) ?? null : null;
+      const keywordId = queryKeywordMap.get(r.query_id);
+      const clientDomain =
+        selectedClientDomain ?? (tenantId ? tenantHomepageMap.get(tenantId) ?? null : null);
       const date = r.created_at.slice(0, 10);
       if (!shareByDate.has(date)) shareByDate.set(date, { total: 0, t1: 0 });
       const dateBucket = shareByDate.get(date)!;
+
+      const kwText = keywordId ? keywordTextMap.get(keywordId) ?? '?' : '?';
+      if (keywordId && !keywordStats.has(keywordId)) {
+        keywordStats.set(keywordId, {
+          keyword: kwText,
+          source_count: 0,
+          t1: 0,
+          t2: 0,
+          t5: 0,
+          mention_count: 0,
+        });
+      }
+      const kwBucket = keywordId ? keywordStats.get(keywordId)! : null;
 
       (r.source_domains ?? []).forEach((sd) => {
         const tier = classifyDomain(sd.domain, sd.final_url, clientDomain);
@@ -206,25 +221,77 @@ export async function GET(req: Request) {
           const existing = domainCount.get(key);
           if (existing) {
             existing.count++;
+            existing.keywords.add(kwText);
           } else {
-            domainCount.set(key, { count: 1, tier });
+            domainCount.set(key, { count: 1, tier, keywords: new Set([kwText]) });
           }
         }
         dateBucket.total++;
         if (tier === 'T1') dateBucket.t1++;
+        if (kwBucket) {
+          kwBucket.source_count++;
+          if (tier === 'T1') kwBucket.t1++;
+          if (tier === 'T2') kwBucket.t2++;
+          if (tier === 'T5') kwBucket.t5++;
+        }
       });
     }
   );
 
-  const totalTier = Object.values(tierCount).reduce((a, b) => a + b, 0);
+  // mention 카운트 — 키워드별 (queries → mentions JOIN)
+  if (mentionRows && validQueryIds.size > 0) {
+    // mention 의 query_id 매핑 — responses 통해서
+    const respIdToQuery = new Map<number, number>(
+      filteredResp.map((r: { id: number; query_id: number }) => [r.id, r.query_id])
+    );
+    let mentionQuery = sb
+      .from('mentions')
+      .select('id, response_id, tenant_id, is_target, created_at')
+      .gte('created_at', cutoff)
+      .eq('is_target', true);
+    if (tenantIdFilter) {
+      mentionQuery = mentionQuery.eq('tenant_id', tenantIdFilter);
+    }
+    const { data: mentionsFull } = await mentionQuery;
+    (mentionsFull ?? []).forEach(
+      (m: { response_id: number }) => {
+        const qid = respIdToQuery.get(m.response_id);
+        if (qid != null) {
+          const kid = queryKeywordMap.get(qid);
+          if (kid != null) {
+            const bucket = keywordStats.get(kid);
+            if (bucket) bucket.mention_count++;
+          }
+        }
+      }
+    );
+  }
 
-  // 4. top 10 domains
+  const totalTier = Object.values(tierCount).reduce((a, b) => a + b, 0);
   const topDomains = Array.from(domainCount.entries())
-    .map(([domain, { count, tier }]) => ({ domain, count, tier }))
+    .map(([domain, { count, tier, keywords }]) => ({
+      domain,
+      count,
+      tier,
+      keywords: Array.from(keywords).slice(0, 3),
+    }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  // 5. 메디맵 share trend (30일)
+  const competitorBreakdown = Array.from(domainCount.entries())
+    .filter(([, v]) => v.tier === 'T5' || v.tier === 'T4' || v.tier === 'T3')
+    .map(([domain, { count, tier, keywords }]) => ({
+      domain,
+      tier,
+      count,
+      keywords: Array.from(keywords),
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  const keywordBreakdown = Array.from(keywordStats.values())
+    .sort((a, b) => b.mention_count - a.mention_count);
+
+  // 메디맵 share trend
   const medimapShareTrend: Array<{ date: string; share_pct: number }> = [];
   for (let i = 29; i >= 0; i--) {
     const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
@@ -237,9 +304,13 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     ok: true,
+    tenants: tenantsList,
+    selected_tenant: selectedTenant,
     mention_trend: mentionTrend,
     source_tier: { ...tierCount, total: totalTier },
     top_domains: topDomains,
     medimap_share_trend: medimapShareTrend,
+    keyword_breakdown: keywordBreakdown,
+    competitor_breakdown: competitorBreakdown,
   });
 }

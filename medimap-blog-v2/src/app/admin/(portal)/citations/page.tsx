@@ -1,15 +1,21 @@
 /**
- * Round 32 (2026-05-30) — AI 인용 분석 페이지.
+ * Round 32 phase C (2026-05-30) — AI 인용 분석 페이지 + 클라이언트 selector + 세부 데이터.
  *
- * 5-Tier source 분류 + 차트 4개:
- *   1. Mention trend (line, 30일)
- *   2. Source tier 도넛 — T1(메디맵)/T2(클라이언트)/T3(권위)/T4(플랫폼)/T5(기타)
- *   3. Top 10 domains (bar)
- *   4. 메디맵 source share trend (line, 30일) — T1 share % 점진 증가 (진짜 ROI)
+ * 구조:
+ *   상단: 클라이언트 selector (탭/드롭다운) + 새로고침
+ *   KPI 카드 4개 — 선택된 클라이언트 기준
+ *   차트 4개:
+ *     1. 30일 Mention Trend (line)
+ *     2. Source 분류 도넛 (T1~T5)
+ *     3. Top 10 Source Domain (bar)
+ *     4. 메디맵 Source Share Trend (line)
+ *   세부 데이터:
+ *     - 키워드별 인용 분석 (mention/source/T1/T2/T5 카운트)
+ *     - 경쟁사/플랫폼 도메인 분석 (어떤 키워드에서 인용됐는지)
  */
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Bar,
   BarChart,
@@ -26,23 +32,43 @@ import {
   YAxis,
 } from 'recharts';
 import { Loader2, RefreshCw } from 'lucide-react';
+import { cn } from '@/lib/cn';
+
+type TenantOption = { id: number; name: string; is_self: boolean };
 
 type CitationsData = {
+  tenants: TenantOption[];
+  selected_tenant: TenantOption | null;
   mention_trend: Array<{ date: string; count: number }>;
   source_tier: { T1: number; T2: number; T3: number; T4: number; T5: number; total: number };
-  top_domains: Array<{ domain: string; count: number; tier: string }>;
+  top_domains: Array<{ domain: string; count: number; tier: string; keywords: string[] }>;
   medimap_share_trend: Array<{ date: string; share_pct: number }>;
+  keyword_breakdown: Array<{
+    keyword: string;
+    source_count: number;
+    t1: number;
+    t2: number;
+    t5: number;
+    mention_count: number;
+  }>;
+  competitor_breakdown: Array<{
+    domain: string;
+    tier: string;
+    count: number;
+    keywords: string[];
+  }>;
 };
 
-const TIER_LABELS: Record<string, { label: string; color: string }> = {
-  T1: { label: '메디맵 자체 ⭐', color: '#1B68FF' },
-  T2: { label: '클라이언트 자체', color: '#15B8A6' },
-  T3: { label: '권위/공식', color: '#F59E0B' },
-  T4: { label: '의료 플랫폼', color: '#A855F7' },
-  T5: { label: '기타 (경쟁사)', color: '#94A3B8' },
+const TIER_LABELS: Record<string, { label: string; color: string; short: string }> = {
+  T1: { label: '메디맵 자체 ⭐', color: '#1B68FF', short: '메디맵' },
+  T2: { label: '클라이언트 자체', color: '#15B8A6', short: '클라이언트' },
+  T3: { label: '권위/공식', color: '#F59E0B', short: '권위' },
+  T4: { label: '의료 플랫폼', color: '#A855F7', short: '플랫폼' },
+  T5: { label: '기타 (경쟁사)', color: '#94A3B8', short: '경쟁사' },
 };
 
 export default function CitationsPage() {
+  const [tenantId, setTenantId] = useState<number | null>(null); // null = 전체
   const [data, setData] = useState<CitationsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +77,10 @@ export default function CitationsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/admin/citations', { cache: 'no-store' });
+      const url = tenantId
+        ? `/api/admin/citations?tenantId=${tenantId}`
+        : '/api/admin/citations';
+      const res = await fetch(url, { cache: 'no-store' });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error ?? 'fetch failed');
       setData(json);
@@ -64,48 +93,35 @@ export default function CitationsPage() {
 
   useEffect(() => {
     void load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId]);
 
-  if (loading) {
-    return (
-      <div className="px-8 py-6">
-        <header className="mb-5">
-          <h1 className="text-2xl font-bold text-ink">AI 인용 추적</h1>
-        </header>
-        <div className="card flex items-center justify-center px-6 py-12 text-sm text-ink-muted">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 데이터 로드 중…
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !data) {
-    return (
-      <div className="px-8 py-6">
-        <header className="mb-5">
-          <h1 className="text-2xl font-bold text-ink">AI 인용 추적</h1>
-        </header>
-        <div className="card border-status-danger/30 bg-status-dangerSoft/30 px-6 py-4 text-sm text-status-danger">
-          데이터 로드 실패: {error}
-        </div>
-      </div>
-    );
-  }
-
-  const totalMentions = data.mention_trend.reduce((s, d) => s + d.count, 0);
-  const totalSources = data.source_tier.total;
+  const totalMentions = useMemo(
+    () => (data ? data.mention_trend.reduce((s, d) => s + d.count, 0) : 0),
+    [data]
+  );
+  const totalSources = data?.source_tier.total ?? 0;
   const medimapShare =
-    totalSources > 0 ? Math.round((data.source_tier.T1 / totalSources) * 1000) / 10 : 0;
+    totalSources > 0 && data
+      ? Math.round((data.source_tier.T1 / totalSources) * 1000) / 10
+      : 0;
   const clientShare =
-    totalSources > 0 ? Math.round((data.source_tier.T2 / totalSources) * 1000) / 10 : 0;
+    totalSources > 0 && data
+      ? Math.round((data.source_tier.T2 / totalSources) * 1000) / 10
+      : 0;
 
-  const tierPieData = (['T1', 'T2', 'T3', 'T4', 'T5'] as const)
-    .map((k) => ({
-      name: TIER_LABELS[k].label,
-      value: data.source_tier[k],
-      color: TIER_LABELS[k].color,
-    }))
-    .filter((d) => d.value > 0);
+  const tierPieData = data
+    ? (['T1', 'T2', 'T3', 'T4', 'T5'] as const)
+        .map((k) => ({
+          name: TIER_LABELS[k].label,
+          value: data.source_tier[k],
+          color: TIER_LABELS[k].color,
+        }))
+        .filter((d) => d.value > 0)
+    : [];
+
+  const tenants = data?.tenants ?? [];
+  const selectedName = data?.selected_tenant?.name ?? '전체 클라이언트';
 
   return (
     <div className="px-8 py-6">
@@ -116,188 +132,289 @@ export default function CitationsPage() {
         </button>
       </header>
 
-      {/* === KPI 카드 4개 === */}
-      <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="card card-pad">
-          <div className="kpi-label">30일 mention</div>
-          <div className="mt-2 kpi-value text-brand">{totalMentions}</div>
-          <div className="text-[11px] text-ink-muted">자사 tenant 가 AI 응답에 언급됨</div>
-        </div>
-        <div className="card card-pad">
-          <div className="kpi-label">30일 source 추적</div>
-          <div className="mt-2 kpi-value text-ink">{totalSources}</div>
-          <div className="text-[11px] text-ink-muted">총 Gemini citation 도메인 count</div>
-        </div>
-        <div className="card card-pad border-brand/30">
-          <div className="kpi-label">메디맵 source share ⭐</div>
-          <div className="mt-2 kpi-value text-brand">{medimapShare}%</div>
-          <div className="text-[11px] text-ink-muted">
-            {data.source_tier.T1} / {totalSources} — SaaS 직접 효과
-          </div>
-        </div>
-        <div className="card card-pad">
-          <div className="kpi-label">클라이언트 자체 share</div>
-          <div className="mt-2 kpi-value text-accent">{clientShare}%</div>
-          <div className="text-[11px] text-ink-muted">
-            {data.source_tier.T2} / {totalSources} — baseline
-          </div>
-        </div>
-      </section>
-
-      {/* === 차트 4개 === */}
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* 1. Mention trend */}
-        <div className="card card-pad">
-          <h2 className="section-title mb-3">30일 Mention Trend</h2>
-          {totalMentions === 0 ? (
-            <div className="flex h-60 items-center justify-center text-sm text-ink-muted">
-              아직 데이터 없음 — daily cron 누적 후 표시
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={data.mention_trend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5EBED" />
-                <XAxis dataKey="date" fontSize={10} stroke="#64748B" />
-                <YAxis fontSize={10} stroke="#64748B" allowDecimals={false} />
-                <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey="count"
-                  name="Mention"
-                  stroke="#1B68FF"
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* 2. Source tier 도넛 */}
-        <div className="card card-pad">
-          <h2 className="section-title mb-3">Source 분류 (5-Tier)</h2>
-          {tierPieData.length === 0 ? (
-            <div className="flex h-60 items-center justify-center text-sm text-ink-muted">
-              아직 source 추적 데이터 없음
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={240}>
-              <PieChart>
-                <Pie
-                  data={tierPieData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
-                  paddingAngle={2}
-                  label={(entry: { value: number }) => `${entry.value}`}
-                  labelLine={false}
-                >
-                  {tierPieData.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* 3. Top 10 domains */}
-        <div className="card card-pad">
-          <h2 className="section-title mb-3">Top 10 Source Domain</h2>
-          {data.top_domains.length === 0 ? (
-            <div className="flex h-60 items-center justify-center text-sm text-ink-muted">
-              아직 source 추적 데이터 없음
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={data.top_domains} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5EBED" />
-                <XAxis type="number" fontSize={10} stroke="#64748B" allowDecimals={false} />
-                <YAxis
-                  type="category"
-                  dataKey="domain"
-                  fontSize={10}
-                  stroke="#64748B"
-                  width={150}
-                />
-                <Tooltip />
-                <Bar dataKey="count" name="Count">
-                  {data.top_domains.map((d, i) => (
-                    <Cell key={i} fill={TIER_LABELS[d.tier]?.color ?? '#94A3B8'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* 4. 메디맵 source share trend */}
-        <div className="card card-pad border-brand/30">
-          <h2 className="section-title mb-3">
-            메디맵 Source Share Trend ⭐{' '}
-            <span className="text-[11px] font-normal text-ink-muted">(SaaS 직접 ROI)</span>
-          </h2>
-          {data.medimap_share_trend.every((d) => d.share_pct === 0) ? (
-            <div className="flex h-60 flex-col items-center justify-center text-sm text-ink-muted">
-              <div>현재 메디맵 콘텐츠 source share = 0%</div>
-              <div className="mt-1 text-[11px] text-ink-faint">
-                3~6개월 콘텐츠 누적 후 점진 증가 예상
-              </div>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={data.medimap_share_trend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5EBED" />
-                <XAxis dataKey="date" fontSize={10} stroke="#64748B" />
-                <YAxis
-                  fontSize={10}
-                  stroke="#64748B"
-                  tickFormatter={(v: number) => `${v}%`}
-                />
-                <Tooltip formatter={(v: number) => `${v}%`} />
-                <Line
-                  type="monotone"
-                  dataKey="share_pct"
-                  name="메디맵 share"
-                  stroke="#1B68FF"
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-      </section>
-
-      {/* === Tier 설명 === */}
-      <section className="card card-pad mt-6">
-        <h2 className="section-title mb-3">5-Tier 분류 설명</h2>
-        <div className="grid grid-cols-1 gap-2 text-xs text-ink-soft sm:grid-cols-2">
-          {(['T1', 'T2', 'T3', 'T4', 'T5'] as const).map((k) => (
-            <div key={k} className="flex items-start gap-2">
-              <span
-                className="mt-1 inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: TIER_LABELS[k].color }}
-              />
-              <div>
-                <strong>{TIER_LABELS[k].label}</strong> ({data.source_tier[k]}건)
-                <span className="ml-1 text-ink-muted">
-                  {k === 'T1' && '— medi-map.co.kr, medimap-blog 등'}
-                  {k === 'T2' && '— 각 클라이언트 tenant.homepage'}
-                  {k === 'T3' && '— MSD 매뉴얼, 종합병원 (아산/삼성/서울대 등)'}
-                  {k === 'T4' && '— 모두닥, 강남언니, 더드맨디 등'}
-                  {k === 'T5' && '— 경쟁사 + 기타 (대부분 경쟁사 의료 사이트)'}
-                </span>
-              </div>
-            </div>
+      {/* === 클라이언트 selector === */}
+      <section className="card mb-5 p-4">
+        <div className="mb-2 text-xs font-semibold text-ink-muted">클라이언트 선택</div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setTenantId(null)}
+            className={cn(
+              'rounded-lg border px-3 py-1.5 text-xs font-semibold transition',
+              tenantId === null
+                ? 'border-brand bg-brand text-white'
+                : 'border-border bg-surface-base text-ink-muted hover:border-brand-200'
+            )}
+          >
+            전체 보기
+          </button>
+          {tenants.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTenantId(t.id)}
+              className={cn(
+                'rounded-lg border px-3 py-1.5 text-xs font-semibold transition',
+                tenantId === t.id
+                  ? 'border-brand bg-brand text-white'
+                  : 'border-border bg-surface-base text-ink-muted hover:border-brand-200'
+              )}
+            >
+              {t.name}
+              {t.is_self && <span className="ml-1 text-[9px]">⭐</span>}
+            </button>
           ))}
         </div>
+        <div className="mt-3 text-[11px] text-ink-muted">
+          현재 선택: <strong className="text-ink">{selectedName}</strong> · 최근 30일 기준
+        </div>
       </section>
+
+      {loading ? (
+        <div className="card flex items-center justify-center px-6 py-12 text-sm text-ink-muted">
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 데이터 로드 중…
+        </div>
+      ) : error || !data ? (
+        <div className="card border-status-danger/30 bg-status-dangerSoft/30 px-6 py-4 text-sm text-status-danger">
+          데이터 로드 실패: {error}
+        </div>
+      ) : (
+        <>
+          {/* === KPI 카드 4개 === */}
+          <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="card card-pad">
+              <div className="kpi-label">30일 mention</div>
+              <div className="mt-2 kpi-value text-brand">{totalMentions}</div>
+              <div className="text-[11px] text-ink-muted">{selectedName} 가 AI 응답에 언급됨</div>
+            </div>
+            <div className="card card-pad">
+              <div className="kpi-label">30일 source 추적</div>
+              <div className="mt-2 kpi-value text-ink">{totalSources}</div>
+              <div className="text-[11px] text-ink-muted">Gemini citation 도메인 총합</div>
+            </div>
+            <div className="card card-pad border-brand/30">
+              <div className="kpi-label">메디맵 source share ⭐</div>
+              <div className="mt-2 kpi-value text-brand">{medimapShare}%</div>
+              <div className="text-[11px] text-ink-muted">
+                {data.source_tier.T1} / {totalSources} — SaaS 직접 효과
+              </div>
+            </div>
+            <div className="card card-pad">
+              <div className="kpi-label">클라이언트 자체 share</div>
+              <div className="mt-2 kpi-value text-accent">{clientShare}%</div>
+              <div className="text-[11px] text-ink-muted">
+                {data.source_tier.T2} / {totalSources} — baseline
+              </div>
+            </div>
+          </section>
+
+          {/* === 차트 4개 === */}
+          <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <ChartCard title="30일 Mention Trend">
+              {totalMentions === 0 ? (
+                <EmptyState text="아직 데이터 없음" />
+              ) : (
+                <ResponsiveContainer width="100%" height={240}>
+                  <LineChart data={data.mention_trend}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5EBED" />
+                    <XAxis dataKey="date" fontSize={10} stroke="#64748B" />
+                    <YAxis fontSize={10} stroke="#64748B" allowDecimals={false} />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="count" name="Mention" stroke="#1B68FF" strokeWidth={2} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </ChartCard>
+
+            <ChartCard title="Source 5-Tier 분포">
+              {tierPieData.length === 0 ? (
+                <EmptyState text="아직 source 데이터 없음" />
+              ) : (
+                <ResponsiveContainer width="100%" height={240}>
+                  <PieChart>
+                    <Pie
+                      data={tierPieData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      label={(e: { value: number }) => `${e.value}`}
+                      labelLine={false}
+                    >
+                      {tierPieData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </ChartCard>
+
+            <ChartCard title="Top 10 Source Domain">
+              {data.top_domains.length === 0 ? (
+                <EmptyState text="아직 source 데이터 없음" />
+              ) : (
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={data.top_domains} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5EBED" />
+                    <XAxis type="number" fontSize={10} stroke="#64748B" allowDecimals={false} />
+                    <YAxis type="category" dataKey="domain" fontSize={10} stroke="#64748B" width={150} />
+                    <Tooltip />
+                    <Bar dataKey="count" name="Count">
+                      {data.top_domains.map((d, i) => (
+                        <Cell key={i} fill={TIER_LABELS[d.tier]?.color ?? '#94A3B8'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </ChartCard>
+
+            <ChartCard title="메디맵 Source Share Trend ⭐" subtitle="(SaaS 직접 ROI)" border="brand">
+              {data.medimap_share_trend.every((d) => d.share_pct === 0) ? (
+                <div className="flex h-60 flex-col items-center justify-center text-sm text-ink-muted">
+                  <div>현재 메디맵 콘텐츠 source share = 0%</div>
+                  <div className="mt-1 text-[11px] text-ink-faint">3~6개월 콘텐츠 누적 후 점진 증가 예상</div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={240}>
+                  <LineChart data={data.medimap_share_trend}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5EBED" />
+                    <XAxis dataKey="date" fontSize={10} stroke="#64748B" />
+                    <YAxis fontSize={10} stroke="#64748B" tickFormatter={(v: number) => `${v}%`} />
+                    <Tooltip formatter={(v: number) => `${v}%`} />
+                    <Line type="monotone" dataKey="share_pct" name="메디맵 share" stroke="#1B68FF" strokeWidth={2} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </ChartCard>
+          </section>
+
+          {/* === 세부 데이터 === */}
+          <section className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {/* 키워드별 분석 */}
+            <div className="card">
+              <header className="border-b border-border px-5 py-3">
+                <h2 className="section-title">키워드별 인용 분석</h2>
+                <div className="mt-1 text-[11px] text-ink-muted">
+                  {selectedName} 의 키워드별 mention + source 카운트
+                </div>
+              </header>
+              {data.keyword_breakdown.length === 0 ? (
+                <div className="px-5 py-8 text-center text-sm text-ink-muted">
+                  아직 측정된 키워드 없음
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-surface-subtle text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+                      <tr>
+                        <th className="px-3 py-2 text-left">키워드</th>
+                        <th className="px-2 py-2 text-right">Mention</th>
+                        <th className="px-2 py-2 text-right">Source</th>
+                        <th className="px-2 py-2 text-right text-brand">메디맵</th>
+                        <th className="px-2 py-2 text-right text-accent">자체</th>
+                        <th className="px-2 py-2 text-right text-ink-muted">경쟁</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.keyword_breakdown.map((k, i) => (
+                        <tr key={i} className="border-t border-border hover:bg-surface-subtle">
+                          <td className="px-3 py-2 font-semibold text-ink">{k.keyword}</td>
+                          <td className="px-2 py-2 text-right font-mono">{k.mention_count}</td>
+                          <td className="px-2 py-2 text-right font-mono">{k.source_count}</td>
+                          <td className="px-2 py-2 text-right font-mono text-brand">{k.t1}</td>
+                          <td className="px-2 py-2 text-right font-mono text-accent">{k.t2}</td>
+                          <td className="px-2 py-2 text-right font-mono text-ink-muted">{k.t5}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* 경쟁사/플랫폼 분석 */}
+            <div className="card">
+              <header className="border-b border-border px-5 py-3">
+                <h2 className="section-title">경쟁사/플랫폼 도메인 분석</h2>
+                <div className="mt-1 text-[11px] text-ink-muted">
+                  AI 가 source 로 사용한 사이트 (T3+T4+T5)
+                </div>
+              </header>
+              {data.competitor_breakdown.length === 0 ? (
+                <div className="px-5 py-8 text-center text-sm text-ink-muted">
+                  아직 측정된 경쟁사 없음
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-surface-subtle text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+                      <tr>
+                        <th className="px-3 py-2 text-left">도메인</th>
+                        <th className="px-2 py-2 text-left">Tier</th>
+                        <th className="px-2 py-2 text-right">횟수</th>
+                        <th className="px-3 py-2 text-left">인용된 키워드</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.competitor_breakdown.slice(0, 15).map((c, i) => (
+                        <tr key={i} className="border-t border-border hover:bg-surface-subtle">
+                          <td className="px-3 py-2 font-mono text-ink">{c.domain}</td>
+                          <td className="px-2 py-2">
+                            <span
+                              className="inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-bold"
+                              style={{
+                                backgroundColor: `${TIER_LABELS[c.tier]?.color}20`,
+                                color: TIER_LABELS[c.tier]?.color ?? '#64748B',
+                              }}
+                            >
+                              {TIER_LABELS[c.tier]?.short ?? c.tier}
+                            </span>
+                          </td>
+                          <td className="px-2 py-2 text-right font-mono">{c.count}</td>
+                          <td className="px-3 py-2 text-[11px] text-ink-soft line-clamp-1">
+                            {c.keywords.join(', ')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
+}
+
+function ChartCard({
+  title,
+  subtitle,
+  border,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  border?: 'brand';
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn('card card-pad', border === 'brand' && 'border-brand/30')}>
+      <h2 className="section-title mb-3">
+        {title}
+        {subtitle && <span className="ml-2 text-[11px] font-normal text-ink-muted">{subtitle}</span>}
+      </h2>
+      {children}
+    </div>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return <div className="flex h-60 items-center justify-center text-sm text-ink-muted">{text}</div>;
 }
