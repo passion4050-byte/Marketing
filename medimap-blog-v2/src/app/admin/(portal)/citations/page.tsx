@@ -31,7 +31,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronRight, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 type TenantOption = { id: number; name: string; is_self: boolean };
@@ -56,6 +56,7 @@ type CitationsData = {
     tier: string;
     count: number;
     keywords: string[];
+    urls: string[];
   }>;
 };
 
@@ -72,6 +73,8 @@ export default function CitationsPage() {
   const [data, setData] = useState<CitationsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 도메인 expand state (URL 목록 펼치기)
+  const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -178,30 +181,30 @@ export default function CitationsPage() {
         </div>
       ) : (
         <>
-          {/* === KPI 카드 4개 === */}
+          {/* === KPI 카드 4개 — 의미 명확한 한국어 === */}
           <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="card card-pad">
-              <div className="kpi-label">30일 mention</div>
-              <div className="mt-2 kpi-value text-brand">{totalMentions}</div>
-              <div className="text-[11px] text-ink-muted">{selectedName} 가 AI 응답에 언급됨</div>
+              <div className="kpi-label">AI 추천 언급</div>
+              <div className="mt-2 kpi-value text-brand">{totalMentions}<span className="ml-1 text-base">건</span></div>
+              <div className="text-[11px] text-ink-muted">{selectedName} 가 AI 응답에 직접 언급된 횟수 (30일)</div>
             </div>
             <div className="card card-pad">
-              <div className="kpi-label">30일 source 추적</div>
-              <div className="mt-2 kpi-value text-ink">{totalSources}</div>
-              <div className="text-[11px] text-ink-muted">Gemini citation 도메인 총합</div>
+              <div className="kpi-label">인용 출처 도메인</div>
+              <div className="mt-2 kpi-value text-ink">{totalSources}<span className="ml-1 text-base">개</span></div>
+              <div className="text-[11px] text-ink-muted">AI 가 정보 출처로 사용한 사이트 총합</div>
             </div>
             <div className="card card-pad border-brand/30">
-              <div className="kpi-label">메디맵 source share ⭐</div>
+              <div className="kpi-label">메디맵 콘텐츠 인용률 ⭐</div>
               <div className="mt-2 kpi-value text-brand">{medimapShare}%</div>
               <div className="text-[11px] text-ink-muted">
-                {data.source_tier.T1} / {totalSources} — SaaS 직접 효과
+                {data.source_tier.T1} / {totalSources} — 메디맵이 발행한 글이 AI 출처로 사용됨
               </div>
             </div>
             <div className="card card-pad">
-              <div className="kpi-label">클라이언트 자체 share</div>
+              <div className="kpi-label">병원 홈페이지 노출률</div>
               <div className="mt-2 kpi-value text-accent">{clientShare}%</div>
               <div className="text-[11px] text-ink-muted">
-                {data.source_tier.T2} / {totalSources} — baseline
+                {data.source_tier.T2} / {totalSources} — 병원 자체 사이트가 AI 출처에 등장
               </div>
             </div>
           </section>
@@ -337,23 +340,24 @@ export default function CitationsPage() {
               )}
             </div>
 
-            {/* 경쟁사/플랫폼 분석 */}
+            {/* 경쟁사/플랫폼 도메인 분석 — URL drill-down */}
             <div className="card">
               <header className="border-b border-border px-5 py-3">
                 <h2 className="section-title">경쟁사/플랫폼 도메인 분석</h2>
                 <div className="mt-1 text-[11px] text-ink-muted">
-                  AI 가 source 로 사용한 사이트 (T3+T4+T5)
+                  AI 가 정보 출처로 사용한 사이트 — <strong>행 클릭</strong>으로 실제 인용 URL 펼치기
                 </div>
               </header>
               {data.competitor_breakdown.length === 0 ? (
                 <div className="px-5 py-8 text-center text-sm text-ink-muted">
-                  아직 측정된 경쟁사 없음
+                  아직 측정된 출처 없음
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead className="bg-surface-subtle text-[10px] font-bold uppercase tracking-wider text-ink-muted">
                       <tr>
+                        <th className="w-8 px-2 py-2"></th>
                         <th className="px-3 py-2 text-left">도메인</th>
                         <th className="px-2 py-2 text-left">Tier</th>
                         <th className="px-2 py-2 text-right">횟수</th>
@@ -361,26 +365,71 @@ export default function CitationsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {data.competitor_breakdown.slice(0, 15).map((c, i) => (
-                        <tr key={i} className="border-t border-border hover:bg-surface-subtle">
-                          <td className="px-3 py-2 font-mono text-ink">{c.domain}</td>
-                          <td className="px-2 py-2">
-                            <span
-                              className="inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-bold"
-                              style={{
-                                backgroundColor: `${TIER_LABELS[c.tier]?.color}20`,
-                                color: TIER_LABELS[c.tier]?.color ?? '#64748B',
-                              }}
+                      {data.competitor_breakdown.slice(0, 15).map((c, i) => {
+                        const isOpen = expandedDomain === c.domain;
+                        return (
+                          <>
+                            <tr
+                              key={`${c.domain}-${i}`}
+                              className="cursor-pointer border-t border-border hover:bg-surface-subtle"
+                              onClick={() => setExpandedDomain(isOpen ? null : c.domain)}
                             >
-                              {TIER_LABELS[c.tier]?.short ?? c.tier}
-                            </span>
-                          </td>
-                          <td className="px-2 py-2 text-right font-mono">{c.count}</td>
-                          <td className="px-3 py-2 text-[11px] text-ink-soft line-clamp-1">
-                            {c.keywords.join(', ')}
-                          </td>
-                        </tr>
-                      ))}
+                              <td className="px-2 py-2 text-ink-muted">
+                                {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                              </td>
+                              <td className="px-3 py-2 font-mono text-ink">{c.domain}</td>
+                              <td className="px-2 py-2">
+                                <span
+                                  className="inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-bold"
+                                  style={{
+                                    backgroundColor: `${TIER_LABELS[c.tier]?.color}20`,
+                                    color: TIER_LABELS[c.tier]?.color ?? '#64748B',
+                                  }}
+                                >
+                                  {TIER_LABELS[c.tier]?.short ?? c.tier}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 text-right font-mono">{c.count}</td>
+                              <td className="px-3 py-2 text-[11px] text-ink-soft line-clamp-1">
+                                {c.keywords.join(', ')}
+                              </td>
+                            </tr>
+                            {isOpen && (
+                              <tr key={`${c.domain}-expand`} className="bg-brand-50/40">
+                                <td colSpan={5} className="px-4 py-3">
+                                  <div className="mb-2 text-[11px] font-semibold text-ink-muted">
+                                    실제 인용된 URL ({c.urls.length}개) — 클릭하면 새 탭에서 열림
+                                  </div>
+                                  {c.urls.length === 0 ? (
+                                    <div className="text-[11px] text-ink-faint">URL 데이터 없음</div>
+                                  ) : (
+                                    <ul className="space-y-1.5">
+                                      {c.urls.map((url, ui) => (
+                                        <li key={ui} className="flex items-start gap-2">
+                                          <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-brand" />
+                                          <a
+                                            href={url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-[11px] text-brand-700 underline decoration-dotted hover:text-brand"
+                                          >
+                                            {decodeURIComponent(url).slice(0, 110)}
+                                            {url.length > 110 && '…'}
+                                          </a>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                  <div className="mt-2 text-[10px] text-ink-muted">
+                                    💡 <strong>학습 포인트</strong> — 위 URL 의 페이지 구조 (제목 패턴, FAQ schema,
+                                    글 길이) 를 분석해 메디맵 콘텐츠 가이드에 반영
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

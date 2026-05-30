@@ -50,7 +50,29 @@ export async function GET() {
     .order('created_at', { ascending: false })
     .limit(500);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, tenants: data ?? [] });
+
+  // Round 32 phase D (2026-05-30) — 각 tenant 의 published 글 카운트.
+  // 옛 API 응답에는 publish_count 없어 페이지가 모두 0 표시.
+  // fix 12 패턴: 별도 query → Map 으로 merge.
+  const tenants = data ?? [];
+  const tenantIds = tenants.map((t: { id: number }) => t.id);
+  const publishCountMap = new Map<number, number>();
+  if (tenantIds.length > 0) {
+    const { data: pubRows } = await sb
+      .from('generated_contents')
+      .select('tenant_id')
+      .eq('status', 'published')
+      .in('tenant_id', tenantIds);
+    (pubRows ?? []).forEach((r: { tenant_id: number }) => {
+      publishCountMap.set(r.tenant_id, (publishCountMap.get(r.tenant_id) ?? 0) + 1);
+    });
+  }
+  const enriched = tenants.map((t: { id: number }) => ({
+    ...t,
+    publish_count: publishCountMap.get(t.id) ?? 0,
+  }));
+
+  return NextResponse.json({ ok: true, tenants: enriched });
 }
 
 export async function POST(req: NextRequest) {

@@ -278,6 +278,21 @@ export async function GET(req: Request) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
+  // Round 32 phase D (2026-05-30) — 도메인별로 실제 final_url 목록도 같이 보냄.
+  // 사용자가 어드민에서 URL 클릭 → 새 탭으로 진입 → 그 콘텐츠 학습.
+  const domainUrls = new Map<string, Set<string>>();
+  filteredResp.forEach(
+    (r: {
+      source_domains: Array<{ domain: string; final_url: string | null }> | null;
+    }) => {
+      (r.source_domains ?? []).forEach((sd) => {
+        if (!sd.domain || !sd.final_url) return;
+        if (!domainUrls.has(sd.domain)) domainUrls.set(sd.domain, new Set());
+        domainUrls.get(sd.domain)!.add(sd.final_url);
+      });
+    }
+  );
+
   const competitorBreakdown = Array.from(domainCount.entries())
     .filter(([, v]) => v.tier === 'T5' || v.tier === 'T4' || v.tier === 'T3')
     .map(([domain, { count, tier, keywords }]) => ({
@@ -285,6 +300,7 @@ export async function GET(req: Request) {
       tier,
       count,
       keywords: Array.from(keywords),
+      urls: Array.from(domainUrls.get(domain) ?? []).slice(0, 5),
     }))
     .sort((a, b) => b.count - a.count);
 
