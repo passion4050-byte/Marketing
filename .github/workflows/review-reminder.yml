@@ -34,7 +34,7 @@ jobs:
             exit 1
           fi
 
-      - name: Count draft queue via Supabase REST
+      - name: Count draft queue + fetch glance list via Supabase REST
         id: count
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -44,7 +44,11 @@ jobs:
           SUPA_URL=$(echo -n "$SUPABASE_URL" | tr -d '\n\r' | sed 's/[[:space:]]*$//' | sed 's:/*$::')
           SUPA_KEY=$(echo -n "$SUPABASE_SERVICE_ROLE_KEY" | tr -d '\n\r' | sed 's/[[:space:]]*$//')
 
-          RESP=$(curl -sS "$SUPA_URL/rest/v1/generated_contents?status=eq.draft&select=id" \
+          # Round 29 fix 3 (2026-05-30): draft 글의 id·title·tenant_name 까지 fetch.
+          # Slack 메시지에 미리보기 목록 표시 → 어떤 글이 검수 대기인지 한눈에 파악.
+          # Round 29 fix 4: 어드민 /api/admin/content-queue 와 100% 동일 query
+          #   (status IN draft, pending) — Slack 목록과 어드민 검수 탭 결과 보장 일치.
+          RESP=$(curl -sS "$SUPA_URL/rest/v1/generated_contents?status=in.(draft,pending)&select=id,title,keyword_text,tenants(name)&order=created_at.desc" \
             -H "apikey: $SUPA_KEY" \
             -H "Authorization: Bearer $SUPA_KEY")
 
@@ -52,22 +56,36 @@ jobs:
           echo "Draft count: $DRAFT_COUNT"
           echo "draft_count=$DRAFT_COUNT" >> $GITHUB_OUTPUT
 
+          # 글 목록 — 최대 10개. 메시지 길이 보호.
+          DRAFT_LIST=$(echo "$RESP" | jq -r '.[0:10] | .[] | "• [\(.id)] \(.tenants.name // "(unknown)") — \(.title // .keyword_text // "(제목 없음)")"' || echo "")
+          # Multiline 출력 시 GITHUB_OUTPUT 보호 — EOF delimiter 사용
+          {
+            echo "draft_list<<DRAFTLIST_EOF"
+            echo "$DRAFT_LIST"
+            echo "DRAFTLIST_EOF"
+          } >> $GITHUB_OUTPUT
+
       - name: Notify Slack if draft count > 0
         if: ${{ steps.count.outputs.draft_count != '0' }}
         env:
           SLACK_REMINDER_WEBHOOK: ${{ secrets.SLACK_REMINDER_WEBHOOK }}
           DRAFT_COUNT: ${{ steps.count.outputs.draft_count }}
+          DRAFT_LIST: ${{ steps.count.outputs.draft_list }}
         run: |
           if [ -z "$SLACK_REMINDER_WEBHOOK" ]; then
             echo "SLACK_REMINDER_WEBHOOK 미설정 — 알림 skip"
             exit 0
           fi
           WEBHOOK=$(echo -n "$SLACK_REMINDER_WEBHOOK" | tr -d '\n\r' | sed 's/[[:space:]]*$//')
-          # Slack mrkdwn: <URL|텍스트> 형식으로 링크 hide → "바로가기" 버튼 형태
           ADMIN_URL="https://geo-v2-git-main-medimaps-projects.vercel.app/admin/content-queue"
+          # Round 29 fix 3: 글 목록을 본문에 포함. <URL|텍스트> 로 링크 hide.
           MSG=$(cat <<EOF
           📝 *메디맵 어드민 검수 대기 ${DRAFT_COUNT}건*
           어제 메디맵AI로 생성된 초안 글을 검수해 주세요.
+
+          *검수 대기 목록:*
+          ${DRAFT_LIST}
+
           👉 <${ADMIN_URL}|바로가기>
           운영 흐름: 초안 → 메디맵 자체 데이터·사례 정성 추가 → 발행 처리
           EOF
