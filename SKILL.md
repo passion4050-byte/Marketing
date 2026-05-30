@@ -945,3 +945,84 @@ total_active=32 (own 24 + competitor_landscape 8)
 - **fairness ORDER BY**: `ORDER BY last_measured_at ASC NULLS FIRST, id` 같이 변경하면 매 cron 신선한 키워드 우선 픽업
 - **경쟁사 신규 도메인 알림** — T5 분류된 신규 hostname 등장 시 Slack notify
 - **business_model 키워드 검수 UI** — auto-extract 결과를 chip-style 으로 추가/삭제
+
+---
+
+## Round 35 마무리 (2026-05-31 오후) — production 검증 + 함정 K~O + Round 36 보류
+
+### Production 데이터 흐름 검증 결과
+
+manual run (`measure-competitor-mentions` workflow) 1회 실행 → 8 keyword × 2 engine 시도 → **3건 grounding success**, 17건 fail.
+
+성공 3건 분포:
+- 지우피부과(tenant_id=6) "피부과" 키워드 × gemini → n_sources=10 (snuh.org, apollohospitals.com, akd.or.kr, namu.wiki, 등)
+- 지우피부과 "리쥬란" 키워드 × gemini → n_sources=10 (toxnfill.com, medspabeni.com, blog.onlif.co.kr, smartskin.kr, sunmeliaskin.com 등 모두 경쟁 클리닉)
+- BGN(tenant_id=4) "백내장" × gemini → response 있으나 grounding 없음 (n_sources=0)
+
+`/admin/competitors` 지우피부과 선택 시 화면: **권위 사이트 1, 경쟁 안과/병원 19, 총 20** — 5-tier 분류는 작동했으나 T3 화이트리스트가 빈약해서 권위 사이트가 부풀려진 T5 로 흘러감.
+
+### T3 / NOISE 화이트리스트 확장 (코드 한 곳)
+
+`medimap-blog-v2/src/app/api/admin/{citations,competitors}/route.ts` 두 곳의 `AUTHORITY_DOMAINS` + `NOISE_DOMAINS` set 확장:
+
+T3 추가 (실측 응답에서 발견):
+- `apollohospitals.com` — 글로벌 종합병원
+- `akd.or.kr` / `derma.or.kr` — 대한피부과학회
+- `kma.org` — 대한의사협회
+- `ophthalmology.or.kr` — 대한안과학회
+- `kda.or.kr` — 대한치과의사협회
+- `k-health.com` / `dailymedi.com` / `docdocdoc.co.kr` — 의료 전문매체
+
+NOISE 추가:
+- `namu.wiki` — 백과, 권위로 보기 애매
+- `ko.wikipedia.org` / `wikipedia.org`
+- `m.search.naver.com` / `search.naver.com`
+- `tistory.com` (subdomain 은 별도 분류)
+
+확장 후 재배포 + 같은 데이터로 재계산: 권위 사이트 1→**4**, 경쟁 안과/병원 19→**15**, 총 20→19 (namu.wiki noise 제외).
+
+### 새 함정 (Round 35 추가)
+
+**(K) sandbox bash 의 `.git/index.lock` 권한 충돌**
+- 증상: sandbox bash 가 commit 시도 중 lock 만들고 죽으면, Windows PowerShell git 이 lock 못 지움 (uid mismatch — sandbox `dreamy-funny-bell` 1008 vs Windows `user`)
+- 정답: PowerShell 에서 `takeown /F .git\index.lock` + `icacls .git\index.lock /grant "$($env:USERNAME):(F)"` + `Remove-Item .git\index.lock -Force` 순서. sandbox bash 에서 git commit 시도하지 말 것 — 권한 충돌 위험.
+
+**(L) cowork Edit/Write vs sandbox bash mount 의 file view 불일치**
+- 증상: cowork Read 가 1100 줄을 보여주는데 bash `wc -l` 은 810 줄. Edit "성공" 메시지 받았지만 disk 에 실제 반영 안 된 경우도 있음.
+- 정답: 큰 SKILL 갱신은 bash heredoc 으로 직접 append 하는 게 안전. cowork Read 결과를 disk 의 진실로 가정 금지 — `wc -l` / `tail` / `python3 read` 로 확인.
+
+**(M) "분리 cron 의 quota 분리 효과 무효" — 같은 GCP project 공유 시**
+- 증상: `measure-ai-mentions` (own, 22:00 UTC) 와 `measure-competitor-mentions` (competitor, 21:00 UTC) 분리해도 같은 `GOOGLE_API_KEY` 쓰면 free tier 20/day 한 quota window 공유 → competitor 가 own 분량까지 막힘
+- 정답: cron 시간을 서로 다른 quota window 에 배치하거나, 별도 GCP project + key 발급. 또는 paid tier 전환.
+
+**(N) Anthropic credit 잔액 0 → 400 invalid_request_error**
+- 증상: ANTHROPIC_API_KEY 등록 직후 호출 시 `400 - {"type": "error", "error": {"type": "invalid_request_error", "message": "Your credit balance is too low to access the Anthropic API."}}`
+- 정답: API key 발급과 별개로 console.anthropic.com → Plans & Billing → Add Credits 로 사전 충전 ($5 권장). 무료 trial credit 끝나면 자동 차단.
+
+**(O) Gemini quota 임박 시 grounding metadata 누락**
+- 증상: `success=3 fail=13` 와중에 success 3건 중에도 일부는 `n_sources=0` (텍스트는 받았으나 grounding URL 없음). free tier quota window 끝나갈 때 grounding API 부분 응답.
+- 정답: paid tier 전환이 정공법. free 유지 시 grounding 부족 row 는 운영자가 인지하고 추후 재측정 큐에 넣는 패턴 필요.
+
+**(P) 5-tier 분류 사전은 production 응답 기반 incremental 확장 — 사전 enumerate 금지**
+- 증상: T3/T4/T5 화이트리스트를 사전에 모든 의료 권위/플랫폼 도메인을 추측해서 채우려 하면 시간 낭비 + 누락 천지
+- 정답: production cron 한 번 돌리고 → DB `responses.source_domains` 조회 → 등장한 도메인만 정확히 분류 → SKILL 에 추가. 새 라운드마다 같은 패턴 반복.
+
+### Round 36 결정 (2026-05-31)
+
+사용자 결정: **Anthropic credit 충전 보류**. 이유 — 자사 own cron + 경쟁 cron 이 시간 누적되며 Gemini quota reset 마다 자동 데이터 채워질 것. BGN 만 단기 비어있어도 운영 흐름 자체엔 영향 없음.
+
+다음 라운드 재논의 트리거:
+- 2주 누적 후에도 BGN tenant 의 경쟁사 데이터가 5건 미만이면 Anthropic credit / Gemini paid 재검토
+- 또는 클라이언트가 BGN 화면 보고 "왜 비어있냐" 질문하면 즉시 paid 전환
+
+### Round 35 최종 산출물
+
+- `.github/workflows/measure-competitor-mentions.yml` 신규 (월/목 21:00 UTC)
+- `.github/workflows/measure-ai-mentions.yml` purpose_filter input + 기본 'own' 분리
+- `medimap-blog-v2/src/app/api/admin/citations/route.ts` AUTHORITY/NOISE set 확장
+- `medimap-blog-v2/src/app/api/admin/competitors/route.ts` 동일 확장
+- `medimap-blog-v2/src/app/admin/(portal)/competitors/page.tsx` UI 문구 간소화 ("매주 월·목 06:00 자동 측정")
+- `medimap-blog-v2/src/app/api/admin/tenants/[id]/analyze-homepage/route.ts` robots/sitemap Step 3 추가
+- `medimap-blog-v2/src/components/admin/HomepageAnalyzeButton.tsx` loading / fallback / fetched_url UX
+- DB: `add_source_domains_to_responses` / `add_keyword_purpose` / `auto_sync_business_model_keywords` trigger
+- production 검증: 지우피부과(tenant_id=6) 케이스 — T3=4, T5=15, 총 19 sources, 매트릭스 + Top10 차트 정상 표시
