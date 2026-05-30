@@ -24,6 +24,88 @@ import {
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+/**
+ * HTML 에서 redirect 대상 URL 감지.
+ * - <meta http-equiv="refresh" content="0; url=...">
+ * - JS location.href / window.location.replace
+ * - <a href> 의 첫 번째 internal link
+ */
+function detectRedirectUrl(html: string, baseUrl: string): string | null {
+  // 1. meta refresh
+  const metaRefresh = html.match(
+    /<meta[^>]*http-equiv=["']refresh["'][^>]*content=["'][^;]*;\s*url=([^"'\s]+)/i
+  );
+  if (metaRefresh) {
+    try {
+      return new URL(metaRefresh[1], baseUrl).href;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // 2. JS location redirect
+  const jsLocation = html.match(
+    /(?:location\.href|location\.replace\s*\(|window\.location\s*=)\s*["']([^"']+)["']/i
+  );
+  if (jsLocation) {
+    try {
+      return new URL(jsLocation[1], baseUrl).href;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // 3. <a href> 첫 번째 같은 도메인 link
+  const baseHost = (() => {
+    try {
+      return new URL(baseUrl).hostname;
+    } catch {
+      return '';
+    }
+  })();
+  const anchorRegex = /<a[^>]+href=["']([^"'#]+)["']/gi;
+  let m: RegExpExecArray | null;
+  while ((m = anchorRegex.exec(html)) !== null) {
+    try {
+      const u = new URL(m[1], baseUrl);
+      if (u.hostname === baseHost && u.pathname !== '/' && u.pathname.length > 1) {
+        return u.href;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return null;
+}
+
+/**
+ * URL fetch + HTML 텍스트 추출 (단일).
+ * timeoutMs 안에 응답 받지 못하면 null 반환.
+ */
+async function fetchAndExtract(url: string, timeoutMs = 8000): Promise<{ html: string; text: string; finalUrl: string } | null> {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (compatible; MedimapBot/1.0; +https://medi-map.co.kr)',
+        Accept: 'text/html,application/xhtml+xml',
+      },
+      redirect: 'follow',
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const html = await res.text();
+    const text = extractTextSignals(html);
+    return { html, text, finalUrl: res.url };
+  } catch {
+    return null;
+  }
+}
+
 /** HTML 에서 title / meta description / h1~h3 텍스트 추출 (regex 기반, dependency 회피) */
 function extractTextSignals(html: string): string {
   const parts: string[] = [];
@@ -111,39 +193,72 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     );
   }
 
-  // 2. fetch (timeout 10초)
-  let html = '';
-  let fetchedUrl = tenant.homepage;
-  try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 10000);
-    const res = await fetch(tenant.homepage, {
-      signal: ctrl.signal,
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (compatible; MedimapBot/1.0; +https://medi-map.co.kr)',
-        Accept: 'text/html,application/xhtml+xml',
-      },
-      redirect: 'follow',
-    });
-    clearTimeout(timer);
-    if (!res.ok) {
-      return NextResponse.json(
-        { ok: false, error: `homepage fetch failed: HTTP ${res.status}` },
-        { status: 502 }
-      );
+  // Round 34 phase 4 fix 2 (2026-05-30): 다단계 fetch — SPA/redirect 사이트 대응.
+  // 1단계: root URL fetch
+  // 2단계: text 짧으면 → meta refresh / JS redirect / first link 따라가기
+  // 3단계: 그래도 짧으면 → common paths (index.php, /main, /about) 순차 시도
+  // 각 단계 timeout 8초 × 최대 3 fetch = 최대 24초 (Vercel 30초 limit 안)
+
+  const triedUrls: string[] = [];
+  let bestResult: { html: string; text: string; finalUrl: string } | null = null;
+
+  const tryFetch = async (url: string) => {
+    triedUrls.push(url);
+    const r = await fetchAndExtract(url, 8000);
+    if (r && (!bestResult || r.text.length > bestResult.text.length)) {
+      bestResult = r;
     }
-    fetchedUrl = res.url;
-    html = await res.text();
-  } catch (e) {
+  };
+
+  // Step 1: 사용자 입력 URL
+  await tryFetch(tenant.homepage);
+
+  // Step 2: text 부족 + redirect 감지
+  if (!bestResult || (bestResult as { text: string }).text.length < 300) {
+    const redirectUrl = bestResult
+      ? detectRedirectUrl((bestResult as { html: string }).html, (bestResult as { finalUrl: string }).finalUrl)
+      : null;
+    if (redirectUrl && !triedUrls.includes(redirectUrl)) {
+      await tryFetch(redirectUrl);
+    }
+  }
+
+  // Step 3: 그래도 짧으면 common paths 시도
+  if (!bestResult || (bestResult as { text: string }).text.length < 300) {
+    const baseUrl = tenant.homepage.replace(/\/$/, '');
+    const candidates = [
+      `${baseUrl}/main/index.php`,
+      `${baseUrl}/main`,
+      `${baseUrl}/about`,
+      `${baseUrl}/intro`,
+      `${baseUrl}/index.php`,
+      `${baseUrl}/index.html`,
+      `${baseUrl}/services`,
+      `${baseUrl}/sub01`,
+    ];
+    for (const url of candidates) {
+      if (triedUrls.includes(url)) continue;
+      await tryFetch(url);
+      // 충분한 텍스트 발견 시 즉시 중단
+      if (bestResult && (bestResult as { text: string }).text.length > 500) break;
+    }
+  }
+
+  if (!bestResult) {
     return NextResponse.json(
-      { ok: false, error: `fetch error: ${(e as Error).message}` },
+      {
+        ok: false,
+        error: `홈페이지 fetch 실패 — 모든 시도 실패`,
+        tried_urls: triedUrls,
+      },
       { status: 502 }
     );
   }
 
-  // 3. 텍스트 signals 추출
-  const text = extractTextSignals(html);
+  const html = (bestResult as { html: string }).html;
+  const fetchedUrl = (bestResult as { finalUrl: string }).finalUrl;
+  // 3. 텍스트 signals 추출 (위에서 이미 추출했지만 변수 보존)
+  const text = (bestResult as { text: string }).text;
 
   // 4. 의료 키워드 매칭
   const candidates = getKeywordCandidates(tenant.domain_category);
