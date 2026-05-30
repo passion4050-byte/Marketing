@@ -133,26 +133,29 @@ async def main() -> int:
 
         for engine in engines:
             try:
-                with Session() as session:
-                    kw = session.get(Keyword, keyword_id)
-                    if not kw:
-                        continue
-                    result = await collect_for_keyword(
-                        session,
-                        kw,
-                        engine,
-                        n_samples=1,
-                        concurrency=1,
-                    )
-                    session.commit()
-                    total_success += result.n_success
-                    total_failed += result.n_failed
-                    total_mentions += result.n_mentions
-                    if result.guardrail_stopped:
-                        logger.warning("MAX_DAILY_USD 가드 도달 — 중단")
-                        logger.info("최종: success=%d fail=%d mentions=%d",
-                                    total_success, total_failed, total_mentions)
-                        return 0
+                # Round 31 fix (2026-05-30): collect_for_keyword 의 실제 시그니처는
+                #   (session_factory, tenant_id, keyword, engine, *, n_samples, ...)
+                # session_factory 는 `with sf() as s` 로 호출되는 callable.
+                with Session() as _read_session:
+                    kw = _read_session.get(Keyword, keyword_id)
+                if not kw:
+                    continue
+                result = await collect_for_keyword(
+                    Session,            # session_factory (callable, 함수 안에서 새 session 생성)
+                    r["tenant_id"],     # tenant_id
+                    kw,                 # keyword
+                    engine,             # engine
+                    n_samples=1,
+                    concurrency=1,
+                )
+                total_success += result.n_success
+                total_failed += result.n_failed
+                total_mentions += result.n_mentions
+                if result.guardrail_stopped:
+                    logger.warning("MAX_DAILY_USD 가드 도달 — 중단")
+                    logger.info("최종: success=%d fail=%d mentions=%d",
+                                total_success, total_failed, total_mentions)
+                    return 0
             except Exception as e:  # noqa: BLE001
                 logger.exception("[k=%d engine=%s] 측정 실패: %s",
                                  keyword_id, engine.__class__.__name__, e)
