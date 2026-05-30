@@ -214,7 +214,62 @@ async def main() -> int:
 
     logger.info("==== 측정 완료 ====")
     logger.info("success=%d fail=%d mentions=%d", total_success, total_failed, total_mentions)
+
+    # Round 32 (2026-05-30) — 측정 직후 cited_urls 의 source domain 추적.
+    # mode=production 의 Gemini/OpenAI/etc 응답에 cited_urls 가 있으면
+    # redirect 따라가서 실제 source domain 을 responses.source_domains 에 저장.
+    if mode == "production":
+        await _resolve_recent_source_domains(sql_engine)
+
     return 0
+
+
+async def _resolve_recent_source_domains(sql_engine) -> None:
+    """이번 batch 의 responses 중 source_domains 가 NULL 인 것 추적."""
+    try:
+        from src.parser.source_resolver import resolve_urls, summarize
+    except Exception as e:  # noqa: BLE001
+        logger.warning("source_resolver import 실패: %s", e)
+        return
+
+    import json
+    with sql_engine.connect() as conn:
+        rows = conn.execute(text(
+            """
+            SELECT r.id, r.cited_urls
+            FROM responses r
+            WHERE r.created_at > NOW() - INTERVAL '10 min'
+              AND r.source_domains IS NULL
+              AND r.cited_urls IS NOT NULL
+              AND jsonb_array_length(r.cited_urls) > 0
+            """
+        )).mappings().all()
+
+    logger.info("Source 추적 대상 responses: %d 건", len(rows))
+    total_resolved = 0
+    for r in rows:
+        response_id = r["id"]
+        urls = r["cited_urls"] or []
+        if not isinstance(urls, list) or not urls:
+            continue
+        try:
+            resolved = await resolve_urls(urls, concurrency=10, timeout=4.0)
+            summary = summarize(resolved)
+            logger.info(
+                "  [resp=%d] total=%d self=%d (%.1f%%) top=%s",
+                response_id, summary["total"], summary["self_count"],
+                summary["self_share"] * 100,
+                summary["top_domains"][:3],
+            )
+            with sql_engine.begin() as conn:
+                conn.execute(
+                    text("UPDATE responses SET source_domains = :sd WHERE id = :id"),
+                    {"sd": json.dumps(resolved, ensure_ascii=False), "id": response_id},
+                )
+            total_resolved += 1
+        except Exception as e:  # noqa: BLE001
+            logger.warning("  [resp=%d] source 추적 실패: %s", response_id, e)
+    logger.info("Source 추적 완료: %d 건 UPDATE", total_resolved)
 
 
 if __name__ == "__main__":
