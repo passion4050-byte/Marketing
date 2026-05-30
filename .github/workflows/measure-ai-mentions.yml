@@ -1,0 +1,86 @@
+name: Measure AI mentions (daily 07:00 KST)
+
+# Round 31 (2026-05-30) — AI 인용 추적 MVP.
+# 매일 07:00 KST 에 자사 + 파트너 키워드를 4 엔진 (perplexity/openai/claude/gemini) 에
+# 호출 → response/mention DB 저장 → 어드민 대시보드 KPI 갱신.
+#
+# 안전 모드 — ENGINE_MODE secret 으로 분기:
+#   - `stub` (기본): 외부 API 호출 없음, demo 데이터로 파이프라인 검증
+#   - `production`: 실제 4 엔진 API 호출, $0.20~0.30/일 비용 발생
+#
+# 비용 가드: MAX_DAILY_USD secret 으로 일일 USD 한도 강제 (collect.py 내장).
+
+on:
+  schedule:
+    - cron: '0 22 * * *'   # 매일 22:00 UTC = 07:00 KST
+  workflow_dispatch:
+    inputs:
+      engine_mode:
+        description: 'engine mode (stub | production)'
+        type: choice
+        options: [stub, production]
+        default: stub
+      keyword_limit:
+        description: '최대 키워드 수 (테스트용)'
+        type: string
+        default: '20'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: measure-ai-mentions
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    name: Run AI engine measurement
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify required secrets
+        run: |
+          if [ -z "${{ secrets.DATABASE_URL }}" ]; then
+            echo "::error::DATABASE_URL 미설정"
+            exit 1
+          fi
+
+      - name: Run measurement
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ENGINE_MODE: ${{ inputs.engine_mode || secrets.ENGINE_MODE || 'stub' }}
+          KEYWORD_LIMIT: ${{ inputs.keyword_limit || '20' }}
+          MAX_DAILY_USD: ${{ secrets.MAX_DAILY_USD || '1.0' }}
+          # 4 엔진 API keys (production 모드만)
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        run: |
+          echo "ENGINE_MODE=$ENGINE_MODE"
+          echo "KEYWORD_LIMIT=$KEYWORD_LIMIT"
+          echo "MAX_DAILY_USD=$MAX_DAILY_USD"
+          python scripts/run_measurement_batch.py
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## AI 측정 결과"
+            echo "- engine_mode: ${ENGINE_MODE:-stub}"
+            echo "- 자세한 결과는 어드민 \`/admin/citations\` 페이지 참조"
+          } >> "$GITHUB_STEP_SUMMARY"

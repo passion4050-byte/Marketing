@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   const html = `
 <p>안녕하세요,</p>
 <p>${body.period ?? '이번 달'} 보고서가 준비되었습니다.</p>
-<p><a href="${reportUrl}" style="display:inline-block;background:#0E5A6B;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;">보고서 보기</a></p>
+<p><a href="${reportUrl}" style="display:inline-block;background:#1B68FF;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;">보고서 보기</a></p>
 <p style="color:#64748B;font-size:12px;">MEDIMAP GEO · Hospital AI Platform</p>`;
 
   try {

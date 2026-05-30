@@ -7,10 +7,11 @@
    ========================= */
 
 :root {
-  --brand: #0E5A6B;
-  --brand-dark: #0B4C5A;
-  --brand-tint: #E0EDEF;
-  --brand-tint-soft: #F0F7F8;
+  /* Round 30 (2026-05-30): 메디맵 블루 #1B68FF 통합 — medimap-blog 와 동일 토큰 */
+  --brand: #1B68FF;
+  --brand-dark: #1453CC;
+  --brand-tint: #DBEAFE;
+  --brand-tint-soft: #EFF6FF;
   --accent: #15B8A6;
   --surface: #FFFFFF;
   --surface-subtle: #F7F9FA;
@@ -37,7 +38,7 @@ body {
 }
 
 ::selection {
-  background: rgba(14, 90, 107, 0.18);
+  background: rgba(27, 104, 255, 0.18);
   color: var(--brand-dark);
 }
 

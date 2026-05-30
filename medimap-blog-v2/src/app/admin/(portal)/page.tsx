@@ -87,9 +87,21 @@ async function fetchDashboardData() {
     costError = e instanceof Error ? e.message : String(e);
   }
 
-  // 4. 24h AI 인용 — citations 테이블 미구현 → 0 + Round 31 안내
-  // (Round 31 에 mention_share/citations 테이블 구현 예정)
-  const citations24h = 0;
+  // Round 31 (2026-05-30): mentions 테이블에서 24h 인용 카운트.
+  // measure-ai-mentions.yml cron 이 매일 07:00 KST 에 4 엔진 호출 → mentions INSERT.
+  // is_target=true 인 mention 만 카운트 (메디맵 또는 자사 tenant 가 직접 mentioned).
+  let citations24h = 0;
+  try {
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count: mentionCount } = await sb
+      .from('mentions')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', yesterday)
+      .eq('is_target', true);
+    citations24h = mentionCount ?? 0;
+  } catch {
+    // mentions 테이블 query 실패 시 0 표시 (graceful)
+  }
 
   // 5. 최근 검수 대기 Top 3 — draft/pending top 3 + tenant 이름 (fix 12 패턴: 별도 fetch)
   const { data: draftRows } = await sb
@@ -118,19 +130,74 @@ async function fetchDashboardData() {
     tenant_name: tenantMap.get(r.tenant_id) ?? '(unknown)',
   }));
 
+  // Round 31 (2026-05-30): 최근 AI 인용 (24h) 실데이터.
+  // mentions + responses + queries JOIN — engine, prompt, created_at + tenant_name.
+  type RecentCitation = {
+    id: string;
+    query: string;
+    tenantName: string;
+    engine: string;
+    citedAt: string;
+  };
+  let recentCitations: RecentCitation[] = [];
+  try {
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    // mentions → responses → queries 별도 fetch (fix 12 패턴)
+    const { data: mentions } = await sb
+      .from('mentions')
+      .select('id, response_id, tenant_id, brand, created_at')
+      .gte('created_at', yesterday)
+      .eq('is_target', true)
+      .order('created_at', { ascending: false })
+      .limit(3);
+    if (mentions && mentions.length > 0) {
+      const respIds = Array.from(new Set(mentions.map((m: { response_id: number }) => m.response_id)));
+      const { data: responses } = await sb
+        .from('responses')
+        .select('id, query_id')
+        .in('id', respIds);
+      const respMap = new Map<number, number>(
+        (responses ?? []).map((r: { id: number; query_id: number }) => [r.id, r.query_id])
+      );
+      const queryIds = Array.from(new Set(Array.from(respMap.values())));
+      const { data: queries } = await sb
+        .from('queries')
+        .select('id, prompt, engine')
+        .in('id', queryIds);
+      const queryMap = new Map<number, { prompt: string; engine: string }>(
+        (queries ?? []).map((q: { id: number; prompt: string; engine: string }) => [
+          q.id,
+          { prompt: q.prompt, engine: q.engine },
+        ])
+      );
+      recentCitations = mentions.map((m: {
+        id: number;
+        response_id: number;
+        tenant_id: number;
+        created_at: string;
+      }) => {
+        const qid = respMap.get(m.response_id);
+        const qInfo = qid ? queryMap.get(qid) : undefined;
+        return {
+          id: String(m.id),
+          query: qInfo?.prompt ?? '(query 미발견)',
+          tenantName: tenantMap.get(m.tenant_id) ?? '(unknown)',
+          engine: qInfo?.engine ?? '?',
+          citedAt: m.created_at,
+        };
+      });
+    }
+  } catch {
+    // mentions/queries query 실패 시 빈 list (graceful)
+  }
+
   return {
     activeTenants: clientCount ?? 0,
     pendingQueue: pendingCount ?? 0,
     todayCost,
     citations24h,
     recentDrafts,
-    recentCitations: [] as Array<{
-      id: string;
-      query: string;
-      tenantName: string;
-      engine: string;
-      citedAt: string;
-    }>,
+    recentCitations,
     error: costError,
   };
 }
@@ -261,13 +328,44 @@ export default async function AdminDashboardPage() {
               전체 보기 <ArrowUpRight className="inline h-3 w-3" />
             </Link>
           </header>
-          <div className="px-5 py-8 text-center text-sm text-ink-muted">
-            <Zap className="mx-auto mb-2 h-6 w-6 text-ink-faint" />
-            <div>AI 인용 추적 — Round 31 (예정)</div>
-            <div className="mt-1 text-[11px] text-ink-faint">
-              4 엔진 (Perplexity / ChatGPT / Claude / Gemini) 인용 측정 MVP 활성 후 표시
+          {d.recentCitations.length === 0 ? (
+            <div className="px-5 py-8 text-center text-sm text-ink-muted">
+              <Zap className="mx-auto mb-2 h-6 w-6 text-ink-faint" />
+              <div>최근 24시간 AI 인용 0건</div>
+              <div className="mt-1 text-[11px] text-ink-faint">
+                measure-ai-mentions cron (매일 07:00 KST) 가 4 엔진 측정 후 표시
+              </div>
             </div>
-          </div>
+          ) : (
+            <ul className="divide-y divide-border">
+              {d.recentCitations.map((c) => (
+                <li key={c.id} className="px-5 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-ink">{c.query}</div>
+                      <div className="mt-1 text-[11px] text-ink-muted">
+                        {c.tenantName} · {c.engine} · {new Date(c.citedAt).toLocaleString('ko-KR')}
+                      </div>
+                    </div>
+                    <span
+                      className={cn(
+                        'inline-flex h-2 w-2 shrink-0 rounded-full',
+                        c.engine === 'chatgpt' || c.engine === 'openai'
+                          ? 'bg-engine-chatgpt'
+                          : c.engine === 'claude' || c.engine === 'anthropic'
+                            ? 'bg-engine-claude'
+                            : c.engine === 'gemini'
+                              ? 'bg-engine-gemini'
+                              : c.engine === 'perplexity'
+                                ? 'bg-engine-perplexity'
+                                : 'bg-ink-faint'
+                      )}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
 

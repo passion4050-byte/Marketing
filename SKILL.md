@@ -811,6 +811,86 @@ fi
 
 ---
 
+## Round 30 마무리 (2026-05-30 저녁 후반) — 디자인 + Unsplash cover 검증
+
+### 추가 fix (Round 30 의 cover backfill 디버깅)
+
+1. **psycopg2 driver 수정** — backfill 스크립트가 `+psycopg` (v3) → `+psycopg2` 로 변경
+2. **Storage path 한글 제거** — `_slugify_for_storage_path` 함수 신규 (InvalidKey 400 회피)
+3. **Unsplash query 영문 only** — `keyword_to_unsplash_query` 신규 (한글 포함 query → 매칭 0 회피)
+4. **DB reset → backfill 재실행** — `source=unsplash` 확정 (id=101)
+
+### 어드민 디자인 시스템 블루 통합
+
+- `medimap-blog-v2/tailwind.config.ts` 의 brand 토큰 — `#0E5A6B` (딥 티얼) → `#1B68FF` (메디맵 블루)
+- brand-50~900 모두 Tailwind blue scale 기준 + brand-dark `#1453CC` + brand-ink `#091F50`
+- `medimap-blog-v2/src/app/globals.css` 의 CSS 변수 동기화
+- `::selection` rgba 블루로 변경
+- `api/admin/reports/email/route.ts` 의 hardcoded `#0E5A6B` 도 메디맵 블루로
+- 결과: 어드민 13 페이지 모두 brand 토큰 통해 자동 색상 갱신 (개별 페이지 수정 0)
+
+---
+
+## Round 31 인프라 — AI 인용 추적 MVP skeleton (2026-05-30 저녁)
+
+### 기존 인프라 검증
+
+이미 존재하는 모듈:
+- DB: `queries`, `responses`, `mentions` 테이블 (`src/storage/models.py`)
+- 4 엔진 client: `src/engines/{perplexity, openai_engine, claude, gemini, stub}.py`
+- collector: `src/collector/collect.py` 의 `collect_for_keyword()` — 비용 가드 + mention 추출 + DB INSERT
+- parser: `src/parser/mentions.py`, `ner.py`, `signals.py`
+
+### 신규 추가
+
+**1. measure cron workflow** (`.github/workflows/measure-ai-mentions.yml`)
+- 매일 22:00 UTC (07:00 KST) cron + workflow_dispatch
+- ENGINE_MODE 분기: `stub` (기본, 비용 0) / `production` (4 엔진 실제 호출)
+- KEYWORD_LIMIT (기본 20) / MAX_DAILY_USD (기본 1.0) 가드
+
+**2. measurement batch script** (`scripts/run_measurement_batch.py`)
+- is_active=true 키워드 조회 → 4 엔진 별로 `collect_for_keyword` 호출
+- API key 등록된 엔진만 활성 (key 없으면 skip — graceful)
+- 비용 가드 도달 시 즉시 중단
+
+**3. 어드민 대시보드 KPI 실데이터 연결**
+- "24h AI 인용" KPI = `mentions WHERE created_at >= 24h ago AND is_target=true` COUNT
+- "최근 AI 인용 (24h)" 섹션 = mentions/responses/queries JOIN (fix 12 패턴, 별도 fetch)
+- engine 별 색상 dot (chatgpt/claude/gemini/perplexity)
+
+### Round 31 활성화 단계 (사용자 직접)
+
+1. **4 엔진 API key 등록** (GitHub Secrets):
+   - `PERPLEXITY_API_KEY` — 가장 권장 (실제 web search + citation, $5/1k req)
+   - `OPENAI_API_KEY` — 이미 있을 가능성
+   - `ANTHROPIC_API_KEY` — Claude
+   - `GOOGLE_API_KEY` — Gemini (이미 있음, generator.py 와 공유)
+2. **ENGINE_MODE=production secret 등록** (또는 workflow_dispatch 로 한 번씩 manual run)
+3. **MAX_DAILY_USD=1.0 secret 등록** (가드)
+4. **첫 manual run** — workflow_dispatch 로 engine_mode=stub 먼저 → mentions 테이블 INSERT 검증
+5. **production 전환** — stub 검증 후 ENGINE_MODE=production 으로 실제 측정 시작
+
+### 비용 예상 (production 모드, 자사 6편 × 4 엔진 × 1 sample)
+
+- Perplexity ($5/1k req): $0.12/일
+- OpenAI GPT-4o-mini ($0.15/1M in + $0.6/1M out): $0.005/일
+- Claude 3.5 Sonnet ($3/1M in + $15/1M out): $0.13/일
+- Gemini 1.5 Flash ($0.075/1M in + $0.3/1M out): $0.003/일
+- **합계: ~$0.26/일 ≈ $8/월** (매우 저렴)
+
+키워드 풀 확장 (20개로 늘리면) — $1/일 정도. MAX_DAILY_USD 가드로 안전.
+
+### Round 31 검증 후 추가 후보
+
+- `/admin/citations` 페이지 실데이터 연결 (현재는 mock)
+- mention_share 차트 (엔진 별 점유율 시각화)
+- 자사 vs 경쟁사 mention 비교 (competitors 테이블 활용)
+- AI 인용된 URL 의 traffic 추적 (shortlinks 와 연동)
+
+---
+
+---
+
 ## Round 30 (2026-05-30 저녁) — 운영 안정화 + 대시보드 실데이터 + 디자인 보류
 
 ### 적용한 fix
