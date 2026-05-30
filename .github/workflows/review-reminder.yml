@@ -46,7 +46,9 @@ jobs:
           SUPA_KEY=$(echo -n "$SUPABASE_SERVICE_ROLE_KEY" | tr -d '\n\r' | sed 's/[[:space:]]*$//')
 
           # 어드민 /api/admin/content-queue 와 동일 query (status IN draft, pending)
-          RESP=$(curl -sS "$SUPA_URL/rest/v1/generated_contents?status=in.(draft,pending)&select=id,title,keyword_text,tenants(name)&order=created_at.desc" \
+          # Round 29 fix 9: tenants(name) join 제거 — PostgREST 환경에서 에러 객체 반환 케이스 회피.
+          # tenant_name 표시는 어드민 페이지에서 확인. Slack 알림은 id + title 만으로 충분.
+          RESP=$(curl -sS "$SUPA_URL/rest/v1/generated_contents?status=in.(draft,pending)&select=id,title,keyword_text&order=created_at.desc" \
             -H "apikey: $SUPA_KEY" \
             -H "Authorization: Bearer $SUPA_KEY")
 
@@ -83,12 +85,11 @@ jobs:
             RESP_ARRAY="$RESP"
           fi
 
-          # 글 목록 추출 — tenants 무조건 array wrap 후 [0].name.
+          # Round 29 fix 9 (2026-05-30): tenants join 안 받음.
+          # 단순히 id + title + keyword 만 표시. 가장 robust.
           DRAFT_LIST=$(echo "$RESP_ARRAY" | jq -r '
             .[0:10][] |
-            (([.tenants] | flatten | .[0]) // {}) as $t |
-            ($t.name // "(unknown)") as $tname |
-            "• [\(.id // "?")] \($tname) — \(.title // .keyword_text // "(제목 없음)")"
+            "• [\(.id // "?")] \(.title // .keyword_text // "(제목 없음)") "
           ' 2>&1 || echo "(목록 생성 실패)")
           echo "--- DRAFT_LIST (debug) ---"
           echo "$DRAFT_LIST"
