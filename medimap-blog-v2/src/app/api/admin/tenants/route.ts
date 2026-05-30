@@ -98,5 +98,21 @@ export async function POST(req: NextRequest) {
   const { data, error } = await sb.from('tenants').insert(payload).select().single();
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   await logAudit(req, sb, 'create_tenant', `tenants:${data.id}`, { diff: { after: data } });
+
+  // Round 34 phase 4 (2026-05-30) — 신규 등록 시 홈페이지 자동 분석.
+  // homepage URL 이 있고 business_model 이 비어있거나 분류 문자열이면 자동 호출.
+  // 백그라운드 — await 안 함 (response 빨리 반환).
+  if (data.homepage && (!data.business_model || ['partner', 'self', '미지정', ''].includes(data.business_model))) {
+    const proto = req.headers.get('x-forwarded-proto') ?? 'https';
+    const host = req.headers.get('host');
+    if (host) {
+      const analyzeUrl = `${proto}://${host}/api/admin/tenants/${data.id}/analyze-homepage?apply=true`;
+      // fire-and-forget — 응답 기다리지 않음. 실패해도 tenant 생성 자체는 성공.
+      fetch(analyzeUrl, { method: 'POST' }).catch(() => {
+        // graceful — 로그만 남기고 무시
+      });
+    }
+  }
+
   return NextResponse.json({ ok: true, tenant: data });
 }

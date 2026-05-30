@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Edit3, Loader2, Pause, Play, Plus, Trash2, X } from 'lucide-react';
 import { showToast } from '@/lib/clientActions';
+import { HomepageAnalyzeButton } from '@/components/admin/HomepageAnalyzeButton';
 
 type TenantStatus = 'active' | 'paused' | 'trial';
 
@@ -220,8 +221,24 @@ export default function TenantsPage() {
 
               <Field label="지역" placeholder="잠실 / 강남 / 송파"
                 value={draft.region ?? ''} onChange={(v) => setDraft((p) => ({ ...p, region: v }))} />
-              <Field label="비즈니스 모델" placeholder="라식·라섹·스마일라식"
-                value={draft.business_model ?? ''} onChange={(v) => setDraft((p) => ({ ...p, business_model: v }))} />
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink">비즈니스 모델</label>
+                <input
+                  type="text"
+                  className="input-base"
+                  placeholder="라식,라섹,스마일라식 (콤마 구분)"
+                  value={draft.business_model ?? ''}
+                  onChange={(e) => setDraft((p) => ({ ...p, business_model: e.target.value }))}
+                />
+                {/* Round 34 phase 4 (2026-05-30): 홈페이지 자동 분석 → 비즈니스 모델 추출 */}
+                <HomepageAnalyzeButton
+                  tenantId={(editing as SbTenant)?.id}
+                  homepage={draft.homepage ?? ''}
+                  onApply={(keywords) =>
+                    setDraft((p) => ({ ...p, business_model: keywords }))
+                  }
+                />
+              </div>
               <Field label="주소" placeholder="서울 송파구 ..."
                 value={draft.address ?? ''} onChange={(v) => setDraft((p) => ({ ...p, address: v }))} />
               <Field label="네이버 플레이스 URL" placeholder="https://map.naver.com/p/..."
