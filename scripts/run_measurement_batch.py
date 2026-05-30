@@ -35,6 +35,50 @@ logging.basicConfig(
 logger = logging.getLogger("measurement-batch")
 
 
+_GENERIC_KOREAN_TOKENS = {
+    "잠실", "서울", "강남", "부산", "분당", "송파", "용산", "신촌",
+    "병원", "의원", "클리닉", "센터", "본점", "지점", "강남구", "송파구",
+}
+
+
+def _build_aliases(tenant_name: str, target_brand: str) -> list[str]:
+    """tenant.name 에서 한국어 brand alias 자동 생성.
+
+    예: tenant_name="BGN 밝은눈안과 잠실", target_brand="bgn"
+        → ["BGN 밝은눈안과 잠실", "BGN", "밝은눈안과", "bgn"]
+
+    추출 규칙:
+    - tenant_name 자체 (full match 용)
+    - tenant_name 의 영문/한글 token 중 ≥2글자 + generic 단어 제외
+    - target_brand 영문 (이미 키워드에 등록된 것)
+    """
+    import re as _re
+    aliases: set[str] = set()
+    if tenant_name:
+        aliases.add(tenant_name.strip())
+        # tokens 추출
+        for tok in tenant_name.split():
+            tok = tok.strip()
+            if len(tok) < 2:
+                continue
+            if tok in _GENERIC_KOREAN_TOKENS:
+                continue
+            aliases.add(tok)
+        # 한국어 부분 (의원/병원 + 잠실/서울 등 제외한 핵심 brand)
+        # 예: "밝은눈안과" 같은 단독 키워드
+        for match in _re.finditer(r"[가-힣]{2,}", tenant_name):
+            cand = match.group(0)
+            if cand not in _GENERIC_KOREAN_TOKENS and len(cand) >= 3:
+                aliases.add(cand)
+                # 의원/안과/병원 등 접미사 제거 버전
+                for suffix in ("의원", "병원", "안과의원"):
+                    if cand.endswith(suffix) and len(cand) > len(suffix) + 1:
+                        aliases.add(cand[: -len(suffix)])
+    if target_brand:
+        aliases.add(target_brand.strip())
+    return [a for a in aliases if a]
+
+
 def _build_engines(mode: str) -> list:
     """ENGINE_MODE 에 따라 engine instance 리스트 반환."""
     if mode == "stub":
@@ -102,7 +146,8 @@ async def main() -> int:
     with sql_engine.connect() as conn:
         rows = conn.execute(text(
             """
-            SELECT k.id, k.tenant_id, k.text AS keyword_text, t.name AS tenant_name
+            SELECT k.id, k.tenant_id, k.text AS keyword_text, t.name AS tenant_name,
+                   k.target_brand
             FROM keywords k JOIN tenants t ON t.id=k.tenant_id
             WHERE k.is_active = true
             ORDER BY k.id
@@ -141,13 +186,18 @@ async def main() -> int:
                     kw = _read_session.get(Keyword, keyword_id)
                 if not kw:
                     continue
+                # Round 31 fix 3 (2026-05-30): 한국어 brand alias 자동 생성.
+                # target_brand 가 영문 slug (예: "bgn") 만 있으면 한국 응답 매칭 0.
+                # tenant.name 에서 한국어 brand 부분 추출 + 합쳐서 alias 리스트.
+                aliases = _build_aliases(r["tenant_name"], r.get("target_brand") or "")
                 result = await collect_for_keyword(
-                    Session,            # session_factory (callable, 함수 안에서 새 session 생성)
+                    Session,            # session_factory
                     r["tenant_id"],     # tenant_id
                     kw,                 # keyword
                     engine,             # engine
                     n_samples=1,
                     concurrency=1,
+                    aliases=aliases,    # 한국어 brand alias
                 )
                 total_success += result.n_success
                 total_failed += result.n_failed
