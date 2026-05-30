@@ -16,6 +16,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Bar,
   BarChart,
@@ -91,7 +92,25 @@ const TIER_LABELS: Record<string, { label: string; color: string; short: string 
 };
 
 export default function CitationsPage() {
-  const [tenantId, setTenantId] = useState<number | null>(null); // null = 전체
+  // Round 34 phase 5 (2026-05-30): URL query 로 tenantId 공유 (자사 ↔ 경쟁사 탭 전환 시 유지)
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const initialTenantId = (() => {
+    const v = searchParams.get('tenantId');
+    return v ? Number(v) || null : null;
+  })();
+  const [tenantId, setTenantIdState] = useState<number | null>(initialTenantId);
+  // setTenantId 호출 시 URL 도 자동 update
+  const setTenantId = (id: number | null) => {
+    setTenantIdState(id);
+    const params = new URLSearchParams(searchParams.toString());
+    if (id == null) params.delete('tenantId');
+    else params.set('tenantId', String(id));
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  };
+
   const [data, setData] = useState<CitationsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

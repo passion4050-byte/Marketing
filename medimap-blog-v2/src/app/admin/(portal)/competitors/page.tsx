@@ -12,6 +12,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Bar,
   BarChart,
@@ -63,7 +64,24 @@ const TIER_LABELS: Record<string, { label: string; color: string; short: string 
 };
 
 export default function CompetitorsPage() {
-  const [tenantId, setTenantId] = useState<number | null>(null);
+  // Round 34 phase 5 (2026-05-30): URL query 로 tenantId 공유.
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const initialTenantId = (() => {
+    const v = searchParams.get('tenantId');
+    return v ? Number(v) || null : null;
+  })();
+  const [tenantId, setTenantIdState] = useState<number | null>(initialTenantId);
+  const setTenantId = (id: number | null) => {
+    setTenantIdState(id);
+    const params = new URLSearchParams(searchParams.toString());
+    if (id == null) params.delete('tenantId');
+    else params.set('tenantId', String(id));
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  };
+
   const [data, setData] = useState<CompetitorData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
