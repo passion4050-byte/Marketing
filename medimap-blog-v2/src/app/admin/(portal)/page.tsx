@@ -23,6 +23,7 @@ import {
   type KeywordGroundingItem,
   type NewDomainItem,
 } from '@/components/admin/DashboardCharts';
+import { DashboardFilters } from '@/components/admin/DashboardFilters';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -38,7 +39,27 @@ type DraftRow = {
 
 type TenantRow = { id: number; name: string | null };
 
-async function fetchDashboardData(periodDays: number = 30) {
+async function fetchDashboardData(opts: {
+  periodDays: number;
+  tenantId?: number | null;
+  fromDate?: string;
+  toDate?: string;
+} = { periodDays: 30 }) {
+  const { tenantId = null, fromDate, toDate } = opts;
+  let { periodDays } = opts;
+  // 사용자 지정 기간 — fromDate/toDate 가 있으면 우선
+  let useCustomRange = false;
+  let customCutoff: string | null = null;
+  let customEnd: string | null = null;
+  if (fromDate && toDate) {
+    useCustomRange = true;
+    customCutoff = new Date(`${fromDate}T00:00:00Z`).toISOString();
+    customEnd = new Date(`${toDate}T23:59:59Z`).toISOString();
+    // periodDays 추정 — 차트 fill 용
+    const ms = new Date(customEnd).getTime() - new Date(customCutoff).getTime();
+    periodDays = Math.max(1, Math.ceil(ms / (24 * 60 * 60 * 1000)));
+  }
+
   const sb = getServerClient();
   if (!sb) {
     return {
@@ -219,7 +240,7 @@ async function fetchDashboardData(periodDays: number = 30) {
     });
 
     // 최근 30일 responses (production 측정만, source_domains 있는 것)
-    const thirtyDaysAgo = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000).toISOString();
+    const thirtyDaysAgo = useCustomRange && customCutoff ? customCutoff : new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000).toISOString();
     const { data: respRows } = await sb
       .from('responses')
       .select('id, query_id, source_domains, created_at')
@@ -232,11 +253,14 @@ async function fetchDashboardData(periodDays: number = 30) {
     );
     const queryTenantMap = new Map<number, number>();
     if (queryIdSet.length > 0) {
-      const { data: queryRows } = await sb
+      // Round 39 — tenantId 필터링
+      let qq = sb
         .from('queries')
         .select('id, tenant_id, engine')
         .in('id', queryIdSet)
         .neq('engine', 'stub');
+      if (tenantId) qq = qq.eq('tenant_id', tenantId);
+      const { data: queryRows } = await qq;
       (queryRows ?? []).forEach((q: { id: number; tenant_id: number }) => {
         queryTenantMap.set(q.id, q.tenant_id);
       });
@@ -337,16 +361,19 @@ async function fetchDashboardData(periodDays: number = 30) {
   let keywordGrounding: KeywordGroundingItem[] = [];
   let newDomains: NewDomainItem[] = [];
   try {
-    const thirtyDaysAgo = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000).toISOString();
+    const thirtyDaysAgo = useCustomRange && customCutoff ? customCutoff : new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000).toISOString();
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const fortyDaysAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
 
     // 4) keyword grounding — queries 와 responses 30일치 join, keyword_id 별 group
-    const { data: queriesAll } = await sb
+    // Round 39 — tenantId 필터링
+    let qa = sb
       .from('queries')
       .select('id, keyword_id, tenant_id')
       .neq('engine', 'stub')
       .gte('requested_at', thirtyDaysAgo);
+    if (tenantId) qa = qa.eq('tenant_id', tenantId);
+    const { data: queriesAll } = await qa;
     const queryIdToKw = new Map<number, { keyword_id: number; tenant_id: number }>();
     (queriesAll ?? []).forEach((q: { id: number; keyword_id: number; tenant_id: number }) => {
       queryIdToKw.set(q.id, { keyword_id: q.keyword_id, tenant_id: q.tenant_id });
@@ -417,11 +444,14 @@ async function fetchDashboardData(periodDays: number = 30) {
     }
 
     // 5) 신규 도메인 — 최근 7일 등장 hostname 중 그 이전 30일에는 안 등장한 것
-    const { data: respRecent } = await sb
+    // Round 39 — tenantId 필터 + 세부 URL + 키워드 추가
+    let rrq = sb
       .from('responses')
-      .select('source_domains, created_at')
+      .select('id, query_id, source_domains, created_at')
       .gte('created_at', sevenDaysAgo)
       .not('source_domains', 'is', null);
+    const { data: respRecent } = await rrq;
+
     const { data: respPrior } = await sb
       .from('responses')
       .select('source_domains')
@@ -438,18 +468,79 @@ async function fetchDashboardData(periodDays: number = 30) {
       }
     );
 
-    const recentFirstSeen = new Map<string, { first: string; count: number }>();
+    // Round 39 — 최근 7일 queries 정보 (tenantId 필터 적용)
+    const recentQueryIds = Array.from(
+      new Set((respRecent ?? []).map((r: { query_id: number }) => r.query_id))
+    );
+    const queryDetailMap = new Map<number, { tenant_id: number; keyword_id: number }>();
+    if (recentQueryIds.length > 0) {
+      let qd = sb
+        .from('queries')
+        .select('id, tenant_id, keyword_id')
+        .in('id', recentQueryIds)
+        .neq('engine', 'stub');
+      if (tenantId) qd = qd.eq('tenant_id', tenantId);
+      const { data: qrows } = await qd;
+      (qrows ?? []).forEach((q: { id: number; tenant_id: number; keyword_id: number }) => {
+        queryDetailMap.set(q.id, { tenant_id: q.tenant_id, keyword_id: q.keyword_id });
+      });
+    }
+
+    // 키워드 + tenant name 매핑
+    const kwIdsForDomain = Array.from(new Set(Array.from(queryDetailMap.values()).map((v) => v.keyword_id)));
+    const kwTextMapForDomain = new Map<number, string>();
+    if (kwIdsForDomain.length > 0) {
+      const { data: kws } = await sb.from('keywords').select('id, text').in('id', kwIdsForDomain);
+      (kws ?? []).forEach((k: { id: number; text: string }) => kwTextMapForDomain.set(k.id, k.text));
+    }
+    const tenantIdsForDomain = Array.from(new Set(Array.from(queryDetailMap.values()).map((v) => v.tenant_id)));
+    const tenantNameMapForDomain = new Map<number, string>();
+    if (tenantIdsForDomain.length > 0) {
+      const { data: ts } = await sb.from('tenants').select('id, name').in('id', tenantIdsForDomain);
+      (ts ?? []).forEach((t: { id: number; name: string }) => tenantNameMapForDomain.set(t.id, t.name));
+    }
+
+    const recentFirstSeen = new Map<
+      string,
+      {
+        first: string;
+        count: number;
+        urls: Set<string>;
+        keywords: Set<string>;
+        tenants: Set<string>;
+      }
+    >();
     (respRecent ?? []).forEach(
-      (r: { source_domains: Array<{ domain: string }> | null; created_at: string }) => {
+      (r: {
+        query_id: number;
+        source_domains: Array<{ domain: string; final_url?: string | null }> | null;
+        created_at: string;
+      }) => {
         const day = r.created_at.slice(5, 10);
-        (r.source_domains ?? []).forEach((sd: { domain: string }) => {
+        const meta = queryDetailMap.get(r.query_id);
+        if (tenantId && !meta) return; // tenantId 필터 적용 시 query 없는 건 skip
+        (r.source_domains ?? []).forEach((sd: { domain: string; final_url?: string | null }) => {
           if (!sd.domain) return;
           const d = sd.domain.toLowerCase();
-          if (priorDomains.has(d)) return; // 이전에도 있던 도메인 제외
+          if (priorDomains.has(d)) return;
           if (!recentFirstSeen.has(d)) {
-            recentFirstSeen.set(d, { first: day, count: 0 });
+            recentFirstSeen.set(d, {
+              first: day,
+              count: 0,
+              urls: new Set(),
+              keywords: new Set(),
+              tenants: new Set(),
+            });
           }
-          recentFirstSeen.get(d)!.count++;
+          const entry = recentFirstSeen.get(d)!;
+          entry.count++;
+          if (sd.final_url) entry.urls.add(sd.final_url);
+          if (meta) {
+            const kwText = kwTextMapForDomain.get(meta.keyword_id);
+            const tName = tenantNameMapForDomain.get(meta.tenant_id);
+            if (kwText) entry.keywords.add(kwText);
+            if (tName) entry.tenants.add(tName);
+          }
         });
       }
     );
@@ -470,6 +561,9 @@ async function fetchDashboardData(periodDays: number = 30) {
         tier: classifyMap.get(domain) ?? 'T5',
         first_seen: info.first,
         occurrences: info.count,
+        sample_urls: Array.from(info.urls).slice(0, 3),
+        keywords: Array.from(info.keywords).slice(0, 3),
+        tenants: Array.from(info.tenants).slice(0, 3),
       }))
       .sort((a, b) => b.occurrences - a.occurrences)
       .slice(0, 8);
@@ -495,15 +589,30 @@ async function fetchDashboardData(periodDays: number = 30) {
 export default async function AdminDashboardPage({
   searchParams,
 }: {
-  searchParams?: { period?: string };
+  searchParams?: { period?: string; from?: string; to?: string; tenantId?: string };
 }) {
-  // Round 38 — 기간 조회 (7d/30d/90d)
+  // Round 38/39 — 기간 + 클라이언트 컨텍스트
+  const isCustom = searchParams?.period === 'custom' && searchParams?.from && searchParams?.to;
   const periodDays = (() => {
     const v = Number(searchParams?.period);
     if (v === 7 || v === 30 || v === 90) return v;
     return 30;
   })();
-  const d = await fetchDashboardData(periodDays);
+  const tenantId = (() => {
+    const v = Number(searchParams?.tenantId);
+    return v > 0 ? v : null;
+  })();
+  const fromDate = isCustom ? searchParams?.from : undefined;
+  const toDate = isCustom ? searchParams?.to : undefined;
+  const d = await fetchDashboardData({ periodDays, tenantId, fromDate, toDate });
+
+  // tenants list (selector 용)
+  const sbForTenants = getServerClient();
+  let tenantsList: Array<{ id: number; name: string }> = [];
+  if (sbForTenants) {
+    const { data } = await sbForTenants.from('tenants').select('id, name').order('name');
+    tenantsList = data ?? [];
+  }
 
   const KPIS = [
     {
@@ -668,24 +777,14 @@ export default async function AdminDashboardPage({
         </div>
       </section>
 
-      {/* Round 38 — 기간 조회 토글 */}
-      <div className="mt-6 flex items-center gap-1.5 text-[12px]">
-        <span className="text-ink-muted">기간:</span>
-        {[7, 30, 90].map((d) => (
-          <Link
-            key={d}
-            href={d === 30 ? '/admin' : `/admin?period=${d}`}
-            className={cn(
-              'rounded-md border px-2.5 py-1 font-semibold transition',
-              periodDays === d
-                ? 'border-brand bg-brand text-white'
-                : 'border-border bg-surface-base text-ink-soft hover:bg-surface-soft'
-            )}
-          >
-            {d}일
-          </Link>
-        ))}
-      </div>
+      {/* Round 39 — 클라이언트 selector + 기간 토글 + 사용자 지정 */}
+      <DashboardFilters
+        tenants={tenantsList}
+        currentTenantId={tenantId}
+        currentPeriod={isCustom ? 'custom' : String(periodDays)}
+        currentFrom={fromDate}
+        currentTo={toDate}
+      />
 
       {/* Round 37 H + Round 38 B (2026-05-31) — KPI 차트 5개 */}
       <section className="mt-3">

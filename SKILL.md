@@ -1744,3 +1744,97 @@ DB:
 3. 표 우측에 인용 횟수 + 경쟁 라벨 드롭다운 컬럼 추가
 4. 라벨 변경 → DB 저장 → 페이지 reload 시 유지 확인
 5. 다른 클라이언트 (지우피부과) 선택 시 같은 도메인이라도 다른 라벨 표시
+
+---
+
+## Round 39 (2026-05-31 외출 후반) — 대시보드 차트 5개 클라이언트 필터 + 사용자 지정 기간 + 신규 도메인 세부 인사이트
+
+### 진단 — 사용자 핵심 지적
+
+**1. 모든 차트 공통**:
+- 기간이 7d/30d/90d 만 있음 → **사용자 지정 (date range)** 필요
+- 클라이언트별 데이터 보기 어려움 → **클라이언트 selector + 검색** 필요
+
+**2. 신규 도메인 알림**:
+- 대표 도메인만 표시 → **어떤 콘텐츠/세부 URL 때문인지** 불명확
+- 분류 등록 버튼 → **자동 분류 + 검증 히스토리** 필요 (다음 라운드)
+
+**3. Top 키워드 grounding rate**:
+- 차트 역할 설명 부족 → **자세한 해석 + 활용 가이드** 추가
+
+### 해결 — `DashboardFilters` 신규 컴포넌트 + tenantId 필터
+
+**URL searchParams 패턴**: `?tenantId=N&period=7|30|90|custom&from=YYYY-MM-DD&to=YYYY-MM-DD`
+- server component reload 기반 → 새로고침 시 상태 유지, URL 공유 가능
+
+**DashboardFilters 컴포넌트**:
+- 클라이언트 selector — text input + datalist 자동완성 + clear 버튼
+- 기간 토글 4개 (7d / 30d / 90d / 사용자 지정)
+- 사용자 지정 모드 시 `<input type="date">` 2개 + 적용 버튼
+
+**fetchDashboardData 시그니처 변경**:
+```typescript
+async function fetchDashboardData(opts: {
+  periodDays: number;
+  tenantId?: number | null;
+  fromDate?: string;
+  toDate?: string;
+})
+```
+- 사용자 지정 기간 시 customCutoff/customEnd 우선
+- 모든 SQL 에 tenantId 필터 추가 (queries.tenant_id = ?)
+
+**차트별 tenantId 효과**:
+- T1 share / 5-tier stacked: 그 클라이언트 키워드 측정만 집계
+- ranking: 그 클라이언트 1개만 표시 (이미 ranking 이지만 filter 적용 시 1개)
+- keyword grounding: 그 클라이언트 키워드만
+- 신규 도메인: 그 클라이언트 측정에서 첫 등장한 도메인만
+
+### 신규 도메인 세부 인사이트 강화
+
+**기존**: 도메인 / tier / 첫 등장일 / 등장 횟수 / 분류 등록 링크
+
+**Round 39 확장**:
+- expandable 행 — 클릭 시 펼침
+- **세부 인사이트**:
+  - 등장 키워드 (`라식`, `백내장` 등 — 어느 검색에서 발견)
+  - 측정 클라이언트 (`BGN 잠실` — 어느 tenant 측정 흐름에서)
+  - **실제 인용된 URL** (Vertex AI grounding redirect 해제된 final_url) — "어떤 콘텐츠 때문에 등장했나" 답변
+  - 분류 사전 편집 바로가기
+
+### Top 키워드 grounding rate 역할 명확화
+
+차트 헤더에 3 단계 설명 추가:
+1. **차트의 역할** — "키워드 query 시 AI 가 출처 URL 을 명시하는 비율"
+2. **해석** — 50%+ 안정 / 20~50% 보강 가능 / 20% 미만 시급
+3. **활용** — 낮은 rate 키워드 = 메디맵 콘텐츠 가이드 적용 우선순위
+
+### 새 함정 (Round 39 추가)
+
+**(AH) Server component + URL searchParams interactive 필터 패턴**
+- 증상: 모든 차트가 server-side, recharts 가 client-only → interactive 필터 어떻게 통합?
+- 정답: server page 가 searchParams 받음 → fetchData(opts) → client 컴포넌트(DashboardFilters)가 `useRouter().push()` 로 URL 변경 → 페이지 재렌더. interactive useState 안 써도 됨.
+
+**(AI) datalist + typeahead 패턴 — search 가능한 selector**
+- 증상: 단순 `<select>` 는 클라이언트 20+ 시 누르기 어려움
+- 정답: `<input list="...">` + `<datalist>` — 브라우저 native 자동완성. + 별도 filtered dropdown 으로 fallback (datalist 가 모바일에서 약함).
+
+**(AJ) 클라이언트 컨텍스트 새로 등장 도메인 — query meta 별도 fetch**
+- 증상: source_domains 만으로는 "어느 키워드/클라이언트로 발견됐는지" 모름
+- 정답: respRecent.query_id → queries 별도 fetch → keyword_id + tenant_id → keyword.text + tenant.name 또 별도 fetch. PostgREST embed inner join 함정 (Round 29 fix 12) 패턴 그대로.
+
+### Round 39 산출물 (Phase A)
+
+코드:
+- `medimap-blog-v2/src/components/admin/DashboardFilters.tsx` — 신규 (typeahead selector + 4 기간 토글 + date range)
+- `medimap-blog-v2/src/app/admin/(portal)/page.tsx` — fetchDashboardData(opts) 시그니처 변경 + tenantId 필터 + 신규 도메인 세부 정보 집계
+- `medimap-blog-v2/src/components/admin/DashboardCharts.tsx` — 신규 도메인 expandable 표 + grounding 차트 설명 강화 + NewDomainItem 확장
+
+### Round 39 Phase B 후보 (사용자 결정)
+
+- **자동 분류 (옵션 3 잔여)** — 신규 T5 도메인 cron 발견 시 rule-based 카테고리 매칭 + auto INSERT 또는 1클릭 확정 UI
+- **검증 히스토리** — 자동 분류된 도메인의 시간별 인용 추이 + 운영자 수정 history
+- **citations API 라벨 활용** — DIRECT_COMPETITOR 만 보기
+- **모바일 표→카드** (큰 작업)
+- **키워드 풀 Tier 1+2** — purpose 컬럼 + 클라이언트 chip editor
+- **LLM provider fallback** — Gemini 503 → Anthropic/OpenAI 자동 retry
