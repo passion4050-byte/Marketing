@@ -2403,3 +2403,80 @@ edit modal 안 비즈니스 모델 입력란 + HomepageAnalyzeButton 직후에 c
 - 검증 히스토리 — 자동 분류 도메인 시간별 추이
 - UI/UX 정리 — admin-page-header 일관 적용 + 빈/loading/error 상태 페이지별 강화
 - Anthropic credit 충전 후 — 4 엔진 본격
+
+---
+
+## Round 46 (2026-05-31 야간 3) — Round 44 빌드 fix + 검증 히스토리 API
+
+### 빌드 에러 진단
+
+**증상**: Vercel build 실패 (Round 44 commit `362ba8a`)
+```
+./src/app/admin/(portal)/reports/[tenantId]/page.tsx:244:33
+Type error: 'data.t1ShareThis' is possibly 'undefined'.
+  const t1SharePct = Math.round(data.t1ShareThis * 100);
+```
+
+**원인**: `fetchReportData` 가 두 가지 shape 반환:
+- 데이터 없을 때: `{ tenant, hasData: false, ownKeywords, competitorKeywords }` — t1ShareThis 등 없음
+- 데이터 있을 때: full object with t1ShareThis 등
+
+TypeScript narrowing 이 `data.hasData` 체크 후에도 안 됨 — return type 명시 안 했고 union 자동 추론 실패.
+
+### 해결 — 항상 동일 shape 반환
+
+```typescript
+if (allKwIds.length === 0) {
+  return {
+    tenant, hasData: false, ownKeywords, competitorKeywords,
+    tierThis: { T1: 0, T2: 0, T3: 0, T4: 0, T5: 0 },
+    tierPrev: { T1: 0, T2: 0, T3: 0, T4: 0, T5: 0 },
+    totalThis: 0, totalPrev: 0,
+    t1ShareThis: 0, t1SharePrev: 0, t1ShareDelta: 0,
+    dailyTrend: [] as DailyPoint[],
+    topKeywords: [], weakKeywords: [], competitorTop: [],
+    publishedCount: 0, medimapCitedUrls: [],
+  };
+}
+```
+
+데이터 없음 = 모든 수치 0. hasData boolean 으로 UI 분기만 결정. TypeScript narrowing 깨끗.
+
+### 검증 히스토리 API — `/api/admin/domain-history`
+
+**가치**: 자동 분류된 도메인 (Round 40 rule engine) 의 시간별 인용 추이 검증.
+
+**구조**:
+- GET ?domain=sueye.co.kr&days=30
+- 응답: { domain, days: [{date, count}], total, classification }
+- responses 30일치 fetch → source_domains 안에 그 도메인 포함된 row count
+- 일자별 fill (없는 날 0)
+- classification (domain_classifications row) 같이 반환
+
+**활용** (Round 47 후보):
+- domain-classifications 페이지의 도메인 행 expand → 미니 차트 표시
+- 자동 분류된 도메인 "이 분류가 맞는지" 검증 (인용 빈도 추적)
+
+### 새 함정 (Round 46 추가)
+
+**(AZ) Server function return type 명시 vs 자동 추론**
+- 증상: 함수가 if/else 분기에서 다른 shape 반환 → TS 가 union 으로 추론 → 호출처에서 narrowing 실패
+- 정답 1: 항상 동일 shape 반환 (default 값 0 / []) — 가장 simple
+- 정답 2: `async function fetchData(...): Promise<ReportData> { ... }` return type 명시 + discriminated union 정의
+
+이번엔 정답 1 채택 — 코드 양 적고 호출처 narrowing 불필요.
+
+### Round 46 산출물
+
+코드:
+- `medimap-blog-v2/src/app/admin/(portal)/reports/[tenantId]/page.tsx` — hasData=false 분기에 모든 필드 default 채움
+- `medimap-blog-v2/src/app/api/admin/domain-history/route.ts` — 신규 (도메인 인용 추이)
+
+### Round 47 후보 (다음 batch)
+
+- **모바일 본격 카드** — content-queue / citations / competitors / learned-insights / domain-classifications 5 페이지
+  - 페이지당 30분 × 5 = 2.5시간 분량
+  - Round 43 tenants 페이지 패턴 (hidden md:block + md:hidden) 그대로 적용
+- **검증 히스토리 UI 통합** — domain-classifications 행 expand → ReportTrendChart 패턴 활용 미니 차트
+- **UI/UX 정리** — admin-page-header / 빈/loading/error 상태 페이지별 강화
+- **Anthropic credit 충전** — 4 엔진 본격 활성화

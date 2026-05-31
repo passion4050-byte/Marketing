@@ -68,7 +68,25 @@ async function fetchReportData(tenantIdStr: string) {
   // 3. queries + responses (이번 달 + 지난 달)
   const allKwIds = (kws ?? []).map((k: { id: number }) => k.id);
   if (allKwIds.length === 0) {
-    return { tenant, hasData: false, ownKeywords, competitorKeywords };
+    return {
+      tenant,
+      hasData: false,
+      ownKeywords,
+      competitorKeywords,
+      tierThis: { T1: 0, T2: 0, T3: 0, T4: 0, T5: 0 },
+      tierPrev: { T1: 0, T2: 0, T3: 0, T4: 0, T5: 0 },
+      totalThis: 0,
+      totalPrev: 0,
+      t1ShareThis: 0,
+      t1SharePrev: 0,
+      t1ShareDelta: 0,
+      dailyTrend: [] as DailyPoint[],
+      topKeywords: [] as Array<{ keyword: string; citations: number; t1: number; t5: number; win_rate: number }>,
+      weakKeywords: [] as Array<{ keyword: string; citations: number; t1: number; t5: number; win_rate: number }>,
+      competitorTop: [] as Array<{ domain: string; count: number; keywords: string[] }>,
+      publishedCount: 0,
+      medimapCitedUrls: [] as string[],
+    };
   }
 
   const { data: queriesThis } = await sb
