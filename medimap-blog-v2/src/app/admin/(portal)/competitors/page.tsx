@@ -23,6 +23,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { LearnFromUrlButton } from '@/components/admin/LearnFromUrlButton';
 import {
   ChevronDown,
   ChevronRight,
@@ -400,25 +401,35 @@ export default function CompetitorsPage() {
                                 {c.urls.length === 0 ? (
                                   <div className="text-[11px] text-ink-faint">URL 데이터 없음</div>
                                 ) : (
-                                  <ul className="space-y-1.5">
+                                  <ul className="space-y-2">
                                     {c.urls.map((url, ui) => (
-                                      <li key={ui} className="flex items-start gap-2">
-                                        <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-brand" />
-                                        <a
-                                          href={url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="text-[11px] text-brand-700 underline decoration-dotted hover:text-brand"
-                                        >
-                                          {decodeURIComponent(url).slice(0, 110)}
-                                          {url.length > 110 && '…'}
-                                        </a>
+                                      <li key={ui} className="flex items-start justify-between gap-2">
+                                        <div className="flex min-w-0 items-start gap-2">
+                                          <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-brand" />
+                                          <a
+                                            href={url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="truncate text-[11px] text-brand-700 underline decoration-dotted hover:text-brand"
+                                          >
+                                            {decodeURIComponent(url).slice(0, 110)}
+                                            {url.length > 110 && '…'}
+                                          </a>
+                                        </div>
+                                        {/* Round 36 fix 3 — URL 별 메타 구조 학습 버튼 */}
+                                        <LearnFromUrlButton
+                                          url={url}
+                                          sourceDomain={c.domain}
+                                          sourceTier={c.tier}
+                                          keyword={c.keywords[0]}
+                                          tenantId={tenantId}
+                                        />
                                       </li>
                                     ))}
                                   </ul>
                                 )}
                                 <div className="mt-2 text-[10px] text-ink-muted">
-                                  💡 <strong>학습 포인트</strong> — 위 URL 의 페이지 구조 분석 → 메디맵 콘텐츠 가이드 v4 에 반영
+                                  💡 <strong>학습 포인트</strong> — 각 URL 옆 <strong>[반영하기]</strong> 클릭 → 메타 구조 분석 → 운영자 검수 → 콘텐츠 가이드(learned_insights) 누적
                                 </div>
                               </td>
                             </tr>
