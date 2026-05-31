@@ -1,20 +1,20 @@
 /**
- * Round 53 (2026-05-31) — 월간 보고서 list 페이지 완전 재디자인.
+ * Round 55 (2026-05-31) — 카드 grid → table 리스트 (스케일).
  *
  * 변경:
- *   - MockBanner 제거 (실제로는 라이브 데이터 — tenants list/email 다 실연동)
- *   - 자사(메디맵, status=NULL 또는 name 시작="메디맵") 별도 섹션으로 분리
- *   - 발송 가능 / 이메일 미등록 두 그룹 시각 분리
- *   - 카드 정보 밀도 향상 — 발행수 큰 숫자, 발송일 chip, 다음 발송까지 D-day, 이메일 chip
- *   - 정렬 옵션 (이름/발송일/발행수)
- *   - 일괄 발송 버튼 (force=true 로 모든 tenant 즉시 발송)
+ *   - 안내 박스 제거
+ *   - 카드 grid → table dense 리스트 (클라이언트 50+ 까지 스케일)
+ *   - 그룹 separator: 자사 → 발송 가능 → 이메일 미등록
+ *   - 검색 + 정렬 + sticky header
+ *   - 모바일: 표 가로 스크롤 + min-w
  */
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Building2, CalendarClock, Download, FileText, Loader2, Mail, MailX, Send, Sparkles } from 'lucide-react';
+import { Building2, CalendarClock, Download, Loader2, Mail, MailX, Search, Send } from 'lucide-react';
 import { showToast } from '@/lib/clientActions';
+import { cn } from '@/lib/cn';
 
 interface SbTenant {
   id: number | string;
@@ -27,7 +27,7 @@ interface SbTenant {
   status?: string | null;
 }
 
-type SortKey = 'name' | 'send_day' | 'publish';
+type SortKey = 'send_day' | 'name' | 'publish';
 
 export default function ReportsListPage() {
   const [tenants, setTenants] = useState<SbTenant[]>([]);
@@ -35,6 +35,7 @@ export default function ReportsListPage() {
   const [sending, setSending] = useState<string | number | null>(null);
   const [bulkSending, setBulkSending] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>('send_day');
+  const [search, setSearch] = useState('');
   const period = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' });
   const today = new Date();
   const todayDay = today.getDate();
@@ -98,18 +99,25 @@ export default function ReportsListPage() {
     }
   };
 
-  // 자사(메디맵) 분리 — partner_slug 가 'medimap' 또는 name 이 '메디맵' 으로 시작
   const isSelf = (t: SbTenant) => t.partner_slug === 'medimap' || t.name.startsWith('메디맵');
 
   const selfTenant = tenants.find(isSelf);
   const clientTenants = tenants.filter((t) => !isSelf(t));
 
+  // 검색 필터
+  const filtered = useMemo(() => {
+    if (!search.trim()) return clientTenants;
+    const q = search.trim().toLowerCase();
+    return clientTenants.filter((t) =>
+      t.name.toLowerCase().includes(q) || (t.email ?? '').toLowerCase().includes(q)
+    );
+  }, [clientTenants, search]);
+
   const sortedClients = useMemo(() => {
-    const arr = [...clientTenants];
+    const arr = [...filtered];
     arr.sort((a, b) => {
       if (sortKey === 'name') return a.name.localeCompare(b.name, 'ko');
       if (sortKey === 'publish') return (b.publish_count ?? 0) - (a.publish_count ?? 0);
-      // send_day — 다음 발송 빠른 순 (오늘 기준 D-day 계산)
       const dayA = a.report_send_day ?? 1;
       const dayB = b.report_send_day ?? 1;
       const ddA = dayA >= todayDay ? dayA - todayDay : (28 - todayDay + dayA);
@@ -117,18 +125,16 @@ export default function ReportsListPage() {
       return ddA - ddB;
     });
     return arr;
-  }, [clientTenants, sortKey, todayDay]);
+  }, [filtered, sortKey, todayDay]);
 
   const eligible = sortedClients.filter((t) => t.email);
   const noEmail = sortedClients.filter((t) => !t.email);
-  const eligibleCount = eligible.length;
+  const eligibleCount = clientTenants.filter((t) => t.email).length;
 
-  // 다음 발송까지 D-day 계산
   const calcDday = (sendDay: number | null): { dday: number; isToday: boolean } => {
     const d = sendDay ?? 1;
     if (d === todayDay) return { dday: 0, isToday: true };
     if (d > todayDay) return { dday: d - todayDay, isToday: false };
-    // 이번 달 발송일 지남 → 다음 달 같은 날
     const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
     return { dday: daysInMonth - todayDay + d, isToday: false };
   };
@@ -141,10 +147,20 @@ export default function ReportsListPage() {
           <p className="admin-page-desc">클라이언트별 월간 ROI 보고서를 미리보기·발송합니다. 매일 18시 KST 에 설정된 발송일과 일치하는 클라이언트에게 자동 발송됩니다</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-ink-muted" />
+            <input
+              type="text"
+              placeholder="검색 (이름·이메일)"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-44 rounded-md border border-border bg-surface-base py-1.5 pl-7 pr-2 text-[11px] focus:border-brand focus:outline-none"
+            />
+          </div>
           <select
             value={sortKey}
             onChange={(e) => setSortKey(e.target.value as SortKey)}
-            className="rounded-md border border-border bg-surface-base px-2 py-1.5 text-[12px] font-semibold text-ink-soft"
+            className="rounded-md border border-border bg-surface-base px-2 py-1.5 text-[11px] font-semibold text-ink-soft"
           >
             <option value="send_day">다음 발송 빠른순</option>
             <option value="name">이름순</option>
@@ -162,18 +178,6 @@ export default function ReportsListPage() {
         </div>
       </header>
 
-      {/* Round 53 — 실데이터 안내 (Mock 경고 제거) */}
-      <div className="mb-5 rounded-lg border border-brand/20 bg-brand-50/30 px-4 py-3 text-[11px] text-ink-soft">
-        <div className="flex items-start gap-2">
-          <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />
-          <div className="leading-relaxed">
-            <strong className="text-brand-700">실데이터 연동 완료</strong> — 클라이언트 list · 이메일 · 발행수 · 발송일 모두 라이브 DB.
-            보고서 본문 (인용 / 키워드 / 경쟁사 / 발행 콘텐츠 효과) 도 라이브.
-            매일 18시 KST 에 GitHub Actions cron 이 발송일 일치 tenant 만 자동 발송. 발송일은 클라이언트 편집 modal 에서 변경 가능.
-          </div>
-        </div>
-      </div>
-
       {loading && (
         <div className="card flex items-center justify-center px-6 py-12 text-sm text-ink-muted">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 로드 중…
@@ -187,175 +191,171 @@ export default function ReportsListPage() {
       )}
 
       {!loading && tenants.length > 0 && (
-        <div className="space-y-6">
-          {/* 자사 (메디맵) — 별도 섹션 */}
-          {selfTenant && (
-            <section>
-              <div className="mb-2 flex items-center gap-2">
-                <Building2 className="h-3.5 w-3.5 text-brand" />
-                <h2 className="text-[12px] font-bold uppercase tracking-wider text-brand">자사 (메디맵)</h2>
-                <div className="h-px flex-1 bg-border" />
-              </div>
-              <div className="rounded-xl border border-brand/30 bg-gradient-to-br from-brand-50/60 to-brand-50/20 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-brand text-white">
-                      <Building2 className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-ink">{selfTenant.name}</h3>
-                      <div className="mt-0.5 text-[11px] text-ink-muted">
-                        자사 인사이트 발행 · 외부 발송 대상 아님
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="font-mono text-2xl font-bold text-brand">{selfTenant.publish_count ?? 0}</div>
-                      <div className="text-[9px] uppercase text-ink-muted">발행</div>
-                    </div>
-                    <Link href={`/admin/reports/${selfTenant.id}`} target="_blank" className="btn-secondary text-xs">
-                      <Download className="h-3.5 w-3.5" /> 미리보기
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
+        <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-xs">
+              <thead className="sticky top-0 z-10 bg-surface-subtle text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+                <tr>
+                  <th className="px-4 py-2.5 text-left">클라이언트</th>
+                  <th className="px-3 py-2.5 text-left">이메일</th>
+                  <th className="px-3 py-2.5 text-left">발송일</th>
+                  <th className="px-3 py-2.5 text-right">발행</th>
+                  <th className="px-3 py-2.5 text-right">액션</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* 자사 (메디맵) */}
+                {selfTenant && (
+                  <>
+                    <GroupSeparator icon={<Building2 className="h-3 w-3" />} label="자사 (메디맵)" color="text-brand" count={1} />
+                    <tr className="border-t border-border bg-brand-50/30 hover:bg-brand-50/50">
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-brand text-white">
+                            <Building2 className="h-3 w-3" />
+                          </span>
+                          <span className="font-bold text-ink">{selfTenant.name}</span>
+                          <span className="rounded bg-brand/10 px-1.5 py-0.5 text-[9px] font-semibold text-brand">자사</span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2.5 text-ink-muted">외부 발송 대상 아님</td>
+                      <td className="px-3 py-2.5 text-ink-muted">—</td>
+                      <td className="px-3 py-2.5 text-right font-mono font-bold text-brand">{selfTenant.publish_count ?? 0}</td>
+                      <td className="px-3 py-2.5 text-right">
+                        <Link href={`/admin/reports/${selfTenant.id}`} target="_blank"
+                          className="inline-flex items-center gap-1 rounded border border-border bg-surface-base px-2 py-1 text-[10px] font-semibold text-ink-soft hover:bg-surface-subtle">
+                          <Download className="h-3 w-3" /> 미리보기
+                        </Link>
+                      </td>
+                    </tr>
+                  </>
+                )}
 
-          {/* 발송 가능 클라이언트 */}
-          {eligible.length > 0 && (
-            <section>
-              <div className="mb-2 flex items-center gap-2">
-                <Mail className="h-3.5 w-3.5 text-status-success" />
-                <h2 className="text-[12px] font-bold uppercase tracking-wider text-status-success">
-                  발송 가능 ({eligible.length})
-                </h2>
-                <div className="h-px flex-1 bg-border" />
-              </div>
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                {eligible.map((t) => {
-                  const { dday, isToday } = calcDday(t.report_send_day);
-                  return (
-                    <div
-                      key={String(t.id)}
-                      className={`group relative overflow-hidden rounded-xl border bg-surface-base p-4 transition hover:border-brand/30 hover:shadow-md ${
-                        isToday ? 'border-status-success/40 bg-status-successSoft/10' : 'border-border'
-                      }`}
-                    >
-                      {/* 좌측 색띠 (오늘 발송일 강조) */}
-                      {isToday && (
-                        <div className="absolute inset-y-0 left-0 w-1 bg-status-success" />
-                      )}
-
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          {/* 이름 + 발송일 chip */}
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 shrink-0 text-brand-700" />
-                            <h3 className="truncate text-sm font-bold text-ink">{t.name}</h3>
-                          </div>
-
-                          {/* 이메일 chip */}
-                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px]">
-                            <span className="inline-flex items-center gap-0.5 rounded bg-status-successSoft/40 px-1.5 py-0.5 font-mono text-status-success">
+                {/* 발송 가능 */}
+                {eligible.length > 0 && (
+                  <>
+                    <GroupSeparator icon={<Mail className="h-3 w-3" />} label="발송 가능" color="text-status-success" count={eligible.length} />
+                    {eligible.map((t) => {
+                      const { dday, isToday } = calcDday(t.report_send_day);
+                      return (
+                        <tr
+                          key={String(t.id)}
+                          className={cn(
+                            'border-t border-border transition hover:bg-surface-subtle/60',
+                            isToday && 'bg-status-successSoft/15'
+                          )}
+                        >
+                          <td className="px-4 py-2.5">
+                            <div className="flex items-center gap-2">
+                              {isToday && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-status-success animate-pulse" />}
+                              <span className="font-semibold text-ink">{t.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <span className="inline-flex items-center gap-1 rounded bg-status-successSoft/30 px-1.5 py-0.5 font-mono text-[10px] text-status-success">
                               <Mail className="h-2.5 w-2.5" />
                               {t.email}
                             </span>
-                          </div>
-
-                          {/* 발송일 + D-day */}
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
-                            <div className="flex items-center gap-1 text-ink-soft">
-                              <CalendarClock className="h-3 w-3" />
-                              매월 <strong className="text-ink">{t.report_send_day ?? 1}일</strong> 발송
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center gap-1.5">
+                              <CalendarClock className="h-3 w-3 text-ink-muted" />
+                              <span className="font-semibold text-ink">{t.report_send_day ?? 1}일</span>
+                              {isToday ? (
+                                <span className="rounded bg-status-success px-1 py-0.5 text-[9px] font-bold text-white">오늘</span>
+                              ) : (
+                                <span className="rounded bg-surface-soft px-1 py-0.5 text-[9px] font-semibold text-ink-muted">D-{dday}</span>
+                              )}
                             </div>
-                            {isToday ? (
-                              <span className="rounded bg-status-success px-1.5 py-0.5 text-[10px] font-bold text-white animate-pulse">
-                                오늘 발송
-                              </span>
-                            ) : (
-                              <span className="rounded bg-surface-soft px-1.5 py-0.5 text-[10px] font-semibold text-ink-muted">
-                                D-{dday}
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-mono font-semibold text-ink">{t.publish_count ?? 0}</td>
+                          <td className="px-3 py-2.5 text-right">
+                            <div className="inline-flex items-center gap-1">
+                              <Link href={`/admin/reports/${t.id}`} target="_blank"
+                                className="inline-flex items-center gap-1 rounded border border-border bg-surface-base px-2 py-1 text-[10px] font-semibold text-ink-soft hover:bg-surface-subtle">
+                                <Download className="h-3 w-3" /> 미리보기
+                              </Link>
+                              <button
+                                onClick={() => sendEmail(t.id)}
+                                disabled={sending === t.id}
+                                className="inline-flex items-center gap-1 rounded bg-brand px-2 py-1 text-[10px] font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+                              >
+                                {sending === t.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                                발송
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </>
+                )}
 
-                        {/* 우측 — 발행수 큰 숫자 */}
-                        <div className="text-right">
-                          <div className="font-mono text-2xl font-bold text-ink">{t.publish_count ?? 0}</div>
-                          <div className="text-[9px] uppercase text-ink-muted">발행</div>
-                        </div>
-                      </div>
+                {/* 이메일 미등록 */}
+                {noEmail.length > 0 && (
+                  <>
+                    <GroupSeparator icon={<MailX className="h-3 w-3" />} label="이메일 미등록" color="text-status-warning" count={noEmail.length} />
+                    {noEmail.map((t) => (
+                      <tr key={String(t.id)} className="border-t border-border bg-status-warningSoft/10">
+                        <td className="px-4 py-2.5 text-ink">{t.name}</td>
+                        <td className="px-3 py-2.5">
+                          <span className="text-[10px] text-status-warning">미등록</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-ink-muted">
+                          <span className="text-[10px]">매월 {t.report_send_day ?? 1}일 (이메일 등록 시 발송)</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-mono text-ink-muted">{t.publish_count ?? 0}</td>
+                        <td className="px-3 py-2.5 text-right">
+                          <Link
+                            href={`/admin/tenants?edit=${t.id}`}
+                            className="inline-flex items-center gap-1 rounded border border-status-warning/40 bg-surface-base px-2 py-1 text-[10px] font-semibold text-status-warning hover:bg-status-warningSoft/30"
+                          >
+                            이메일 등록
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </>
+                )}
 
-                      {/* 액션 버튼 */}
-                      <div className="mt-3 flex items-center gap-2">
-                        <Link
-                          href={`/admin/reports/${t.id}`}
-                          target="_blank"
-                          className="flex flex-1 items-center justify-center gap-1 rounded-md border border-border bg-surface-base py-1.5 text-[11px] font-semibold text-ink-soft transition hover:bg-surface-subtle"
-                        >
-                          <Download className="h-3 w-3" /> 미리보기
-                        </Link>
-                        <button
-                          onClick={() => sendEmail(t.id)}
-                          disabled={sending === t.id}
-                          className="flex flex-1 items-center justify-center gap-1 rounded-md bg-brand py-1.5 text-[11px] font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60"
-                        >
-                          {sending === t.id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <Send className="h-3 w-3" />
-                          )}
-                          지금 발송
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* 이메일 미등록 클라이언트 */}
-          {noEmail.length > 0 && (
-            <section>
-              <div className="mb-2 flex items-center gap-2">
-                <MailX className="h-3.5 w-3.5 text-status-warning" />
-                <h2 className="text-[12px] font-bold uppercase tracking-wider text-status-warning">
-                  이메일 미등록 ({noEmail.length})
-                </h2>
-                <div className="h-px flex-1 bg-border" />
-              </div>
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                {noEmail.map((t) => (
-                  <div
-                    key={String(t.id)}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-status-warning/30 bg-status-warningSoft/10 p-3"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <FileText className="h-3.5 w-3.5 shrink-0 text-ink-muted" />
-                        <h3 className="truncate text-[12px] font-semibold text-ink">{t.name}</h3>
-                      </div>
-                      <div className="mt-0.5 text-[10px] text-status-warning">
-                        클라이언트 편집에서 이메일 입력 필요
-                      </div>
-                    </div>
-                    <Link
-                      href={`/admin/tenants?edit=${t.id}`}
-                      className="shrink-0 rounded border border-status-warning/40 bg-surface-base px-2 py-1 text-[10px] font-semibold text-status-warning hover:bg-status-warningSoft/30"
-                    >
-                      편집
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
+                {/* 검색 결과 없음 */}
+                {search && eligible.length === 0 && noEmail.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-sm text-ink-muted">
+                      "{search}" 검색 결과 없음
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {/* 표 하단 요약 */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-surface-subtle px-4 py-2 text-[10px] text-ink-muted">
+            <span>
+              총 {tenants.length}개 · 발송 가능 {clientTenants.filter((t) => t.email).length}개 · 미등록 {clientTenants.filter((t) => !t.email).length}개
+            </span>
+            <span>매일 18시 KST 자동 발송</span>
+          </div>
         </div>
       )}
     </div>
+  );
+}
+
+function GroupSeparator({
+  icon, label, color, count
+}: {
+  icon: React.ReactNode; label: string; color: string; count: number;
+}) {
+  return (
+    <tr className="border-t border-border bg-surface-soft/60">
+      <td colSpan={5} className="px-4 py-1.5">
+        <div className={cn('flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider', color)}>
+          {icon}
+          <span>{label}</span>
+          <span className="rounded bg-surface-base px-1.5 py-0 text-ink-muted">{count}</span>
+        </div>
+      </td>
+    </tr>
   );
 }

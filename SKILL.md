@@ -3057,3 +3057,55 @@ content-queue route 와 동일 로직 — 자사글은 `/blog/{slug}`.
 - `medimap-blog-v2/src/app/admin/(portal)/calendar/page.tsx` — modal 헤더 라이브 보기 버튼
 - `medimap-blog-v2/src/app/admin/(portal)/saas-tracking/page.tsx` — 제목/KPI/차트 문구 가독성
 - 14개 admin 페이지 `admin-page-desc` 일괄 가독성 개선
+
+---
+
+## Round 55 (2026-05-31) — reports 페이지 카드 grid → 표 리스트 (스케일)
+
+### 배경
+
+사용자 지적: "카드 grid 는 클라이언트 많아지면 또 디자인 수정해야 함". 정확한 지적 — 카드 2열 grid 는 10~20명까지만 보기 좋고 50+ 부터 무한 스크롤 + 정보 밀도 낮음.
+
+### Fix — table 기반 dense 리스트
+
+데스크탑/모바일 공통 표 구조 (모바일은 `overflow-x-auto` + `min-w-[720px]`).
+
+**컬럼**: 클라이언트 | 이메일 | 발송일 | 발행 | 액션 (미리보기 / 발송)
+
+**그룹 separator 행** — 같은 표 안에 3섹션 (자사 → 발송 가능 → 이메일 미등록):
+```tsx
+<GroupSeparator icon={...} label="발송 가능" color="text-status-success" count={N} />
+```
+- colSpan=5 의 회색 background 행 — 시각 분리는 유지하되 추가 카드 컨테이너 없음.
+
+**행 디자인**:
+- 자사: 작은 brand 배지 + `자사` chip + "외부 발송 대상 아님" 회색 텍스트
+- 발송 가능: 오늘 발송이면 좌측 pulse dot + 행 배경 status-success-soft, 발송일 D-day chip
+- 미등록: 행 전체 status-warning-soft 배경, "이메일 등록" 버튼 deep-link
+
+**기능**:
+- 검색 input (이름 + 이메일)
+- 정렬 select (다음 발송 빠른순 / 이름 / 발행수)
+- sticky header (스크롤 시 컬럼 헤더 유지)
+- 하단 요약 footer (총 N · 발송 가능 N · 미등록 N)
+- 검색 결과 0 시 빈 상태 메시지
+
+**삭제된 것**:
+- "실데이터 연동 완료" 안내 박스 (사용자 요청)
+- 카드 grid 레이아웃 전체
+
+### 스케일링 효과
+
+- 카드 grid 200px height × 50명 = 10000px 스크롤
+- table dense 32px row × 50명 = 1600px 스크롤 (6배 압축)
+- 검색 + 정렬 + sticky header 로 100+ 명도 운영 가능
+
+### 새 함정 (Round 55)
+
+**(BO) 어드민 list UI 의 카드 grid 는 스케일 함정**
+- 증상: 초기 5~10개 데이터에 카드 grid 가 예쁘게 보임 → 50+ 되면 무한 스크롤 + 디자인 재작업 강제
+- 정답: 운영용 admin list 는 처음부터 table dense row. 카드는 detail 페이지나 "first impression" 한정.
+
+### Round 55 산출물
+
+- `medimap-blog-v2/src/app/admin/(portal)/reports/page.tsx` — 카드 grid → table 리스트 + 검색 + sticky header + GroupSeparator 컴포넌트
