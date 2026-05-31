@@ -2333,3 +2333,73 @@ server / client 경계 명확 — Vercel 빌드 안전.
 - UI/UX 정리 — admin-page-header 일관 적용 + 빈/loading/error 상태
 
 이번 batch 는 월간 보고서 (가장 임팩트 + 시각 변화 큼) 완료. 나머지는 사용자 검증 + 결정 후 Round 45 진행.
+
+---
+
+## Round 45 (2026-05-31 야간 2) — 키워드 풀 Tier 2: tenant edit modal chip editor
+
+### 진단
+
+**Round 42 D 에서 Tier 1 완료** (키워드 풀 페이지에 purpose 컬럼 + 필터 + 검색).
+
+**Tier 2 필요성** — own 키워드 추가는 키워드 풀 페이지에서만 가능 → 클라이언트 편집 흐름과 단절.
+- 운영자 흐름: 클라이언트 등록 → business_model 입력 → trigger 가 competitor 키워드 자동 생성 → own 키워드는 별도 페이지로 이동해서 추가 (UX 단절)
+
+**해결**: tenant edit modal 안에 own 키워드 chip editor 통합 — 클라이언트 편집 흐름 내에서 직관 관리.
+
+### 새 컴포넌트 — `TenantOwnKeywordsEditor`
+
+**위치**: `medimap-blog-v2/src/components/admin/TenantOwnKeywordsEditor.tsx`
+
+**기능**:
+- tenant.id 받음 → /api/admin/keywords fetch → own purpose 키워드만 filter
+- chip 으로 표시:
+  - 활성 chip: brand-50 배경 + brand text
+  - 비활성 chip: surface-base 배경 + ink-muted text (gray-out)
+  - chip 클릭 → 활성 toggle
+  - chip ✕ → 삭제
+- 입력 input + Enter / [추가] 버튼 → POST 키워드
+- defaultCategory prop (tenant.domain_category) — 새 키워드의 category 자동 지정
+- 모든 변경 즉시 DB 반영 (저장 버튼 별도 X — 직관 UX)
+- 신규 tenant (id 없음) 시 안내 메시지 ("저장 후 추가 가능")
+
+### tenants/page.tsx 통합
+
+edit modal 안 비즈니스 모델 입력란 + HomepageAnalyzeButton 직후에 chip editor 배치. 운영자가 한 화면에서:
+1. 비즈니스 모델 입력 → competitor 키워드 자동 생성 (trigger)
+2. own 키워드 chip 으로 추가 (예: "잠실 라식", "노안교정")
+3. 저장 → 다음 cron 부터 측정 시작
+
+### 17년차 UX 관점
+
+**Before**: 운영자 흐름 단절 → "이 키워드 어디서 추가?" 질문
+**After**: 모든 키워드 관리 한 화면 (tenant edit modal) — single source of truth
+
+**디자인 디테일**:
+- chip 클릭 = 토글, ✕ 클릭 = 삭제 (다른 affordance)
+- ✕ 버튼은 hover 시만 강조 (실수 클릭 방지)
+- 빈 상태 메시지 — "키워드 없음 — 아래 입력으로 추가"
+- 추가 시 spinner → 즉시 list 갱신 (낙관적 UI 대신 안전한 reload)
+
+### 새 함정 (Round 45 추가)
+
+**(AX) modal 안 nested component — re-fetch 타이밍**
+- 증상: edit modal 열림 → 부모 컴포넌트가 keywords API 호출 안 함 → chip editor 가 자체 fetch 필요
+- 정답: editor 가 useEffect([tenantId]) 로 자체 load. tenantId 없으면 빈 상태 + 안내 메시지.
+
+**(AY) chip ✕ 클릭 vs chip 본체 클릭 분리**
+- 증상: chip 전체가 button 이면 ✕ 클릭 시에도 활성 토글 호출
+- 정답: chip 내부 본체 (text) 와 ✕ 를 별도 button 으로 분리. 둘 다 type="button" + 각자 onClick.
+
+### Round 45 산출물
+
+코드:
+- `medimap-blog-v2/src/components/admin/TenantOwnKeywordsEditor.tsx` — 신규 (chip + 추가 input)
+- `medimap-blog-v2/src/app/admin/(portal)/tenants/page.tsx` — import + edit modal 통합
+
+### Round 46 후보 (사용자 명시 — 다음 batch)
+
+- 모바일 카드 4 페이지 — content-queue / citations / competitors / learned-insights / domain-classifications
+- 검증 히스토리 — 자동 분류 도메인 시간별 추이
+- UI/UX 정리 — admin-page-header 일관 적용 + 빈/loading/error 상태 페이지별 강화
+- Anthropic credit 충전 후 — 4 엔진 본격

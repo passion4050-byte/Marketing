@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Edit3, Loader2, Pause, Play, Plus, Trash2, X } from 'lucide-react';
 import { showToast } from '@/lib/clientActions';
 import { HomepageAnalyzeButton } from '@/components/admin/HomepageAnalyzeButton';
+import { TenantOwnKeywordsEditor } from '@/components/admin/TenantOwnKeywordsEditor';
 
 type TenantStatus = 'active' | 'paused' | 'trial';
 
@@ -303,6 +304,13 @@ export default function TenantsPage() {
                   }
                 />
               </div>
+
+              {/* Round 45 — own 키워드 chip editor */}
+              <TenantOwnKeywordsEditor
+                tenantId={typeof (editing as SbTenant)?.id === 'number' ? (editing as SbTenant).id as number : undefined}
+                defaultCategory={draft.domain_category ?? null}
+              />
+
               <Field label="주소" placeholder="서울 송파구 ..."
                 value={draft.address ?? ''} onChange={(v) => setDraft((p) => ({ ...p, address: v }))} />
               <Field label="네이버 플레이스 URL" placeholder="https://map.naver.com/p/..."
