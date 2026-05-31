@@ -1131,3 +1131,181 @@ DB Migration:
 - **클라이언트 typeahead 드롭다운** — 클라이언트 20+ 대비
 - **자사 share trend 자동 알림** — T1 share +N% / -N% 변화 시 Slack notify
 - **경쟁사 신규 도메인 알림** — T5 분류된 신규 hostname 등장 시 운영자 즉시 알림
+
+---
+
+## Round 36 fix 2~3 (2026-05-31 늦은 오후) — stub 제외 + 도메인 학습 + 가이드 비교 진단
+
+### fix 2 — 어드민 화면에서 stub engine 측정 제외
+
+영업 시연 화면에서 stub 라벨 응답이 보여 신뢰도 떨어짐. 세 곳 API 에 `engine != 'stub'` 필터 추가:
+
+- `/api/admin/citations/keyword/route.ts` — 키워드 클릭 모달 raw 응답
+- `/api/admin/citations/route.ts` — 자사 현황 KPI/차트
+- `/api/admin/competitors/route.ts` — 경쟁사 현황 분석
+
+데이터는 DB 에 보존 (필터링만). 변경 후 모달은 production AI 측정 (gemini 등) 만 표시.
+
+### fix 3 — 도메인 일괄 분석 + 메디맵 가이드 비교 진단
+
+**UX 결정 — URL별 vs 도메인 단위**:
+- 처음 구현: URL별 [반영하기] 버튼 → 사용자 피드백 "버튼 하나로 도메인 전체"
+- 폐기 안 함, 보존: `LearnFromUrlButton.tsx` + `/api/admin/learn-from-url` — 미래 자사 citations 페이지 등에서 활용 가능
+- 최종: `LearnFromDomainButton.tsx` + `/api/admin/learn-from-domain` — 도메인 펼침 영역 헤더에 한 버튼
+
+**도메인 일괄 분석 흐름**:
+```
+[✨ 전체 분석 & 반영 (N개 URL)] 클릭
+  ↓
+병렬 fetch (batch 5개 × 5초 timeout) — Vercel 30초 한도 안
+  ↓
+각 URL HTML 분석: 제목 / meta desc / h1~h3 / word count / 이미지 (alt 포함) / 내부 링크 / JSON-LD Schema / table / list
+  ↓
+집계: 평균 지표 + Schema 사용률 + alt 커버리지 + table/list 사용률
+  ↓
+메디맵 baseline 과 비교 → 자연어 진단 + 권장 변경 (규칙 기반, LLM 호출 0)
+  ↓
+모달 표시 → 운영자 검수 + 메모 → [가이드에 추가]
+  ↓
+learned_insights INSERT (scope='domain', patterns 안에 summary/per_url/diagnosis/recommendations)
+```
+
+**메디맵 baseline (하드코딩, 향후 content_settings 로 동적 로드 권장)**:
+```typescript
+const MEDIMAP_BASELINE = {
+  title_length: 35,
+  word_count: 850,
+  h2_count: 6,
+  h3_count: 8,
+  image_count: 5,
+  internal_link_count: 3,
+  faq_schema_rate: 0,        // 메디맵 현재 0%
+  medical_schema_rate: 0,
+};
+```
+
+**진단 규칙 예시**:
+- 본문 ±200 단어 이상 차이 → 확장/축소 권장
+- FAQ schema 사용률 ≥50% → "즉시 적용 권장"
+- table 사용률 ≥50% → "비교 표 의무 삽입"
+- alt 커버리지 ≥80% → "SEO 기본 충족"
+
+### DB 마이그레이션 (Round 36 fix 3)
+
+`create_learned_insights_table`:
+- `learned_insights` 테이블 — source_url / source_domain / source_tier / domain_category / keyword / tenant_id / patterns (JSONB) / notes / applied / applied_at / created_at
+- UNIQUE (source_url, keyword) — 같은 URL+키워드 조합 ON CONFLICT UPDATE
+- patterns 안의 `scope` 필드로 'url' vs 'domain' 구분
+
+### 새 함정 (Round 36 fix 2/3 추가)
+
+**(T) "버튼 한 번에 자동 반영" 요청은 위험 — 검수 단계 필수**
+- 증상: 사용자가 "버튼 하나로 즉시 자동 적용" 요청. 곧바로 구현하면 잘못된 패턴 누적 위험.
+- 원인: AI 인용 URL = "grounding 매칭이 잘 됐다" 의미. 좋은 콘텐츠 보장 아님. 자동 반영 시 미흡한 경쟁사 패턴이 콘텐츠 가이드에 누적되어 다음 콘텐츠 품질 저하.
+- 정답: Phase 1 (분석 + 검수 + 누적) / Phase 2 (생성 시 적용) 분리. Phase 1 의 [가이드에 추가] 는 운영자 명시적 액션 필수. Phase 2 는 별도 라운드에서 generator.py 의 prompt 주입으로 연결.
+
+**(U) UX 단위 (URL별 vs 도메인 단위) — 사용자 피드백 반영 패턴**
+- 처음 구현 시 정밀도(URL별)와 운영자 피로도(도메인 단위) 사이 트레이드오프 명시. 사용자 결정 받고 후자 선택.
+- 두 API 모두 보존 — 미래 자사 citations 페이지에서 URL별 분석이 필요할 수 있음. 코드 폐기 대신 보존 패턴.
+
+**(V) Vercel 30초 timeout 안에 병렬 fetch — batch 5 × 5초 패턴**
+- 단일 URL 8초 timeout 으로 직렬이면 10 URL = 80초 → fail
+- 정답: Promise.all 로 5개씩 batch 병렬 + 각 5초 timeout → 약 10초 안 완료
+- 실패 URL 은 skip + 응답에 `urls_failed` 카운트 명시
+
+### Round 36 fix 2/3 산출물
+
+코드:
+- `medimap-blog-v2/src/app/api/admin/citations/keyword/route.ts` — stub 제외 (commit `614b615`)
+- `medimap-blog-v2/src/app/api/admin/citations/route.ts` — stub 제외
+- `medimap-blog-v2/src/app/api/admin/competitors/route.ts` — stub 제외
+- `medimap-blog-v2/src/app/api/admin/learn-from-url/route.ts` — 보존 (URL별 분석, 미래 활용)
+- `medimap-blog-v2/src/components/admin/LearnFromUrlButton.tsx` — 보존
+- `medimap-blog-v2/src/app/api/admin/learn-from-domain/route.ts` — 신규 (도메인 일괄 분석)
+- `medimap-blog-v2/src/components/admin/LearnFromDomainButton.tsx` — 신규
+- `medimap-blog-v2/src/app/admin/(portal)/competitors/page.tsx` — 버튼 위치 변경
+
+DB:
+- `create_learned_insights_table` — learned_insights 테이블 + UNIQUE + index
+
+Commit history (Round 36 전체):
+- `7b1c70e` Tier 1-3 — fairness + additional_domains + 화이트리스트 확장
+- `27bfe3f` SKILL.md 함정 Q/R/S
+- `614b615` fix 2 stub 제외
+- `01f5b91` fix 3 URL별 (보존)
+- `4cd3bf2` fix 3 도메인 단위 전환 (최종)
+
+### Round 37 후보 (사무실 결정 후)
+
+- **Anthropic credit 충전 + Gemini paid tier** — 4 엔진 본격 활성화
+- **learn-from-domain Phase 2** — generator.py 가 콘텐츠 생성 시 learned_insights 카테고리별 집계 → prompt 주입
+- **메디맵 baseline 동적 로드** — content_settings 에서 baseline 수치 가져오기 (지금은 하드코딩)
+- **learned_insights 어드민 페이지** — 누적된 진단 목록 보기 + 편집 + 적용 history
+- **분류 사전 admin UI** — 운영자가 직접 T3/T4/T5/NOISE/additional_domains 편집
+
+---
+
+## Round 37 A+B (2026-05-31 저녁) — baseline 동적 로드 + 학습 인사이트 어드민 페이지
+
+### A — 메디맵 콘텐츠 baseline 을 DB 로 (운영자 동적 편집 가능)
+
+**문제**: learn-from-domain 진단의 비교 기준 (MEDIMAP_BASELINE) 이 코드에 하드코딩 → 운영자가 변경하려면 코드 push 필요.
+
+**해결**:
+- `content_settings.content_baseline` row 추가 (JSON setting_value)
+- `learn-from-domain/route.ts` 의 `loadBaseline()` 헬퍼 — DB 에서 읽고 default fallback
+- `diagnose()` 시그니처에 baseline 추가 — 모든 비교 메시지 동적
+
+### B — `/admin/learned-insights` 학습 인사이트 페이지
+
+**3 섹션 구성**:
+
+1. **메디맵 콘텐츠 baseline 카드** — 8개 필드 (제목 길이, 본문 단어, H2/H3, 이미지, 내부링크, FAQ/Medical schema rate) 보기 + 인라인 편집. PUT API 가 즉시 content_settings UPDATE.
+
+2. **학습 인사이트 누적 목록** — 도메인별 카드, 행 클릭 → expand → 평균 지표 / 진단 / 권장 / 메모. 행마다 [적용중] / [미적용] 토글 + 메모 편집 + 삭제. 빈 상태일 때 `/admin/competitors` 안내.
+
+3. **Phase 2 안내 카드** — 다음 라운드 (사무실 + Anthropic credit) 에서 generator.py 가 적용 표시된 인사이트 카테고리별 집계 후 prompt 주입할 예정 명시.
+
+### API 통합 (단일 route, 4 메서드)
+
+`/api/admin/learned-insights`:
+- GET — insights 목록 + baseline + tenant_name resolution (FK separate fetch — Round 29 fix 12 패턴)
+- PATCH — applied toggle (+ applied_at 자동 set/null) / notes 편집
+- DELETE — id 기반 단일 삭제
+- PUT — baseline 전체 UPSERT (content_settings.content_baseline)
+
+### 사이드바 메뉴
+
+`AdminShell.tsx` 인사이트 그룹에 추가:
+```
+인사이트:
+  ⚡ AI 인용 추적
+  📚 학습 인사이트   ← Round 37 추가 (BookOpen)
+  🔗 Funnel · ROI
+  💰 비용 모니터
+  📄 월간 보고서
+```
+
+### 새 함정 (Round 37 추가)
+
+**(W) 운영 데이터 baseline 패턴 — 코드 하드코딩 → DB 로 점진 이동**
+- 증상: 운영 진화하면서 baseline 수치가 변하는데 매번 코드 push + Vercel deploy 사이클 필요
+- 정답: `content_settings` 같은 key-value 테이블에 JSON 으로 저장 → API 가 read-on-demand. default fallback 으로 안전성 유지. 운영자가 admin UI 에서 실시간 수정.
+- 적용 가능: baseline 외에 의료법 린터 규칙 / 분류 사전 / 콘텐츠 가이드 v3 등도 같은 패턴 (Round 37 C 후보)
+
+### Round 37 A+B 산출물
+
+코드 (commit `f4a64d8`):
+- `medimap-blog-v2/src/app/api/admin/learn-from-domain/route.ts` — loadBaseline + diagnose 시그니처 변경 + 응답에 baseline 포함
+- `medimap-blog-v2/src/app/api/admin/learned-insights/route.ts` — GET/PATCH/DELETE/PUT 4 메서드 단일 route
+- `medimap-blog-v2/src/app/admin/(portal)/learned-insights/page.tsx` — baseline 편집 + 인사이트 목록 + Phase 2 안내
+- `medimap-blog-v2/src/components/admin/AdminShell.tsx` — 사이드바 "학습 인사이트" 추가
+
+DB:
+- `content_settings.content_baseline` row INSERT (8 필드 JSON)
+
+### Round 37 C 후보 (다음 작업 결정 대기)
+
+- **분류 사전 admin UI** (~3시간) — T3/T4/T5/NOISE/additional_domains 운영자 직접 편집. domain_classifications 테이블 신설 또는 content_settings 재활용.
+- **자사 own cron 검증** (KST 07:00 이후) — fairness ORDER BY 효과 + 가능하면 시연용 스크린샷 준비
+- **Round 30 잔여 잡일** (~1시간) — 자사 글 cover / 라벨 / slug redirect / LLM provider fallback
