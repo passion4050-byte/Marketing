@@ -16,14 +16,20 @@
 | `daf7cb8` | R56 | reports 3 group cards + 진료항목 필터 + saas KPI anchor |
 | (대기) | R57 | recharts dynamic import + 핸드오프 가이드 |
 
-**Round 57 push 안내** (출근 후 첫 작업):
+**Round 57 push** — 집에서 종료 전 진행 (✅ 완료):
 ```powershell
 cd "C:\Users\user\Documents\Marketing"
-git status
 git add -A
 git commit -m "Round 57 - recharts dynamic import + SEO/perf review + handoff guide"
 git push origin main
 ```
+
+**사무실 출근 후 첫 작업 — pull**:
+```powershell
+cd "C:\Users\user\Documents\Marketing"
+git pull origin main
+```
+→ 집에서 push 한 Round 50~57 + 이 HANDOFF.md 가 사무실 PC 에 반영됨.
 
 ---
 
