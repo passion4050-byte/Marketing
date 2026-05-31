@@ -434,6 +434,21 @@ def generate_blog_post(
         references_block = (
             f"{references_block}\n\n{rag_block}".strip() if references_block else rag_block
         )
+
+    # Round 38 Phase 2 (2026-05-31) — learned_insights 카테고리별 가이드 주입.
+    # /admin/competitors 의 도메인 분석 → /admin/learned-insights 에서 [적용중] 표시된 인사이트만.
+    # 빈 카테고리면 가이드 없음 (개념상 noop).
+    try:
+        from src.content.learned_insights_loader import get_guidance_for_category
+        guidance = get_guidance_for_category(tenant.domain_category)
+        if guidance:
+            references_block = (
+                f"{references_block}\n\n{guidance}".strip() if references_block else guidance
+            )
+            logger.info("blog.learned_guidance_injected", category=tenant.domain_category, len=len(guidance))
+    except Exception as e:  # noqa: BLE001
+        logger.warning("blog.learned_guidance_load_failed", error=str(e))
+
     tenant_data_block = base_tenant_data
 
     image_count = len(images) if images else 0

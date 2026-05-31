@@ -1503,3 +1503,88 @@ server component (page.tsx) 에서 직접 SQL 호출 + JS 집계 → client comp
 - 모든 모달 풀스크린 (모바일)
 - 키워드 풀 Tier 1+2 (사용자 결정 — 다른 작업 먼저)
 - E 잔여 잡일 / F 검증 시드 — 사무실 결정 후
+
+---
+
+## Round 38 A + B (2026-05-31 외출 모드) — learn-from-domain Phase 2 + 추가 차트 2개
+
+### A — learned_insights → generator prompt 주입 (Phase 2 완성)
+
+**가치 명제 완성**: 운영자가 /admin/competitors 에서 분석한 도메인 인사이트 → /admin/learned-insights 에서 [적용중] → 매 발행 cron 시 prompt 에 자동 반영.
+
+**구조**:
+```
+/admin/competitors [전체 분석 & 반영] (Round 36 fix 3)
+       ↓ POST /api/admin/learn-from-domain?save=true
+learned_insights INSERT (scope='domain', patterns.diagnosis/recommendations)
+       ↓
+/admin/learned-insights [적용중] toggle (Round 37 B)
+       ↓ applied=true
+generator.py (Round 38 A): src/content/learned_insights_loader.py
+       ↓ build_guidance_by_category()
+references_block 에 자연어 가이드 append
+       ↓
+LLM prompt 자동 주입 → 새 콘텐츠가 권장사항 반영
+```
+
+**`src/content/learned_insights_loader.py` 핵심 로직**:
+- Supabase REST 로 `applied=true` 인사이트 fetch (DATABASE_URL 없는 cron 환경도 OK)
+- 카테고리별 group + 빈도 기반 권장사항 top 3
+- 평균 본문 / H2 / FAQ schema / Medical schema rate 집계
+- 자연어 string 으로 빌드 (LLM 이 자연스럽게 읽음)
+- 빈 카테고리면 빈 string (noop)
+
+**generator.py 통합**:
+```python
+# 약 4줄 추가 — 기존 references_block 빌드 직후
+from src.content.learned_insights_loader import get_guidance_for_category
+guidance = get_guidance_for_category(tenant.domain_category)
+if guidance:
+    references_block = f"{references_block}\n\n{guidance}".strip()
+```
+
+침습 최소. 기존 prompt 구조 손대지 않고 references 와 같은 자리에 자연어로 추가.
+
+### B — 대시보드 차트 2개 추가 (Round 37 H 의 연장)
+
+**차트 4: Top 키워드 grounding rate (가로 막대)**
+- "이 키워드 측정 시 AI가 출처 URL을 명시하는 비율"
+- 데이터: 30일 queries (engine != stub) vs responses (source_domains.length > 0)
+- Top 10, queries 횟수 순
+- 색상 — 50%+ 권위색(민트) / 20~50% 플랫폼색(퍼플) / 20% 미만 경고색(앰버, 보강 필요)
+- **운영 가치**: rate 낮은 키워드 = 콘텐츠 보강 우선순위
+
+**차트 5: 신규 등장 도메인 (표)**
+- "최근 7일에 처음 인용된 hostname" — 그 이전 30일에는 안 등장한 것만
+- tier 자동 분류 + 첫 등장일 + 등장 횟수
+- "분류 →" 링크로 /admin/domain-classifications 바로가기
+- **운영 가치**: 시장 변화 / 신규 경쟁사 즉시 감지
+
+### 새 함정 (Round 38 추가)
+
+**(AB) Python ↔ TypeScript 데이터 흐름 — REST 로 통일**
+- 상황: generator.py (Python, GitHub Actions cron) 가 learned_insights (TypeScript admin 이 INSERT) 를 읽어야 함
+- 정답: Supabase REST 가 양방향 단일 source — DATABASE_URL/SQLAlchemy 없이도 httpx 만으로 read/write. content_settings.py 의 `load_from_supabase_rest()` 패턴 재활용.
+
+**(AC) recharts 의 Bar 안 Cell 색상 변경 — entry 별 dynamic**
+- 증상: 일반적인 `<Bar fill="..." />` 단일 색상만. entry 마다 다른 색 필요 (예: rate 50%+ vs 미만)
+- 정답: `<Bar>{data.map((d, i) => <Cell key={i} fill={...} />)}</Bar>` 패턴. clientRanking 의 t1 강조와 keywordGrounding 의 rate 범위 강조 모두 사용.
+
+### Round 38 산출물 (A + B)
+
+코드:
+- `src/content/learned_insights_loader.py` — 신규 (Python REST loader)
+- `src/content/generator.py` — references_block 에 learned guidance append
+- `medimap-blog-v2/src/components/admin/DashboardCharts.tsx` — 차트 4/5 추가
+- `medimap-blog-v2/src/app/admin/(portal)/page.tsx` — fetchDashboardData 에 keyword grounding + new domains 집계
+
+### Round 38 C/D 보류 (다음 라운드)
+
+- **C 키워드 풀 강화**: 사용자가 위 turn 에서 "그대로 유지" 결정. 재논의 필요.
+- **D 모바일 표 → 카드**: 5 페이지 변환. 페이지당 30분 ~ 2.5시간. 다음 라운드 별도 진행 권장.
+
+### Round 38 검증 — 사용자가 사무실/돌아온 후
+
+1. **Phase 2 효과 확인**: /admin/learned-insights 에서 [전체 분석 & 반영] 1회 클릭 → applied=true → 다음 발행 cron (23:00 UTC) 의 생성 콘텐츠가 권장사항 반영하는지 (예: FAQ schema 포함, H2 7+개 등)
+2. **차트 4 검증**: /admin → "Top 키워드 grounding rate" 가 채워지는지 (gemini 측정 14건 기반 — 5~10개 키워드 표시 예상)
+3. **차트 5 검증**: 신규 도메인 — 최근 7일 + Round 36/37 발견 도메인 (toxnfill, medspabeni 등) 이 priorDomains 에 없으면 표시

@@ -20,6 +20,8 @@ import {
   DashboardCharts,
   type TierTrendPoint,
   type ClientRankingItem,
+  type KeywordGroundingItem,
+  type NewDomainItem,
 } from '@/components/admin/DashboardCharts';
 
 export const dynamic = 'force-dynamic';
@@ -54,6 +56,8 @@ async function fetchDashboardData() {
       }>,
       tierTrend: [] as TierTrendPoint[],
       clientRanking: [] as ClientRankingItem[],
+      keywordGrounding: [] as KeywordGroundingItem[],
+      newDomains: [] as NewDomainItem[],
       error: 'supabase not configured',
     };
   }
@@ -327,6 +331,152 @@ async function fetchDashboardData() {
     /* 차트 데이터 실패 시 빈 array — 컴포넌트가 graceful 표시 */
   }
 
+  // Round 38 B (2026-05-31) — 추가 차트 2개 데이터.
+  // 4) Top 키워드 grounding rate (30일)
+  // 5) 신규 등장 도메인 (최근 7일, 분류 사전 안 등록된 것 위주)
+  let keywordGrounding: KeywordGroundingItem[] = [];
+  let newDomains: NewDomainItem[] = [];
+  try {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const fortyDaysAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+
+    // 4) keyword grounding — queries 와 responses 30일치 join, keyword_id 별 group
+    const { data: queriesAll } = await sb
+      .from('queries')
+      .select('id, keyword_id, tenant_id')
+      .neq('engine', 'stub')
+      .gte('requested_at', thirtyDaysAgo);
+    const queryIdToKw = new Map<number, { keyword_id: number; tenant_id: number }>();
+    (queriesAll ?? []).forEach((q: { id: number; keyword_id: number; tenant_id: number }) => {
+      queryIdToKw.set(q.id, { keyword_id: q.keyword_id, tenant_id: q.tenant_id });
+    });
+
+    const queryIds30d = Array.from(queryIdToKw.keys());
+    const { data: respsAll } = await sb
+      .from('responses')
+      .select('id, query_id, source_domains, created_at')
+      .gte('created_at', thirtyDaysAgo);
+
+    // keyword_id 별 — 시도 횟수 + grounding (source_domains 있는) 횟수
+    const kwStats = new Map<number, { tenant_id: number; queries: number; grounded: number }>();
+    (queriesAll ?? []).forEach((q: { id: number; keyword_id: number; tenant_id: number }) => {
+      if (!kwStats.has(q.keyword_id)) {
+        kwStats.set(q.keyword_id, { tenant_id: q.tenant_id, queries: 0, grounded: 0 });
+      }
+      kwStats.get(q.keyword_id)!.queries++;
+    });
+    (respsAll ?? []).forEach(
+      (r: { query_id: number; source_domains: unknown[] | null }) => {
+        const meta = queryIdToKw.get(r.query_id);
+        if (!meta) return;
+        if (r.source_domains && Array.isArray(r.source_domains) && r.source_domains.length > 0) {
+          const s = kwStats.get(meta.keyword_id);
+          if (s) s.grounded++;
+        }
+      }
+    );
+
+    // keyword text + tenant name fetch
+    const kwIds = Array.from(kwStats.keys());
+    if (kwIds.length > 0) {
+      const { data: kwsAll } = await sb
+        .from('keywords')
+        .select('id, text, tenant_id')
+        .in('id', kwIds);
+      const kwTextMap = new Map<number, string>();
+      const kwTenantMap = new Map<number, number>();
+      (kwsAll ?? []).forEach((k: { id: number; text: string; tenant_id: number }) => {
+        kwTextMap.set(k.id, k.text);
+        kwTenantMap.set(k.id, k.tenant_id);
+      });
+
+      const tenantIdsKw = Array.from(new Set(Array.from(kwTenantMap.values())));
+      const tenantNameMap2 = new Map<number, string>();
+      if (tenantIdsKw.length > 0) {
+        const { data: tenantsKw } = await sb
+          .from('tenants')
+          .select('id, name')
+          .in('id', tenantIdsKw);
+        (tenantsKw ?? []).forEach((t: { id: number; name: string }) =>
+          tenantNameMap2.set(t.id, t.name)
+        );
+      }
+
+      keywordGrounding = Array.from(kwStats.entries())
+        .map(([kwId, v]) => ({
+          keyword: kwTextMap.get(kwId) ?? `#${kwId}`,
+          tenant_name: tenantNameMap2.get(kwTenantMap.get(kwId) ?? -1) ?? '?',
+          queries: v.queries,
+          grounded: v.grounded,
+          rate: v.queries > 0 ? v.grounded / v.queries : 0,
+        }))
+        .filter((r) => r.queries >= 1)
+        .sort((a, b) => b.queries - a.queries)
+        .slice(0, 10);
+    }
+
+    // 5) 신규 도메인 — 최근 7일 등장 hostname 중 그 이전 30일에는 안 등장한 것
+    const { data: respRecent } = await sb
+      .from('responses')
+      .select('source_domains, created_at')
+      .gte('created_at', sevenDaysAgo)
+      .not('source_domains', 'is', null);
+    const { data: respPrior } = await sb
+      .from('responses')
+      .select('source_domains')
+      .gte('created_at', fortyDaysAgo)
+      .lt('created_at', sevenDaysAgo)
+      .not('source_domains', 'is', null);
+
+    const priorDomains = new Set<string>();
+    (respPrior ?? []).forEach(
+      (r: { source_domains: Array<{ domain: string }> | null }) => {
+        (r.source_domains ?? []).forEach((sd: { domain: string }) => {
+          if (sd.domain) priorDomains.add(sd.domain.toLowerCase());
+        });
+      }
+    );
+
+    const recentFirstSeen = new Map<string, { first: string; count: number }>();
+    (respRecent ?? []).forEach(
+      (r: { source_domains: Array<{ domain: string }> | null; created_at: string }) => {
+        const day = r.created_at.slice(5, 10);
+        (r.source_domains ?? []).forEach((sd: { domain: string }) => {
+          if (!sd.domain) return;
+          const d = sd.domain.toLowerCase();
+          if (priorDomains.has(d)) return; // 이전에도 있던 도메인 제외
+          if (!recentFirstSeen.has(d)) {
+            recentFirstSeen.set(d, { first: day, count: 0 });
+          }
+          recentFirstSeen.get(d)!.count++;
+        });
+      }
+    );
+
+    // tier 분류 lookup
+    const { data: classRows } = await sb
+      .from('domain_classifications')
+      .select('domain, tier')
+      .eq('is_active', true);
+    const classifyMap = new Map<string, string>();
+    (classRows ?? []).forEach((r: { domain: string; tier: string }) => {
+      classifyMap.set(r.domain.toLowerCase(), r.tier);
+    });
+
+    newDomains = Array.from(recentFirstSeen.entries())
+      .map(([domain, info]) => ({
+        domain,
+        tier: classifyMap.get(domain) ?? 'T5',
+        first_seen: info.first,
+        occurrences: info.count,
+      }))
+      .sort((a, b) => b.occurrences - a.occurrences)
+      .slice(0, 8);
+  } catch {
+    /* 신규 차트 실패 시 빈 array */
+  }
+
   return {
     activeTenants: clientCount ?? 0,
     pendingQueue: pendingCount ?? 0,
@@ -336,6 +486,8 @@ async function fetchDashboardData() {
     recentCitations,
     tierTrend,
     clientRanking,
+    keywordGrounding,
+    newDomains,
     error: costError,
   };
 }
@@ -506,9 +658,14 @@ export default async function AdminDashboardPage() {
         </div>
       </section>
 
-      {/* Round 37 H (2026-05-31) — KPI 차트 3개 */}
+      {/* Round 37 H + Round 38 B (2026-05-31) — KPI 차트 5개 */}
       <section className="mt-6">
-        <DashboardCharts tierTrend={d.tierTrend} clientRanking={d.clientRanking} />
+        <DashboardCharts
+          tierTrend={d.tierTrend}
+          clientRanking={d.clientRanking}
+          keywordGrounding={d.keywordGrounding}
+          newDomains={d.newDomains}
+        />
       </section>
 
       {d.error && (

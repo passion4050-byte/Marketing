@@ -28,7 +28,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { TrendingUp, BarChart3, Users } from 'lucide-react';
+import { TrendingUp, BarChart3, Users, Target, AlertCircle } from 'lucide-react';
 
 export type TierTrendPoint = {
   date: string;       // 'MM-DD'
@@ -48,6 +48,21 @@ export type ClientRankingItem = {
   t5: number;          // 경쟁사 인용 (나쁨)
 };
 
+export type KeywordGroundingItem = {
+  keyword: string;
+  tenant_name: string;
+  queries: number;     // 측정 시도 수
+  grounded: number;    // grounding (source_domains 있는) 응답 수
+  rate: number;        // 0~1
+};
+
+export type NewDomainItem = {
+  domain: string;
+  tier: string;
+  first_seen: string;  // 'MM-DD'
+  occurrences: number; // 7일 내 등장 횟수
+};
+
 const TIER_COLORS = {
   t1: '#1B68FF',      // 메디맵 블루
   t3: '#15CBA8',      // 권위 — 민트
@@ -59,9 +74,13 @@ const TIER_COLORS = {
 export function DashboardCharts({
   tierTrend,
   clientRanking,
+  keywordGrounding = [],
+  newDomains = [],
 }: {
   tierTrend: TierTrendPoint[];
   clientRanking: ClientRankingItem[];
+  keywordGrounding?: KeywordGroundingItem[];
+  newDomains?: NewDomainItem[];
 }) {
   const noData = tierTrend.length === 0;
 
@@ -232,6 +251,134 @@ export function DashboardCharts({
           {clientRanking.length > 0 && (
             <div className="mt-2 text-[10px] text-ink-faint">
               💡 색상: <span className="font-semibold" style={{ color: TIER_COLORS.t1 }}>파란색</span> = 메디맵 T1 인용 있음 / <span style={{ color: TIER_COLORS.t4 }}>보라색</span> = 외부 인용만
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* 차트 4: Top 키워드 grounding rate */}
+      <section className="card">
+        <header className="border-b border-border px-4 py-3 md:px-5">
+          <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+            <Target className="h-4 w-4 text-brand" />
+            Top 키워드 grounding rate (30일)
+          </h2>
+          <div className="mt-1 text-[11px] text-ink-muted">
+            "이 키워드 측정 시 AI가 출처 URL을 명시하는 비율" — 콘텐츠 우선순위 결정.
+            <span className="ml-1 text-brand">낮은 rate</span> = 콘텐츠 보강 기회
+          </div>
+        </header>
+        <div className="p-2 md:p-4">
+          {keywordGrounding.length === 0 ? (
+            <EmptyChart message="아직 측정 데이터 없음" />
+          ) : (
+            <ResponsiveContainer width="100%" height={Math.max(180, keywordGrounding.length * 36)}>
+              <BarChart
+                data={keywordGrounding}
+                layout="vertical"
+                margin={{ top: 5, right: 30, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+                <XAxis
+                  type="number"
+                  domain={[0, 1]}
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(v) => `${Math.round(v * 100)}%`}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="keyword"
+                  tick={{ fontSize: 11 }}
+                  width={120}
+                />
+                <Tooltip
+                  formatter={(v: number) => `${Math.round(v * 100)}%`}
+                  labelFormatter={(k, payload) => {
+                    const item = payload?.[0]?.payload as KeywordGroundingItem | undefined;
+                    return item ? `${k} (${item.tenant_name})` : k;
+                  }}
+                />
+                <Bar dataKey="rate" name="grounding rate" fill={TIER_COLORS.t3} radius={[0, 4, 4, 0]}>
+                  {keywordGrounding.map((entry, i) => (
+                    <Cell
+                      key={`kw-cell-${i}`}
+                      fill={
+                        entry.rate >= 0.5
+                          ? TIER_COLORS.t3       // 50%+ 권위 색
+                          : entry.rate >= 0.2
+                            ? TIER_COLORS.t4    // 20~50% 플랫폼 색
+                            : TIER_COLORS.t5    // 20% 미만 경고 색 (보강 필요)
+                      }
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </section>
+
+      {/* 차트 5: 신규 T5 도메인 알림 (최근 7일) */}
+      <section className="card">
+        <header className="border-b border-border px-4 py-3 md:px-5">
+          <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+            <AlertCircle className="h-4 w-4 text-status-warning" />
+            신규 등장 도메인 (최근 7일)
+          </h2>
+          <div className="mt-1 text-[11px] text-ink-muted">
+            지난 7일에 처음 인용된 외부 도메인 — 시장 변화 / 신규 경쟁사 감지
+          </div>
+        </header>
+        <div className="p-2 md:p-4">
+          {newDomains.length === 0 ? (
+            <EmptyChart message="신규 도메인 없음 — 시장 안정" />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-surface-subtle text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+                  <tr>
+                    <th className="px-3 py-2 text-left">도메인</th>
+                    <th className="px-3 py-2 text-left">tier</th>
+                    <th className="px-3 py-2 text-right">첫 등장</th>
+                    <th className="px-3 py-2 text-right">등장 횟수</th>
+                    <th className="px-3 py-2 text-center">분류 등록</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {newDomains.map((d) => (
+                    <tr key={d.domain} className="border-t border-border">
+                      <td className="px-3 py-2 font-mono">{d.domain}</td>
+                      <td className="px-3 py-2">
+                        <span
+                          className="rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
+                          style={{
+                            backgroundColor:
+                              d.tier === 'T3' ? TIER_COLORS.t3
+                              : d.tier === 'T4' ? TIER_COLORS.t4
+                              : d.tier === 'NOISE' ? TIER_COLORS.noise
+                              : TIER_COLORS.t5,
+                          }}
+                        >
+                          {d.tier}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right text-ink-soft">{d.first_seen}</td>
+                      <td className="px-3 py-2 text-right font-semibold text-ink">{d.occurrences}</td>
+                      <td className="px-3 py-2 text-center">
+                        <a
+                          href="/admin/domain-classifications"
+                          className="text-[10px] text-brand hover:underline"
+                        >
+                          분류 →
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="mt-2 text-[10px] text-ink-faint">
+                💡 신규 T5 도메인은 default 분류 — 운영자가 도메인 분류 사전에서 T3/T4/NOISE 로 명시 권장
+              </div>
             </div>
           )}
         </div>
