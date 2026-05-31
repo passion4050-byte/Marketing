@@ -72,21 +72,32 @@ const DEFAULT_BASELINE = {
 };
 type Baseline = typeof DEFAULT_BASELINE;
 
-async function loadBaseline(sb: ReturnType<typeof getServerClient>): Promise<Baseline> {
+async function loadBaseline(
+  sb: ReturnType<typeof getServerClient>,
+  domainCategory?: string | null
+): Promise<Baseline> {
   if (!sb) return DEFAULT_BASELINE;
-  try {
-    const { data } = await sb
-      .from('content_settings')
-      .select('setting_value')
-      .eq('setting_key', 'content_baseline')
-      .single();
-    if (!data?.setting_value) return DEFAULT_BASELINE;
-    const parsed = JSON.parse(data.setting_value as string);
-    // null/undefined 키는 default 로 보강
-    return { ...DEFAULT_BASELINE, ...parsed };
-  } catch {
-    return DEFAULT_BASELINE;
+  // Round 43 G — 카테고리별 baseline 우선 (content_baseline_안과 등) → 글로벌 baseline → DEFAULT
+  const keys = [
+    domainCategory ? `content_baseline_${domainCategory}` : null,
+    'content_baseline',
+  ].filter(Boolean) as string[];
+  for (const key of keys) {
+    try {
+      const { data } = await sb
+        .from('content_settings')
+        .select('setting_value')
+        .eq('setting_key', key)
+        .single();
+      if (data?.setting_value) {
+        const parsed = JSON.parse(data.setting_value as string);
+        return { ...DEFAULT_BASELINE, ...parsed };
+      }
+    } catch {
+      /* try next key */
+    }
   }
+  return DEFAULT_BASELINE;
 }
 
 async function fetchHtml(url: string, timeoutMs = 5000): Promise<string | null> {
@@ -419,7 +430,7 @@ export async function POST(req: NextRequest) {
 
   const summary = summarize(perUrl);
   summary.urls_failed = failed;
-  const baseline = await loadBaseline(sb);
+  const baseline = await loadBaseline(sb, body.domain_category);
   const { diagnosis, recommendations } = diagnose(summary, domain, baseline);
 
   return NextResponse.json({

@@ -2150,3 +2150,95 @@ DashboardFilters 의 typeahead 패턴과 일관성. 두 페이지 다 동일 UX.
 15. **Cmd+K palette** — 페이지 빠른 이동
 
 이 15가지는 사용자 복귀 후 우선순위 결정 후 batch 별 진행 권장.
+
+---
+
+## Round 43 (2026-05-31 후반 자동 진행) — 모바일 카드 + Phase 3 + UI 헬퍼 확장
+
+### 1. 모바일 본격 카드 — tenants 페이지 (Round 42 F 잔여)
+
+**Dual layout 패턴**:
+- 데스크탑 (md+): `<div className="card hidden md:block">` + 기존 `<table>`
+- 모바일 (sm): `<div className="space-y-2 md:hidden">` + 카드 list
+
+**모바일 카드 구조**:
+- 헤더: 병원명 (truncate) + 상태 chip (status-trial/active/paused)
+- 본문: 진료과목/지역/slug/발행/월비용 — grid-cols-2 로 정보 밀도 ↑
+- 액션: 일시정지/편집/삭제 — min-h-[36px] tap target
+
+**다른 페이지 모바일 변환** (Round 44 우선순위):
+- /admin/content-queue (가장 자주)
+- /admin/citations
+- /admin/competitors
+- /admin/learned-insights
+- /admin/domain-classifications
+
+### 3. learn-from-domain Phase 3 — 카테고리별 baseline
+
+**문제**: 글로벌 baseline 1개로 모든 카테고리 진단 → 안과(시술 비교 강) vs 피부과(시술 종류 많음) 차이 무시.
+
+**해결**:
+- `content_baseline_{category}` 7개 row 추가 (안과/피부과/성형외과/치과/모발이식/내과/한방)
+- 카테고리별 word_count / h2_count / image_count 차별화
+- learn-from-domain route — tenant.domain_category 기반 우선 로드 + 글로벌 fallback
+
+**카테고리별 baseline 예시**:
+| 카테고리 | word_count | h2 | h3 | images | 특징 |
+|---|---|---|---|---|---|
+| 안과 | 900 | 6 | 8 | 5 | 시술 비교/회복기간 |
+| 피부과 | 1100 | 7 | 10 | 6 | 시술 종류 많음, before-after |
+| 성형외과 | 1200 | 7 | 10 | 7 | 장문 + 사례 풍부 |
+| 모발이식 | 1300 | 8 | 12 | 8 | 절개/비절개 비교, before-after 풍부 |
+
+### 4. UI/UX 헬퍼 추가 — globals.css
+
+Round 40 의 admin-* 헬퍼 확장:
+- `.admin-action` / `.admin-action-primary` / `.admin-action-danger` — 모바일 친화 tap target (min-h-[36px])
+- `.chip-direct` / `.chip-indirect` / `.chip-reference` / `.chip-tolearn` / `.chip-ignore` — 라벨 색상 semantic 일관성
+- `.status-dot` — inline status indicator
+- `.admin-section-spacing` — `space-y-4 md:space-y-5` 페이지 섹션 간 일관 spacing
+
+### Round 43 보류 (Round 44 로 미룸)
+
+**E 검증 히스토리** — 자동 분류 도메인의 시간별 인용 추이:
+- 별도 페이지 또는 expandable mini-chart 분량 중간
+- 검수 패턴 안정화 후 진행이 더 효율적
+
+**키워드 풀 Tier 2 — 클라이언트 편집 chip editor**:
+- tenant edit modal 안에 own 키워드 chip editor 통합
+- 분량 큼 (modal 구조 변경)
+- Round 44 로
+
+**모바일 카드 — 4 페이지 잔여**:
+- content-queue / citations / competitors / learned-insights / domain-classifications
+- 페이지당 30분 × 4 = 2시간
+- Round 44 batch 진행
+
+### 새 함정 (Round 43 추가)
+
+**(AS) Dual layout `hidden md:block` + `md:hidden` 패턴**
+- 증상: 데스크탑 표 → 모바일 카드 변환 시 같은 데이터 두 번 렌더 → 코드 중복
+- 정답: 데이터 fetch 1회 + dual layout. 둘 다 같은 `tenants` array 순회. hidden 으로 visibility 만 분기 — 빌드/SEO 안전.
+
+**(AT) 카테고리별 baseline 우선 로드 + fallback chain**
+- 증상: 카테고리별 baseline 없을 때 (예: '한방' row 누락) → 차트 진단 동작 X
+- 정답: `loadBaseline(sb, category)` 가 `content_baseline_{category}` → `content_baseline` → DEFAULT_BASELINE 순 fallback. 안전 chain.
+
+### Round 43 산출물
+
+DB:
+- `content_settings` 에 7개 카테고리별 baseline row 추가
+
+코드:
+- `medimap-blog-v2/src/app/admin/(portal)/tenants/page.tsx` — dual layout (table + card)
+- `medimap-blog-v2/src/app/api/admin/learn-from-domain/route.ts` — loadBaseline 시그니처 + fallback chain
+- `medimap-blog-v2/src/app/globals.css` — UI/UX 헬퍼 추가 (admin-action / chip-* / status-dot / admin-section-spacing)
+
+### Round 44 후보 (사용자 복귀 후)
+
+- 모바일 카드 4 페이지 잔여
+- 검증 히스토리 (E)
+- 키워드 풀 Tier 2 (클라이언트 chip editor)
+- 페이지별 admin-page-header 일관 적용
+- UI/UX 정리 15개 중 우선순위 batch
+- Anthropic credit 후 — 4 엔진 본격

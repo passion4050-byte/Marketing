@@ -148,6 +148,31 @@ body {
   .admin-skeleton {
     @apply animate-pulse rounded bg-surface-subtle;
   }
+  /* Round 43 H — UI/UX 추가 헬퍼 */
+  /* 모바일 친화 tap target — 최소 44px (애플 HIG) */
+  .admin-action {
+    @apply inline-flex min-h-[36px] items-center justify-center gap-1 rounded-md border border-border px-2.5 text-[11px] font-semibold transition active:scale-95 md:min-h-[32px];
+  }
+  .admin-action-primary {
+    @apply admin-action border-brand/30 bg-brand-50 text-brand hover:bg-brand-100;
+  }
+  .admin-action-danger {
+    @apply admin-action border-status-danger/30 text-status-danger hover:bg-status-dangerSoft;
+  }
+  /* 일관된 chip 색상 — semantic */
+  .chip-direct    { @apply rounded px-1.5 py-0.5 text-[10px] font-bold bg-status-danger text-white; }
+  .chip-indirect  { @apply rounded px-1.5 py-0.5 text-[10px] font-bold bg-status-warning text-white; }
+  .chip-reference { @apply rounded px-1.5 py-0.5 text-[10px] font-bold bg-status-success text-white; }
+  .chip-tolearn   { @apply rounded px-1.5 py-0.5 text-[10px] font-bold bg-brand text-white; }
+  .chip-ignore    { @apply rounded px-1.5 py-0.5 text-[10px] font-bold bg-ink-muted text-white; }
+  /* 일관된 status indicator dot */
+  .status-dot {
+    @apply inline-block h-2 w-2 shrink-0 rounded-full;
+  }
+  /* 깊은 페이지 spacing — 헤더 mb */
+  .admin-section-spacing {
+    @apply space-y-4 md:space-y-5;
+  }
 
   .sidebar-link-active {
     @apply sidebar-link bg-brand-50 text-brand-700;

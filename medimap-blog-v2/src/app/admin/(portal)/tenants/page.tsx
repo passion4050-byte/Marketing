@@ -135,7 +135,9 @@ export default function TenantsPage() {
         </button>
       </header>
 
-      <div className="card overflow-hidden">
+      {/* Round 43 F (2026-05-31) — 데스크탑 표 + 모바일 카드 dual layout */}
+      {/* 데스크탑 (md+) 표 */}
+      <div className="card hidden overflow-hidden md:block">
         <table className="w-full text-sm">
           <thead className="bg-surface-subtle text-[11px] font-bold uppercase tracking-wider text-ink-muted">
             <tr>
@@ -192,6 +194,68 @@ export default function TenantsPage() {
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* 모바일 (sm) 카드 list */}
+      <div className="space-y-2 md:hidden">
+        {loading && (
+          <div className="card admin-empty">
+            <Loader2 className="admin-empty-icon animate-spin" />
+            <div className="admin-empty-title">로드 중…</div>
+          </div>
+        )}
+        {!loading && tenants.length === 0 && (
+          <div className="card admin-empty">
+            <div className="admin-empty-title">등록된 클라이언트 없음</div>
+            <div className="admin-empty-desc">상단 [신규 클라이언트] 버튼으로 추가</div>
+          </div>
+        )}
+        {tenants.map((t) => {
+          const status = (t.status ?? 'trial') as TenantStatus;
+          return (
+            <div key={String(t.id)} className="card p-3">
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold text-ink">{t.name}</div>
+                  <div className="mt-0.5 truncate text-[11px] text-ink-muted">{t.business_model ?? '—'}</div>
+                </div>
+                <span className={STATUS_CHIP[status].cls + ' shrink-0'}>{STATUS_CHIP[status].label}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-ink-soft">
+                <div><span className="text-ink-muted">진료과목:</span> {t.domain_category ?? '—'}</div>
+                <div><span className="text-ink-muted">지역:</span> {t.region ?? '—'}</div>
+                <div className="col-span-2 truncate">
+                  <span className="text-ink-muted">slug:</span>{' '}
+                  <span className="font-mono text-brand-700">{t.partner_slug ?? '—'}</span>
+                </div>
+                <div><span className="text-ink-muted">발행:</span> {t.publish_count ?? 0}편</div>
+                <div><span className="text-ink-muted">월 비용:</span> ${Number(t.monthly_cost ?? 0).toFixed(2)}</div>
+              </div>
+              <div className="mt-2 flex justify-end gap-1 border-t border-border pt-2">
+                <button
+                  onClick={() => togglePause(t)}
+                  className="inline-flex min-h-[36px] items-center gap-1 rounded-md border border-border px-2.5 text-[11px] font-semibold text-ink-soft active:bg-surface-soft"
+                >
+                  {status === 'paused' ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+                  {status === 'paused' ? '재개' : '일시정지'}
+                </button>
+                <button
+                  onClick={() => openEdit(t)}
+                  className="inline-flex min-h-[36px] items-center gap-1 rounded-md border border-brand/30 bg-brand-50 px-2.5 text-[11px] font-semibold text-brand active:bg-brand-100"
+                >
+                  <Edit3 className="h-3 w-3" />편집
+                </button>
+                <button
+                  onClick={() => remove(t.id, t.name)}
+                  className="inline-flex min-h-[36px] items-center justify-center rounded-md border border-status-danger/30 px-2 text-status-danger active:bg-status-dangerSoft"
+                  aria-label="삭제"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {editing !== null && (
