@@ -2647,3 +2647,65 @@ if (allKwIds.length === 0) {
 - **검증 히스토리 UI** — domain-classifications expand 행 + mini chart (Round 46 API 활용)
 - **이메일 cron 검증** — Vercel/GitHub 환경변수 등록 후 manual run
 - **Anthropic credit 충전 후** — 4 엔진 본격
+
+---
+
+## Round 49 (2026-05-31 야간 6) — 검증 히스토리 UI 통합 + 모바일 wrap 강화
+
+### 1. 검증 히스토리 UI — `DomainHistoryButton`
+
+**가치**: Round 40 의 rule-based 자동 분류 + Round 46 의 domain-history API 가 UI 통합 안 됨. 운영자가 자동 분류된 도메인의 효용을 시각 검증할 길 없음.
+
+**구현**:
+- 신규 client component `DomainHistoryButton` — 도메인 1개 받아 modal 표시
+- 클릭 시 `/api/admin/domain-history?domain=X&days=30` fetch (lazy)
+- modal 구성:
+  - 헤더: 도메인 + tier 배지 + 카테고리 + 분류일 + 비활성 경고 (검토 대기)
+  - KPI 2개: 30일 총 인용 / 일평균
+  - Area chart (recharts) — 일자별 인용 수
+  - 빈 데이터 시 "측정 데이터 없음" 안내
+  - 푸터 — "자동 분류 효용 검증 — 인용 빈도가 낮으면 분류 재검토 필요"
+
+**통합 위치** (domain-classifications page):
+- 글로벌 분류 목록 행 — 액션 컬럼에 추이 버튼 + 편집/삭제 버튼 옆
+- 컨텍스트 모드 외부 도메인 행 — 액션 컬럼에 추이 버튼 + 학습 분석 링크
+
+### 2. citations 모바일 min-w 강화
+
+기존 `overflow-x-auto` + 표 폭 자동 → 작은 모바일에서 표 칸이 너무 좁아짐. `min-w-[560px]` 추가로 가독성 유지 + 가로 스크롤 안전.
+
+### 본격 카드 변환 보류 사유
+
+competitors / learned-insights / domain-classifications 의 본격 카드 변환 (Round 43 tenants 패턴) 은 다음 라운드:
+- 페이지당 30~45분 × 3 = 1.5~2시간 — 단일 commit 분량 큼
+- 사용자 검증 후 점진 진행이 안전
+- 이미 overflow-x-auto 적용된 페이지 — 모바일에서 가로 스크롤로 기본 사용성 보장
+
+### 이메일 cron 검증 — 사용자 액션
+
+내가 진행 못 함 (환경변수 등록 필요):
+
+**GitHub Secrets** (Repo Settings → Secrets and variables → Actions):
+- `VERCEL_PROD_URL` = `https://geo-v2-beta.vercel.app`
+- `CRON_SECRET` = 랜덤 문자열
+
+**Vercel 환경변수** (Project Settings → Environment Variables):
+- `RESEND_API_KEY` — https://resend.com 가입 후 API key 발급
+- `RESEND_FROM` — 예: `MEDIMAP GEO <reports@medimap.team>` (도메인 verified)
+- `CRON_SECRET` — GitHub 과 동일
+
+설정 후 GitHub Actions 에서 "Send monthly reports (1st of month 09:00 UTC = 18:00 KST)" → **Run workflow** → 즉시 manual 테스트.
+
+### Round 49 산출물
+
+코드:
+- `medimap-blog-v2/src/components/admin/DomainHistoryButton.tsx` — 신규 (modal + area chart)
+- `medimap-blog-v2/src/app/admin/(portal)/domain-classifications/page.tsx` — 글로벌 + 컨텍스트 행에 추이 버튼 통합
+- `medimap-blog-v2/src/app/admin/(portal)/citations/page.tsx` — 표 min-w 추가
+
+### Round 50 후보
+
+- **competitors / learned-insights / domain-classifications 본격 카드 변환** (Round 43 tenants 패턴)
+- **이메일 cron manual run 검증** (사용자 환경변수 등록 후)
+- **Anthropic credit 충전** + 4 엔진 본격
+- **UI/UX 정리** — admin-page-header 페이지별 일관 적용

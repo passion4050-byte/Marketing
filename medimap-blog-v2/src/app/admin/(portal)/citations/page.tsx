@@ -435,7 +435,7 @@ export default function CitationsPage() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="w-full min-w-[560px] text-xs">
                     <thead className="bg-surface-subtle text-[10px] font-bold uppercase tracking-wider text-ink-muted">
                       <tr>
                         <th className="px-3 py-2 text-left">키워드</th>
@@ -484,7 +484,7 @@ export default function CitationsPage() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="w-full min-w-[560px] text-xs">
                     <thead className="bg-surface-subtle text-[10px] font-bold uppercase tracking-wider text-ink-muted">
                       <tr>
                         <th className="w-8 px-2 py-2"></th>

@@ -30,6 +30,7 @@ import {
   Target,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { DomainHistoryButton } from '@/components/admin/DomainHistoryButton';
 
 type ContextResponse = {
   ok: boolean;
@@ -558,12 +559,15 @@ export default function DomainClassificationsPage() {
                     </td>
                     <td className="px-3 py-2 text-[10px] text-ink-muted">{d.notes || '—'}</td>
                     <td className="px-3 py-2 text-right">
-                      <a
-                        href={`/admin/competitors?tenantId=${contextTenantId}`}
-                        className="text-[10px] text-brand hover:underline"
-                      >
-                        학습 분석 →
-                      </a>
+                      <div className="inline-flex items-center gap-1">
+                        <DomainHistoryButton domain={d.domain} />
+                        <a
+                          href={`/admin/competitors?tenantId=${contextTenantId}`}
+                          className="text-[10px] text-brand hover:underline"
+                        >
+                          학습 →
+                        </a>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -757,6 +761,7 @@ export default function DomainClassificationsPage() {
                           </div>
                         ) : (
                           <div className="inline-flex items-center gap-1">
+                            <DomainHistoryButton domain={c.domain} />
                             <button
                               onClick={() => startEdit(c)}
                               className="rounded border border-border px-1.5 py-0.5 text-[10px] text-ink-soft hover:bg-surface-soft"
