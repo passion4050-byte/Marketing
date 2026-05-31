@@ -1663,3 +1663,84 @@ DB:
 1. `/admin?period=7` / `period=30` / `period=90` 토글 동작 확인
 2. `/admin/saas-tracking` 페이지 진입 — 10 SaaS 키워드 + 차트 (현재 데이터 0, 다음 cron 후 누적)
 3. Ranking 차트 stacked 색상 분리 — BGN 막대 안 T1(파랑) + 권위/플랫폼(민트) + T5(앰버) 비율
+
+---
+
+## Round 38 후속 (2026-05-31) — 도메인 분류 사전의 클라이언트 컨텍스트화
+
+### 진단 — 글로벌 분류만의 한계
+
+**사용자 핵심 지적**:
+- T1/T3/T4/NOISE 는 글로벌 분류 (어느 클라이언트 봐도 의미 동일)
+- 그러나 **T5 (외부/경쟁) 는 클라이언트마다 의미 다름**
+- 예: sueye.co.kr 은 BGN(안과)의 직접 경쟁, 지우피부과와는 무관
+- 도메인 분류 사전이 "비즈니스 모델에 맞는 키워드(경쟁사) 확인 → 분석/추적 → 고도화" 자산이 되려면 클라이언트 컨텍스트 필수
+
+### 해결 — tenant_domain_competition 테이블 + 컨텍스트 UI
+
+**DB 구조**:
+```sql
+CREATE TABLE tenant_domain_competition (
+  tenant_id INTEGER REFERENCES tenants(id),
+  domain TEXT,
+  label TEXT,  -- DIRECT | INDIRECT | REFERENCE | TO_LEARN | IGNORE
+  priority INTEGER (0~5),
+  notes TEXT,
+  auto_suggested BOOLEAN,
+  UNIQUE (tenant_id, domain)
+);
+```
+
+**자동 시드**: Round 35/36 발견 도메인 중 카테고리 매칭되는 것 자동 라벨:
+- BGN(안과): sueye.co.kr, bnviit, topeye, brandeye, eyereum, eyemiso, goodlasik 등 10개 DIRECT (priority 2~5)
+- 지우피부과: toxnfill, medspabeni, smartskin, alllitingclinic, cheongdamskinclinic 등 7 DIRECT + 3 INDIRECT + 1 REFERENCE
+
+**페이지 UI**:
+- 헤더 아래 "클라이언트 컨텍스트 보기" 카드
+- 드롭다운 selector — 클라이언트 선택 시 그 tenant 의 라벨 카운트 chip 표시 (직접 경쟁 10 / 간접 3 / 정보 1 등)
+- 표에 컬럼 2개 추가 (선택 시): **인용 횟수** (그 클라이언트 측정 시) + **경쟁 라벨** (select 드롭다운)
+- 라벨 변경 즉시 POST → DB 저장 → 새로고침
+- auto_suggested 표시 — 운영자가 직접 분류 vs 자동 발견 구분
+
+### API
+
+`/api/admin/domain-context`:
+- GET ?tenantId=N — selected tenant 의 keyword 측정 결과 → 도메인별 occurrences + 라벨 join
+- POST ?tenantId=N body {domain, label} — UPSERT (auto_suggested=false)
+- DELETE ?tenantId=N&domain= — 라벨 제거
+
+### 새 함정 (Round 38 후속)
+
+**(AF) 글로벌 분류 vs 클라이언트별 컨텍스트 — 둘 다 필요**
+- 증상: T5 default 분류가 모든 unknown 도메인을 묶음 → 클라이언트별 영업 인사이트 부족
+- 정답: 글로벌 (domain_classifications) + 클라이언트별 (tenant_domain_competition) 분리. 5-tier 분류는 운영자 큐레이션 master, 라벨은 영업 컨텍스트.
+
+**(AG) 자동 시드 패턴 — Round 35/36 발견 도메인 회수**
+- 운영 누적 데이터가 가치 — 새 테이블 만들 때 기존 발견 도메인 카테고리 매칭으로 자동 시드
+- 운영자가 처음 페이지 들어가도 빈 화면 X, 자동 분류된 라벨 보고 검수만
+
+### Round 38 후속 산출물
+
+DB:
+- `add_tenant_domain_competition` migration — 테이블 + index + 자동 시드 21개
+
+코드:
+- `medimap-blog-v2/src/app/api/admin/domain-context/route.ts` — 신규 CRUD
+- `medimap-blog-v2/src/app/admin/(portal)/domain-classifications/page.tsx` — selector + 컨텍스트 컬럼 + 인라인 라벨 편집
+
+### Round 38 후속 미진 (Round 39 이후)
+
+- **옵션 3: 자동 분석 trigger** — cron 이 새 T5 도메인 발견 시 자동 learn-from-domain 호출 + 카테고리 룰 기반 라벨 추천
+- **컨텍스트 모드 전용 표** — 글로벌 분류 안 된 도메인 (T5 default) 도 표시. 현재는 분류 사전에 있는 도메인만 컨텍스트 컬럼 표시
+- **citations API 라벨 활용** — DIRECT_COMPETITOR 만 보기 등 라벨 기반 필터
+- **모바일 표 → 카드** — 5 페이지 대규모 작업
+- **키워드 풀 Tier 1+2** — purpose 컬럼 + 클라이언트 chip editor
+- **LLM provider fallback** — Gemini 503 시 Anthropic/OpenAI 자동 retry
+
+### 사용자 검증
+
+1. `/admin/domain-classifications` → 클라이언트 컨텍스트 카드 → **BGN 잠실** 선택
+2. 라벨 chip 표시: 직접 경쟁 10 (자동 발견)
+3. 표 우측에 인용 횟수 + 경쟁 라벨 드롭다운 컬럼 추가
+4. 라벨 변경 → DB 저장 → 페이지 reload 시 유지 확인
+5. 다른 클라이언트 (지우피부과) 선택 시 같은 도메인이라도 다른 라벨 표시

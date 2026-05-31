@@ -26,8 +26,32 @@ import {
   Globe,
   Building2,
   AlertTriangle,
+  Users,
+  Target,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
+
+type ContextResponse = {
+  ok: boolean;
+  tenants: Array<{ id: number; name: string; business_model: string | null }>;
+  selected_tenant: { id: number; name: string } | null;
+  domain_map: Record<string, {
+    occurrences: number;
+    label: string | null;
+    priority: number;
+    notes: string | null;
+    auto_suggested: boolean;
+  }>;
+  counts_by_label?: { DIRECT: number; INDIRECT: number; REFERENCE: number; TO_LEARN: number; IGNORE: number };
+};
+
+const LABEL_META: Record<string, { color: string; ko: string }> = {
+  DIRECT:    { color: 'bg-status-danger text-white',  ko: '직접 경쟁' },
+  INDIRECT:  { color: 'bg-status-warning text-white', ko: '간접 경쟁' },
+  REFERENCE: { color: 'bg-status-success text-white', ko: '정보 출처' },
+  TO_LEARN:  { color: 'bg-brand text-white',          ko: '분석 대상' },
+  IGNORE:    { color: 'bg-ink-muted text-white',      ko: '무시' },
+};
 
 type Classification = {
   id: number;
@@ -63,6 +87,11 @@ export default function DomainClassificationsPage() {
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState<'ALL' | Classification['tier']>('ALL');
 
+  // Round 38 후속 — 클라이언트 컨텍스트 모드
+  const [contextTenantId, setContextTenantId] = useState<number | null>(null);
+  const [contextData, setContextData] = useState<ContextResponse | null>(null);
+  const [contextLoading, setContextLoading] = useState(false);
+
   // 신규 추가 form
   const [newDomain, setNewDomain] = useState('');
   const [newTier, setNewTier] = useState<Classification['tier']>('T3');
@@ -96,6 +125,60 @@ export default function DomainClassificationsPage() {
   useEffect(() => {
     load();
   }, []);
+
+  // 클라이언트 컨텍스트 fetch — selector 변경 시
+  useEffect(() => {
+    // tenant list 한 번 fetch (selector 옵션 용)
+    fetch('/api/admin/domain-context')
+      .then((r) => r.json())
+      .then((d: ContextResponse) => {
+        if (d.ok) setContextData(d);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (contextTenantId == null) {
+      // selector 해제 시 — domain_map 비움 (tenants 는 유지)
+      setContextData((prev) => prev ? { ...prev, selected_tenant: null, domain_map: {} } : prev);
+      return;
+    }
+    setContextLoading(true);
+    fetch(`/api/admin/domain-context?tenantId=${contextTenantId}`)
+      .then((r) => r.json())
+      .then((d: ContextResponse) => {
+        if (d.ok) setContextData(d);
+      })
+      .finally(() => setContextLoading(false));
+  }, [contextTenantId]);
+
+  const saveLabel = async (domain: string, label: string) => {
+    if (!contextTenantId) return;
+    await fetch(`/api/admin/domain-context?tenantId=${contextTenantId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain, label }),
+    });
+    // 컨텍스트 데이터 다시 fetch
+    fetch(`/api/admin/domain-context?tenantId=${contextTenantId}`)
+      .then((r) => r.json())
+      .then((d: ContextResponse) => {
+        if (d.ok) setContextData(d);
+      });
+  };
+
+  const removeLabel = async (domain: string) => {
+    if (!contextTenantId) return;
+    await fetch(
+      `/api/admin/domain-context?tenantId=${contextTenantId}&domain=${encodeURIComponent(domain)}`,
+      { method: 'DELETE' }
+    );
+    fetch(`/api/admin/domain-context?tenantId=${contextTenantId}`)
+      .then((r) => r.json())
+      .then((d: ContextResponse) => {
+        if (d.ok) setContextData(d);
+      });
+  };
 
   const filtered = useMemo(() => {
     return list.filter((c) => {
@@ -181,7 +264,7 @@ export default function DomainClassificationsPage() {
         <div>
           <h1 className="text-xl font-bold text-ink">도메인 분류 사전</h1>
           <div className="mt-1 text-[12px] text-ink-muted">
-            5-tier 분류 규칙 — citations/competitors API 가 최대 5분 캐시 후 반영
+            글로벌 5-tier (T1/T3/T4/NOISE) + 클라이언트별 경쟁 라벨링 (DIRECT/INDIRECT/REFERENCE/TO_LEARN/IGNORE)
           </div>
         </div>
         <button
@@ -192,6 +275,55 @@ export default function DomainClassificationsPage() {
           {loading && <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />}새로고침
         </button>
       </div>
+
+      {/* Round 38 후속 — 클라이언트 컨텍스트 모드 */}
+      <section className="card">
+        <header className="border-b border-border px-5 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="section-title">
+              <Users className="mr-1 inline h-4 w-4 text-brand" />
+              클라이언트 컨텍스트 보기
+            </h2>
+            {contextLoading && <Loader2 className="h-3 w-3 animate-spin text-brand" />}
+          </div>
+          <div className="mt-1 text-[11px] text-ink-muted">
+            클라이언트 선택 시 — 그 클라이언트 키워드로 측정 시 인용된 도메인 + 경쟁 라벨 표시.
+            같은 도메인이 클라이언트마다 다른 의미 (예: sueye.co.kr 은 BGN 직접경쟁, 지우피부과 무관)
+          </div>
+        </header>
+        <div className="px-5 py-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-[11px] text-ink-muted">클라이언트:</label>
+            <select
+              value={contextTenantId ?? ''}
+              onChange={(e) => setContextTenantId(e.target.value ? Number(e.target.value) : null)}
+              className="rounded border border-border bg-surface-base px-2 py-1 text-[12px]"
+            >
+              <option value="">— 선택 안 함 (글로벌 모드) —</option>
+              {(contextData?.tenants ?? []).map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} {t.business_model && t.business_model !== 'self' && t.business_model !== 'partner'
+                    ? `(${t.business_model.slice(0, 30)})`
+                    : ''}
+                </option>
+              ))}
+            </select>
+            {contextTenantId && contextData?.counts_by_label && (
+              <div className="flex flex-wrap gap-1 text-[10px]">
+                {(Object.keys(LABEL_META) as Array<keyof typeof LABEL_META>).map((lbl) => {
+                  const cnt = contextData.counts_by_label?.[lbl as 'DIRECT'] ?? 0;
+                  if (cnt === 0) return null;
+                  return (
+                    <span key={lbl} className={cn('rounded px-1.5 py-0.5 font-bold', LABEL_META[lbl].color)}>
+                      {LABEL_META[lbl].ko} {cnt}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* tier 카운트 카드 */}
       <div className="grid grid-cols-4 gap-3">
@@ -322,6 +454,12 @@ export default function DomainClassificationsPage() {
                   <th className="px-3 py-2 text-left">Tier</th>
                   <th className="px-3 py-2 text-left">카테고리</th>
                   <th className="px-3 py-2 text-left">비고</th>
+                  {contextTenantId && (
+                    <>
+                      <th className="px-3 py-2 text-right text-brand">인용 횟수</th>
+                      <th className="px-3 py-2 text-left text-brand">경쟁 라벨</th>
+                    </>
+                  )}
                   <th className="px-3 py-2 text-center">활성</th>
                   <th className="px-3 py-2 text-right">액션</th>
                 </tr>
@@ -375,6 +513,48 @@ export default function DomainClassificationsPage() {
                           <span className="text-ink-muted">{c.notes ?? '—'}</span>
                         )}
                       </td>
+                      {contextTenantId && (() => {
+                        const ctx = contextData?.domain_map?.[c.domain.toLowerCase()];
+                        return (
+                          <>
+                            <td className="px-3 py-2 text-right">
+                              {ctx?.occurrences ? (
+                                <span className="font-semibold text-ink">{ctx.occurrences}</span>
+                              ) : (
+                                <span className="text-ink-faint">0</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="flex items-center gap-1">
+                                <select
+                                  value={ctx?.label ?? ''}
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      saveLabel(c.domain, e.target.value);
+                                    } else {
+                                      removeLabel(c.domain);
+                                    }
+                                  }}
+                                  className={cn(
+                                    'rounded border border-border bg-surface-base px-1.5 py-0.5 text-[10px] font-semibold',
+                                    ctx?.label && LABEL_META[ctx.label] ? LABEL_META[ctx.label].color : 'text-ink-muted'
+                                  )}
+                                >
+                                  <option value="">— 미지정 —</option>
+                                  {(Object.keys(LABEL_META) as Array<keyof typeof LABEL_META>).map((lbl) => (
+                                    <option key={lbl} value={lbl} className="bg-surface-base text-ink">
+                                      {LABEL_META[lbl].ko}
+                                    </option>
+                                  ))}
+                                </select>
+                                {ctx?.auto_suggested && (
+                                  <span className="text-[9px] text-ink-faint" title="자동 발견">auto</span>
+                                )}
+                              </div>
+                            </td>
+                          </>
+                        );
+                      })()}
                       <td className="px-3 py-2 text-center">
                         <button
                           onClick={() => toggleActive(c)}
