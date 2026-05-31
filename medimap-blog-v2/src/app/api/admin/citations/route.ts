@@ -20,7 +20,7 @@
  */
 import { NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
-import { classifyDomain, loadClassifierSets } from '@/lib/domain-classifier';
+import { classifyDomain, loadClassifierSets, type Tier } from '@/lib/domain-classifier';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
