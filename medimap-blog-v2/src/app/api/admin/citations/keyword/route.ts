@@ -48,10 +48,13 @@ export async function GET(req: Request) {
 
   // 2. 해당 키워드의 queries (최근 30일)
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  // Round 36 fix 2 (2026-05-31) — stub engine 응답 제외.
+  // 영업/시연용 화면이라 시드 데이터(stub) 가 섞이면 신뢰도 떨어짐. production AI 측정만 노출.
   const { data: queriesRows } = await sb
     .from('queries')
     .select('id, tenant_id, engine, prompt, requested_at')
     .in('keyword_id', keywordIds)
+    .neq('engine', 'stub')
     .gte('requested_at', cutoff)
     .order('requested_at', { ascending: false })
     .limit(50);

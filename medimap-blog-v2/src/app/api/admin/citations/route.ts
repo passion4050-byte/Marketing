@@ -195,7 +195,12 @@ export async function GET(req: Request) {
   );
 
   // 3. queries 의 tenant_id 매핑 (responses 의 tenant 필터링용)
-  let queriesQuery = sb.from('queries').select('id, tenant_id, keyword_id').gte('requested_at', cutoff);
+  // Round 36 fix 2 (2026-05-31) — stub engine 제외, production 측정만.
+  let queriesQuery = sb
+    .from('queries')
+    .select('id, tenant_id, keyword_id')
+    .neq('engine', 'stub')
+    .gte('requested_at', cutoff);
   if (tenantIdFilter) {
     queriesQuery = queriesQuery.eq('tenant_id', tenantIdFilter);
   }

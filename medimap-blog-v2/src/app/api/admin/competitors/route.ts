@@ -169,6 +169,7 @@ export async function GET(req: Request) {
   let queriesQuery = sb
     .from('queries')
     .select('id, tenant_id, keyword_id')
+    .neq('engine', 'stub')  // Round 36 fix 2 — production 측정만, stub 시드 제외
     .gte('requested_at', cutoff);
   if (tenantIdFilter) queriesQuery = queriesQuery.eq('tenant_id', tenantIdFilter);
   const { data: queries } = await queriesQuery;
