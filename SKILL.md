@@ -1838,3 +1838,108 @@ async function fetchDashboardData(opts: {
 - **모바일 표→카드** (큰 작업)
 - **키워드 풀 Tier 1+2** — purpose 컬럼 + 클라이언트 chip editor
 - **LLM provider fallback** — Gemini 503 → Anthropic/OpenAI 자동 retry
+
+---
+
+## Round 40 (2026-05-31 외출 후반 2) — B1 LLM fallback + B2 라벨 필터 + B3 자동 분류 + B6/B7 헬퍼
+
+### B1 — LLM provider fallback
+
+**가치**: Gemini 503/429/quota exhaust 시 자동 Anthropic → OpenAI → Stub 시도.
+
+**`src/content/llm.py` 변경**:
+- `class FallbackProvider` 신규 — `_try_all(method_name, *args, **kwargs)` 로 모든 provider 순차 시도
+- `_build_provider_chain()` — 환경변수 기반 우선순위 chain (Anthropic > Gemini > OpenAI > Stub)
+- `get_provider("fallback")` 호출 시 FallbackProvider 반환
+
+**환경변수 사용법**: `LLM_PROVIDER=fallback` 으로 설정 시 자동 활성. 단일 provider (gemini/anthropic/openai) 도 그대로 작동.
+
+**향후**: GitHub Actions cron yml 에 `LLM_PROVIDER: fallback` 설정 권장. 사용자가 Anthropic credit 충전 후 효과 즉시.
+
+### B2 — citations/competitors API 라벨 필터
+
+**가치**: 사용자 명시 요청 "DIRECT_COMPETITOR 만 보기".
+
+**`/api/admin/competitors?label=DIRECT|INDIRECT|REFERENCE|TO_LEARN|IGNORE`**:
+- 그 라벨이 부여된 도메인만 competitor_top 반환
+- priority 순으로 정렬 (DIRECT 의 priority 5 가 priority 2 보다 위)
+- tenant_id 필수 (라벨은 tenant 별)
+
+### B3 — 도메인 자동 분류 rule-based (LLM 호출 없음)
+
+**`src/lib/domain-auto-classifier.ts` 신규**:
+- 5 단계 규칙 매칭:
+  1. NOISE — wiki/google/youtube/tistory 등 패턴
+  2. T3 학회/공식 — `.or.kr` / `.go.kr` / `.ac.kr` / 알려진 종합병원
+  3. T3 매체 — `news.` / hidoc / docdocdoc / 의료 매체
+  4. T4 플랫폼 — modoodoc / gangnamunni / babitalk / ddmdandy
+  5. T5 의료 카테고리 — eye / skin / clinic / hospital / 의원 (default 라 DB 등록 skip)
+- confidence 0~1 + reason 자연어
+- LLM 호출 0 — 사용자 결정 "보수적"
+
+**`/api/admin/auto-classify-domains` POST**:
+- body 비어있으면 최근 7일 신규 도메인 자동 추출
+- 매칭된 도메인 (T1/T3/T4/NOISE) → `domain_classifications` INSERT (`is_active=false`)
+- 운영자 검토 후 활성화 필요 (`/admin/domain-classifications` 에서)
+- 응답: added/skipped 분리, skipped 사유 명시
+
+**향후 dashboard 통합**: 신규 도메인 차트 옆 "[자동 분류 일괄 등록]" 버튼 추가 (다음 라운드).
+
+### B6 + B7 — globals.css 에 admin UI 헬퍼 일괄 추가
+
+운영 단계의 일관성을 위한 헬퍼 클래스:
+- `.admin-page-header` / `.admin-page-title` / `.admin-page-desc` — 모든 페이지 헤더 통일
+- `.admin-table-wrap` — `-mx-2 overflow-x-auto md:mx-0` + 표 min-w-[640px] (모바일 가로 스크롤 안전)
+- `.admin-empty` / `.admin-empty-icon` / `.admin-empty-title` / `.admin-empty-desc` — 일관된 빈 상태 메시지
+- `.admin-card` — `p-3 md:p-5` 모바일 padding 자동
+- `.admin-skeleton` — animate-pulse loading
+
+**향후**: 페이지별 적용은 점진적 (refactor 분량 큼). 새 페이지 만들 때부터 이 헬퍼 사용.
+
+### 새 함정 (Round 40 추가)
+
+**(AK) FallbackProvider — `_try_all` generic 메서드 디스패치**
+- 증상: Gemini/Anthropic/OpenAI 모두 같은 4개 메서드 (faq/blog/naver/instagram) 노출. 각각 wrap 하면 코드 중복.
+- 정답: `getattr(p, method_name)` 으로 메서드 이름만 받고 동적 호출. 메서드 추가 시 wrapper 작성 안 해도 됨.
+
+**(AL) Rule-based 자동 분류는 보수적 default 권장**
+- 증상: 매칭 안 된 도메인을 T5 로 자동 등록하면 DB 폭증 + 의미 없음
+- 정답: T5 는 default 이므로 명시 INSERT skip. T1/T3/T4/NOISE 만 명시 등록.
+- `is_active=false` 로 등록 — 운영자가 검토 후 활성화 (함정 T "검수 단계 필수" 적용)
+
+**(AM) UI/UX 헬퍼 — globals.css 에 점진 추가, 페이지 refactor 는 별도**
+- 증상: 모든 페이지 동시 refactor 면 분량 너무 큼 + 빌드 위험
+- 정답: 헬퍼 클래스 먼저 정의 → 새 페이지부터 사용 → 기존 페이지는 별도 라운드에서 점진 마이그레이션
+
+### Round 40 산출물
+
+코드:
+- `src/content/llm.py` — FallbackProvider class + _build_provider_chain + get_provider 'fallback' 옵션
+- `medimap-blog-v2/src/app/api/admin/competitors/route.ts` — label 필터 옵션
+- `medimap-blog-v2/src/lib/domain-auto-classifier.ts` — 신규 rule engine
+- `medimap-blog-v2/src/app/api/admin/auto-classify-domains/route.ts` — 신규 자동 분류 API
+- `medimap-blog-v2/src/app/globals.css` — admin UI 헬퍼 클래스 9개
+
+### Round 41 후보 (다음 라운드)
+
+- **자동 분류 UI 통합** — dashboard 의 신규 도메인 차트 옆 [자동 분류 일괄 등록] 버튼
+- **자동 분류 cron** — daily/weekly cron 으로 신규 도메인 자동 발견 + 분류
+- **검증 히스토리** — 자동 분류된 도메인의 시간별 인용 추이 (B4 잔여)
+- **키워드 풀 Tier 1+2** — purpose 컬럼 + 클라이언트 chip editor (B5 잔여)
+- **모바일 표→카드 본격 변환** — 단순 wrap 이상의 카드 layout (5 페이지)
+- **페이지별 헬퍼 적용** — admin-page-header / admin-table-wrap / admin-empty 점진 마이그레이션
+- **citations 페이지에 label 필터 토글** — `/admin/competitors?label=DIRECT` URL 노출 UI
+
+### UI/UX 17년차 전문가 추가 제안 (Round 41+)
+
+지금까지 작업한 후 추가 개선 후보:
+1. **Visual hierarchy 강화** — KPI 카드의 숫자 크기 / 색상 강조 / typography 비율
+2. **Loading skeleton** — 모든 페이지 server fetch 동안 스켈레톤 표시
+3. **Toast notification** — 액션 결과 (저장/삭제/적용) 즉시 피드백
+4. **Breadcrumb** — 깊은 페이지 (예: tenant 편집 안 키워드 모달) navigation 강화
+5. **Keyboard shortcuts** — 자주 사용 액션 (예: `/` 검색 focus, `g + t` tenants 이동)
+6. **Onboarding tooltip** — 첫 방문 시 핵심 페이지 가이드
+7. **Color semantic 일관성** — success/warning/danger 일관된 사용 (status-success/warning/danger 토큰 활용)
+8. **Accessibility** — aria-label, focus-visible 강화, WCAG AA 색 대비
+9. **Dark mode** — 운영자가 야간 사용 시 (저녁/새벽 cron 검수)
+10. **Search across pages** — Cmd+K palette

@@ -110,6 +110,45 @@ body {
   .sidebar-link {
     @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-ink-soft transition hover:bg-brand-50 hover:text-brand-700;
   }
+  /* Round 40 B6+B7 (2026-05-31) — 모바일 친화 + UI/UX 일관성 헬퍼 */
+  .admin-page-header {
+    @apply mb-5 flex flex-wrap items-start justify-between gap-2;
+  }
+  .admin-page-title {
+    @apply text-xl font-bold text-ink md:text-2xl;
+  }
+  .admin-page-desc {
+    @apply mt-1 text-[12px] text-ink-muted md:text-sm;
+  }
+  /* 모든 admin 표를 mobile-safe wrap. 컬럼 많아도 가로 스크롤 안 깨짐 */
+  .admin-table-wrap {
+    @apply -mx-2 overflow-x-auto md:mx-0;
+  }
+  .admin-table-wrap table {
+    @apply min-w-[640px];
+  }
+  /* 빈 상태 메시지 — 모든 페이지 일관 */
+  .admin-empty {
+    @apply flex flex-col items-center justify-center px-5 py-12 text-center text-sm text-ink-muted;
+  }
+  .admin-empty-icon {
+    @apply mb-2 h-8 w-8 text-ink-faint;
+  }
+  .admin-empty-title {
+    @apply font-semibold text-ink;
+  }
+  .admin-empty-desc {
+    @apply mt-1 text-[12px] text-ink-muted;
+  }
+  /* 카드 모바일 padding — 데스크탑 p-5, 모바일 p-3 */
+  .admin-card {
+    @apply card p-3 md:p-5;
+  }
+  /* loading skeleton */
+  .admin-skeleton {
+    @apply animate-pulse rounded bg-surface-subtle;
+  }
+
   .sidebar-link-active {
     @apply sidebar-link bg-brand-50 text-brand-700;
   }

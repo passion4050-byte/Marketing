@@ -1451,9 +1451,85 @@ class OpenAIProvider:
 # ─── Factory ────────────────────────────────────────────────────
 
 
+class FallbackProvider:
+    """Round 40 B1 (2026-05-31) — 여러 provider 순차 시도.
+
+    Gemini 503/429 → Anthropic → OpenAI → Stub 자동 fallback.
+    각 메서드 호출 시 1번 provider 시도 → 실패 시 다음.
+    """
+    name = "fallback"
+
+    def __init__(self, providers: list):
+        if not providers:
+            providers = [StubProvider()]
+        self._providers = providers
+        logger.info("FallbackProvider 활성: %s", [p.name for p in providers])
+
+    def _try_all(self, method_name: str, *args, **kwargs):
+        last_error: Exception | None = None
+        for p in self._providers:
+            try:
+                method = getattr(p, method_name, None)
+                if method is None:
+                    continue
+                return method(*args, **kwargs)
+            except Exception as e:  # noqa: BLE001
+                logger.warning(
+                    "FallbackProvider: %s.%s 실패 — %s — 다음 provider 시도",
+                    p.name, method_name, str(e)[:200],
+                )
+                last_error = e
+        raise LLMError(f"모든 provider 실패. 마지막 에러: {last_error}")
+
+    def generate_faq(self, *args, **kwargs):
+        return self._try_all("generate_faq", *args, **kwargs)
+
+    def generate_blog_post(self, *args, **kwargs):
+        return self._try_all("generate_blog_post", *args, **kwargs)
+
+    def generate_naver_blog(self, *args, **kwargs):
+        return self._try_all("generate_naver_blog", *args, **kwargs)
+
+    def generate_instagram(self, *args, **kwargs):
+        return self._try_all("generate_instagram", *args, **kwargs)
+
+
+def _build_provider_chain() -> list:
+    """환경변수로 가능한 provider 만 활성.
+    우선순위: Anthropic > Gemini > OpenAI > Stub.
+    Anthropic credit 있으면 우선 (Round 38 사용자 결정 후 충전 시).
+    """
+    chain = []
+    if (k := os.getenv("ANTHROPIC_API_KEY")):
+        try:
+            chain.append(AnthropicProvider(api_key=k))
+        except Exception as e:  # noqa: BLE001
+            logger.warning("AnthropicProvider init 실패: %s", e)
+    if (k := os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")):
+        try:
+            chain.append(GeminiProvider(api_key=k))
+        except Exception as e:  # noqa: BLE001
+            logger.warning("GeminiProvider init 실패: %s", e)
+    if (k := os.getenv("OPENAI_API_KEY")):
+        try:
+            chain.append(OpenAIProvider(api_key=k))
+        except Exception as e:  # noqa: BLE001
+            logger.warning("OpenAIProvider init 실패: %s", e)
+    if not chain:
+        chain.append(StubProvider())
+    return chain
+
+
 def get_provider(provider_name: str | None = None) -> LLMProvider:
-    """환경변수 또는 인자로 프로바이더 선택."""
+    """환경변수 또는 인자로 프로바이더 선택.
+
+    Round 40 — 'fallback' 추가. Gemini quota exhaust 등에서 자동 다음 provider.
+    LLM_PROVIDER=fallback 으로 설정 시 활성 provider 중 우선순위대로 시도.
+    """
     name = (provider_name or os.getenv("LLM_PROVIDER", "stub")).lower().strip()
+
+    if name == "fallback":
+        return FallbackProvider(_build_provider_chain())
 
     if name == "stub":
         return StubProvider()
@@ -1478,7 +1554,7 @@ def get_provider(provider_name: str | None = None) -> LLMProvider:
             raise LLMError("OPENAI_API_KEY 미설정.")
         return OpenAIProvider(api_key=key)
 
-    raise LLMError(f"알 수 없는 LLM_PROVIDER: {name}. (stub|gemini|anthropic|openai)")
+    raise LLMError(f"알 수 없는 LLM_PROVIDER: {name}. (fallback|stub|gemini|anthropic|openai)")
 
 
 # ─── Cost Guardrail ─────────────────────────────────────────────

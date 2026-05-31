@@ -44,6 +44,10 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const tenantIdParam = url.searchParams.get('tenantId');
   const tenantIdFilter = tenantIdParam ? Number(tenantIdParam) : null;
+  // Round 40 B2 (2026-05-31) — 라벨 필터 (DIRECT/INDIRECT/REFERENCE/TO_LEARN/IGNORE)
+  const labelFilter = url.searchParams.get('label')?.toUpperCase() ?? null;
+  const validLabels = new Set(['DIRECT', 'INDIRECT', 'REFERENCE', 'TO_LEARN', 'IGNORE']);
+  const applyLabel = labelFilter && validLabels.has(labelFilter) ? labelFilter : null;
 
   // 1. 전체 tenants (selector 용)
   // Round 36 (2026-05-31): additional_domains 까지 가져와 T2 분류에 사용.
@@ -182,15 +186,34 @@ export async function GET(req: Request) {
     }
   );
 
+  // Round 40 B2 — 라벨 필터 적용 시 tenant_domain_competition fetch
+  let labelMap = new Map<string, { label: string; priority: number }>();
+  if (applyLabel && tenantIdFilter) {
+    const { data: labelRows } = await sb
+      .from('tenant_domain_competition')
+      .select('domain, label, priority')
+      .eq('tenant_id', tenantIdFilter)
+      .eq('label', applyLabel);
+    labelMap = new Map(
+      (labelRows ?? []).map((r: { domain: string; label: string; priority: number }) => [
+        r.domain.toLowerCase(),
+        { label: r.label, priority: r.priority },
+      ])
+    );
+  }
+
   const competitorTop = Array.from(domainAgg.entries())
+    .filter(([domain]) => !applyLabel || labelMap.has(domain.toLowerCase()))
     .map(([domain, { count, tier, keywords, urls }]) => ({
       domain,
       tier,
       count,
       keywords: Array.from(keywords),
       urls: Array.from(urls).slice(0, 5),
+      label: labelMap.get(domain.toLowerCase())?.label ?? null,
+      priority: labelMap.get(domain.toLowerCase())?.priority ?? null,
     }))
-    .sort((a, b) => b.count - a.count);
+    .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0) || b.count - a.count);
 
   const keywordCompetitorMatrix = Array.from(keywordMatrix.entries())
     .map(([keyword, { total_sources, competitors }]) => ({
