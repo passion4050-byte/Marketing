@@ -38,7 +38,7 @@ type DraftRow = {
 
 type TenantRow = { id: number; name: string | null };
 
-async function fetchDashboardData() {
+async function fetchDashboardData(periodDays: number = 30) {
   const sb = getServerClient();
   if (!sb) {
     return {
@@ -219,7 +219,7 @@ async function fetchDashboardData() {
     });
 
     // 최근 30일 responses (production 측정만, source_domains 있는 것)
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const thirtyDaysAgo = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000).toISOString();
     const { data: respRows } = await sb
       .from('responses')
       .select('id, query_id, source_domains, created_at')
@@ -302,9 +302,9 @@ async function fetchDashboardData() {
       }
     );
 
-    // tier_trend — 30일치 채움 (없는 날 0)
+    // tier_trend — periodDays 치 채움 (없는 날 0)
     const allDays: string[] = [];
-    for (let i = 29; i >= 0; i--) {
+    for (let i = periodDays - 1; i >= 0; i--) {
       const dt = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
       allDays.push(dt.toISOString().slice(5, 10));
     }
@@ -337,7 +337,7 @@ async function fetchDashboardData() {
   let keywordGrounding: KeywordGroundingItem[] = [];
   let newDomains: NewDomainItem[] = [];
   try {
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const thirtyDaysAgo = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000).toISOString();
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const fortyDaysAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -492,8 +492,18 @@ async function fetchDashboardData() {
   };
 }
 
-export default async function AdminDashboardPage() {
-  const d = await fetchDashboardData();
+export default async function AdminDashboardPage({
+  searchParams,
+}: {
+  searchParams?: { period?: string };
+}) {
+  // Round 38 — 기간 조회 (7d/30d/90d)
+  const periodDays = (() => {
+    const v = Number(searchParams?.period);
+    if (v === 7 || v === 30 || v === 90) return v;
+    return 30;
+  })();
+  const d = await fetchDashboardData(periodDays);
 
   const KPIS = [
     {
@@ -658,8 +668,27 @@ export default async function AdminDashboardPage() {
         </div>
       </section>
 
+      {/* Round 38 — 기간 조회 토글 */}
+      <div className="mt-6 flex items-center gap-1.5 text-[12px]">
+        <span className="text-ink-muted">기간:</span>
+        {[7, 30, 90].map((d) => (
+          <Link
+            key={d}
+            href={d === 30 ? '/admin' : `/admin?period=${d}`}
+            className={cn(
+              'rounded-md border px-2.5 py-1 font-semibold transition',
+              periodDays === d
+                ? 'border-brand bg-brand text-white'
+                : 'border-border bg-surface-base text-ink-soft hover:bg-surface-soft'
+            )}
+          >
+            {d}일
+          </Link>
+        ))}
+      </div>
+
       {/* Round 37 H + Round 38 B (2026-05-31) — KPI 차트 5개 */}
-      <section className="mt-6">
+      <section className="mt-3">
         <DashboardCharts
           tierTrend={d.tierTrend}
           clientRanking={d.clientRanking}

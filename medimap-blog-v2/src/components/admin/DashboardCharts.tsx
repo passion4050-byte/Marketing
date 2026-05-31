@@ -206,15 +206,15 @@ export function DashboardCharts({
         </div>
       </section>
 
-      {/* 차트 3: 클라이언트별 인용 ranking */}
+      {/* 차트 3: 클라이언트별 인용 ranking — T1/외부 stacked */}
       <section className="card">
         <header className="border-b border-border px-4 py-3 md:px-5">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
             <Users className="h-4 w-4 text-brand" />
-            클라이언트별 AI 인용 ranking (Top 5)
+            클라이언트별 AI 인용 ranking (Top 5) — T1 vs 외부 stacked
           </h2>
           <div className="mt-1 text-[11px] text-ink-muted">
-            최근 30일 클라이언트 키워드 측정에서 발견된 총 인용 source 수 — 영업 우선순위
+            클라이언트 키워드 측정에서 발견된 인용 — <span style={{ color: TIER_COLORS.t1 }}>메디맵 T1</span> + <span style={{ color: TIER_COLORS.t5 }}>외부(T5)</span> 비율로 분리. T1 비중이 영업 성과
           </div>
         </header>
         <div className="p-2 md:p-4">
@@ -223,7 +223,10 @@ export function DashboardCharts({
           ) : (
             <ResponsiveContainer width="100%" height={Math.max(180, clientRanking.length * 50)}>
               <BarChart
-                data={clientRanking}
+                data={clientRanking.map((c) => ({
+                  ...c,
+                  other: Math.max(0, c.total - c.t1 - c.t5),
+                }))}
                 layout="vertical"
                 margin={{ top: 5, right: 30, left: 0, bottom: 0 }}
               >
@@ -237,20 +240,17 @@ export function DashboardCharts({
                 />
                 <Tooltip />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="total" name="총 인용 수" fill={TIER_COLORS.t4} radius={[0, 4, 4, 0]}>
-                  {clientRanking.map((entry, i) => (
-                    <Cell
-                      key={`cell-${i}`}
-                      fill={entry.t1 > 0 ? TIER_COLORS.t1 : TIER_COLORS.t4}
-                    />
-                  ))}
-                </Bar>
+                <Bar dataKey="t1" name="메디맵 T1" stackId="r" fill={TIER_COLORS.t1} />
+                <Bar dataKey="other" name="권위/플랫폼" stackId="r" fill={TIER_COLORS.t3} />
+                <Bar dataKey="t5" name="외부/경쟁 T5" stackId="r" fill={TIER_COLORS.t5} radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
           {clientRanking.length > 0 && (
             <div className="mt-2 text-[10px] text-ink-faint">
-              💡 색상: <span className="font-semibold" style={{ color: TIER_COLORS.t1 }}>파란색</span> = 메디맵 T1 인용 있음 / <span style={{ color: TIER_COLORS.t4 }}>보라색</span> = 외부 인용만
+              💡 막대 안 색상 비율: <span className="font-semibold" style={{ color: TIER_COLORS.t1 }}>메디맵 인용(좋음)</span> /
+              <span style={{ color: TIER_COLORS.t3 }}>권위·플랫폼(중립)</span> /
+              <span style={{ color: TIER_COLORS.t5 }}>외부 경쟁(보강 기회)</span>
             </div>
           )}
         </div>

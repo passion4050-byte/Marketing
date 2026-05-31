@@ -18,6 +18,7 @@ import {
   Plug,
   Settings,
   ShieldCheck,
+  Sparkles,
   Tag,
   UserCog,
   Users,
@@ -39,6 +40,7 @@ const NAV = [
   ]},
   { group: '인사이트', items: [
     { href: '/admin/citations', label: 'AI 인용 추적', icon: Zap },
+    { href: '/admin/saas-tracking', label: 'SaaS 시장 노출도', icon: Sparkles },
     { href: '/admin/learned-insights', label: '학습 인사이트', icon: BookOpen },
     { href: '/admin/domain-classifications', label: '도메인 분류 사전', icon: ShieldCheck },
     { href: '/admin/funnel', label: 'Funnel · ROI', icon: LinkIcon },

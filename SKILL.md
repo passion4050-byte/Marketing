@@ -1588,3 +1588,78 @@ if guidance:
 1. **Phase 2 효과 확인**: /admin/learned-insights 에서 [전체 분석 & 반영] 1회 클릭 → applied=true → 다음 발행 cron (23:00 UTC) 의 생성 콘텐츠가 권장사항 반영하는지 (예: FAQ schema 포함, H2 7+개 등)
 2. **차트 4 검증**: /admin → "Top 키워드 grounding rate" 가 채워지는지 (gemini 측정 14건 기반 — 5~10개 키워드 표시 예상)
 3. **차트 5 검증**: 신규 도메인 — 최근 7일 + Round 36/37 발견 도메인 (toxnfill, medspabeni 등) 이 priorDomains 에 없으면 표시
+
+---
+
+## Round 38 C+D+G (2026-05-31 외출 모드 계속) — SaaS 자체 추적 + 기간 조회 + ranking 강화
+
+### Round 38 C — 메디맵 SaaS 자체 시장 노출도 추적 (사용자 신규 아이디어)
+
+**가치 명제**:
+- "GEO 최적화", "AEO 컨설팅" 같은 SaaS 카테고리 키워드를 AI 에 query → 메디맵 자체가 인용되는지
+- 잠재 고객 (다른 의료 마케팅 대행사 / 큰 병원) 노출도 측정
+- 동시에 경쟁 SaaS 도메인 자동 발견 (인사이트 추출)
+
+**구조**:
+- `keywords.is_saas_marketing BOOLEAN` 컬럼 + partial index
+- 메디맵 tenant 에 SaaS 마케팅 키워드 10개 시드 (GEO 최적화, AEO 컨설팅, 의료 AI 마케팅 도구, ...)
+- `/api/admin/saas-tracking` API — saas_marketing 키워드만 + 결과 분석
+- `/admin/saas-tracking` 페이지 — 4 KPI + T1 share 라인 차트 + 키워드별 grounding 표 + 경쟁 SaaS 도메인 list (expand 시 URL)
+- 사이드바 인사이트 그룹에 ✨ "SaaS 시장 노출도" (Sparkles 아이콘)
+
+**기존 cron 자연 통합**:
+- `measure-ai-mentions.yml` 의 `PURPOSE_FILTER=own` 자사 측정에 자동 포함 (is_saas_marketing 도 own purpose 유지)
+- 별도 cron 안 만들고 기존 인프라 재활용
+- last_measured_at fairness ORDER BY (Round 36 Tier 2) 가 자동으로 균등 측정 보장
+
+### Round 38 D — 대시보드 기간 조회 토글 (7d/30d/90d)
+
+- `/admin?period=7|30|90` URL searchParams
+- server component 가 periodDays 받아 모든 차트 데이터 fetch
+- 헤더 위 토글 버튼 3개 — 현재 기간 강조
+- fetchDashboardData(periodDays) 시그니처 변경 — 모든 cutoff 와 일자 fill 이 periodDays 기준
+
+### Round 38 G — Ranking 차트 stacked bar (T1/외부)
+
+- 기존 단일 막대 → T1 + 권위/플랫폼 + 외부 T5 stacked
+- "BGN 의 인용 50건 = T1 5 + 권위 10 + T5 35" 처럼 분리 진단
+- 막대 안 색상이 영업 자료 — T1 비중 = 메디맵 SaaS 효과, T5 = 보강 기회
+
+### 새 함정 (Round 38 추가)
+
+**(AD) URL searchParams 기반 기간 조회 — server component 패턴**
+- 증상: 대시보드에 interactive 기간 토글 추가하려는데 모든 차트가 server component
+- 정답: server component 의 page 가 `{ searchParams }` props 받음 → fetchDashboardData(periodDays) → `<Link href="/admin?period=7">` 로 페이지 reload. interactive 안 필요 (탭 클릭 = 새 페이지 fetch).
+- 장점: URL 공유 가능 (예: 슬랙에 `/admin?period=90` 공유), 새로고침 시 상태 유지.
+
+**(AE) PostgreSQL ALTER TABLE 안전 — DO $$ BEGIN END $$ 블록**
+- 상황: 메디맵 tenant id 를 조건부 SELECT → INSERT 키워드 시드
+- 패턴: `DO $$ DECLARE tid INTEGER; BEGIN SELECT id INTO tid ... IF tid IS NOT NULL THEN INSERT ... END IF; END $$;`
+- DECLARE + IF 로 안전. 메디맵 tenant 미존재 시 noop.
+
+### Round 38 C+D+G 산출물
+
+DB:
+- `add_saas_marketing_flag` migration — keywords.is_saas_marketing + 시드 10개
+
+코드:
+- `medimap-blog-v2/src/app/api/admin/saas-tracking/route.ts` — 신규 API
+- `medimap-blog-v2/src/app/admin/(portal)/saas-tracking/page.tsx` — 신규 페이지
+- `medimap-blog-v2/src/components/admin/AdminShell.tsx` — 사이드바 + Sparkles 아이콘
+- `medimap-blog-v2/src/app/admin/(portal)/page.tsx` — fetchDashboardData(periodDays) + URL 토글
+- `medimap-blog-v2/src/components/admin/DashboardCharts.tsx` — ranking stacked bar
+
+### Round 38 미진 (다음 라운드)
+
+- **5-tier 차트 카테고리 group** — 안과/피부과/성형외과 별 분리 차트
+- **클라이언트 검색 필터** — ranking 에서 클라이언트 검색 (현재 Top 5 만)
+- **모바일 표 → 카드** — tenants/citations/competitors/learned-insights/domain-classifications (5 페이지, 큰 작업)
+- **키워드 풀 Tier 1+2** — purpose 컬럼 + 클라이언트 chip editor
+- **LLM provider fallback** — Gemini 503 시 Anthropic/OpenAI 자동 retry (generator.py + llm.py 변경)
+- **목표선/추세 화살표** — 차트 고도화 추가
+
+### 사용자가 돌아온 후 검증
+
+1. `/admin?period=7` / `period=30` / `period=90` 토글 동작 확인
+2. `/admin/saas-tracking` 페이지 진입 — 10 SaaS 키워드 + 차트 (현재 데이터 0, 다음 cron 후 누적)
+3. Ranking 차트 stacked 색상 분리 — BGN 막대 안 T1(파랑) + 권위/플랫폼(민트) + T5(앰버) 비율
