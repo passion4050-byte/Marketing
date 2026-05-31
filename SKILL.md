@@ -1309,3 +1309,121 @@ DB:
 - **분류 사전 admin UI** (~3시간) — T3/T4/T5/NOISE/additional_domains 운영자 직접 편집. domain_classifications 테이블 신설 또는 content_settings 재활용.
 - **자사 own cron 검증** (KST 07:00 이후) — fairness ORDER BY 효과 + 가능하면 시연용 스크린샷 준비
 - **Round 30 잔여 잡일** (~1시간) — 자사 글 cover / 라벨 / slug redirect / LLM provider fallback
+
+---
+
+## Round 37 C (2026-05-31 야간) — 5-tier 분류 사전 admin UI + DB 화
+
+### 진단 + 해결
+
+**문제**: citations/competitors route.ts 의 `MEDIMAP_DOMAINS / AUTHORITY_DOMAINS / PLATFORM_DOMAINS / NOISE_DOMAINS` Set 4개 + classify 함수가 두 파일에 **중복 하드코딩**. 운영자가 새 도메인 분류 추가/수정 → 코드 push + Vercel deploy 사이클 필수. 매 라운드 동일 작업 반복.
+
+**해결**:
+1. `domain_classifications` 테이블 신설 — domain(unique) / tier(T1|T3|T4|NOISE) / category / notes / is_active
+2. 기존 하드코딩 도메인 61개 시드 (Round 35/36 추가분 포함)
+3. 공용 모듈 `src/lib/domain-classifier.ts` — `loadClassifierSets()` (5분 캐시) + `classifyDomain()` + `invalidateClassifierCache()`
+4. citations/competitors route.ts 모두 신규 모듈 사용 — 중복 제거
+5. 신규 CRUD API + admin UI 페이지
+
+### 구조 다이어그램
+
+```
+┌─────────────────────────────────┐
+│ domain_classifications (DB)     │
+│  - T1 5개 / T3 34개 / T4 10개   │
+│  - NOISE 12개 / total 61        │
+└──────────┬──────────────────────┘
+           │ read on demand (5분 캐시)
+           ▼
+┌─────────────────────────────────┐
+│ src/lib/domain-classifier.ts    │
+│  - loadClassifierSets()         │
+│  - classifyDomain(d, url, cd, s)│
+│  - invalidateClassifierCache()  │
+└──────────┬──────────────────────┘
+           │ shared
+           ▼
+┌─────────────────────────────────┐
+│ citations / competitors route   │
+│  - 하드코딩 set 제거 (95줄 ↓)   │
+│  - classifyDomain 호출 통일     │
+└─────────────────────────────────┘
+           ▲
+           │ admin CRUD
+┌──────────┴──────────────────────┐
+│ /api/admin/domain-classifications│
+│  - GET / POST / PATCH / DELETE  │
+│  - 모든 mutation 후 cache 무효화│
+└──────────┬──────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────┐
+│ /admin/domain-classifications   │
+│  - tier 카운트 카드 4개         │
+│  - 신규 추가 form               │
+│  - 검색 + 필터 + 인라인 편집    │
+│  - 활성 토글 + 삭제             │
+└─────────────────────────────────┘
+```
+
+### 사이드바 메뉴 (인사이트 그룹 갱신)
+
+```
+인사이트:
+  ⚡ AI 인용 추적
+  📚 학습 인사이트
+  🛡️ 도메인 분류 사전   ← Round 37 C 추가 (ShieldCheck)
+  🔗 Funnel · ROI
+  💰 비용 모니터
+  📄 월간 보고서
+```
+
+### Cache 무효화 패턴
+
+```typescript
+// 모든 POST/PATCH/DELETE 후
+invalidateClassifierCache();
+```
+
+- 다음 fresh request 가 DB 재조회
+- 5분 TTL 외에도 admin 변경 즉시 반영
+- serverless cold start 마다 캐시 reset 됨 (Vercel 환경 특성)
+
+### 새 함정 (Round 37 C 추가)
+
+**(X) "하드코딩 → DB 이전" 패턴 — 점진 적용 권장**
+- 증상: Round 35/36 매번 코드 push 사이클 반복. baseline (W), 분류 사전 (X), 의료법 규칙, generator prompt 템플릿 모두 같은 문제.
+- 정답: 운영 변경 빈도가 잦거나 운영자 직접 편집 가치 큰 데이터는 DB 로 이전 + 5분 캐시 + admin UI. content_settings 같은 key-value 테이블 또는 전용 테이블 신설.
+- 사용처: baseline (Round 37 A), 분류 사전 (Round 37 C). 다음 후보 — 의료법 린터 규칙, generator prompt 템플릿.
+
+**(Y) 공용 모듈로 중복 제거 — 분류 로직이 여러 route 에 흩어진 경우**
+- 증상: citations/competitors route 둘 다 classify 함수 + 4 set 하드코딩 → Round 35/36 추가 시 두 파일 동시 수정 + sync 누락 위험
+- 정답: lib/domain-classifier.ts 같은 공용 모듈로 추출 + import. mutation API 가 invalidateClassifierCache() 호출하면 다음 호출부터 모든 route 가 fresh 데이터.
+
+### Round 37 C 산출물
+
+DB:
+- `domain_classifications` 테이블 + 시드 61개
+
+코드:
+- `medimap-blog-v2/src/lib/domain-classifier.ts` — 공용 모듈
+- `medimap-blog-v2/src/app/api/admin/domain-classifications/route.ts` — CRUD
+- `medimap-blog-v2/src/app/admin/(portal)/domain-classifications/page.tsx` — 관리 UI
+- `medimap-blog-v2/src/app/api/admin/citations/route.ts` — 하드코딩 제거 + 신규 모듈
+- `medimap-blog-v2/src/app/api/admin/competitors/route.ts` — 동일
+- `medimap-blog-v2/src/components/admin/AdminShell.tsx` — 사이드바 추가
+
+### Round 37 E/F 상태
+
+- **E**: 자사 글 라벨 — content-queue 의 is_partner_content=false 분기 이미 작동 (Round 30 작업). 다른 페이지 오표시 시 위치 알려주면 fix. Unsplash secret / slug redirect / LLM fallback 은 사무실 결정 후 (Round 38).
+- **F**: 검증 시드 — 가짜 데이터 시드는 false signal. 사용자가 /admin/competitors 도메인 [전체 분석 & 반영] 정상 클릭으로 검증 (BGN / 지우피부과 / sueye.co.kr 등).
+
+### Round 38 후보 (사무실 결정 + 시간 여유 시)
+
+- Anthropic credit + Gemini paid tier 전환
+- learn-from-domain Phase 2 — generator.py prompt 주입 (learned_insights applied=true 항목 카테고리별 집계)
+- 옛 한글 slug redirect — Next.js redirects 또는 middleware fallback
+- LLM provider fallback — Gemini 503 시 Anthropic/OpenAI 자동 retry
+- UNSPLASH_ACCESS_KEY GitHub Secret 등록 (자사 글 cover 깨짐 해소)
+- 의료법 린터 규칙 DB 이전 (X 패턴 추가 적용)
+- generator.py prompt 템플릿 DB 이전 (X 패턴)

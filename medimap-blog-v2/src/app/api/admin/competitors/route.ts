@@ -20,78 +20,13 @@
  */
 import { NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
+import { classifyDomain, loadClassifierSets, type Tier } from '@/lib/domain-classifier';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const MEDIMAP_DOMAINS = new Set<string>([
-  'medi-map.co.kr', 'www.medi-map.co.kr',
-  'medimap-blog-phi.vercel.app',
-  'geo-v2-beta.vercel.app',
-  'geo-v2-git-main-medimaps-projects.vercel.app',
-]);
-const AUTHORITY_DOMAINS = new Set<string>([
-  // 종합병원
-  'www.msdmanuals.com', 'msdmanuals.com',
-  'www.amc.seoul.kr', 'amc.seoul.kr',
-  'www.samsunghospital.com', 'samsunghospital.com',
-  'www.snuh.org', 'snuh.org',
-  'sev.iseverance.com',
-  'www.snubh.org', 'snubh.org',
-  'www.apollohospitals.com', 'apollohospitals.com',  // 글로벌 종합병원 (Round 35)
-  // 학회 / 공식 (Round 35 — 실제 측정 결과에서 발견된 도메인 추가)
-  'www.akd.or.kr', 'akd.or.kr',          // 대한피부과학회
-  'www.derma.or.kr', 'derma.or.kr',      // 대한피부과학회 별 도메인
-  'www.kma.org', 'kma.org',              // 대한의사협회
-  'www.ophthalmology.or.kr', 'ophthalmology.or.kr',  // 대한안과학회
-  'www.kda.or.kr', 'kda.or.kr',          // 대한치과의사협회
-  // 의료 전문 매체
-  'www.k-health.com', 'k-health.com',    // 의료 전문매체
-  'www.dailymedi.com', 'dailymedi.com',  // 데일리메디
-  'news.docdocdoc.co.kr', 'www.docdocdoc.co.kr', 'docdocdoc.co.kr',  // 청년의사
-  'news.hidoc.co.kr', 'hidoc.co.kr',     // 하이닥 (Round 36)
-  // 의료 장비 제조사 (Round 36)
-  'www.zeiss.co.kr', 'zeiss.co.kr',      // Carl Zeiss 한국
-]);
-const PLATFORM_DOMAINS = new Set<string>([
-  'www.modoodoc.com', 'modoodoc.com',
-  'www.ddmdandy.com', 'ddmdandy.com',
-  'www.gangnam-unni.com', 'gangnamunni.com',
-  'www.babitalk.com', 'babitalk.com',
-  'strawberry-ent.co.kr', 'www.strawberry-ent.co.kr',
-]);
-const NOISE_DOMAINS = new Set<string>([
-  'www.google.com', 'google.com',
-  'www.youtube.com', 'youtube.com',
-  // Round 35 — 백과 / 검색 noise. 권위로 보기 애매 → 경쟁사 카운트에서 제외
-  'namu.wiki',
-  'ko.wikipedia.org', 'en.wikipedia.org', 'wikipedia.org',
-  'm.search.naver.com', 'search.naver.com',
-  'tistory.com',
-  // Round 36 — 카카오 채널 (일반). 메디맵 path 는 별도 처리 안 됨 (competitors API 라 T1 분류 안 함)
-  'pf.kakao.com',
-]);
-
-type Tier = 'T1' | 'T2' | 'T3' | 'T4' | 'T5' | 'NOISE';
-
-/**
- * Round 36 (2026-05-31) — clientDomains set 으로 확장.
- * tenant.homepage + tenant.additional_domains 모두 매칭하여 T2 분류.
- */
-function classify(domain: string | null, clientDomains: Set<string> | null): Tier {
-  if (!domain) return 'NOISE';
-  const d = domain.toLowerCase();
-  if (MEDIMAP_DOMAINS.has(d)) return 'T1';
-  if (clientDomains && clientDomains.size > 0) {
-    for (const cd of clientDomains) {
-      if (d === cd || d.endsWith('.' + cd)) return 'T2';
-    }
-  }
-  if (AUTHORITY_DOMAINS.has(d)) return 'T3';
-  if (PLATFORM_DOMAINS.has(d)) return 'T4';
-  if (NOISE_DOMAINS.has(d)) return 'NOISE';
-  return 'T5';
-}
+// Round 37 C (2026-05-31) — 5-tier 분류 사전이 domain_classifications 테이블로 이전.
+// 하드코딩 Set + classify 함수 제거. lib/domain-classifier 의 공용 헬퍼 사용.
 
 function extractDomain(url: string | null): string | null {
   if (!url) return null;
@@ -148,6 +83,7 @@ export async function GET(req: Request) {
     : null;
 
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const classifierSets = await loadClassifierSets();
 
   // 2. competitor_landscape keywords 만 추출 (Round 34 phase 2 — 비즈니스 모델 키워드)
   let landscapeKwQuery = sb
@@ -216,7 +152,7 @@ export async function GET(req: Request) {
       const kwBucket = keywordMatrix.get(kw)!;
 
       (r.source_domains ?? []).forEach((sd) => {
-        const tier = classify(sd.domain, selectedClientDomains);
+        const tier = classifyDomain(sd.domain, null, selectedClientDomains, classifierSets);
         // 경쟁사 페이지 = T3+T4+T5 만 카운트 (T1 메디맵, T2 자체 제외)
         if (tier === 'NOISE' || tier === 'T1' || tier === 'T2') return;
         tierCount[tier]++;
