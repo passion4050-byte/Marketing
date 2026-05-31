@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Beaker,
+  BookOpen,
   CalendarDays,
   ClipboardCheck,
   DollarSign,
@@ -35,6 +36,7 @@ const NAV = [
   ]},
   { group: '인사이트', items: [
     { href: '/admin/citations', label: 'AI 인용 추적', icon: Zap },
+    { href: '/admin/learned-insights', label: '학습 인사이트', icon: BookOpen },
     { href: '/admin/funnel', label: 'Funnel · ROI', icon: LinkIcon },
     { href: '/admin/cost', label: '비용 모니터', icon: DollarSign },
     { href: '/admin/reports', label: '월간 보고서', icon: FileText }

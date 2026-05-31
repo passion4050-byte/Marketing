@@ -58,18 +58,36 @@ type Summary = {
   list_usage_rate: number;
 };
 
-// 메디맵 콘텐츠 가이드 v3 의 기준값 (현재 운영 중인 콘텐츠 평균)
-// 향후 content_settings 에서 동적 로드 권장 (지금은 하드코딩)
-const MEDIMAP_BASELINE = {
+// 메디맵 콘텐츠 baseline — DB 의 content_settings.content_baseline 에서 로드.
+// 운영자가 /admin/learned-insights 에서 수정 가능. 로드 실패 시 default fallback.
+const DEFAULT_BASELINE = {
   title_length: 35,
   word_count: 850,
   h2_count: 6,
   h3_count: 8,
   image_count: 5,
   internal_link_count: 3,
-  faq_schema_rate: 0,        // 메디맵은 현재 0% (Phase 2 도입 예정)
+  faq_schema_rate: 0,
   medical_schema_rate: 0,
 };
+type Baseline = typeof DEFAULT_BASELINE;
+
+async function loadBaseline(sb: ReturnType<typeof getServerClient>): Promise<Baseline> {
+  if (!sb) return DEFAULT_BASELINE;
+  try {
+    const { data } = await sb
+      .from('content_settings')
+      .select('setting_value')
+      .eq('setting_key', 'content_baseline')
+      .single();
+    if (!data?.setting_value) return DEFAULT_BASELINE;
+    const parsed = JSON.parse(data.setting_value as string);
+    // null/undefined 키는 default 로 보강
+    return { ...DEFAULT_BASELINE, ...parsed };
+  } catch {
+    return DEFAULT_BASELINE;
+  }
+}
 
 async function fetchHtml(url: string, timeoutMs = 5000): Promise<string | null> {
   try {
@@ -243,25 +261,25 @@ function summarize(perUrl: UrlPatterns[]): Summary {
   };
 }
 
-function diagnose(summary: Summary, domain: string): { diagnosis: string[]; recommendations: string[] } {
+function diagnose(summary: Summary, domain: string, baseline: Baseline): { diagnosis: string[]; recommendations: string[] } {
   const diag: string[] = [];
   const recs: string[] = [];
 
   // 본문 길이
-  const wordDelta = summary.avg_word_count - MEDIMAP_BASELINE.word_count;
+  const wordDelta = summary.avg_word_count - baseline.word_count;
   if (wordDelta > 200) {
-    diag.push(`본문 평균 ${summary.avg_word_count} 단어 (메디맵 ${MEDIMAP_BASELINE.word_count} 대비 +${wordDelta})`);
-    recs.push(`본문을 ${MEDIMAP_BASELINE.word_count} → ${Math.round(summary.avg_word_count)} 단어로 확장`);
+    diag.push(`본문 평균 ${summary.avg_word_count} 단어 (메디맵 ${baseline.word_count} 대비 +${wordDelta})`);
+    recs.push(`본문을 ${baseline.word_count} → ${Math.round(summary.avg_word_count)} 단어로 확장`);
   } else if (wordDelta < -200) {
-    diag.push(`본문 짧음 (${summary.avg_word_count} vs 메디맵 ${MEDIMAP_BASELINE.word_count}) — 짧은 글이 인용되는 케이스`);
+    diag.push(`본문 짧음 (${summary.avg_word_count} vs 메디맵 ${baseline.word_count}) — 짧은 글이 인용되는 케이스`);
     recs.push(`짧고 명확한 답 (${summary.avg_word_count} 단어) 도 grounding 효과 — Q&A 스타일 시도`);
   }
 
   // H2 구조
-  const h2Delta = summary.avg_h2_count - MEDIMAP_BASELINE.h2_count;
+  const h2Delta = summary.avg_h2_count - baseline.h2_count;
   if (h2Delta > 1.5) {
-    diag.push(`H2 ${summary.avg_h2_count}개 (메디맵 ${MEDIMAP_BASELINE.h2_count} 대비 풍부)`);
-    recs.push(`H2 ${MEDIMAP_BASELINE.h2_count} → ${Math.ceil(summary.avg_h2_count)}개로 구조 세분화`);
+    diag.push(`H2 ${summary.avg_h2_count}개 (메디맵 ${baseline.h2_count} 대비 풍부)`);
+    recs.push(`H2 ${baseline.h2_count} → ${Math.ceil(summary.avg_h2_count)}개로 구조 세분화`);
   }
 
   // FAQ schema
@@ -289,9 +307,9 @@ function diagnose(summary: Summary, domain: string): { diagnosis: string[]; reco
   }
 
   // 내부 링크
-  const linkDelta = summary.avg_internal_link_count - MEDIMAP_BASELINE.internal_link_count;
+  const linkDelta = summary.avg_internal_link_count - baseline.internal_link_count;
   if (linkDelta > 3) {
-    diag.push(`내부 링크 평균 ${summary.avg_internal_link_count}개 (메디맵 ${MEDIMAP_BASELINE.internal_link_count} 대비 +${linkDelta.toFixed(1)})`);
+    diag.push(`내부 링크 평균 ${summary.avg_internal_link_count}개 (메디맵 ${baseline.internal_link_count} 대비 +${linkDelta.toFixed(1)})`);
     recs.push(`관련 글 내부 링크 ${Math.ceil(summary.avg_internal_link_count)}개 이상 — 회유성 강화`);
   }
 
@@ -401,7 +419,8 @@ export async function POST(req: NextRequest) {
 
   const summary = summarize(perUrl);
   summary.urls_failed = failed;
-  const { diagnosis, recommendations } = diagnose(summary, domain);
+  const baseline = await loadBaseline(sb);
+  const { diagnosis, recommendations } = diagnose(summary, domain, baseline);
 
   return NextResponse.json({
     ok: true,
@@ -410,6 +429,7 @@ export async function POST(req: NextRequest) {
     per_url: perUrl,
     diagnosis,
     recommendations,
+    baseline,
     note: '운영자 검수 후 save=true 로 호출하면 learned_insights 누적. Phase 2 (다음 라운드) 에서 generator.py 적용 예정.',
   });
 }
