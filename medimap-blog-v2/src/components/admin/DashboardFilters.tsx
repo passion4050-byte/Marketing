@@ -59,7 +59,18 @@ export function DashboardFilters({
 
   const selectPeriod = (period: string) => {
     if (period === 'custom') {
-      updateUrl({ period: 'custom', from: fromDraft || null, to: toDraft || null });
+      // Round 41 fix — 사용자 지정 첫 클릭 시 from/to 비어있으면 default 7일 setting
+      if (!fromDraft || !toDraft) {
+        const today = new Date();
+        const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const fromDefault = weekAgo.toISOString().slice(0, 10);
+        const toDefault = today.toISOString().slice(0, 10);
+        setFromDraft(fromDefault);
+        setToDraft(toDefault);
+        updateUrl({ period: 'custom', from: fromDefault, to: toDefault });
+      } else {
+        updateUrl({ period: 'custom', from: fromDraft, to: toDraft });
+      }
     } else {
       updateUrl({ period, from: null, to: null });
     }

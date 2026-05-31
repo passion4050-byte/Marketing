@@ -53,6 +53,123 @@ const LABEL_META: Record<string, { color: string; ko: string }> = {
   IGNORE:    { color: 'bg-ink-muted text-white',      ko: '무시' },
 };
 
+/** Round 41 — 검색 가능한 클라이언트 selector (typeahead + clear) */
+function ClientContextSelector({
+  tenants,
+  selectedId,
+  onSelect,
+  loading,
+  countsByLabel,
+}: {
+  tenants: Array<{ id: number; name: string; business_model: string | null }>;
+  selectedId: number | null;
+  onSelect: (id: number | null) => void;
+  loading: boolean;
+  countsByLabel?: { DIRECT: number; INDIRECT: number; REFERENCE: number; TO_LEARN: number; IGNORE: number };
+}) {
+  const [query, setQuery] = useState('');
+  const [focused, setFocused] = useState(false);
+
+  // selectedId 변경 시 query 동기화
+  useEffect(() => {
+    if (selectedId) {
+      const t = tenants.find((tn) => tn.id === selectedId);
+      if (t) setQuery(t.name);
+    } else {
+      setQuery('');
+    }
+  }, [selectedId, tenants]);
+
+  const filtered = query
+    ? tenants.filter((t) => t.name.toLowerCase().includes(query.toLowerCase())).slice(0, 10)
+    : tenants.slice(0, 10);
+
+  return (
+    <section className="card">
+      <header className="border-b border-border px-5 py-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="section-title">
+            <Users className="mr-1 inline h-4 w-4 text-brand" />
+            클라이언트 컨텍스트 보기
+          </h2>
+          {loading && <Loader2 className="h-3 w-3 animate-spin text-brand" />}
+        </div>
+        <div className="mt-1 text-[11px] text-ink-muted">
+          <strong>분류 목록의 본질</strong> — 클라이언트사의 경쟁사 현황 분석 → 학습 → 메디맵 콘텐츠 배포에 활용.
+          클라이언트 선택 시 표가 그 클라이언트와 관련된 도메인으로 자동 필터링됨.
+        </div>
+      </header>
+      <div className="px-5 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="text-[11px] font-semibold text-ink-muted">클라이언트:</label>
+          <div className="relative flex-1 min-w-[240px] max-w-[360px]">
+            <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-ink-muted" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setTimeout(() => setFocused(false), 150)}
+              placeholder="클라이언트 검색 또는 전체 선택"
+              className="w-full rounded border border-border bg-surface-base py-1 pl-7 pr-7 text-[12px]"
+            />
+            {(query || selectedId) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery('');
+                  onSelect(null);
+                }}
+                className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 text-ink-muted hover:bg-surface-subtle"
+                aria-label="clear"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+            {focused && filtered.length > 0 && (
+              <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-md border border-border bg-surface-base shadow-card">
+                {filtered.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onMouseDown={() => {
+                      onSelect(t.id);
+                      setQuery(t.name);
+                      setFocused(false);
+                    }}
+                    className={cn(
+                      'block w-full px-3 py-1.5 text-left text-[12px] hover:bg-surface-subtle',
+                      selectedId === t.id && 'bg-brand-50 font-semibold text-brand'
+                    )}
+                  >
+                    <div>{t.name}</div>
+                    {t.business_model && t.business_model !== 'self' && t.business_model !== 'partner' && (
+                      <div className="mt-0.5 text-[10px] text-ink-faint">{t.business_model.slice(0, 50)}</div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {selectedId && countsByLabel && (
+            <div className="flex flex-wrap gap-1 text-[10px]">
+              {(Object.keys(LABEL_META) as Array<keyof typeof LABEL_META>).map((lbl) => {
+                const cnt = countsByLabel?.[lbl as 'DIRECT'] ?? 0;
+                if (cnt === 0) return null;
+                return (
+                  <span key={lbl} className={cn('rounded px-1.5 py-0.5 font-bold', LABEL_META[lbl].color)}>
+                    {LABEL_META[lbl].ko} {cnt}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 type Classification = {
   id: number;
   domain: string;
@@ -181,13 +298,38 @@ export default function DomainClassificationsPage() {
   };
 
   const filtered = useMemo(() => {
-    return list.filter((c) => {
+    let result = list.filter((c) => {
       if (tierFilter !== 'ALL' && c.tier !== tierFilter) return false;
       if (search && !c.domain.toLowerCase().includes(search.toLowerCase()) &&
           !(c.category ?? '').toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [list, search, tierFilter]);
+    // Round 41 — 클라이언트 컨텍스트 모드 시 그 클라이언트 키워드로 측정된 도메인만 + 인용 횟수 정렬
+    if (contextTenantId && contextData?.domain_map) {
+      result = result
+        .filter((c) => {
+          const ctx = contextData.domain_map[c.domain.toLowerCase()];
+          // 인용 횟수 있는 도메인 또는 라벨 등록된 도메인만 표시
+          return ctx && (ctx.occurrences > 0 || ctx.label != null);
+        })
+        .sort((a, b) => {
+          const ao = contextData.domain_map[a.domain.toLowerCase()]?.occurrences ?? 0;
+          const bo = contextData.domain_map[b.domain.toLowerCase()]?.occurrences ?? 0;
+          return bo - ao;
+        });
+    }
+    return result;
+  }, [list, search, tierFilter, contextTenantId, contextData]);
+
+  // Round 41 — 분류 사전에 없지만 컨텍스트에는 있는 도메인 (T5 default 외부 도메인)
+  const contextOnlyDomains = useMemo(() => {
+    if (!contextTenantId || !contextData?.domain_map) return [];
+    const knownSet = new Set(list.map((c) => c.domain.toLowerCase()));
+    return Object.entries(contextData.domain_map)
+      .filter(([d, ctx]) => !knownSet.has(d) && (ctx.occurrences > 0 || ctx.label != null))
+      .map(([domain, ctx]) => ({ domain, ...ctx }))
+      .sort((a, b) => b.occurrences - a.occurrences);
+  }, [contextTenantId, contextData, list]);
 
   const add = async () => {
     if (!newDomain.trim()) {
@@ -276,54 +418,14 @@ export default function DomainClassificationsPage() {
         </button>
       </div>
 
-      {/* Round 38 후속 — 클라이언트 컨텍스트 모드 */}
-      <section className="card">
-        <header className="border-b border-border px-5 py-3">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="section-title">
-              <Users className="mr-1 inline h-4 w-4 text-brand" />
-              클라이언트 컨텍스트 보기
-            </h2>
-            {contextLoading && <Loader2 className="h-3 w-3 animate-spin text-brand" />}
-          </div>
-          <div className="mt-1 text-[11px] text-ink-muted">
-            클라이언트 선택 시 — 그 클라이언트 키워드로 측정 시 인용된 도메인 + 경쟁 라벨 표시.
-            같은 도메인이 클라이언트마다 다른 의미 (예: sueye.co.kr 은 BGN 직접경쟁, 지우피부과 무관)
-          </div>
-        </header>
-        <div className="px-5 py-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="text-[11px] text-ink-muted">클라이언트:</label>
-            <select
-              value={contextTenantId ?? ''}
-              onChange={(e) => setContextTenantId(e.target.value ? Number(e.target.value) : null)}
-              className="rounded border border-border bg-surface-base px-2 py-1 text-[12px]"
-            >
-              <option value="">— 선택 안 함 (글로벌 모드) —</option>
-              {(contextData?.tenants ?? []).map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} {t.business_model && t.business_model !== 'self' && t.business_model !== 'partner'
-                    ? `(${t.business_model.slice(0, 30)})`
-                    : ''}
-                </option>
-              ))}
-            </select>
-            {contextTenantId && contextData?.counts_by_label && (
-              <div className="flex flex-wrap gap-1 text-[10px]">
-                {(Object.keys(LABEL_META) as Array<keyof typeof LABEL_META>).map((lbl) => {
-                  const cnt = contextData.counts_by_label?.[lbl as 'DIRECT'] ?? 0;
-                  if (cnt === 0) return null;
-                  return (
-                    <span key={lbl} className={cn('rounded px-1.5 py-0.5 font-bold', LABEL_META[lbl].color)}>
-                      {LABEL_META[lbl].ko} {cnt}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
+      {/* Round 41 (2026-05-31) — 클라이언트 컨텍스트 모드 (검색 가능 selector + 표 자동 연동) */}
+      <ClientContextSelector
+        tenants={contextData?.tenants ?? []}
+        selectedId={contextTenantId}
+        onSelect={setContextTenantId}
+        loading={contextLoading}
+        countsByLabel={contextData?.counts_by_label}
+      />
 
       {/* tier 카운트 카드 */}
       <div className="grid grid-cols-4 gap-3">
@@ -404,10 +506,81 @@ export default function DomainClassificationsPage() {
         </div>
       </section>
 
+      {/* Round 41 — 컨텍스트 모드 외부 도메인 (분류 사전 미등록) 별도 섹션 */}
+      {contextTenantId && contextOnlyDomains.length > 0 && (
+        <section className="card">
+          <header className="border-b border-border px-5 py-3">
+            <h2 className="section-title">
+              <Target className="mr-1 inline h-4 w-4 text-status-warning" />
+              분류 사전 미등록 외부 도메인 ({contextOnlyDomains.length}건)
+            </h2>
+            <div className="mt-1 text-[11px] text-ink-muted">
+              이 클라이언트 키워드 측정에서 발견됐지만 글로벌 분류 사전에 없는 도메인 (T5 default).
+              <strong className="ml-1 text-brand">학습 분석</strong> 으로 메디맵 콘텐츠 가이드에 반영
+            </div>
+          </header>
+          <div className="admin-table-wrap">
+            <table className="w-full text-xs">
+              <thead className="bg-surface-subtle text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+                <tr>
+                  <th className="px-3 py-2 text-left">도메인</th>
+                  <th className="px-3 py-2 text-right">인용 횟수</th>
+                  <th className="px-3 py-2 text-left">경쟁 라벨</th>
+                  <th className="px-3 py-2 text-left">비고</th>
+                  <th className="px-3 py-2 text-right">액션</th>
+                </tr>
+              </thead>
+              <tbody>
+                {contextOnlyDomains.map((d) => (
+                  <tr key={d.domain} className="border-t border-border">
+                    <td className="px-3 py-2 font-mono">{d.domain}</td>
+                    <td className="px-3 py-2 text-right font-semibold text-ink">{d.occurrences}</td>
+                    <td className="px-3 py-2">
+                      <select
+                        value={d.label ?? ''}
+                        onChange={(e) => {
+                          if (e.target.value) saveLabel(d.domain, e.target.value);
+                          else removeLabel(d.domain);
+                        }}
+                        className={cn(
+                          'rounded border border-border bg-surface-base px-1.5 py-0.5 text-[10px] font-semibold',
+                          d.label && LABEL_META[d.label] ? LABEL_META[d.label].color : 'text-ink-muted'
+                        )}
+                      >
+                        <option value="">— 미지정 —</option>
+                        {(Object.keys(LABEL_META) as Array<keyof typeof LABEL_META>).map((lbl) => (
+                          <option key={lbl} value={lbl} className="bg-surface-base text-ink">
+                            {LABEL_META[lbl].ko}
+                          </option>
+                        ))}
+                      </select>
+                      {d.auto_suggested && <span className="ml-1 text-[9px] text-ink-faint" title="자동">auto</span>}
+                    </td>
+                    <td className="px-3 py-2 text-[10px] text-ink-muted">{d.notes || '—'}</td>
+                    <td className="px-3 py-2 text-right">
+                      <a
+                        href={`/admin/competitors?tenantId=${contextTenantId}`}
+                        className="text-[10px] text-brand hover:underline"
+                      >
+                        학습 분석 →
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       {/* 검색 + 목록 */}
       <section className="card">
         <header className="flex flex-col gap-2 border-b border-border px-5 py-3 md:flex-row md:items-center md:justify-between">
-          <h2 className="section-title">분류 목록 ({filtered.length}건 / 전체 {list.length}건)</h2>
+          <h2 className="section-title">
+            {contextTenantId
+              ? `분류 사전 등록된 도메인 — 인용 있는 것만 (${filtered.length}건)`
+              : `분류 목록 (${filtered.length}건 / 전체 ${list.length}건)`}
+          </h2>
           <div className="flex items-center gap-2">
             <div className="relative">
               <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-ink-muted" />

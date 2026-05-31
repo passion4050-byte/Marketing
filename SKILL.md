@@ -1943,3 +1943,91 @@ async function fetchDashboardData(opts: {
 8. **Accessibility** — aria-label, focus-visible 강화, WCAG AA 색 대비
 9. **Dark mode** — 운영자가 야간 사용 시 (저녁/새벽 cron 검수)
 10. **Search across pages** — Cmd+K palette
+
+---
+
+## Round 41 (2026-05-31 마무리) — 사용자 지정 기간 fix + domain-classifications 검색/연동/고도화
+
+### 사용자 4가지 명시 요청
+
+1. **사용자 지정 기간 키 안 먹힘**
+2. **domain-classifications 클라이언트 selector 연동 X**
+3. **드롭다운 → 검색 가능**
+4. **분류 목록 고도화 — 클라이언트사 경쟁사 분석 → 학습 → 메디맵 콘텐츠 배포**
+
+### Fix 1 — 사용자 지정 기간 default 7일
+
+**버그**: `selectPeriod('custom')` 첫 클릭 시 fromDraft/toDraft 비어있음 → URL 에 from/to 없음 → page.tsx 의 `isCustom = period === 'custom' && from && to` → false → 30일 fallback.
+
+**수정**: 첫 클릭 시 default from = 7일 전 / to = 오늘 자동 set → URL 즉시 업데이트 → UI 와 차트 동시 반영. 사용자가 date input 직접 변경 후 [적용] 버튼 누르면 다시 업데이트.
+
+### Fix 2+3 — ClientContextSelector 컴포넌트 (typeahead)
+
+**Before**: 단순 `<select>` — 클라이언트 많아지면 누르기 어려움
+
+**After**: 신규 `ClientContextSelector` 컴포넌트
+- text input + Search icon + clear (X) 버튼
+- focus 시 자동 dropdown (최근 10개)
+- 검색어 입력 → filter
+- selected 상태 강조
+- business_model 부제목 표시
+
+DashboardFilters 의 typeahead 패턴과 일관성. 두 페이지 다 동일 UX.
+
+### Fix 4 — 분류 목록 클라이언트 컨텍스트 자동 필터링
+
+**Before**: 클라이언트 선택해도 표는 글로벌 list 그대로. 컬럼 2개만 추가 표시 (인용 횟수, 라벨).
+
+**After (Round 41 통합 view)**:
+
+1. **글로벌 모드** (클라이언트 미선택):
+   - 분류 목록 (T1/T3/T4/NOISE 전체)
+   - 마스터 사전 관리 view
+
+2. **클라이언트 컨텍스트 모드** (클라이언트 선택):
+   - 표 자동 필터링 → 그 클라이언트 인용 있는 도메인만 + 인용 횟수 순 정렬
+   - **새 섹션** "분류 사전 미등록 외부 도메인" — T5 default 외부 도메인 자동 표시
+     - 인용 횟수, 경쟁 라벨, 비고
+     - "학습 분석 →" 링크로 `/admin/competitors?tenantId=X` 이동
+   - 표 헤더 동적 — "인용 있는 것만 (N건)" 표시
+
+이 패턴이 사용자 명시 의도 ("경쟁사 현황, 분석을 하고 이를 바탕으로 학습해서 우리에게 맞는 컨텐츠를 배포") 의 구체화:
+- 클라이언트 선택 → 그 경쟁사 도메인 한눈에
+- 학습 분석 버튼 → `/admin/competitors` 의 도메인 분석 cycle 진입
+- 발견된 외부 도메인 → 분류 라벨링 즉시 가능
+
+### 새 함정 (Round 41 추가)
+
+**(AN) URL searchParams 기반 토글 첫 클릭 default 패턴**
+- 증상: "사용자 지정" 같은 모드 토글이 추가 입력 (date range) 필요 → 첫 클릭 시 입력 없으면 무반응
+- 정답: 첫 클릭 시 default 값 (7일 전 ~ 오늘) 자동 set → 즉시 활성. 사용자가 input 으로 fine-tune.
+
+**(AO) typeahead onMouseDown vs onClick**
+- 증상: `onBlur` 가 `onClick` 보다 먼저 발생 → dropdown 닫힌 뒤 클릭 → 선택 안 됨
+- 정답: dropdown 옵션 클릭 핸들러 `onMouseDown` 사용. 또는 `onBlur` 에 `setTimeout` 100~200ms 지연.
+
+**(AP) 글로벌 마스터 view vs 클라이언트 컨텍스트 view — 같은 페이지 dual mode**
+- 패턴: 페이지 본질을 변경하지 않으면서 클라이언트 선택 시 강화 view 추가
+- 글로벌 미선택 시 — 마스터 사전 관리 (기존)
+- 클라이언트 선택 시 — 경쟁사 분석 + 학습 진입점 (신규)
+- 사용자 의도 "분류 사전이 경쟁사 분석/학습 자산" 구체화
+
+### Round 41 산출물
+
+코드:
+- `medimap-blog-v2/src/components/admin/DashboardFilters.tsx` — 사용자 지정 default 7일
+- `medimap-blog-v2/src/app/admin/(portal)/domain-classifications/page.tsx`:
+  - 신규 `ClientContextSelector` 컴포넌트 (typeahead)
+  - filtered 로직 — 클라이언트 컨텍스트 시 인용 있는 도메인만 + 인용 횟수 정렬
+  - 신규 `contextOnlyDomains` — 분류 사전 미등록 외부 도메인 추출
+  - 신규 섹션 "분류 사전 미등록 외부 도메인" — 학습 분석 진입점
+  - 표 헤더 동적
+
+### Round 42 후보 (다음 라운드)
+
+- 자동 분류 dashboard UI 통합 — 신규 도메인 차트 옆 [자동 분류 일괄 등록] 버튼
+- 검증 히스토리 (B4 잔여)
+- 키워드 풀 Tier 1+2 (B5 잔여)
+- 모바일 본격 카드 변환 (5 페이지)
+- citations 페이지 label 필터 토글 UI
+- learn-from-domain Phase 3 — 카테고리별 자동 baseline 보강
