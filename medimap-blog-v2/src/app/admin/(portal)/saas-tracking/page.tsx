@@ -105,30 +105,38 @@ export default function SaasTrackingPage() {
         </div>
       )}
 
-      {/* KPI 4 카드 */}
+      {/* Round 56 (2026-05-31) — KPI 카드 클릭 시 해당 섹션으로 scroll */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <KpiCard label="추적 중인 키워드" value={`${data.keywords.length}`} suffix="개" />
+        <KpiCard
+          label="추적 중인 키워드"
+          value={`${data.keywords.length}`}
+          suffix="개"
+          href="#keyword-grounding"
+        />
         <KpiCard
           label="최근 30일 AI 인용"
           value={`${data.mention_count}`}
           suffix="건"
           subtext={data.t1_count > 0 ? `메디맵 인용 ${data.t1_count}건` : '메디맵 인용 0건'}
+          href="#share-trend"
         />
         <KpiCard
           label="메디맵 점유율"
           value={`${t1Share}%`}
           highlight={t1Share >= 5}
           subtext="목표 5% 이상"
+          href="#share-trend"
         />
         <KpiCard
           label="경쟁 SaaS 발견"
           value={`${data.competitor_domains.length}`}
           suffix="곳"
+          href="#competitor-saas"
         />
       </div>
 
       {/* 차트: 메디맵 점유율 추이 */}
-      <section className="card">
+      <section id="share-trend" className="card scroll-mt-20">
         <header className="border-b border-border px-4 py-3 md:px-5">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
             <TrendingUp className="h-4 w-4 text-brand" />
@@ -168,7 +176,7 @@ export default function SaasTrackingPage() {
       </section>
 
       {/* 키워드별 grounding rate */}
-      <section className="card">
+      <section id="keyword-grounding" className="card scroll-mt-20">
         <header className="border-b border-border px-4 py-3 md:px-5">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
             <Target className="h-4 w-4 text-brand" />
@@ -233,7 +241,7 @@ export default function SaasTrackingPage() {
       </section>
 
       {/* 경쟁 SaaS 도메인 ranking */}
-      <section className="card">
+      <section id="competitor-saas" className="card scroll-mt-20">
         <header className="border-b border-border px-4 py-3 md:px-5">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
             <Sparkles className="h-4 w-4 text-brand" />
@@ -301,21 +309,37 @@ function KpiCard({
   suffix,
   subtext,
   highlight,
+  href,
 }: {
   label: string;
   value: string;
   suffix?: string;
   subtext?: string;
   highlight?: boolean;
+  href?: string;
 }) {
-  return (
-    <div className="card card-pad">
-      <div className="text-[11px] text-ink-muted">{label}</div>
+  const inner = (
+    <>
+      <div className="flex items-center justify-between gap-1">
+        <div className="text-[11px] text-ink-muted">{label}</div>
+        {href && <span className="text-[10px] text-ink-faint transition group-hover:text-brand">↓ 자세히</span>}
+      </div>
       <div className={`mt-1 text-2xl font-bold ${highlight ? 'text-brand' : 'text-ink'}`}>
         {value}
         {suffix && <span className="ml-1 text-sm font-normal text-ink-muted">{suffix}</span>}
       </div>
       {subtext && <div className="mt-0.5 text-[10px] text-ink-faint">{subtext}</div>}
-    </div>
+    </>
   );
+  if (href) {
+    return (
+      <a
+        href={href}
+        className="card card-pad group block cursor-pointer transition hover:border-brand/30 hover:shadow-sm"
+      >
+        {inner}
+      </a>
+    );
+  }
+  return <div className="card card-pad">{inner}</div>;
 }

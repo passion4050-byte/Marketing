@@ -1,18 +1,17 @@
 /**
- * Round 55 (2026-05-31) — 카드 grid → table 리스트 (스케일).
+ * Round 56 (2026-05-31) — 17년차 디자이너 위계 개선.
  *
  * 변경:
- *   - 안내 박스 제거
- *   - 카드 grid → table dense 리스트 (클라이언트 50+ 까지 스케일)
- *   - 그룹 separator: 자사 → 발송 가능 → 이메일 미등록
- *   - 검색 + 정렬 + sticky header
- *   - 모바일: 표 가로 스크롤 + min-w
+ *   - 메디맵 행의 brand 그라데이션 아이콘 제거 (자사 라벨로 충분)
+ *   - 3개 그룹 (자사 / 발송 가능 / 이메일 미등록) 을 각 별도 card + 좌측 color stripe 로 분리
+ *   - 각 그룹 헤더에 진료항목 필터 chip (전체/안과/모발이식/피부과/...)
+ *   - 그룹 헤더 폰트/여백 강화, 그룹 간 간격 확대
  */
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Building2, CalendarClock, Download, Loader2, Mail, MailX, Search, Send } from 'lucide-react';
+import { CalendarClock, Download, Loader2, Mail, MailX, Search, Send } from 'lucide-react';
 import { showToast } from '@/lib/clientActions';
 import { cn } from '@/lib/cn';
 
@@ -25,9 +24,13 @@ interface SbTenant {
   partner_slug: string | null;
   report_send_day: number | null;
   status?: string | null;
+  domain_category: string | null;
 }
 
 type SortKey = 'send_day' | 'name' | 'publish';
+
+const CATEGORY_OPTIONS = ['전체', '안과', '피부과', '성형외과', '치과', '내과', '모발이식', '한방', '기타'] as const;
+type CategoryFilter = (typeof CATEGORY_OPTIONS)[number];
 
 export default function ReportsListPage() {
   const [tenants, setTenants] = useState<SbTenant[]>([]);
@@ -36,6 +39,8 @@ export default function ReportsListPage() {
   const [bulkSending, setBulkSending] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>('send_day');
   const [search, setSearch] = useState('');
+  const [eligibleFilter, setEligibleFilter] = useState<CategoryFilter>('전체');
+  const [noEmailFilter, setNoEmailFilter] = useState<CategoryFilter>('전체');
   const period = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' });
   const today = new Date();
   const todayDay = today.getDate();
@@ -99,7 +104,7 @@ export default function ReportsListPage() {
     }
   };
 
-  const isSelf = (t: SbTenant) => t.partner_slug === 'medimap' || t.name.startsWith('메디맵');
+  const isSelf = (t: SbTenant) => t.partner_slug === 'medimap' || t.partner_slug === 'medimap-self' || t.name.startsWith('메디맵');
 
   const selfTenant = tenants.find(isSelf);
   const clientTenants = tenants.filter((t) => !isSelf(t));
@@ -127,9 +132,26 @@ export default function ReportsListPage() {
     return arr;
   }, [filtered, sortKey, todayDay]);
 
-  const eligible = sortedClients.filter((t) => t.email);
-  const noEmail = sortedClients.filter((t) => !t.email);
+  const allEligible = sortedClients.filter((t) => t.email);
+  const allNoEmail = sortedClients.filter((t) => !t.email);
+
+  // 진료항목 필터 적용
+  const eligible = eligibleFilter === '전체' ? allEligible : allEligible.filter((t) => (t.domain_category ?? '기타') === eligibleFilter);
+  const noEmail = noEmailFilter === '전체' ? allNoEmail : allNoEmail.filter((t) => (t.domain_category ?? '기타') === noEmailFilter);
+
   const eligibleCount = clientTenants.filter((t) => t.email).length;
+
+  // 각 그룹의 활성 진료항목 (필터 chip 노출 결정)
+  const eligibleCategories = useMemo(() => {
+    const set = new Set<string>();
+    allEligible.forEach((t) => set.add(t.domain_category ?? '기타'));
+    return CATEGORY_OPTIONS.filter((c) => c === '전체' || set.has(c));
+  }, [allEligible]);
+  const noEmailCategories = useMemo(() => {
+    const set = new Set<string>();
+    allNoEmail.forEach((t) => set.add(t.domain_category ?? '기타'));
+    return CATEGORY_OPTIONS.filter((c) => c === '전체' || set.has(c));
+  }, [allNoEmail]);
 
   const calcDday = (sendDay: number | null): { dday: number; isToday: boolean } => {
     const d = sendDay ?? 1;
@@ -191,66 +213,85 @@ export default function ReportsListPage() {
       )}
 
       {!loading && tenants.length > 0 && (
-        <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-xs">
-              <thead className="sticky top-0 z-10 bg-surface-subtle text-[10px] font-bold uppercase tracking-wider text-ink-muted">
-                <tr>
-                  <th className="px-4 py-2.5 text-left">클라이언트</th>
-                  <th className="px-3 py-2.5 text-left">이메일</th>
-                  <th className="px-3 py-2.5 text-left">발송일</th>
-                  <th className="px-3 py-2.5 text-right">발행</th>
-                  <th className="px-3 py-2.5 text-right">액션</th>
-                </tr>
-              </thead>
-              <tbody>
-                {/* 자사 (메디맵) */}
-                {selfTenant && (
-                  <>
-                    <GroupSeparator icon={<Building2 className="h-3 w-3" />} label="자사 (메디맵)" color="text-brand" count={1} />
-                    <tr className="border-t border-border bg-brand-50/30 hover:bg-brand-50/50">
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-brand text-white">
-                            <Building2 className="h-3 w-3" />
-                          </span>
-                          <span className="font-bold text-ink">{selfTenant.name}</span>
-                          <span className="rounded bg-brand/10 px-1.5 py-0.5 text-[9px] font-semibold text-brand">자사</span>
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5 text-ink-muted">외부 발송 대상 아님</td>
-                      <td className="px-3 py-2.5 text-ink-muted">—</td>
-                      <td className="px-3 py-2.5 text-right font-mono font-bold text-brand">{selfTenant.publish_count ?? 0}</td>
-                      <td className="px-3 py-2.5 text-right">
-                        <Link href={`/admin/reports/${selfTenant.id}`} target="_blank"
-                          className="inline-flex items-center gap-1 rounded border border-border bg-surface-base px-2 py-1 text-[10px] font-semibold text-ink-soft hover:bg-surface-subtle">
-                          <Download className="h-3 w-3" /> 미리보기
-                        </Link>
-                      </td>
-                    </tr>
-                  </>
-                )}
+        <div className="space-y-5">
+          {/* === 자사 (메디맵) === */}
+          {selfTenant && (
+            <GroupCard
+              stripe="bg-brand"
+              header={
+                <>
+                  <span className="rounded bg-brand/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand">자사</span>
+                  <h2 className="text-sm font-bold text-ink">메디맵 (외부 발송 대상 아님)</h2>
+                </>
+              }
+            >
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-ink">{selfTenant.name}</div>
+                  <div className="mt-0.5 text-[11px] text-ink-muted">자사 인사이트 발행 — 외부 클라이언트 발송 없음</div>
+                </div>
+                <div className="flex shrink-0 items-center gap-3">
+                  <div className="text-right">
+                    <div className="font-mono text-xl font-bold text-brand">{selfTenant.publish_count ?? 0}</div>
+                    <div className="text-[9px] uppercase text-ink-muted">발행</div>
+                  </div>
+                  <Link href={`/admin/reports/${selfTenant.id}`} target="_blank"
+                    className="inline-flex items-center gap-1 rounded border border-border bg-surface-base px-2.5 py-1.5 text-[11px] font-semibold text-ink-soft hover:bg-surface-subtle">
+                    <Download className="h-3 w-3" /> 미리보기
+                  </Link>
+                </div>
+              </div>
+            </GroupCard>
+          )}
 
-                {/* 발송 가능 */}
-                {eligible.length > 0 && (
-                  <>
-                    <GroupSeparator icon={<Mail className="h-3 w-3" />} label="발송 가능" color="text-status-success" count={eligible.length} />
+          {/* === 발송 가능 === */}
+          <GroupCard
+            stripe="bg-status-success"
+            header={
+              <>
+                <Mail className="h-4 w-4 text-status-success" />
+                <h2 className="text-sm font-bold text-ink">발송 가능</h2>
+                <span className="rounded-full bg-status-successSoft/40 px-2 py-0.5 text-[10px] font-bold text-status-success">{allEligible.length}</span>
+              </>
+            }
+            filters={
+              <CategoryFilterBar
+                options={eligibleCategories}
+                value={eligibleFilter}
+                onChange={setEligibleFilter}
+                color="success"
+              />
+            }
+          >
+            {eligible.length === 0 ? (
+              <div className="px-4 py-8 text-center text-[12px] text-ink-muted">
+                {eligibleFilter === '전체' ? '이메일 등록된 클라이언트가 없습니다' : `"${eligibleFilter}" 진료항목 클라이언트가 없습니다`}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] text-xs">
+                  <thead className="bg-surface-subtle/60 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+                    <tr>
+                      <th className="px-4 py-2 text-left">클라이언트</th>
+                      <th className="px-3 py-2 text-left">진료항목</th>
+                      <th className="px-3 py-2 text-left">이메일</th>
+                      <th className="px-3 py-2 text-left">발송일</th>
+                      <th className="px-3 py-2 text-right">발행</th>
+                      <th className="px-3 py-2 text-right">액션</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {eligible.map((t) => {
                       const { dday, isToday } = calcDday(t.report_send_day);
                       return (
-                        <tr
-                          key={String(t.id)}
-                          className={cn(
-                            'border-t border-border transition hover:bg-surface-subtle/60',
-                            isToday && 'bg-status-successSoft/15'
-                          )}
-                        >
+                        <tr key={String(t.id)} className={cn('border-t border-border transition hover:bg-surface-subtle/50', isToday && 'bg-status-successSoft/10')}>
                           <td className="px-4 py-2.5">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
                               {isToday && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-status-success animate-pulse" />}
                               <span className="font-semibold text-ink">{t.name}</span>
                             </div>
                           </td>
+                          <td className="px-3 py-2.5 text-ink-soft">{t.domain_category ?? '—'}</td>
                           <td className="px-3 py-2.5">
                             <span className="inline-flex items-center gap-1 rounded bg-status-successSoft/30 px-1.5 py-0.5 font-mono text-[10px] text-status-success">
                               <Mail className="h-2.5 w-2.5" />
@@ -288,51 +329,78 @@ export default function ReportsListPage() {
                         </tr>
                       );
                     })}
-                  </>
-                )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </GroupCard>
 
-                {/* 이메일 미등록 */}
-                {noEmail.length > 0 && (
-                  <>
-                    <GroupSeparator icon={<MailX className="h-3 w-3" />} label="이메일 미등록" color="text-status-warning" count={noEmail.length} />
-                    {noEmail.map((t) => (
-                      <tr key={String(t.id)} className="border-t border-border bg-status-warningSoft/10">
-                        <td className="px-4 py-2.5 text-ink">{t.name}</td>
-                        <td className="px-3 py-2.5">
-                          <span className="text-[10px] text-status-warning">미등록</span>
-                        </td>
-                        <td className="px-3 py-2.5 text-ink-muted">
-                          <span className="text-[10px]">매월 {t.report_send_day ?? 1}일 (이메일 등록 시 발송)</span>
-                        </td>
-                        <td className="px-3 py-2.5 text-right font-mono text-ink-muted">{t.publish_count ?? 0}</td>
-                        <td className="px-3 py-2.5 text-right">
-                          <Link
-                            href={`/admin/tenants?edit=${t.id}`}
-                            className="inline-flex items-center gap-1 rounded border border-status-warning/40 bg-surface-base px-2 py-1 text-[10px] font-semibold text-status-warning hover:bg-status-warningSoft/30"
-                          >
-                            이메일 등록
-                          </Link>
-                        </td>
+          {/* === 이메일 미등록 === */}
+          {allNoEmail.length > 0 && (
+            <GroupCard
+              stripe="bg-status-warning"
+              header={
+                <>
+                  <MailX className="h-4 w-4 text-status-warning" />
+                  <h2 className="text-sm font-bold text-ink">이메일 미등록</h2>
+                  <span className="rounded-full bg-status-warningSoft/40 px-2 py-0.5 text-[10px] font-bold text-status-warning">{allNoEmail.length}</span>
+                </>
+              }
+              filters={
+                <CategoryFilterBar
+                  options={noEmailCategories}
+                  value={noEmailFilter}
+                  onChange={setNoEmailFilter}
+                  color="warning"
+                />
+              }
+            >
+              {noEmail.length === 0 ? (
+                <div className="px-4 py-8 text-center text-[12px] text-ink-muted">
+                  "{noEmailFilter}" 진료항목 미등록 클라이언트가 없습니다
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[640px] text-xs">
+                    <thead className="bg-surface-subtle/60 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+                      <tr>
+                        <th className="px-4 py-2 text-left">클라이언트</th>
+                        <th className="px-3 py-2 text-left">진료항목</th>
+                        <th className="px-3 py-2 text-left">예정 발송일</th>
+                        <th className="px-3 py-2 text-right">발행</th>
+                        <th className="px-3 py-2 text-right">액션</th>
                       </tr>
-                    ))}
-                  </>
-                )}
+                    </thead>
+                    <tbody>
+                      {noEmail.map((t) => (
+                        <tr key={String(t.id)} className="border-t border-border bg-status-warningSoft/5 hover:bg-status-warningSoft/15">
+                          <td className="px-4 py-2.5 font-semibold text-ink">{t.name}</td>
+                          <td className="px-3 py-2.5 text-ink-soft">{t.domain_category ?? '—'}</td>
+                          <td className="px-3 py-2.5 text-[11px] text-ink-muted">
+                            매월 {t.report_send_day ?? 1}일 (이메일 등록 시 발송)
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-mono text-ink-muted">{t.publish_count ?? 0}</td>
+                          <td className="px-3 py-2.5 text-right">
+                            <Link
+                              href={`/admin/tenants?edit=${t.id}`}
+                              className="inline-flex items-center gap-1 rounded border border-status-warning/40 bg-surface-base px-2 py-1 text-[10px] font-semibold text-status-warning hover:bg-status-warningSoft/30"
+                            >
+                              이메일 등록
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </GroupCard>
+          )}
 
-                {/* 검색 결과 없음 */}
-                {search && eligible.length === 0 && noEmail.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-sm text-ink-muted">
-                      "{search}" 검색 결과 없음
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          {/* 표 하단 요약 */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-surface-subtle px-4 py-2 text-[10px] text-ink-muted">
+          {/* 하단 요약 */}
+          <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-[10px] text-ink-muted">
             <span>
-              총 {tenants.length}개 · 발송 가능 {clientTenants.filter((t) => t.email).length}개 · 미등록 {clientTenants.filter((t) => !t.email).length}개
+              총 {tenants.length}개 · 발송 가능 {allEligible.length}개 · 미등록 {allNoEmail.length}개
             </span>
             <span>매일 18시 KST 자동 발송</span>
           </div>
@@ -342,20 +410,57 @@ export default function ReportsListPage() {
   );
 }
 
-function GroupSeparator({
-  icon, label, color, count
+/** Round 56 — 그룹 카드: 좌측 4px stripe + 헤더 + 필터 + 내용 */
+function GroupCard({
+  stripe,
+  header,
+  filters,
+  children,
 }: {
-  icon: React.ReactNode; label: string; color: string; count: number;
+  stripe: string;
+  header: React.ReactNode;
+  filters?: React.ReactNode;
+  children: React.ReactNode;
 }) {
   return (
-    <tr className="border-t border-border bg-surface-soft/60">
-      <td colSpan={5} className="px-4 py-1.5">
-        <div className={cn('flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider', color)}>
-          {icon}
-          <span>{label}</span>
-          <span className="rounded bg-surface-base px-1.5 py-0 text-ink-muted">{count}</span>
-        </div>
-      </td>
-    </tr>
+    <section className="card relative overflow-hidden">
+      {/* 좌측 4px color stripe */}
+      <div className={cn('absolute inset-y-0 left-0 w-1', stripe)} />
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface-soft/40 px-4 py-2.5 pl-5">
+        <div className="flex items-center gap-2">{header}</div>
+        {filters && <div>{filters}</div>}
+      </header>
+      <div>{children}</div>
+    </section>
+  );
+}
+
+/** Round 56 — 진료항목 chip 필터 */
+function CategoryFilterBar({
+  options, value, onChange, color,
+}: {
+  options: readonly string[]; value: string; onChange: (v: CategoryFilter) => void; color: 'success' | 'warning';
+}) {
+  const activeCls = color === 'success'
+    ? 'bg-status-success text-white border-status-success'
+    : 'bg-status-warning text-white border-status-warning';
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {options.map((opt) => (
+        <button
+          key={opt}
+          type="button"
+          onClick={() => onChange(opt as CategoryFilter)}
+          className={cn(
+            'rounded-full border px-2 py-0.5 text-[10px] font-semibold transition',
+            value === opt
+              ? activeCls
+              : 'border-border bg-surface-base text-ink-soft hover:bg-surface-subtle'
+          )}
+        >
+          {opt}
+        </button>
+      ))}
+    </div>
   );
 }

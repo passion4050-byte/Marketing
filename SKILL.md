@@ -3109,3 +3109,73 @@ content-queue route 와 동일 로직 — 자사글은 `/blog/{slug}`.
 ### Round 55 산출물
 
 - `medimap-blog-v2/src/app/admin/(portal)/reports/page.tsx` — 카드 grid → table 리스트 + 검색 + sticky header + GroupSeparator 컴포넌트
+
+---
+
+## Round 56 (2026-05-31) — reports 위계 강화 + 진료항목 필터 + saas KPI 클릭 anchor
+
+### 배경
+
+사용자 (17년차 디자이너 관점):
+1. 한 표 안에 3그룹 (자사 / 발송 가능 / 미등록) 모은 구조 — separator 행 한 줄로는 위계 약함
+2. 메디맵 행의 brand 그라데이션 아이콘 = 시각 노이즈 (자사 chip 으로 충분)
+3. 클라이언트 많아지면 필터 필요 — 진료항목별
+
+### Fix A — 3개 GroupCard 컴포넌트로 분리
+
+기존: 한 `<table>` 안에 GroupSeparator row 로 3그룹 묶음.
+
+신규: 각 그룹이 자체 card + 좌측 4px color stripe:
+- 자사: `bg-brand` stripe
+- 발송 가능: `bg-status-success` stripe
+- 미등록: `bg-status-warning` stripe
+
+각 카드 헤더: status icon + 제목 + count chip (status-color soft). 카드 간 `space-y-5` 로 명확한 분리.
+
+### Fix B — 메디맵 행 단순화
+
+기존: 6×6 그라데이션 brand 아이콘 + 자사 chip + 이름. 시각 중복.
+
+신규: chip + 이름만. 행 자체가 brand stripe + brand soft 배경으로 자사임을 시그널.
+
+### Fix C — 진료항목 chip 필터 (CategoryFilterBar)
+
+각 그룹 헤더 우측에 chip filter 바 — `전체 / 안과 / 피부과 / 성형외과 / 치과 / 내과 / 모발이식 / 한방 / 기타`.
+
+활성 chip 색상은 그룹 stripe 색과 일치 (success / warning). 실제 데이터에 있는 카테고리만 chip 노출 (빈 카테고리 숨김).
+
+발송 가능 / 미등록 각자 independent state — 한쪽 필터 변경이 다른 그룹에 영향 없음.
+
+### Fix D — saas-tracking KPI 클릭 anchor
+
+KpiCard 4개 → 각 KPI 클릭 시 해당 section 으로 smooth scroll:
+- 추적 중인 키워드 → `#keyword-grounding`
+- 최근 30일 AI 인용 → `#share-trend`
+- 메디맵 점유율 → `#share-trend`
+- 경쟁 SaaS 발견 → `#competitor-saas`
+
+KpiCard 컴포넌트에 `href` prop 추가 — `<a>` 로 래핑, `scroll-mt-20` 으로 anchor offset.
+
+### 새 함정 (Round 56)
+
+**(BP) GroupSeparator row 는 시각 위계 한계가 명확**
+- 증상: 한 표 안에 group separator row 로 3그룹 묶을 때 디자이너 관점에서 약함. 데이터 행과 separator 의 거리감 부족.
+- 정답: 별도 card + 좌측 color stripe + 자체 헤더/필터. 데이터 그룹 시각 분리는 컨테이너 분리가 정공법.
+
+**(BQ) 메디맵 자사 글의 partner_slug 패턴 — 단순 'medimap' 가정 금지**
+- 증상: reports/page.tsx 의 isSelf 가 `partner_slug === 'medimap'` 만 체크 → 실제 DB 는 `medimap-self`
+- 정답: `partner_slug === 'medimap' || partner_slug === 'medimap-self' || name.startsWith('메디맵')` 으로 OR 체크.
+
+### Round 56 산출물
+
+- `medimap-blog-v2/src/app/admin/(portal)/reports/page.tsx` — 3개 GroupCard + CategoryFilterBar + isSelf medimap-self 추가
+- `medimap-blog-v2/src/app/admin/(portal)/saas-tracking/page.tsx` — KpiCard href 지원 + section id (#share-trend / #keyword-grounding / #competitor-saas)
+
+### 다음 라운드 후보 (Round 57)
+
+**학습 → 콘텐츠 활용 워크플로우** (큰 작업, 별도 분리):
+- learned-insights 페이지의 분석 결과를 → 콘텐츠 생성에 직접 활용하는 기능
+- 메디맵 + 각 클라이언트별 관리 (dropdown + 검색)
+- DB schema: `applied_insights` 테이블 (insight_id → tenant_id 매핑)
+- API: `/api/admin/insights/apply` (insight 를 tenant 의 content_settings 에 inject)
+- UI: learned-insights 카드에 "이 클라이언트에 적용" 버튼 + applied 표시
