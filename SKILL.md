@@ -1026,3 +1026,108 @@ NOISE 추가:
 - `medimap-blog-v2/src/components/admin/HomepageAnalyzeButton.tsx` loading / fallback / fetched_url UX
 - DB: `add_source_domains_to_responses` / `add_keyword_purpose` / `auto_sync_business_model_keywords` trigger
 - production 검증: 지우피부과(tenant_id=6) 케이스 — T3=4, T5=15, 총 19 sources, 매트릭스 + Top10 차트 정상 표시
+
+---
+
+## Round 36 (2026-05-31) — fairness 측정 + 다중 도메인 + 분류 사전 확장 + trigger soft delete
+
+### 진단 시작점
+
+사용자 요청 "결제 없이 집에서 가능한 것부터" → Tier 1/2/3 batch:
+- **Tier 1**: debug endpoint 빈 폴더 정리, OFFICE-SETUP push
+- **Tier 2**: own 24개 vs LIMIT 20 overflow → fairness ORDER BY
+- **Tier 3**: production 응답 도메인 23개 훑어 5-tier 분류 사전 확장
+
+작업 중 추가 발견: **trigger DELETE 패턴이 측정 history CASCADE 손실 시키는 버그**.
+
+### Tier 2 — keywords.last_measured_at fairness ORDER BY
+
+**문제**: own 24개 + competitor 12개 = 활성 36개, KEYWORD_LIMIT=20 + `ORDER BY k.id LIMIT 20` → id 큰 키워드 영원히 미측정.
+
+**해결**:
+- Migration `add_last_measured_at_to_keywords` — `keywords.last_measured_at TIMESTAMPTZ` + partial index 2개 (own/competitor 별)
+- `scripts/run_measurement_batch.py`:
+  - `ORDER BY k.last_measured_at ASC NULLS FIRST, k.id`
+  - 측정 batch 끝에 `UPDATE keywords SET last_measured_at = NOW() WHERE id = ANY(:ids)`
+
+**효과**: 매 cron 신규/오래된 키워드 우선 픽업 → 모든 키워드 균등 측정 보장.
+
+### Tier 3 — 분류 사전 확장 + tenants.additional_domains
+
+DB-wide 도메인 훑어 23개 발견 → 분류 결정:
+
+T3 추가 (실측 권위 도메인):
+- `news.hidoc.co.kr` / `hidoc.co.kr` — 하이닥 (의료 매체)
+- `www.zeiss.co.kr` / `zeiss.co.kr` — Carl Zeiss 한국 (의료 장비)
+
+NOISE 추가:
+- `pf.kakao.com` — 카카오 채널 (메디맵 path `_xnWQkG` 는 위 classify 가 T1 별도 처리)
+
+**다중 도메인 운영 지원 (BGN 의 bgnblog.com 사례)**:
+- Migration `add_additional_domains_to_tenants` — `tenants.additional_domains TEXT[]`
+- BGN 에 `['bgnblog.com', 'www.bgnblog.com']` INSERT
+- `classifyDomain` 시그니처 변경: `clientHomepageDomain: string` → `clientDomains: Set<string>`
+- citations + competitors route 둘 다 동일 패턴 적용 (cross-site sync)
+
+### Round 36 fix — trigger soft delete (긴급 버그 수정)
+
+**증상 발견**: 지우피부과의 옛 keyword (id=51 "피부과", id=52 "리쥬란") 가 DB 에서 사라졌고, 그것으로 측정된 responses 19건 (Round 35 검증 시 T3=4, T5=15 화면의 데이터) 도 함께 사라짐.
+
+**진짜 원인 — trigger 의 `DELETE FROM keywords` 가 FK CASCADE 로 queries → responses 까지 다 날림**:
+
+```sql
+-- 옛 trigger (Round 33 도입)
+DELETE FROM keywords WHERE tenant_id = NEW.id AND purpose = 'competitor_landscape';
+-- → queries.keyword_id FK CASCADE → responses.query_id FK CASCADE → 측정 history 증발
+```
+
+사용자가 클라이언트의 business_model 을 "피부과,리쥬란" → "강남피부과,리쥬란,스킨보톡스,써마지,울쎄라,울쎄라피" 로 수정하는 순간 모든 측정 데이터 손실.
+
+**수정 (Migration `soft_delete_business_model_keywords`)**:
+1. `keywords_tenant_text_purpose_unique` UNIQUE constraint 추가 — ON CONFLICT 가능하게
+2. trigger 함수 재작성:
+   - 옛 키워드 `is_active = false` (soft delete, history 보존)
+   - 새 키워드 `INSERT ... ON CONFLICT (tenant_id, text, purpose) DO UPDATE SET is_active = true` (재활성화)
+   - 측정 batch 는 `is_active=true` 만 픽업하니 동작 동일, history 는 그대로 분석 가능
+
+**손실 데이터**: 지우피부과 옛 measurement 19건은 이미 CASCADE 로 사라져 복구 불가. 새 키워드 6개가 다음 cron 부터 새로 측정 누적.
+
+### 새 함정 (Round 36 추가)
+
+**(Q) trigger DELETE 패턴 → CASCADE 로 측정 history 손실**
+- 증상: business_model UPDATE 한 번에 클라이언트의 모든 측정 데이터 사라짐. 사용자가 클라이언트 정보 수정만 해도 분석 자료 증발.
+- 원인: FK CASCADE 가 keywords → queries → responses 까지 전파. trigger 설계 시 history 보존 고려 안 했음.
+- 정답: trigger 에서 DELETE 금지. `is_active = false` soft delete + `INSERT ON CONFLICT DO UPDATE SET is_active = true` 패턴. 측정 batch 는 `is_active=true` 만 픽업하므로 운영 동작 동일.
+
+**(R) UNIQUE constraint 부재 시 ON CONFLICT 사용 불가**
+- 증상: `ON CONFLICT (a, b, c) DO UPDATE` 작성했는데 `there is no unique or exclusion constraint matching the ON CONFLICT specification` 에러
+- 정답: ON CONFLICT 사용 전 해당 컬럼 조합에 UNIQUE constraint 가 있어야 함. `ALTER TABLE ... ADD CONSTRAINT ... UNIQUE (...)` 먼저 적용.
+
+**(S) `.git/index.lock` 권한 충돌 — 같은 함정 반복 발생**
+- 증상: sandbox bash 가 git 명령 시도 중 lock 생성 → Windows PowerShell 이 다른 uid 권한이라 못 지움 → 이후 모든 git 명령 차단
+- 대응: PowerShell profile 에 alias 등록 권장
+  ```powershell
+  function Reset-GitLock { takeown /F .git\index.lock; Remove-Item .git\index.lock -Force }
+  ```
+- 같은 함정 (K) 였음. Round 35, 36 두 번 연속 발생 → 이 패턴은 sandbox bash + Windows PowerShell 병행 시 거의 매번 일어나는 것으로 추정.
+
+### Round 36 산출물
+
+DB Migration:
+- `add_last_measured_at_to_keywords` — fairness ORDER BY 지원
+- `add_additional_domains_to_tenants` — 다중 도메인 운영 지원
+- `soft_delete_business_model_keywords` — UNIQUE constraint + trigger soft delete 패턴
+
+코드 변경 (1 commit `7b1c70e`):
+- `scripts/run_measurement_batch.py` — ORDER BY fairness + 측정 후 last_measured_at UPDATE
+- `medimap-blog-v2/src/app/api/admin/citations/route.ts` — T3/NOISE 확장 + clientDomains Set + tenant.additional_domains 매칭
+- `medimap-blog-v2/src/app/api/admin/competitors/route.ts` — 동일 패턴
+
+### Round 37 후보 (사용자 사무실에서 결정)
+
+- **Anthropic credit 충전** + Gemini paid tier 전환 — 4 엔진 본격 측정 (사용자 결정 보류 중)
+- **분류 사전 admin UI** — 운영자가 직접 T3/T4/T5/NOISE/additional_domains 편집. 코드 수정 + 배포 사이클 제거.
+- **business_model 키워드 chip editor** — auto-extract 결과 + 운영자 검수 한 화면
+- **클라이언트 typeahead 드롭다운** — 클라이언트 20+ 대비
+- **자사 share trend 자동 알림** — T1 share +N% / -N% 변화 시 Slack notify
+- **경쟁사 신규 도메인 알림** — T5 분류된 신규 hostname 등장 시 운영자 즉시 알림
