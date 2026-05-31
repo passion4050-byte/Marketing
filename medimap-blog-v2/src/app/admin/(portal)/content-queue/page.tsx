@@ -488,7 +488,9 @@ function PublishedTab({ items }: { items: QueueItem[] }) {
   }
   return (
     <div className="card overflow-hidden">
-      <table className="w-full text-sm">
+      {/* Round 48 — 모바일 대응 가로 스크롤 wrap */}
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[720px] text-sm">
         <thead className="bg-surface-subtle text-[11px] font-bold uppercase tracking-wider text-ink-muted">
           <tr>
             <th className="px-4 py-3 text-left">진료항목</th>
@@ -555,6 +557,7 @@ function PublishedTab({ items }: { items: QueueItem[] }) {
           })}
         </tbody>
       </table>
+      </div>
       <div className="border-t border-border bg-surface-subtle px-4 py-2.5 text-[11px] text-ink-muted">
         조회수 / AI 인용 컬럼은 데이터 파이프라인 연결 후 자동 표시 (GA4 + /admin/citations 통합 예정)
       </div>

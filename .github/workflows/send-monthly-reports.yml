@@ -1,0 +1,86 @@
+name: Send monthly reports (1st of month 09:00 UTC = 18:00 KST)
+
+# Round 48 (2026-05-31) — 매월 1일 모든 클라이언트에 월간 보고서 자동 발송.
+#
+# 흐름:
+#   1. Vercel deployed admin endpoint 호출 — /api/admin/reports/email
+#   2. body: { all: true, cronSecret: CRON_SECRET }
+#   3. endpoint 가 Supabase 에서 email 있는 tenants 추출 + 각 클라이언트에 Resend 발송
+#
+# 필수 secrets:
+#   - VERCEL_PROD_URL — 예: https://geo-v2-beta.vercel.app
+#   - CRON_SECRET — 보안용 (Vercel 환경변수도 동일하게 설정 필요)
+#   - (Vercel 측) RESEND_API_KEY + RESEND_FROM
+
+on:
+  schedule:
+    - cron: '0 9 1 * *'   # 매월 1일 09:00 UTC = 18:00 KST
+  workflow_dispatch:
+    inputs:
+      period:
+        description: '발송 기간 라벨 (기본: 자동 추정)'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: send-monthly-reports
+  cancel-in-progress: false
+
+jobs:
+  send:
+    name: Send all tenants' monthly reports
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Verify secrets
+        run: |
+          if [ -z "${{ secrets.VERCEL_PROD_URL }}" ]; then
+            echo "::error::VERCEL_PROD_URL 미설정"
+            exit 1
+          fi
+          if [ -z "${{ secrets.CRON_SECRET }}" ]; then
+            echo "::error::CRON_SECRET 미설정 — Vercel 환경변수도 동일하게 설정 필요"
+            exit 1
+          fi
+
+      - name: Call email endpoint (all=true)
+        env:
+          VERCEL_URL: ${{ secrets.VERCEL_PROD_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          PERIOD: ${{ inputs.period }}
+        run: |
+          PERIOD_JSON=""
+          if [ -n "$PERIOD" ]; then
+            PERIOD_JSON=", \"period\": \"$PERIOD\""
+          fi
+          BODY="{\"all\": true, \"cronSecret\": \"$CRON_SECRET\"$PERIOD_JSON}"
+          echo "Calling $VERCEL_URL/api/admin/reports/email"
+          RESPONSE=$(curl -sS -X POST \
+            -H "Content-Type: application/json" \
+            -d "$BODY" \
+            "$VERCEL_URL/api/admin/reports/email")
+          echo "$RESPONSE" | jq '.'
+          OK=$(echo "$RESPONSE" | jq -r '.ok // false')
+          if [ "$OK" != "true" ]; then
+            echo "::error::Email API 호출 실패"
+            exit 1
+          fi
+          SENT=$(echo "$RESPONSE" | jq -r '.sent // 0')
+          FAILED=$(echo "$RESPONSE" | jq -r '.failed // 0')
+          TOTAL=$(echo "$RESPONSE" | jq -r '.total // 0')
+          echo "Sent: $SENT / Failed: $FAILED / Total: $TOTAL"
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## 월간 보고서 자동 발송"
+            echo "- 매월 1일 09:00 UTC 자동 실행"
+            echo "- /api/admin/reports/email?all=true 호출"
+            echo "- tenants 의 email 있는 모든 클라이언트에 Resend 발송"
+            echo "- 결과는 위 step 의 RESPONSE 참조"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -2572,3 +2572,78 @@ if (allKwIds.length === 0) {
 - **검증 히스토리 UI 통합** (Round 46 의 domain-history API)
 - **UI/UX 정리**
 - **Anthropic credit 충전 후** — 4 엔진 본격
+
+---
+
+## Round 48 (2026-05-31 야간 5) — 이메일 자동 발송 cron + content-queue 모바일 wrap
+
+### 1. 이메일 자동 발송 cron (매월 1일 18:00 KST)
+
+**기존 endpoint 한계**:
+- 단일 tenant 만 처리
+- to: `ADMIN_EMAIL` 만 (클라이언트가 직접 받지 못함)
+- cron 미연동
+
+**Round 48 보강** — `/api/admin/reports/email`:
+- `all=true` 모드 추가 — 모든 tenants (email NOT NULL) 일괄 발송
+- `cronSecret` 인증 (CRON_SECRET 환경변수 매칭)
+- `to: tenant.email` 우선 (Round 48), ADMIN_EMAIL fallback
+- **새 HTML 템플릿** — 17년차 영업 관점:
+  - 메디맵 브랜드 헤더 (#1B68FF 라인)
+  - 클라이언트 이름 인사
+  - "이번 달 4대 AI 엔진 grounding 데이터..." 자연어 안내
+  - 보고서 포함 내용 5개 list (인용 횟수, 키워드 성과, 경쟁사, 발행 콘텐츠 + AI 인용, 다음 달 액션)
+  - CTA 버튼 "보고서 보기 →" (brand 색)
+  - 푸터 — 발송 안내
+
+**GitHub Actions workflow** — `.github/workflows/send-monthly-reports.yml`:
+- Cron: `0 9 1 * *` (매월 1일 09:00 UTC = 18:00 KST)
+- curl POST → `{all: true, cronSecret}`
+- 응답 jq 파싱 — sent / failed / total 출력
+- Job summary 에 결과 누적
+
+**필수 GitHub Secrets**:
+- `VERCEL_PROD_URL` — `https://geo-v2-beta.vercel.app`
+- `CRON_SECRET` — Vercel 환경변수 + 동일
+
+**필수 Vercel 환경변수**:
+- `RESEND_API_KEY`
+- `RESEND_FROM` — 예: `MEDIMAP GEO <reports@medimap.team>`
+- `CRON_SECRET` — GitHub Secrets 와 동일
+
+### 2. content-queue 모바일 가로 스크롤 wrap
+
+가장 자주 보는 페이지의 모바일 대응 — Round 43 tenants 패턴이 아닌 가벼운 overflow wrap:
+- `<table>` 을 `<div className="overflow-x-auto">` 로 감쌈
+- `min-w-[720px]` — 표 폭 고정 → 가로 스크롤 안전
+- 본격 카드 변환은 다음 라운드 (Round 43 tenants 패턴)
+
+### 새 함정 (Round 48 추가)
+
+**(BC) 단일 endpoint 의 dual 모드 — query param vs body flag**
+- 패턴: `POST /api/admin/reports/email` 가 두 가지 동작:
+  - `body.tenantId` — 단일 tenant (admin UI 의 [이메일 발송] 버튼)
+  - `body.all=true` + `cronSecret` — 일괄 발송 (cron)
+- 정답: body 의 boolean flag 로 분기 + cronSecret 인증으로 보안. URL 분리보다 단일 endpoint 가 코드 응집 ↑.
+
+**(BD) Resend HTML 템플릿 — inline style 만**
+- 증상: 이메일 클라이언트 (Gmail, Outlook) 가 `<style>` block 무시. CSS class 무시.
+- 정답: 모든 스타일 inline (`style="..."`). 폰트 family, color, padding, border-radius 등.
+
+**(BE) GitHub Actions cron + Vercel admin endpoint — 인증 패턴**
+- 증상: admin endpoint 가 middleware 가드 (ADMIN_PASSWORD cookie) → curl 호출 시 401
+- 정답: endpoint 자체에 `body.cronSecret === process.env.CRON_SECRET` 체크 + middleware 우회 (cookie 없어도 통과). 다만 SecREt 안 유출되게 GitHub Secrets + Vercel 양쪽 동일하게 설정.
+
+### Round 48 산출물
+
+코드:
+- `medimap-blog-v2/src/app/api/admin/reports/email/route.ts` — all 모드 + sendOne 헬퍼 + HTML 템플릿
+- `.github/workflows/send-monthly-reports.yml` — 신규 cron workflow
+- `medimap-blog-v2/src/app/admin/(portal)/content-queue/page.tsx` — overflow wrap
+
+### Round 49 후보
+
+- **모바일 본격 카드 변환** — citations / competitors / learned-insights / domain-classifications (Round 43 tenants 패턴)
+- **검증 히스토리 UI** — domain-classifications expand 행 + mini chart (Round 46 API 활용)
+- **이메일 cron 검증** — Vercel/GitHub 환경변수 등록 후 manual run
+- **Anthropic credit 충전 후** — 4 엔진 본격
