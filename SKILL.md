@@ -2709,3 +2709,68 @@ competitors / learned-insights / domain-classifications 의 본격 카드 변환
 - **이메일 cron manual run 검증** (사용자 환경변수 등록 후)
 - **Anthropic credit 충전** + 4 엔진 본격
 - **UI/UX 정리** — admin-page-header 페이지별 일관 적용
+
+---
+
+## Round 50 (2026-05-31) — 이메일 cron middleware 차단 fix
+
+### 증상
+
+GitHub Actions "Send monthly reports" workflow manual run → 401:
+```json
+{"ok": false, "error": "unauthorized — admin login required"}
+```
+
+### 진단
+
+`/api/admin/*` 경로의 middleware (`src/middleware.ts`) 가 ADMIN_PASSWORD cookie 검증.
+- Round 48 의 `/api/admin/reports/email` endpoint 자체는 `body.cronSecret` 체크
+- 그러나 **middleware 가 endpoint 도달 전에 401 차단**
+- curl 호출은 cookie 없으니 무조건 401
+
+### Fix — middleware 에 cron secret 우회
+
+```typescript
+// Round 50 — Cron secret 우회
+const cronSecret = process.env.CRON_SECRET;
+if (cronSecret && isApi) {
+  const headerSecret = req.headers.get('x-cron-secret');
+  const querySecret = req.nextUrl.searchParams.get('cronSecret');
+  if (headerSecret === cronSecret || querySecret === cronSecret) {
+    return NextResponse.next();  // 통과
+  }
+}
+```
+
+**보안**:
+- CRON_SECRET 환경변수 설정된 경우만 우회 가능
+- 미설정 시 헤더/쿼리 secret 무시 → 일반 admin 가드 동작
+- 헤더 우회 + endpoint 의 body.cronSecret 이중 가드 — 보안 강화
+
+### workflow 도 헤더 방식 변경
+
+`.github/workflows/send-monthly-reports.yml` 의 curl 호출:
+```bash
+curl -X POST \
+  -H "X-Cron-Secret: $CRON_SECRET" \    # ← 추가
+  -H "Content-Type: application/json" \
+  -d "{\"all\": true, \"cronSecret\": \"$CRON_SECRET\", ...}" \
+  "$VERCEL_URL/api/admin/reports/email"
+```
+
+헤더 + body 둘 다 cronSecret 전송 — middleware 우회 + endpoint 가드 둘 다 통과.
+
+### 새 함정 (Round 50)
+
+**(BF) Next.js middleware 가 admin endpoint 도달 전 차단**
+- 증상: endpoint 자체에 cron secret 가드 있어도 middleware 가 먼저 cookie 검증 → 401
+- 정답: middleware 에서도 secret 우회 로직 추가. header 우선, query 보조 (query 는 로그/Referer 노출 가능 — header 권장)
+
+**(BG) 환경변수 CRON_SECRET — GitHub Secrets + Vercel 양쪽 동일 필수**
+- 증상: GitHub 의 secret 과 Vercel 의 환경변수 불일치 → middleware 우회 실패 + endpoint 401
+- 정답: 같은 랜덤 문자열 두 곳에 똑같이 등록. 둘 다 Production environment 에서 적용 확인.
+
+### Round 50 산출물
+
+- `medimap-blog-v2/src/middleware.ts` — cron secret 우회 로직
+- `.github/workflows/send-monthly-reports.yml` — X-Cron-Secret 헤더 추가

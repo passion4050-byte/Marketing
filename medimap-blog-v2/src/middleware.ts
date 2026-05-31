@@ -1,9 +1,13 @@
 /**
  * Next.js middleware — 인증/보안 가드
  *
- * 1. /api/admin/* (단 login/logout 제외) → ADMIN cookie 검증
+ * 1. /api/admin/* (단 login/logout/cron 제외) → ADMIN cookie 검증
  * 2. /admin/* (login 제외) → cookie 없으면 /admin/login 리다이렉트
  *    (이미 (portal)/layout.tsx 에서 처리하지만 edge 에서 빠르게 차단)
+ *
+ * Round 50 (2026-05-31) — Cron 우회:
+ *   - X-Cron-Secret 헤더 또는 ?cronSecret query 가 process.env.CRON_SECRET 일치 시 통과
+ *   - GitHub Actions cron 이 admin endpoint 호출 가능
  */
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -27,6 +31,16 @@ export function middleware(req: NextRequest) {
   }
   if (PUBLIC_API_PATHS.some((p) => pathname === p)) {
     return NextResponse.next();
+  }
+
+  // Round 50 — Cron secret 우회 (GitHub Actions 가 admin endpoint 호출)
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret && isApi) {
+    const headerSecret = req.headers.get('x-cron-secret');
+    const querySecret = req.nextUrl.searchParams.get('cronSecret');
+    if (headerSecret === cronSecret || querySecret === cronSecret) {
+      return NextResponse.next();
+    }
   }
 
   // ADMIN_PASSWORD 미설정 (dev mode) → 통과

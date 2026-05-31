@@ -59,8 +59,10 @@ jobs:
           fi
           BODY="{\"all\": true, \"cronSecret\": \"$CRON_SECRET\"$PERIOD_JSON}"
           echo "Calling $VERCEL_URL/api/admin/reports/email"
+          # Round 50 — X-Cron-Secret 헤더로 middleware 우회 + body 에도 cronSecret (route 가드)
           RESPONSE=$(curl -sS -X POST \
             -H "Content-Type: application/json" \
+            -H "X-Cron-Secret: $CRON_SECRET" \
             -d "$BODY" \
             "$VERCEL_URL/api/admin/reports/email")
           echo "$RESPONSE" | jq '.'
