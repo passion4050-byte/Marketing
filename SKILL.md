@@ -2242,3 +2242,94 @@ DB:
 - 페이지별 admin-page-header 일관 적용
 - UI/UX 정리 15개 중 우선순위 batch
 - Anthropic credit 후 — 4 엔진 본격
+
+---
+
+## Round 44 (2026-05-31 야간) — 월간 보고서 17년차 영업/마케터 관점 재구성
+
+### 진단 — 기존 보고서의 한계
+
+**Before**: mock data (`adminTenants`, `costDaily`, `citationEvents`) 기반. 단순 통계 나열. "그래서 메디맵에 돈 쓴 ROI 가 뭐냐" 답 없음.
+
+**17년차 영업/마케터 관점 — 클라이언트가 받는 자료의 본질**:
+- 병·의원장 / 마케팅 담당자가 다음 달 갱신 의사결정에 쓰는 자료
+- 영업 시 시연 자료 (다른 잠재 클라이언트에게)
+- "지난 달 변화" + "다음 달 액션" 명확
+- 데이터만이 아니라 **인사이트 + 권장 행동** 필수
+
+### 새 보고서 8 섹션 구조
+
+1. **표지/헤더** — 클라이언트명 + 진료과목/지역 + 보고 기간 + 메디맵 브랜딩
+2. **Executive Summary** — 한 줄 평가 (변화 + 다음 액션 함의)
+3. **핵심 KPI 3개** — 총 인용 수 / 메디맵 점유율 / 발행 콘텐츠 + 전월 대비 delta
+4. **AI 검색 노출 추이 차트** — 일자별 막대 (총/T1) + line (메디맵 share %)
+5. **키워드 성과 Top 5** — 인용/메디맵/경쟁사/win rate + **보강 필요 키워드** 별도 박스
+6. **경쟁사 노출 현황 Top 5** — 외부 도메인 + 인용 키워드
+7. **AI 가 인용한 메디맵 콘텐츠 URL** — SaaS 가치의 직접 증거 (있을 때만)
+8. **다음 달 액션 플랜 4개** — 보강 콘텐츠 / 키워드 확장 / 경쟁사 학습 / 영업 인사이트
+
+### 데이터 처리
+
+server component (`/admin/reports/[tenantId]/page.tsx`) — 실데이터 fetch:
+- 이번 달 + 지난 달 queries/responses 분리 fetch → 비교 가능
+- tenant.homepage + additional_domains → clientDomains set → T2 정확 매칭
+- domain_classifications 로 T1~T5 5-tier 자동 분류
+- 키워드별 win_rate (T1/total) 계산
+- 경쟁사 도메인 ranking (T5 기준)
+- 메디맵 인용 URL 추출 (T1 의 final_url)
+
+### 시각 디자인 — 17년차 톤
+
+- **표지** 그라데이션 (brand-50 → surface-base) — 첫인상 강조
+- **KPI 카드** — 큰 숫자 (text-2xl bold) + 단위 + delta 화살표 (success/danger) + 전월값 부제
+- **메디맵 인용 URL section** — brand-50 배경으로 강조 (가치 증명)
+- **보강 키워드** — warning 색 박스 (경고 vs 일반)
+- **다음 달 액션** — 번호 매김 + 실행 가능한 자연어
+- **footer** — 메디맵 SaaS 브랜딩 + 4 엔진 출처 명시
+
+### Print/PDF 친화
+
+- `print:hidden` 인쇄 시 안내 영역 숨김
+- `print:max-w-none` 인쇄 시 폭 제한 해제
+- `print:bg-white` 배경 흰색 (잉크 절약)
+- `PrintButton` 컴포넌트 — window.print() 호출 → 브라우저 PDF 저장 가능
+
+### 보조 컴포넌트 — `_components/` 디렉토리
+
+server page 와 분리:
+- `PrintButton.tsx` — 'use client' (window.print)
+- `ReportTrendChart.tsx` — 'use client' (recharts ComposedChart)
+
+server / client 경계 명확 — Vercel 빌드 안전.
+
+### 새 함정 (Round 44 추가)
+
+**(AU) server component 보고서 페이지 + client 컴포넌트 분리**
+- 증상: server page 에서 client component (recharts) 직접 import → "Client Component cannot be imported in Server Component" 컴파일 에러 (사실 가능하지만 cache/serialization 이슈)
+- 정답: `_components/` 디렉토리 (Next.js 컨벤션 — router 에서 무시) 에 'use client' 컴포넌트 분리. data 는 props 로 전달.
+
+**(AV) 영업 자료 보고서 — "데이터만" 이 아니라 "다음 액션" 명시**
+- 17년차 기획자 원칙: 의사결정자 (병원장) 가 받는 자료는 "그래서 뭐 해야 하나" 자동 답. 그래프 + 숫자만 있으면 "그래서?" 질문 나옴.
+- 정답: 마지막 섹션 "다음 달 액션 플랜" 4개 — 데이터 기반 자동 생성. 운영자가 1클릭으로 실행 가능 (Phase 2).
+
+**(AW) Delta 시각화 — % vs %p 명확 구분**
+- 인용 수 전월 대비: % (relative)
+- share 전월 대비: %p (absolute percentage point)
+- 혼동 시 클라이언트 오해. `isPercentDelta` prop 으로 구분.
+
+### Round 44 보고서 산출물
+
+코드:
+- `medimap-blog-v2/src/app/admin/(portal)/reports/[tenantId]/page.tsx` — server component 전면 재작성 (mock → 실데이터)
+- `medimap-blog-v2/src/app/admin/(portal)/reports/[tenantId]/_components/PrintButton.tsx` — 신규
+- `medimap-blog-v2/src/app/admin/(portal)/reports/[tenantId]/_components/ReportTrendChart.tsx` — 신규 (recharts ComposedChart)
+
+### Round 44 보류 (Round 45 후보)
+
+사용자 명시 4개 중 월간 보고서 외:
+- 키워드 풀 Tier 2 chip editor — tenant edit modal 구조 변경 큼
+- 모바일 카드 4 페이지 — content-queue 우선
+- 검증 히스토리 — 자동 분류 도메인 시간별 추이
+- UI/UX 정리 — admin-page-header 일관 적용 + 빈/loading/error 상태
+
+이번 batch 는 월간 보고서 (가장 임팩트 + 시각 변화 큼) 완료. 나머지는 사용자 검증 + 결정 후 Round 45 진행.
