@@ -118,8 +118,11 @@ export default function KeywordsPage() {
 
   return (
     <div className="px-8 py-6">
-      <header className="mb-5">
-        <h1 className="text-2xl font-bold text-ink">키워드 풀 ({rows.length})</h1>
+      <header className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">키워드 풀 ({rows.length})</h1>
+          <p className="admin-page-desc">측정 키워드 · Tier 2/3 분류 · 클라이언트별 own 키워드 매핑</p>
+        </div>
       </header>
 
       <div className="card mb-4 p-4">

@@ -233,9 +233,10 @@ export default function ContentManagementPage() {
 
   return (
     <div className="px-8 py-6">
-      <header className="mb-5 flex items-center justify-between">
+      <header className="admin-page-header">
         <div>
-          <h1 className="text-2xl font-bold text-ink">콘텐츠 관리</h1>
+          <h1 className="admin-page-title">콘텐츠 관리</h1>
+          <p className="admin-page-desc">검수 대기 + 발행 완료 콘텐츠 인라인 편집 · AI 인용 효과 확인</p>
         </div>
         <button onClick={() => void load('both')} className="btn-secondary text-xs">새로고침</button>
       </header>

@@ -336,8 +336,11 @@ export default function ContentSettingsPage() {
 
   return (
     <div className="px-8 py-6">
-      <header className="mb-5">
-        <h1 className="text-2xl font-bold text-ink">콘텐츠 설정</h1>
+      <header className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">콘텐츠 설정</h1>
+          <p className="admin-page-desc">global · per-tenant 프롬프트 / 카테고리 / 메디맵 CTA 정책</p>
+        </div>
       </header>
 
       <div className="card mb-5 flex items-start gap-3 border-l-4 border-l-status-warn bg-amber-50/70 p-4 text-[12px] text-ink-soft">

@@ -403,10 +403,10 @@ export default function DomainClassificationsPage() {
   return (
     <div className="space-y-5">
       {/* 헤더 */}
-      <div className="flex items-center justify-between">
+      <div className="admin-page-header">
         <div>
-          <h1 className="text-xl font-bold text-ink">도메인 분류 사전</h1>
-          <div className="mt-1 text-[12px] text-ink-muted">
+          <h1 className="admin-page-title">도메인 분류 사전</h1>
+          <div className="admin-page-desc">
             글로벌 5-tier (T1/T3/T4/NOISE) + 클라이언트별 경쟁 라벨링 (DIRECT/INDIRECT/REFERENCE/TO_LEARN/IGNORE)
           </div>
         </div>
@@ -624,7 +624,7 @@ export default function DomainClassificationsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+            <table className="w-full min-w-[640px] text-xs">
               <thead className="bg-surface-subtle text-[10px] font-bold uppercase tracking-wider text-ink-muted">
                 <tr>
                   <th className="px-3 py-2 text-left">도메인</th>

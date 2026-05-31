@@ -106,9 +106,10 @@ export default function ContentCalendarPage() {
 
   return (
     <div className="px-8 py-6">
-      <header className="mb-5 flex items-center justify-between">
+      <header className="admin-page-header">
         <div>
-          <h1 className="text-2xl font-bold text-ink">콘텐츠 캘린더</h1>
+          <h1 className="admin-page-title">콘텐츠 캘린더</h1>
+          <p className="admin-page-desc">월별 발행 · 검수 일정 · 자사 + 파트너 콘텐츠 한눈에</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={goPrev} className="rounded-md border border-border p-1.5 hover:bg-surface-subtle"><ChevronLeft className="h-4 w-4" /></button>

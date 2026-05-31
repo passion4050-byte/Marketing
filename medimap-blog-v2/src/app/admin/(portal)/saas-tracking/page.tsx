@@ -86,13 +86,15 @@ export default function SaasTrackingPage() {
 
   return (
     <div className="space-y-5 px-4 py-6 md:px-8">
-      <header>
-        <h1 className="flex items-center gap-2 text-xl font-bold text-ink">
-          <Sparkles className="h-5 w-5 text-brand" />
-          SaaS 시장 노출도
-        </h1>
-        <div className="mt-1 text-[12px] text-ink-muted">
-          "GEO 최적화", "AEO 컨설팅" 같은 SaaS 카테고리 키워드 — 메디맵 자체가 잠재 고객에게 노출되는 정도 + 경쟁 SaaS 자동 발견
+      <header className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-brand" />
+            SaaS 시장 노출도
+          </h1>
+          <div className="admin-page-desc">
+            "GEO 최적화", "AEO 컨설팅" 같은 SaaS 카테고리 키워드 — 메디맵 자체가 잠재 고객에게 노출되는 정도 + 경쟁 SaaS 자동 발견
+          </div>
         </div>
       </header>
 
@@ -177,7 +179,7 @@ export default function SaasTrackingPage() {
           </div>
         </header>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full min-w-[640px] text-xs">
             <thead className="bg-surface-subtle text-[10px] font-bold uppercase tracking-wider text-ink-muted">
               <tr>
                 <th className="px-3 py-2 text-left">키워드</th>

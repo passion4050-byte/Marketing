@@ -127,9 +127,10 @@ export default function TenantsPage() {
 
   return (
     <div className="px-8 py-6">
-      <header className="mb-5 flex items-center justify-between">
+      <header className="admin-page-header">
         <div>
-          <h1 className="text-2xl font-bold text-ink">클라이언트 ({tenants.length})</h1>
+          <h1 className="admin-page-title">클라이언트 ({tenants.length})</h1>
+          <p className="admin-page-desc">병·의원 등록 · 키워드 풀 / own 키워드 · 이메일 발송 대상 관리</p>
         </div>
         <button onClick={openNew} className="btn-primary text-xs">
           <Plus className="h-3.5 w-3.5" /> 신규 클라이언트

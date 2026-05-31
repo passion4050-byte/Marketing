@@ -60,8 +60,11 @@ export default function ReportsListPage() {
 
   return (
     <div className="px-8 py-6">
-      <header className="mb-5">
-        <h1 className="text-2xl font-bold text-ink">월간 보고서 — {period}</h1>
+      <header className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">월간 보고서 — {period}</h1>
+          <p className="admin-page-desc">클라이언트별 ROI 보고서 · 매월 1일 18시 자동 발송</p>
+        </div>
       </header>
 
       <div className="mb-4 rounded-lg border border-border bg-surface-subtle px-4 py-3 text-xs text-ink-soft">

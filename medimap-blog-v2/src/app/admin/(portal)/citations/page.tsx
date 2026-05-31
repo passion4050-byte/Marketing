@@ -197,8 +197,11 @@ export default function CitationsPage() {
 
   return (
     <div className="px-8 py-6 print:px-0 print:py-0">
-      <header className="mb-3 flex items-center justify-between print:hidden">
-        <h1 className="text-2xl font-bold text-ink">AI 인용 추적</h1>
+      <header className="admin-page-header print:hidden">
+        <div>
+          <h1 className="admin-page-title">AI 인용 추적 — 자사</h1>
+          <p className="admin-page-desc">최근 30일 메디맵 도메인 인용 추이 · Source 분류 · 키워드별 효과</p>
+        </div>
         <div className="flex items-center gap-2">
           <button onClick={() => window.print()} className="btn-secondary text-xs">
             <Printer className="h-3.5 w-3.5" /> PDF 출력

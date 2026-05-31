@@ -187,10 +187,10 @@ export default function LearnedInsightsPage() {
   return (
     <div className="space-y-5">
       {/* 헤더 */}
-      <div className="flex items-center justify-between">
+      <div className="admin-page-header">
         <div>
-          <h1 className="text-xl font-bold text-ink">학습 인사이트</h1>
-          <div className="mt-1 text-[12px] text-ink-muted">
+          <h1 className="admin-page-title">학습 인사이트</h1>
+          <div className="admin-page-desc">
             경쟁사/플랫폼 도메인 분석 누적 + 메디맵 콘텐츠 baseline 관리
           </div>
         </div>

@@ -14,8 +14,11 @@ export default function CostPage() {
   return (
     <div className="px-8 py-6">
       <MockBanner source="Gemini API billing + Vercel function invocation" />
-      <header className="mb-5">
-        <h1 className="text-2xl font-bold text-ink">비용 모니터</h1>
+      <header className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">비용 모니터</h1>
+          <p className="admin-page-desc">LLM API 사용량 · Vercel function invocation · 일일/월간 추이</p>
+        </div>
       </header>
 
       <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-4">

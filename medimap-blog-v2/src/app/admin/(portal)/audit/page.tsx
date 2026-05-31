@@ -33,9 +33,10 @@ export default function AuditPage() {
 
   return (
     <div className="px-8 py-6">
-      <header className="mb-5 flex items-center justify-between">
+      <header className="admin-page-header">
         <div>
-          <h1 className="text-2xl font-bold text-ink">감사 로그 (Audit Log) ({items.length})</h1>
+          <h1 className="admin-page-title">감사 로그 (Audit Log) ({items.length})</h1>
+          <p className="admin-page-desc">admin 액션 hook · tenants / keywords / content-queue CRUD 기록</p>
         </div>
         <button onClick={() => void load()} className="btn-secondary text-xs">새로고침</button>
       </header>

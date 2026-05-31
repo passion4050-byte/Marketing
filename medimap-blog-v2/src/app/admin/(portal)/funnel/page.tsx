@@ -12,8 +12,11 @@ export default function FunnelPage() {
   return (
     <div className="px-8 py-6">
       <MockBanner source="ShortLink 클릭 + GA4" />
-      <header className="mb-5">
-        <h1 className="text-2xl font-bold text-ink">Funnel · ROI</h1>
+      <header className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">Funnel · ROI</h1>
+          <p className="admin-page-desc">AI 인용 → 클릭 → 전환 · GA4 + ShortLink 추적</p>
+        </div>
       </header>
 
       <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">

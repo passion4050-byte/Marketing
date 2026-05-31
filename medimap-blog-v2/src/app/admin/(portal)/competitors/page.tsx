@@ -130,8 +130,11 @@ export default function CompetitorsPage() {
 
   return (
     <div className="px-8 py-6 print:px-0 print:py-0">
-      <header className="mb-3 flex items-center justify-between print:hidden">
-        <h1 className="text-2xl font-bold text-ink">AI 인용 추적</h1>
+      <header className="admin-page-header print:hidden">
+        <div>
+          <h1 className="admin-page-title">AI 인용 추적 — 경쟁사</h1>
+          <p className="admin-page-desc">AI 가 추천하는 경쟁 도메인 ranking · 키워드별 매트릭스 · 행 클릭으로 인용 URL drill-down</p>
+        </div>
         <div className="flex items-center gap-2">
           <button onClick={() => window.print()} className="btn-secondary text-xs">
             <Printer className="h-3.5 w-3.5" /> PDF 출력
@@ -307,7 +310,7 @@ export default function CompetitorsPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-xs">
+                <table className="w-full min-w-[560px] text-xs">
                   <thead className="bg-surface-subtle text-[10px] font-bold uppercase tracking-wider text-ink-muted">
                     <tr>
                       <th className="px-3 py-2 text-left">키워드</th>
@@ -386,7 +389,7 @@ export default function CompetitorsPage() {
               <div className="px-5 py-8 text-center text-sm text-ink-muted">데이터 없음</div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-xs">
+                <table className="w-full min-w-[560px] text-xs">
                   <thead className="bg-surface-subtle text-[10px] font-bold uppercase tracking-wider text-ink-muted">
                     <tr>
                       <th className="w-8 px-2 py-2"></th>

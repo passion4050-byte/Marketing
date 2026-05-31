@@ -100,9 +100,10 @@ export default function UsersPage() {
 
   return (
     <div className="px-8 py-6">
-      <header className="mb-5 flex items-center justify-between">
+      <header className="admin-page-header">
         <div>
-          <h1 className="text-2xl font-bold text-ink">사용자 관리 ({users.length})</h1>
+          <h1 className="admin-page-title">사용자 관리 ({users.length})</h1>
+          <p className="admin-page-desc">admin · 클라이언트 사용자 · 역할 · 초대 / 비활성화</p>
         </div>
         <button onClick={() => setShowInvite(true)} className="btn-primary text-xs">
           <Plus className="h-3.5 w-3.5" /> 사용자 초대

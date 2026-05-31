@@ -647,8 +647,11 @@ export default async function AdminDashboardPage({
 
   return (
     <div className="px-8 py-6">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold text-ink">운영 대시보드</h1>
+      <header className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">운영 대시보드</h1>
+          <p className="admin-page-desc">전체 클라이언트 KPI 한눈에 · 발행 추이 · AI 인용 share</p>
+        </div>
       </header>
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

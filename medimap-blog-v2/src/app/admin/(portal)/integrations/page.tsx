@@ -71,8 +71,11 @@ export default function IntegrationsPage() {
 
   return (
     <div className="px-8 py-6">
-      <header className="mb-5">
-        <h1 className="text-2xl font-bold text-ink">연동 (Integrations)</h1>
+      <header className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">연동 (Integrations)</h1>
+          <p className="admin-page-desc">YouTube OAuth · Resend · Slack 알림 · 외부 API 연결 관리</p>
+        </div>
       </header>
 
       <div className="card mb-4 border-l-4 border-brand bg-brand-50/40 p-4 text-xs text-brand-700">
