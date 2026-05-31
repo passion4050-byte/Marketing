@@ -419,6 +419,20 @@ export default function DomainClassificationsPage() {
         </button>
       </div>
 
+      {/* Round 52 (2026-05-31) — 분류 사전이 왜 필요한지 + 5-tier 한 줄 설명 */}
+      <div className="card bg-brand-50/30 p-3 text-[11px] text-ink-soft">
+        <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-brand">왜 분류하는가?</div>
+        <div className="leading-relaxed">
+          AI 가 메디맵 / 경쟁사 / 권위 사이트 중 어디를 인용하는지 자동 집계하려면 도메인을 5단계로 분류해야 합니다.
+          <strong className="text-brand-700"> T1</strong> 우리 자산 ·
+          <strong className="text-status-warning"> T3</strong> 종합병원·학회 (콘텐츠 톤 학습 대상) ·
+          <strong className="text-status-info"> T4</strong> 의료 플랫폼 (인용 점유율 경쟁) ·
+          <strong className="text-status-danger"> T5</strong> 경쟁 안과·병원 (직접 위협) ·
+          <strong className="text-ink-muted"> NOISE</strong> 무관 도메인 (집계 제외).
+          자동 분류 도메인은 <span className="rounded bg-amber-100 px-1 text-amber-800">🤖 auto</span> 배지, 수동 분류는 <span className="rounded bg-green-100 px-1 text-green-800">✋ manual</span> 배지로 구분됩니다.
+        </div>
+      </div>
+
       {/* Round 41 (2026-05-31) — 클라이언트 컨텍스트 모드 (검색 가능 selector + 표 자동 연동) */}
       <ClientContextSelector
         tenants={contextData?.tenants ?? []}

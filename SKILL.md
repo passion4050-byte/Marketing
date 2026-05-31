@@ -2774,3 +2774,95 @@ curl -X POST \
 
 - `medimap-blog-v2/src/middleware.ts` — cron secret 우회 로직
 - `.github/workflows/send-monthly-reports.yml` — X-Cron-Secret 헤더 추가
+
+---
+
+## Round 51 (2026-05-31) — 모바일 표 min-w + admin-page-header 일관 적용
+
+### 배경
+
+Round 50 까지 어드민 13개 페이지의 헤더 마크업이 페이지마다 제각각 (`text-2xl font-bold` / `flex items-center justify-between` / 설명 없거나 줄 위치 차이 등). 첫 진입한 사용자가 "이 페이지가 뭐 하는 곳인지" 알기 어려움. 또한 모바일에서 일부 표가 너무 좁아 컬럼이 겹침.
+
+### Fix A — globals.css 헬퍼 일관 적용 (13 페이지)
+
+`.admin-page-header` / `.admin-page-title` / `.admin-page-desc` — Round 40 에 정의만 되어 있고 적용 안 된 상태. 13개 페이지에 통일:
+
+- `/admin` (대시보드), `/admin/tenants`, `/admin/keywords`
+- `/admin/content-queue`, `/admin/content-settings`, `/admin/calendar`
+- `/admin/citations`, `/admin/competitors`, `/admin/learned-insights`, `/admin/domain-classifications`, `/admin/saas-tracking`
+- `/admin/reports`, `/admin/users`, `/admin/audit`, `/admin/cost`, `/admin/funnel`, `/admin/integrations`, `/admin/ab-tests`
+
+각 헤더에 한 줄 설명(`admin-page-desc`) 추가 — 진입 시 페이지 목적 즉시 인지. 모바일 `text-xl` / 데스크탑 `md:text-2xl` 자동 전환.
+
+### Fix B — 표에 min-w 추가 (모바일 가로 스크롤 안전)
+
+competitors / domain-classifications / saas-tracking 의 표가 모바일에서 컬럼 겹침 위험.
+- competitors: `min-w-[560px]` (2개 표 모두)
+- domain-classifications: `min-w-[640px]`
+- saas-tracking: `min-w-[640px]`
+
+이미 `overflow-x-auto` wrapper 있으니 안전한 가로 스크롤로 폴백.
+
+### 새 함정 (Round 51)
+
+**(BH) PowerShell 의 `(portal)` 괄호가 cmdlet 으로 해석**
+- 증상: `git add medimap-blog-v2/src/app/admin/(portal)/` → `'portal' 용어가 cmdlet 으로 인식되지 않습니다` 에러
+- 정답: 따옴표로 감싸기 (`git add "..."` ) 또는 `git add -A` 사용. PowerShell 에서 path 에 괄호 있으면 항상 quoting 필요.
+
+### Round 51 산출물
+
+- 13개 admin 페이지 헤더 일관화 (commit `30ae999`)
+- 3개 페이지 표 min-w 추가
+
+---
+
+## Round 52 (2026-05-31) — competitors/domain-classifications UIUX 고도화
+
+### 배경
+
+사용자 피드백: "데이터가 많으니 한눈에 보기 복잡, 데이터 분석 흐름이나 사용 흐름 개선해줘". UIUX 관점에서 두 페이지 분석.
+
+### competitors 페이지 문제 진단
+
+1. **정보 위계 부재** — KPI → 차트 → 매트릭스 → 도메인 상세를 같은 데이터의 다른 각도로 4번 반복. 사용자가 "어디부터 봐야 하지?" 헷갈림.
+2. **액션 부재** — 데이터만 있고 "그래서 이번 주 뭘 해야 하지?" 가 안 보임.
+3. **위협 인지 어려움** — 도메인 30개 나열 중 "위험" 인지 한눈에 안 들어옴.
+
+### Fix A — 인사이트 박스 (상단 3분할)
+
+KPI 위에 "위협 → 학습 → 액션" 3단 박스 추가. 같은 데이터 (`competitor_top`, `tier_distribution`) 를 다른 각도로 재구성:
+
+1. **🚨 위협 도메인 Top 3** (border-l-status-danger) — T5 (직접 경쟁) 우선, 없으면 전체 top. "AI 가 우리보다 자주 추천하는 경쟁사".
+2. **📚 학습 후보 Top 3** (border-l-status-warning) — T3 (권위 사이트). "콘텐츠 톤 학습 대상 → Learn 버튼으로 학습".
+3. **✅ 이번 주 액션** (border-l-brand) — `tier_distribution` 기반 조건부 액션 멘트. T5>5건이면 "DIRECT 라벨링", 매트릭스 있으면 "1위 사수 / 2위 보강" 등.
+
+### Fix B — 모바일 카드 변환 (competitor_top 상세)
+
+기존 `<table>` 을 `hidden md:block` 으로 감싸고 `md:hidden` 모바일 카드 list 추가. 각 카드:
+- 도메인 (font-mono truncate) + tier 배지 + 키워드 카운트
+- 우측: 인용 횟수 (큰 글씨)
+- T5 인 경우 `border-status-danger/30` 강조
+- 클릭 시 expand — 키워드 chip + URL list (5개까지, 6개 이상은 "데스크탑에서 전체 보기") + LearnFromDomainButton
+
+### domain-classifications 페이지 문제 진단
+
+1. **분류 목적 모호** — T1~T5 가 뭔지 한 줄 설명 없음 → 첫 사용자 막막.
+2. **자동/수동 분류 구분 불가** — DB schema 에 `classified_by` 같은 컬럼 없음 (별도 라운드에서 추가 필요).
+3. **bulk action 부재** — NOISE/T4 일괄 처리 어려움 (별도 라운드).
+
+### Fix C — 5-tier 설명 박스
+
+분류 사전 헤더 아래에 `bg-brand-50/30` 박스 추가. "왜 분류하는가?" + 5-tier 한 줄 정의:
+- T1 우리 자산 / T3 종합병원·학회 (콘텐츠 톤 학습) / T4 의료 플랫폼 (점유율 경쟁) / T5 경쟁 안과·병원 (직접 위협) / NOISE 무관
+
+### 다음 라운드 후보 (Round 53+)
+
+- **domain_classifications.classified_by 컬럼** ('auto' | 'manual') + auto/manual 배지
+- **bulk action** — 선택 도메인 일괄 tier 변경 / 비활성화
+- **inline 편집 UX 개선** — 편집 모드 시 행 강조 + ESC 취소
+- **citations 페이지에도 인사이트 박스** — 동일 패턴으로 자사 KPI 위에 적용
+
+### Round 52 산출물
+
+- `medimap-blog-v2/src/app/admin/(portal)/competitors/page.tsx` — 인사이트 3단 박스 + 모바일 카드 list
+- `medimap-blog-v2/src/app/admin/(portal)/domain-classifications/page.tsx` — 5-tier 설명 박스

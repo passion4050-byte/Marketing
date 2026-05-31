@@ -244,6 +244,86 @@ export default function CompetitorsPage() {
         </div>
       ) : (
         <>
+          {/* === Round 51 (2026-05-31) — 이번 주 인사이트 박스: 위협 / 학습 후보 / 액션 === */}
+          {data.competitor_top.length > 0 && (
+            <section className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
+              {/* 1. 위협 — top 3 경쟁사 (T5 우선) */}
+              <div className="card card-pad border-l-4 border-l-status-danger">
+                <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-status-danger">
+                  <span>🚨 위협 도메인 Top 3</span>
+                </div>
+                {(() => {
+                  // T5 (직접 경쟁) 우선, 없으면 전체 top
+                  const t5 = data.competitor_top.filter((c) => c.tier === 'T5').slice(0, 3);
+                  const top3 = t5.length > 0 ? t5 : data.competitor_top.slice(0, 3);
+                  return top3.length === 0 ? (
+                    <div className="text-[11px] text-ink-muted">아직 위협 도메인 없음</div>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {top3.map((c, i) => (
+                        <li key={i} className="flex items-center justify-between gap-2 text-[11px]">
+                          <span className="truncate font-mono text-ink" title={c.domain}>{c.domain}</span>
+                          <span className="shrink-0 rounded bg-status-dangerSoft px-1.5 py-0.5 font-bold text-status-danger">
+                            ×{c.count}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  );
+                })()}
+                <div className="mt-2 text-[10px] text-ink-muted">AI 가 우리보다 자주 추천하는 경쟁사</div>
+              </div>
+
+              {/* 2. 학습 후보 — 인용 횟수 많은데 메디맵 baseline 에 없는 도메인 (T3 = 권위) */}
+              <div className="card card-pad border-l-4 border-l-status-warning">
+                <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-status-warning">
+                  <span>📚 학습 후보 Top 3</span>
+                </div>
+                {(() => {
+                  // T3 (권위 사이트) — 우리도 인용되도록 콘텐츠 톤 학습 대상
+                  const t3 = data.competitor_top.filter((c) => c.tier === 'T3').slice(0, 3);
+                  return t3.length === 0 ? (
+                    <div className="text-[11px] text-ink-muted">권위 사이트 데이터 부족</div>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {t3.map((c, i) => (
+                        <li key={i} className="flex items-center justify-between gap-2 text-[11px]">
+                          <span className="truncate font-mono text-ink" title={c.domain}>{c.domain}</span>
+                          <span className="shrink-0 rounded bg-status-warningSoft px-1.5 py-0.5 font-bold text-status-warning">
+                            ×{c.count}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  );
+                })()}
+                <div className="mt-2 text-[10px] text-ink-muted">아래 표에서 행 클릭 → Learn 버튼으로 학습</div>
+              </div>
+
+              {/* 3. 액션 — 이번 주 권장 액션 */}
+              <div className="card card-pad border-l-4 border-l-brand">
+                <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-brand">
+                  <span>✅ 이번 주 액션</span>
+                </div>
+                <ul className="space-y-1.5 text-[11px] text-ink-soft">
+                  {data.tier_distribution.T5 > 5 && (
+                    <li>• T5 (경쟁 안과) {data.tier_distribution.T5}건 → DIRECT 라벨링</li>
+                  )}
+                  {data.tier_distribution.T3 > 0 && (
+                    <li>• 권위 사이트 인용 패턴 학습 → 콘텐츠 인용성 향상</li>
+                  )}
+                  {data.keyword_competitor_matrix.length > 0 && (
+                    <li>• 매트릭스 표에서 우리가 1위인 키워드 사수, 2위 키워드 보강</li>
+                  )}
+                  {data.competitor_top.length === 0 && (
+                    <li className="text-ink-muted">측정 데이터 부족 — 키워드 활성화 확인 필요</li>
+                  )}
+                </ul>
+                <div className="mt-2 text-[10px] text-ink-muted">매주 월·목 06:00 자동 측정 기준</div>
+              </div>
+            </section>
+          )}
+
           {/* === KPI 카드 4개 === */}
           <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="card card-pad">
@@ -388,7 +468,9 @@ export default function CompetitorsPage() {
             {data.competitor_top.length === 0 ? (
               <div className="px-5 py-8 text-center text-sm text-ink-muted">데이터 없음</div>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+              {/* Round 52 (2026-05-31) — 데스크탑 표 (md 이상) */}
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full min-w-[560px] text-xs">
                   <thead className="bg-surface-subtle text-[10px] font-bold uppercase tracking-wider text-ink-muted">
                     <tr>
@@ -477,6 +559,107 @@ export default function CompetitorsPage() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Round 52 — 모바일 카드 list */}
+              <div className="space-y-2 px-3 py-3 md:hidden">
+                {data.competitor_top.map((c, i) => {
+                  const isOpen = expandedDomain === c.domain;
+                  const tierMeta = TIER_LABELS[c.tier];
+                  return (
+                    <div
+                      key={`m-${c.domain}-${i}`}
+                      className={cn(
+                        'rounded-lg border bg-surface-base transition',
+                        c.tier === 'T5' ? 'border-status-danger/30' : 'border-border'
+                      )}
+                    >
+                      {/* 카드 헤더 — 클릭으로 expand */}
+                      <button
+                        type="button"
+                        onClick={() => setExpandedDomain(isOpen ? null : c.domain)}
+                        className="flex w-full items-start justify-between gap-2 p-3 text-left"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            {isOpen ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-muted" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-muted" />}
+                            <span className="truncate font-mono text-[12px] font-semibold text-ink">{c.domain}</span>
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            <span
+                              className="inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-bold"
+                              style={{
+                                backgroundColor: `${tierMeta?.color}20`,
+                                color: tierMeta?.color ?? '#64748B',
+                              }}
+                            >
+                              {tierMeta?.short ?? c.tier}
+                            </span>
+                            <span className="text-[10px] text-ink-muted">
+                              키워드 {c.keywords.length}개
+                            </span>
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <div className="font-mono text-[16px] font-bold text-ink">{c.count}</div>
+                          <div className="text-[9px] uppercase text-ink-muted">횟수</div>
+                        </div>
+                      </button>
+
+                      {/* expand 내용 */}
+                      {isOpen && (
+                        <div className="border-t border-border bg-brand-50/30 px-3 py-3">
+                          <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+                            인용된 키워드
+                          </div>
+                          <div className="mb-3 flex flex-wrap gap-1">
+                            {c.keywords.map((kw, ki) => (
+                              <span key={ki} className="rounded bg-surface-base px-1.5 py-0.5 text-[10px] text-ink-soft">
+                                {kw}
+                              </span>
+                            ))}
+                          </div>
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+                              실제 URL ({c.urls.length}개)
+                            </div>
+                            <LearnFromDomainButton
+                              domain={c.domain}
+                              urls={c.urls}
+                              keywords={c.keywords}
+                              sourceTier={c.tier}
+                              tenantId={tenantId}
+                            />
+                          </div>
+                          {c.urls.length === 0 ? (
+                            <div className="text-[10px] text-ink-faint">URL 데이터 없음</div>
+                          ) : (
+                            <ul className="space-y-1">
+                              {c.urls.slice(0, 5).map((url, ui) => (
+                                <li key={ui} className="flex items-start gap-1.5">
+                                  <ExternalLink className="mt-0.5 h-2.5 w-2.5 shrink-0 text-brand" />
+                                  <a
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="break-all text-[10px] text-brand-700 underline decoration-dotted"
+                                  >
+                                    {decodeURIComponent(url).slice(0, 80)}
+                                    {url.length > 80 && '…'}
+                                  </a>
+                                </li>
+                              ))}
+                              {c.urls.length > 5 && (
+                                <li className="text-[10px] text-ink-muted">… 그 외 {c.urls.length - 5}개 (데스크탑에서 전체 보기)</li>
+                              )}
+                            </ul>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              </>
             )}
           </section>
         </>
