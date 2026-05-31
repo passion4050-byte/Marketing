@@ -2031,3 +2031,122 @@ DashboardFilters 의 typeahead 패턴과 일관성. 두 페이지 다 동일 UX.
 - 모바일 본격 카드 변환 (5 페이지)
 - citations 페이지 label 필터 토글 UI
 - learn-from-domain Phase 3 — 카테고리별 자동 baseline 보강
+
+---
+
+## Round 42 (2026-05-31 6시간 외출 자동 진행) — A+B+D 완료, E/F/G/H 보류
+
+사용자 의도: 6시간 동안 다 진행 + 복귀 후 검증. 솔직한 평가 — 총 10+ 시간 분량이라 안전 batch 분할 + 빌드 위험 큰 변경은 다음 라운드 미룸.
+
+### A — 자동 분류 UI 통합
+
+**`AutoClassifyButton.tsx` 신규 컴포넌트** + dashboard 신규 도메인 차트 헤더 통합:
+- POST `/api/admin/auto-classify-domains` 호출 — rule-based 매칭 도메인 일괄 등록
+- 결과 모달 — 등록 N건 + 스킵 사유 + 활성화 안내
+- 성공 시 `router.refresh()` 자동 페이지 갱신
+- 신규 도메인 list 가 candidate domains 로 자동 전달
+- 등록은 `is_active=false` — 운영자가 `/admin/domain-classifications` 에서 검토 후 활성화 (Round 40 의 자동 분류 정책 유지)
+
+### B — citations(competitors) 페이지 label 필터 토글 UI
+
+`/admin/competitors` 의 "경쟁사 도메인 상세" 헤더에 토글 6개:
+- 전체 / 직접 경쟁 / 간접 / 정보 출처 / 분석 대상 / 무시
+- 클라이언트 선택 시에만 표시 (라벨은 tenant 별 컨텍스트)
+- 클릭 시 setLabelFilter → useEffect dep → API 재호출 (?label=DIRECT)
+- API 가 priority desc 정렬 (DIRECT priority 5 > 2)
+
+### D — 키워드 풀 Tier 1: purpose 컬럼 + 필터
+
+**`/admin/keywords`**:
+- API GET — `purpose`, `is_saas_marketing` 컬럼 select 추가
+- 페이지 — `<KwRow>` 타입에 purpose 추가
+- 표 헤더 "분류" 컬럼 추가 (자사 own / 경쟁) — 색상 칩
+- SaaS 키워드 → "SaaS" 작은 배지
+- purpose 필터 토글 3개 (전체 / 자사 / 경쟁) + 카운트 표시
+- 검색 input (키워드/테넌트/카테고리)
+
+**Tier 2 (클라이언트 편집 chip editor) 는 Round 43 으로**:
+- tenant edit 페이지에 own 키워드 chip editor 통합 — 분량 큼
+
+### E/F/G/H 보류 사유
+
+스파링 솔직 평가 — 한 push 에 너무 큰 변경 = 빌드 실패 시 진단 불가능:
+- E 검증 히스토리 — 새 페이지 + 차트 (분량 중간)
+- F 모바일 본격 카드 — 5 페이지 각 30분 (분량 큼)
+- G learn-from-domain Phase 3 — 카테고리별 baseline (분량 중간)
+- H UI/UX 전체 정리 — 무한 (모든 페이지 검토)
+
+대신 globals.css 의 admin UI 헬퍼 (Round 40 추가) 가 이미 점진 적용 가능한 base. 페이지별 refactor 는 사용자가 검증 후 batch 별 진행 권장.
+
+### 새 함정 (Round 42 추가)
+
+**(AQ) `router.refresh()` — server component 데이터 무효화**
+- 증상: client component 액션 (예: 자동 분류 POST) 후 server fetch 갱신 필요
+- 정답: `useRouter().refresh()` 호출 → server component 재렌더 + 새 데이터 fetch
+- vs `window.location.reload()` — full page reload (느림). refresh 가 SPA navigation 유지.
+
+**(AR) PostgREST select 에 새 컬럼 추가 — 안전 패턴**
+- 증상: keywords 테이블에 `purpose`, `is_saas_marketing` 신규 컬럼 — 기존 API select 가 안 가져옴
+- 정답: select 에 추가 + 타입 guard `as unknown as { purpose?: string }` (column 누락된 row 대응)
+
+### Round 42 산출물 (push 한 commit 으로 묶음 가능)
+
+코드:
+- `medimap-blog-v2/src/components/admin/AutoClassifyButton.tsx` — 신규
+- `medimap-blog-v2/src/components/admin/DashboardCharts.tsx` — AutoClassifyButton 통합
+- `medimap-blog-v2/src/app/admin/(portal)/competitors/page.tsx` — labelFilter state + 토글 UI + useEffect dep
+- `medimap-blog-v2/src/app/api/admin/keywords/route.ts` — select 에 purpose/is_saas_marketing 추가
+- `medimap-blog-v2/src/app/admin/(portal)/keywords/page.tsx` — purpose 컬럼 + 필터 + 검색
+
+### Round 43 후보 (사용자 복귀 후)
+
+**미진 batch**:
+- E 검증 히스토리 — 자동 분류된 도메인의 시간별 인용 추이
+- F 모바일 본격 카드 변환 (5 페이지)
+- G learn-from-domain Phase 3 — 카테고리별 baseline 보강
+- 키워드 풀 Tier 2 — 클라이언트 편집 페이지 chip editor
+
+**UI/UX 17년차 전문가 관점 정리 후보 (사용자 명시 요청)**:
+
+스파링 — 어드민 전체 페이지 정리 시 가장 임팩트 큰 것 우선:
+
+1. **헤더 일관성** — 모든 페이지 `<h1>` + `<description>` + `<actions>` 패턴 통일
+   - 현재 페이지마다 다른 spacing/typography
+   - admin-page-header 헬퍼 일괄 적용
+
+2. **빈 상태 메시지 강화** — 모든 페이지 데이터 없을 때 명확한 다음 액션 안내
+   - "이 차트가 채워지려면 [도메인 분석] 또는 [측정 cron]"
+   - admin-empty 헬퍼 활용
+
+3. **Color semantic 일관성** — 한 페이지 안에서 success/warning/danger 일관 사용
+   - 키워드 풀의 "활성/일시정지" — 색상 명확화
+   - learned-insights 의 "적용중/미적용" — 색상 통일
+
+4. **Loading skeleton** — 모든 차트/표 서버 fetch 동안 스켈레톤
+   - admin-skeleton 헬퍼 활용
+
+5. **Visual hierarchy** — KPI 카드 숫자 크기/색상 강조
+   - 24h AI 인용 등 핵심 KPI 와 부가 정보 시각 분리
+
+6. **Action affordance** — 클릭 가능한 행/카드에 hover 효과 일관성
+
+7. **Toast notification** — 액션 결과 (저장/삭제/적용) 즉시 피드백
+   - 현재 일부 페이지만 showToast 사용
+
+8. **Mobile spacing** — `.admin-card` 의 `p-3 md:p-5` 패턴 모든 카드 적용
+
+9. **Search/Filter 일관 위치** — 페이지 상단 우측 또는 카드 헤더 우측 통일
+
+10. **Empty/Loading/Error 3가지 상태** 모든 데이터 표시 영역에 명시
+
+11. **Breadcrumb** — 깊은 페이지 (모달 내 모달) navigation 강화
+
+12. **Keyboard shortcuts** — `/` 검색 focus, Esc 모달 close
+
+13. **Accessibility** — focus-visible, aria-label, WCAG AA 색 대비
+
+14. **Dark mode** — 야간 cron 검수 시 (저녁/새벽) 도움
+
+15. **Cmd+K palette** — 페이지 빠른 이동
+
+이 15가지는 사용자 복귀 후 우선순위 결정 후 batch 별 진행 권장.

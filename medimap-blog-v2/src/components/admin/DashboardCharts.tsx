@@ -29,6 +29,7 @@ import {
   YAxis,
 } from 'recharts';
 import { TrendingUp, BarChart3, Users, Target, AlertCircle } from 'lucide-react';
+import { AutoClassifyButton } from './AutoClassifyButton';
 
 export type TierTrendPoint = {
   date: string;       // 'MM-DD'
@@ -331,12 +332,22 @@ export function DashboardCharts({
       {/* 차트 5: 신규 등장 도메인 (Round 39 — 세부 URL + 키워드 + 클라이언트 컨텍스트) */}
       <section className="card">
         <header className="border-b border-border px-4 py-3 md:px-5">
-          <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-            <AlertCircle className="h-4 w-4 text-status-warning" />
-            신규 등장 도메인 (최근 7일) — 세부 인사이트
-          </h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+              <AlertCircle className="h-4 w-4 text-status-warning" />
+              신규 등장 도메인 (최근 7일) — 세부 인사이트
+            </h2>
+            {/* Round 42 A — 자동 분류 일괄 등록 버튼 */}
+            {newDomains.length > 0 && (
+              <AutoClassifyButton
+                candidateDomains={newDomains.map((d) => d.domain)}
+                label={`자동 분류 (${newDomains.length}건)`}
+              />
+            )}
+          </div>
           <div className="mt-1 text-[11px] text-ink-muted">
-            지난 7일 첫 인용 외부 도메인 + <strong>어떤 키워드/콘텐츠</strong>로 등장했는지. 시장 변화 / 신규 경쟁사 / 인사이트 출처 감지
+            지난 7일 첫 인용 외부 도메인 + <strong>어떤 키워드/콘텐츠</strong>로 등장했는지. 시장 변화 / 신규 경쟁사 / 인사이트 출처 감지.
+            <span className="ml-1 text-brand">자동 분류</span> 버튼으로 rule-based 매칭 도메인 일괄 등록 가능
           </div>
         </header>
         <div className="p-2 md:p-4">

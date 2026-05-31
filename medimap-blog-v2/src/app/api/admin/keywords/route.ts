@@ -22,9 +22,10 @@ function notConfigured() {
 export async function GET() {
   const sb = getServerClient();
   if (!sb) return notConfigured();
+  // Round 42 D — purpose + is_saas_marketing 컬럼 추가 (own/competitor_landscape 구분)
   const { data, error } = await sb
     .from('keywords')
-    .select(`id, tenant_id, text, category, target_brand, is_active,
+    .select(`id, tenant_id, text, category, target_brand, is_active, purpose, is_saas_marketing,
              tenants:tenant_id ( id, name, partner_slug, domain_category )`)
     .order('id', { ascending: false })
     .limit(500);
@@ -35,12 +36,15 @@ export async function GET() {
     const t = (r as unknown as {
       tenants: { id: number; name: string; partner_slug: string | null; domain_category: string | null } | null;
     }).tenants;
+    const rowAny = r as unknown as { purpose?: string; is_saas_marketing?: boolean };
     return {
       id: r.id, tenant_id: r.tenant_id,
       tenant_name: t?.name ?? '(unknown)',
       partner_slug: t?.partner_slug ?? null,
       text: r.text, category: r.category,
-      target_brand: r.target_brand, is_active: r.is_active
+      target_brand: r.target_brand, is_active: r.is_active,
+      purpose: rowAny.purpose ?? 'own',
+      is_saas_marketing: rowAny.is_saas_marketing ?? false,
     };
   });
   return NextResponse.json({ ok: true, items });

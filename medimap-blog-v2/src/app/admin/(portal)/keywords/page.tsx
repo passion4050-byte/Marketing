@@ -20,6 +20,9 @@ interface KwRow {
   category: string | null;
   target_brand: string | null;
   is_active: boolean | null;
+  // Round 42 D — purpose 컬럼 추가
+  purpose?: 'own' | 'competitor_landscape' | string;
+  is_saas_marketing?: boolean;
 }
 
 const CATEGORY_SUGGEST = ['라식·라섹', '백내장', '노안교정', '여드름', '모발이식', '임플란트', '교정', '기타'];
@@ -32,6 +35,9 @@ export default function KeywordsPage() {
   const [draft, setDraft] = useState<{ tenant_id: string; text: string; category: string }>({
     tenant_id: '', text: '', category: '라식·라섹'
   });
+  // Round 42 D — purpose 필터 (all/own/competitor)
+  const [purposeFilter, setPurposeFilter] = useState<'all' | 'own' | 'competitor_landscape'>('all');
+  const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -148,11 +154,45 @@ export default function KeywordsPage() {
         </div>
       </div>
 
+      {/* Round 42 D — purpose 필터 + 검색 */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1 text-[12px]">
+          <span className="text-ink-muted">분류:</span>
+          {[
+            { key: 'all' as const, label: `전체 (${rows.length})` },
+            { key: 'own' as const, label: `자사 own (${rows.filter((r) => r.purpose === 'own').length})` },
+            { key: 'competitor_landscape' as const, label: `경쟁 (${rows.filter((r) => r.purpose === 'competitor_landscape').length})` },
+          ].map((opt) => (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => setPurposeFilter(opt.key)}
+              className={cn(
+                'rounded-md border px-2.5 py-1 font-semibold transition',
+                purposeFilter === opt.key
+                  ? 'border-brand bg-brand text-white'
+                  : 'border-border bg-surface-base text-ink-soft hover:bg-surface-soft'
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="키워드/테넌트/카테고리 검색"
+          className="flex-1 max-w-[280px] rounded border border-border bg-surface-base px-2 py-1 text-[12px]"
+        />
+      </div>
+
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-surface-subtle text-[11px] font-bold uppercase tracking-wider text-ink-muted">
             <tr>
               <th className="px-4 py-3 text-left">키워드</th>
+              <th className="px-4 py-3 text-left">분류</th>
               <th className="px-4 py-3 text-left">테넌트</th>
               <th className="px-4 py-3 text-left">카테고리</th>
               <th className="px-4 py-3 text-left">target_brand</th>
@@ -162,18 +202,39 @@ export default function KeywordsPage() {
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-xs text-ink-muted">
+              <tr><td colSpan={7} className="px-4 py-10 text-center text-xs text-ink-muted">
                 <Loader2 className="mx-auto h-4 w-4 animate-spin" /><div className="mt-2">로드 중…</div>
               </td></tr>
             )}
             {!loading && rows.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-xs text-ink-muted">
+              <tr><td colSpan={7} className="px-4 py-10 text-center text-xs text-ink-muted">
                 등록된 키워드가 없습니다.
               </td></tr>
             )}
-            {rows.map((r) => (
+            {rows
+              .filter((r) => purposeFilter === 'all' || r.purpose === purposeFilter)
+              .filter((r) => !search
+                || r.text.toLowerCase().includes(search.toLowerCase())
+                || r.tenant_name.toLowerCase().includes(search.toLowerCase())
+                || (r.category ?? '').toLowerCase().includes(search.toLowerCase()))
+              .map((r) => (
               <tr key={String(r.id)} className="border-t border-border hover:bg-surface-subtle">
-                <td className="px-4 py-3 text-sm font-semibold text-ink">{r.text}</td>
+                <td className="px-4 py-3 text-sm font-semibold text-ink">
+                  {r.text}
+                  {r.is_saas_marketing && (
+                    <span className="ml-1 rounded bg-brand-50 px-1 py-0.5 text-[9px] font-bold text-brand">SaaS</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <span className={cn(
+                    'rounded px-1.5 py-0.5 text-[10px] font-bold',
+                    r.purpose === 'own' ? 'bg-brand-50 text-brand'
+                    : r.purpose === 'competitor_landscape' ? 'bg-status-warningSoft text-status-warning'
+                    : 'bg-surface-subtle text-ink-muted'
+                  )}>
+                    {r.purpose === 'own' ? '자사' : r.purpose === 'competitor_landscape' ? '경쟁' : '—'}
+                  </span>
+                </td>
                 <td className="px-4 py-3 text-xs">{r.tenant_name}</td>
                 <td className="px-4 py-3 text-xs">{r.category ?? '—'}</td>
                 <td className="px-4 py-3 text-xs font-mono text-brand-700">{r.target_brand ?? '—'}</td>

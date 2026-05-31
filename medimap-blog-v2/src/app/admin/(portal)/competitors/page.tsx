@@ -89,14 +89,18 @@ export default function CompetitorsPage() {
   const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
   const [tenantSearch, setTenantSearch] = useState('');
   const [tenantDropdownOpen, setTenantDropdownOpen] = useState(false);
+  // Round 42 B — label 필터 (DIRECT/INDIRECT/REFERENCE/TO_LEARN/IGNORE)
+  const [labelFilter, setLabelFilter] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const url = tenantId
-        ? `/api/admin/competitors?tenantId=${tenantId}`
-        : '/api/admin/competitors';
+      // Round 42 B — label 필터 지원 (?label=DIRECT|INDIRECT|REFERENCE|TO_LEARN|IGNORE)
+      const params = new URLSearchParams();
+      if (tenantId) params.set('tenantId', String(tenantId));
+      if (labelFilter) params.set('label', labelFilter);
+      const url = `/api/admin/competitors${params.toString() ? '?' + params.toString() : ''}`;
       const res = await fetch(url, { cache: 'no-store' });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error ?? 'fetch failed');
@@ -111,7 +115,7 @@ export default function CompetitorsPage() {
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId]);
+  }, [tenantId, labelFilter]);
 
   const tenants = data?.tenants ?? [];
   const selectedName = data?.selected_tenant?.name ?? '전체 클라이언트';
@@ -343,9 +347,39 @@ export default function CompetitorsPage() {
           {/* === 경쟁사 도메인 상세 + URL drill-down === */}
           <section className="card">
             <header className="border-b border-border px-5 py-3">
-              <h2 className="section-title">경쟁사 도메인 상세</h2>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="section-title">경쟁사 도메인 상세</h2>
+                {/* Round 42 B — 라벨 필터 토글 (tenantId 있을 때만) */}
+                {tenantId && (
+                  <div className="flex flex-wrap items-center gap-1 text-[10px]">
+                    <span className="text-ink-muted">라벨:</span>
+                    {[
+                      { key: null, label: '전체', color: 'bg-surface-base text-ink-soft border-border' },
+                      { key: 'DIRECT', label: '직접 경쟁', color: 'bg-status-danger text-white border-status-danger' },
+                      { key: 'INDIRECT', label: '간접', color: 'bg-status-warning text-white border-status-warning' },
+                      { key: 'REFERENCE', label: '정보 출처', color: 'bg-status-success text-white border-status-success' },
+                      { key: 'TO_LEARN', label: '분석 대상', color: 'bg-brand text-white border-brand' },
+                      { key: 'IGNORE', label: '무시', color: 'bg-ink-muted text-white border-ink-muted' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.key ?? 'all'}
+                        type="button"
+                        onClick={() => setLabelFilter(opt.key)}
+                        className={cn(
+                          'rounded border px-1.5 py-0.5 font-semibold transition',
+                          labelFilter === opt.key
+                            ? opt.color
+                            : 'border-border bg-surface-base text-ink-soft hover:bg-surface-soft'
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="mt-1 text-[11px] text-ink-muted">
-                <strong>행 클릭</strong>으로 실제 인용 URL 펼치기 → 페이지 구조 학습용
+                <strong>행 클릭</strong>으로 실제 인용 URL 펼치기. 클라이언트 선택 시 라벨 토글로 우선순위 도메인만 표시 가능
               </div>
             </header>
             {data.competitor_top.length === 0 ? (
