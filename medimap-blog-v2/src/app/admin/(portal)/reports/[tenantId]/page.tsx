@@ -85,6 +85,8 @@ async function fetchReportData(tenantIdStr: string) {
       weakKeywords: [] as Array<{ keyword: string; citations: number; t1: number; t5: number; win_rate: number }>,
       competitorTop: [] as Array<{ domain: string; count: number; keywords: string[] }>,
       publishedCount: 0,
+      publishedContents: [] as Array<{ id: number; title: string; slug: string | null; cover_image_url: string | null; channel: string | null; published_at: string | null; ai_cited: boolean }>,
+      citedContentCount: 0,
       medimapCitedUrls: [] as string[],
     };
   }
@@ -210,13 +212,32 @@ async function fetchReportData(tenantIdStr: string) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
-  // 발행 콘텐츠
+  // 발행 콘텐츠 + 효과 매칭
   const { data: contents } = await sb
     .from('generated_contents')
-    .select('id, title, status, created_at')
+    .select('id, title, status, slug, cover_image_url, channel, created_at, published_at')
     .eq('tenant_id', tenantId)
-    .gte('created_at', cutoffThisMonth);
+    .gte('created_at', cutoffThisMonth)
+    .order('published_at', { ascending: false, nullsFirst: false });
   const publishedThis = (contents ?? []).filter((c: { status: string }) => c.status === 'published');
+
+  // 각 글의 AI 인용 효과 매칭 — slug 가 medimapCitedUrls 에 포함되는지
+  const citedSlugs = new Set<string>();
+  Array.from(medimapUrls).forEach((url) => {
+    // /blog/{slug} 또는 /with-partners/{cat}/{slug} 패턴
+    const m = url.match(/\/(?:blog|with-partners\/[^/]+\/[^/]+)\/([^/?#]+)/);
+    if (m) citedSlugs.add(m[1]);
+  });
+  const publishedWithEffect = publishedThis.map((c: { id: number; title: string; slug: string | null; cover_image_url: string | null; channel: string | null; published_at: string | null }) => ({
+    id: c.id,
+    title: c.title,
+    slug: c.slug,
+    cover_image_url: c.cover_image_url,
+    channel: c.channel,
+    published_at: c.published_at,
+    ai_cited: c.slug ? citedSlugs.has(c.slug) : false,
+  }));
+  const citedCount = publishedWithEffect.filter((c) => c.ai_cited).length;
 
   return {
     tenant,
@@ -235,6 +256,8 @@ async function fetchReportData(tenantIdStr: string) {
     weakKeywords,
     competitorTop,
     publishedCount: publishedThis.length,
+    publishedContents: publishedWithEffect,
+    citedContentCount: citedCount,
     medimapCitedUrls: Array.from(medimapUrls).slice(0, 8),
   };
 }
@@ -449,7 +472,103 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
           )}
         </section>
 
-        {/* === 7. 메디맵 인용 URL === */}
+        {/* === 7. 발행 콘텐츠 + 효과 — 메디맵에 돈 쓴 직접 결과물 === */}
+        <section className="border-t border-border px-6 py-6 md:px-10">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <h2 className="text-base font-bold text-ink">📝 메디맵 발행 콘텐츠 ({data.publishedCount}편)</h2>
+            {data.citedContentCount > 0 && (
+              <span className="rounded-full bg-brand-50 px-3 py-1 text-[11px] font-bold text-brand">
+                AI 인용 활용: <strong>{data.citedContentCount}편</strong> / {data.publishedCount}편 ({Math.round((data.citedContentCount / Math.max(1, data.publishedCount)) * 100)}%)
+              </span>
+            )}
+          </div>
+          <p className="mb-4 text-[12px] text-ink-muted">
+            이번 달 메디맵이 {tenant.name}을 위해 발행한 콘텐츠 list — 각 글의 AI 검색 인용 활용 여부 표시.
+            <strong className="ml-1 text-brand">AI 인용</strong> 표시 글이 클라이언트의 grounding 성과
+          </p>
+          {data.publishedContents.length === 0 ? (
+            <div className="rounded border border-dashed border-border bg-surface-subtle p-4 text-center text-[12px] text-ink-muted">
+              이번 달 발행 콘텐츠 없음 — 다음 cron 부터 누적
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {data.publishedContents.slice(0, 8).map((c) => (
+                <article
+                  key={c.id}
+                  className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 text-[12px] ${
+                    c.ai_cited
+                      ? 'border-brand/30 bg-brand-50/40'
+                      : 'border-border bg-surface-base'
+                  }`}
+                >
+                  {c.cover_image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={c.cover_image_url}
+                      alt=""
+                      className="h-12 w-16 shrink-0 rounded object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-12 w-16 shrink-0 items-center justify-center rounded bg-surface-subtle text-ink-faint">
+                      <FileText className="h-4 w-4" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="truncate text-[13px] font-semibold text-ink">
+                        {c.title}
+                      </h3>
+                      {c.ai_cited && (
+                        <span className="shrink-0 rounded bg-brand px-1.5 py-0.5 text-[9px] font-bold text-white">
+                          ✓ AI 인용
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-2 text-[10px] text-ink-muted">
+                      {c.channel && <span>{c.channel}</span>}
+                      {c.published_at && (
+                        <span>{new Date(c.published_at).toLocaleDateString('ko-KR')}</span>
+                      )}
+                      {c.slug && (
+                        <a
+                          href={`https://medimap-blog-phi.vercel.app/blog/${c.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-brand-700 underline decoration-dotted hover:text-brand"
+                        >
+                          /blog/{c.slug}
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              ))}
+              {data.publishedContents.length > 8 && (
+                <div className="text-center text-[10px] text-ink-faint">
+                  외 {data.publishedContents.length - 8}편
+                </div>
+              )}
+            </div>
+          )}
+
+          {data.publishedContents.length > 0 && (
+            <div className="mt-4 rounded-lg bg-surface-subtle p-3 text-[11px] text-ink-soft">
+              <strong className="text-ink">💡 ROI 인사이트:</strong>{' '}
+              {data.citedContentCount > 0 ? (
+                <>
+                  발행 {data.publishedCount}편 중 <strong className="text-brand">{data.citedContentCount}편</strong>이 AI 검색 답변의 출처로 사용됨.{' '}
+                  메디맵 SaaS 의 직접 효과 = 잠재 환자가 AI 에 질문할 때 {tenant.name} 콘텐츠가 출처로 노출되는 것.
+                </>
+              ) : (
+                <>
+                  이번 달 발행 콘텐츠가 아직 AI grounding 에 진입 못함. 발행 후 1~3개월 누적 효과 — 다음 보고서에서 본격 확인 예상.
+                </>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* === 8. 메디맵 인용 URL === */}
         {data.medimapCitedUrls.length > 0 && (
           <section className="border-t border-border bg-brand-50/30 px-6 py-6 md:px-10">
             <h2 className="mb-1 text-base font-bold text-ink">✨ AI 가 인용한 메디맵 콘텐츠 ({data.medimapCitedUrls.length})</h2>

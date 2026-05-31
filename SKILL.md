@@ -2480,3 +2480,95 @@ if (allKwIds.length === 0) {
 - **검증 히스토리 UI 통합** — domain-classifications 행 expand → ReportTrendChart 패턴 활용 미니 차트
 - **UI/UX 정리** — admin-page-header / 빈/loading/error 상태 페이지별 강화
 - **Anthropic credit 충전** — 4 엔진 본격 활성화
+
+---
+
+## Round 47 (2026-05-31 야간 4) — 월간 보고서 발행 콘텐츠 + AI 인용 효과 + 전 클라이언트 자동 동일
+
+### 사용자 피드백 반영
+
+**의도**: "클라이언트 입장에서 어떤 글을 발행했고, 어떤 효과가 있는지 궁금"
+**문제**: 기존 보고서 (Round 44) — `publishedCount` 숫자만, 글 list / 각 글 효과 없음
+**해결**: 발행 글 list + AI 인용 매칭 + ROI 인사이트 멘트
+
+### 발행 콘텐츠 섹션 추가
+
+**fetchReportData 확장**:
+- `generated_contents` select 에 `slug, cover_image_url, channel, published_at` 추가
+- `published_at` 기준 desc 정렬
+- 각 글의 slug 가 medimapCitedUrls 에 포함되는지 매칭 (`citedSlugs` Set)
+- URL pattern: `/blog/{slug}` 또는 `/with-partners/{cat}/{slug}` 추출
+
+**publishedWithEffect 데이터 구조**:
+```typescript
+{
+  id, title, slug, cover_image_url, channel, published_at,
+  ai_cited: boolean  // ← slug 가 AI grounding 출처로 사용됐는지
+}
+```
+
+**UI 섹션 7 (재배치)**:
+- 헤더 우측 chip: "AI 인용 활용: N편 / M편 (%) "
+- 글마다 카드 — cover_image / title / channel / 발행일 / blog URL
+- ai_cited=true → 카드 brand-50 배경 + "✓ AI 인용" 배지
+- 8편 이상 — "외 N편" 표시
+- ROI 인사이트 박스 — citedCount 기반 자연어:
+  - "발행 N편 중 M편이 AI 검색 답변의 출처로 사용됨. 메디맵 SaaS 의 직접 효과 = 잠재 환자가 AI 에 질문할 때 클라이언트 콘텐츠가 출처로 노출"
+  - 0편 시 — "1~3개월 누적 효과 — 다음 보고서에서 본격 확인 예상"
+
+### 모든 클라이언트 자동 동일 적용 확인
+
+**`/admin/reports/[tenantId]` 동적 라우트** — 이미 모든 tenant 자동 작동:
+- `/admin/reports/4` (BGN 잠실) ✅
+- `/admin/reports/6` (지우피부과) ✅
+- `/admin/reports/7` (모우림) ✅
+- `/admin/reports/12` (메디맵 자사) ✅
+- 새 클라이언트 등록 시 자동 활성
+
+**`/admin/reports` 목록 페이지** — 이미 모든 tenants 카드 표시 + 각각 [PDF 미리보기] 링크. 새 클라이언트 추가 시 자동 list 갱신.
+
+### 17년차 영업 관점 추가 가치
+
+**Before**: 발행 N편 (숫자만)
+**After**:
+1. **시각화** — cover_image + title 카드 → 영업 시연 자료 가치 ↑
+2. **AI 인용 marker** — "이 글이 AI 검색에 노출됐다" 직접 증거
+3. **ROI 인사이트** — 자연어 멘트 자동 생성. 의사결정자 (병원장) 가 한 줄로 이해
+4. **외부 링크** — 글 URL 클릭 → 실제 콘텐츠 확인 (영업 자료 신뢰도)
+
+### 새 함정 (Round 47 추가)
+
+**(BA) slug 매칭 — URL pattern 다양성 대응**
+- 증상: medimapCitedUrls 의 URL 형식 다양 (`/blog/x`, `/with-partners/cat/slug/x`, query string 포함 등)
+- 정답: regex `/(?:blog|with-partners\/[^/]+\/[^/]+)\/([^/?#]+)/` 로 마지막 slug segment 추출. query/hash 제거.
+
+**(BB) cover_image_url 표시 — Next.js Image vs `<img>`**
+- 증상: 외부 이미지 (pollinations, unsplash, supabase storage) 도메인 별로 next.config.ts 의 remotePatterns 등록 부담
+- 정답: 보고서는 PDF 친화 (`window.print()`) 라 `<img>` 직접 사용. ESLint 경고만 `eslint-disable-next-line @next/next/no-img-element`. Image 컴포넌트의 lazy load 보다 즉시 표시가 보고서에 더 적합.
+
+### Round 47 산출물
+
+코드:
+- `medimap-blog-v2/src/app/admin/(portal)/reports/[tenantId]/page.tsx`:
+  - `generated_contents` select 확장
+  - `publishedWithEffect` + `citedContentCount` 매핑
+  - 발행 콘텐츠 섹션 7 추가 (cover/title/slug/published_at + AI 인용 마커 + ROI 인사이트)
+
+### Round 47 검증
+
+1. **`/admin/reports/4`** (BGN) — 새 발행 콘텐츠 섹션 표시
+   - publishedCount = 0 또는 N — 실제 generated_contents 의 status='published' 카운트
+   - AI 인용률 표시 (있다면)
+2. **`/admin/reports/6`** (지우피부과) — 자동 동일 view
+3. **`/admin/reports/7`** (모우림) — 자동 동일 view
+4. **`/admin/reports`** (목록) — 모든 tenants 카드 + 각각 진입
+
+### Round 48 후보 (다음 라운드)
+
+- **이메일 자동 발송 cron** — 매월 1일 자동 발송 (Resend env 설정 시)
+- **PDF 직접 생성** — `window.print()` 보다 server-side PDF (puppeteer/playwright) — 더 일관된 형식
+- **클라이언트별 logo upload** — 보고서 표지에 클라이언트 logo 추가 (브랜드 친화)
+- **모바일 카드 변환** (Round 43 후보 5 페이지 잔여)
+- **검증 히스토리 UI 통합** (Round 46 의 domain-history API)
+- **UI/UX 정리**
+- **Anthropic credit 충전 후** — 4 엔진 본격
