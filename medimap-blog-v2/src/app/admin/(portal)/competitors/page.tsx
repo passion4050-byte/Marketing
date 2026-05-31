@@ -23,7 +23,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { LearnFromUrlButton } from '@/components/admin/LearnFromUrlButton';
+import { LearnFromDomainButton } from '@/components/admin/LearnFromDomainButton';
 import {
   ChevronDown,
   ChevronRight,
@@ -395,41 +395,41 @@ export default function CompetitorsPage() {
                           {isOpen && (
                             <tr key={`${c.domain}-expand`} className="bg-brand-50/40">
                               <td colSpan={5} className="px-4 py-3">
-                                <div className="mb-2 text-[11px] font-semibold text-ink-muted">
-                                  실제 인용된 URL ({c.urls.length}개) — 클릭하면 새 탭에서 열림
+                                <div className="mb-2 flex items-center justify-between gap-2">
+                                  <div className="text-[11px] font-semibold text-ink-muted">
+                                    실제 인용된 URL ({c.urls.length}개) — 클릭하면 새 탭에서 열림
+                                  </div>
+                                  {/* Round 36 fix 3 — 도메인 일괄 분석 + 메디맵 가이드 비교 진단 */}
+                                  <LearnFromDomainButton
+                                    domain={c.domain}
+                                    urls={c.urls}
+                                    keywords={c.keywords}
+                                    sourceTier={c.tier}
+                                    tenantId={tenantId}
+                                  />
                                 </div>
                                 {c.urls.length === 0 ? (
                                   <div className="text-[11px] text-ink-faint">URL 데이터 없음</div>
                                 ) : (
-                                  <ul className="space-y-2">
+                                  <ul className="space-y-1.5">
                                     {c.urls.map((url, ui) => (
-                                      <li key={ui} className="flex items-start justify-between gap-2">
-                                        <div className="flex min-w-0 items-start gap-2">
-                                          <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-brand" />
-                                          <a
-                                            href={url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="truncate text-[11px] text-brand-700 underline decoration-dotted hover:text-brand"
-                                          >
-                                            {decodeURIComponent(url).slice(0, 110)}
-                                            {url.length > 110 && '…'}
-                                          </a>
-                                        </div>
-                                        {/* Round 36 fix 3 — URL 별 메타 구조 학습 버튼 */}
-                                        <LearnFromUrlButton
-                                          url={url}
-                                          sourceDomain={c.domain}
-                                          sourceTier={c.tier}
-                                          keyword={c.keywords[0]}
-                                          tenantId={tenantId}
-                                        />
+                                      <li key={ui} className="flex items-start gap-2">
+                                        <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-brand" />
+                                        <a
+                                          href={url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-[11px] text-brand-700 underline decoration-dotted hover:text-brand"
+                                        >
+                                          {decodeURIComponent(url).slice(0, 110)}
+                                          {url.length > 110 && '…'}
+                                        </a>
                                       </li>
                                     ))}
                                   </ul>
                                 )}
                                 <div className="mt-2 text-[10px] text-ink-muted">
-                                  💡 <strong>학습 포인트</strong> — 각 URL 옆 <strong>[반영하기]</strong> 클릭 → 메타 구조 분석 → 운영자 검수 → 콘텐츠 가이드(learned_insights) 누적
+                                  💡 <strong>학습 포인트</strong> — 위 버튼으로 N개 URL 일괄 분석 → 메디맵 가이드 v3 와 자동 비교 → 권장 변경사항 진단
                                 </div>
                               </td>
                             </tr>
