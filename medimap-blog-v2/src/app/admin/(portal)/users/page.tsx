@@ -103,7 +103,7 @@ export default function UsersPage() {
       <header className="admin-page-header">
         <div>
           <h1 className="admin-page-title">사용자 관리 ({users.length})</h1>
-          <p className="admin-page-desc">admin · 클라이언트 사용자 · 역할 · 초대 / 비활성화</p>
+          <p className="admin-page-desc">어드민 · 클라이언트 사용자 계정 · 권한 · 초대를 관리합니다</p>
         </div>
         <button onClick={() => setShowInvite(true)} className="btn-primary text-xs">
           <Plus className="h-3.5 w-3.5" /> 사용자 초대

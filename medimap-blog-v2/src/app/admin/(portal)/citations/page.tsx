@@ -200,7 +200,7 @@ export default function CitationsPage() {
       <header className="admin-page-header print:hidden">
         <div>
           <h1 className="admin-page-title">AI 인용 추적 — 자사</h1>
-          <p className="admin-page-desc">최근 30일 메디맵 도메인 인용 추이 · Source 분류 · 키워드별 효과</p>
+          <p className="admin-page-desc">최근 30일간 AI 가 우리 콘텐츠를 인용한 횟수와 키워드별 효과를 분석합니다</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => window.print()} className="btn-secondary text-xs">

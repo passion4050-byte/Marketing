@@ -339,7 +339,7 @@ export default function ContentSettingsPage() {
       <header className="admin-page-header">
         <div>
           <h1 className="admin-page-title">콘텐츠 설정</h1>
-          <p className="admin-page-desc">global · per-tenant 프롬프트 / 카테고리 / 메디맵 CTA 정책</p>
+          <p className="admin-page-desc">콘텐츠 자동 생성 정책 (프롬프트 · 카테고리 · CTA) 을 관리합니다</p>
         </div>
       </header>
 

@@ -36,7 +36,7 @@ export default function AuditPage() {
       <header className="admin-page-header">
         <div>
           <h1 className="admin-page-title">감사 로그 (Audit Log) ({items.length})</h1>
-          <p className="admin-page-desc">admin 액션 hook · tenants / keywords / content-queue CRUD 기록</p>
+          <p className="admin-page-desc">어드민이 수행한 모든 작업 기록 (클라이언트 · 키워드 · 콘텐츠 변경 이력)</p>
         </div>
         <button onClick={() => void load()} className="btn-secondary text-xs">새로고침</button>
       </header>

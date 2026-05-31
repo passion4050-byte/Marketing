@@ -44,7 +44,7 @@ export default function AbTestsPage() {
       <header className="admin-page-header">
         <div>
           <h1 className="admin-page-title">A/B 콘텐츠 테스트 ({tests.length})</h1>
-          <p className="admin-page-desc">자동발행 cron 의 A/B 변형 생성 + AI 인용 효과 비교</p>
+          <p className="admin-page-desc">A/B 콘텐츠 변형을 자동 생성해 AI 인용 효과를 비교합니다</p>
         </div>
         <button onClick={() => setShowNew(true)} className="btn-primary text-xs">
           <Plus className="h-3.5 w-3.5" /> 신규 테스트

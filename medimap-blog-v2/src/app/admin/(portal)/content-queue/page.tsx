@@ -236,7 +236,7 @@ export default function ContentManagementPage() {
       <header className="admin-page-header">
         <div>
           <h1 className="admin-page-title">콘텐츠 관리</h1>
-          <p className="admin-page-desc">검수 대기 + 발행 완료 콘텐츠 인라인 편집 · AI 인용 효과 확인</p>
+          <p className="admin-page-desc">검수 대기 + 발행 완료 콘텐츠를 편집하고 AI 인용 효과를 확인합니다</p>
         </div>
         <button onClick={() => void load('both')} className="btn-secondary text-xs">새로고침</button>
       </header>

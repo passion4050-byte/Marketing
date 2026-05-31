@@ -149,7 +149,7 @@ export default function CompetitorsPage() {
       <header className="admin-page-header print:hidden">
         <div>
           <h1 className="admin-page-title">AI 인용 추적 — 경쟁사</h1>
-          <p className="admin-page-desc">AI 가 추천하는 경쟁 도메인 ranking · 키워드별 매트릭스 · 행 클릭으로 인용 URL drill-down</p>
+          <p className="admin-page-desc">AI 가 우리 클라이언트와 함께 추천하는 경쟁 의료기관을 추적합니다. 행 클릭 시 실제 인용 URL 확인</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => window.print()} className="btn-secondary text-xs">

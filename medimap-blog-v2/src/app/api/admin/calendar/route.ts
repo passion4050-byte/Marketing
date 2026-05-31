@@ -65,9 +65,12 @@ export async function GET(req: NextRequest) {
     };
     const dateIso =
       (row.status === 'published' && row.published_at ? row.published_at : row.created_at).slice(0, 10);
+    // Round 53 (2026-05-31) — content-queue 와 동일 로직: 자사 글도 /blog/{slug} 로 live_url 생성
     const liveUrl =
-      row.status === 'published' && row.is_partner_content && row.partner_category && row.tenants?.partner_slug && row.slug
-        ? `${PUBLIC_BLOG_BASE}/with-partners/${row.partner_category}/${row.tenants.partner_slug}/${row.slug}`
+      row.status === 'published' && row.slug
+        ? row.is_partner_content && row.partner_category && row.tenants?.partner_slug
+          ? `${PUBLIC_BLOG_BASE}/with-partners/${row.partner_category}/${row.tenants.partner_slug}/${row.slug}`
+          : `${PUBLIC_BLOG_BASE}/blog/${row.slug}`
         : null;
     return {
       id: row.id,

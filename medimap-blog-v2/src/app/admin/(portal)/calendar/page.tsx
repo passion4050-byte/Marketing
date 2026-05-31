@@ -109,7 +109,7 @@ export default function ContentCalendarPage() {
       <header className="admin-page-header">
         <div>
           <h1 className="admin-page-title">콘텐츠 캘린더</h1>
-          <p className="admin-page-desc">월별 발행 · 검수 일정 · 자사 + 파트너 콘텐츠 한눈에</p>
+          <p className="admin-page-desc">월별 콘텐츠 발행 · 검수 일정을 한눈에 확인합니다. 날짜 클릭 시 해당 일 콘텐츠 보기</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={goPrev} className="rounded-md border border-border p-1.5 hover:bg-surface-subtle"><ChevronLeft className="h-4 w-4" /></button>
@@ -250,11 +250,32 @@ export default function ContentCalendarPage() {
       {preview && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-ink/60 p-4" onClick={() => setPreview(null)}>
           <div className="card w-full max-w-3xl max-h-[88vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-border px-6 py-4">
-              <h3 className="text-base font-bold text-ink">{preview.title || '(제목 없음)'}</h3>
-              <button onClick={() => setPreview(null)} className="rounded-md p-1 text-ink-muted hover:bg-surface-muted">
-                <X className="h-4 w-4" />
-              </button>
+            {/* Round 54 (2026-05-31) — modal header 에 라이브 보기 prominent 버튼 */}
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-surface-base px-6 py-4">
+              <h3 className="min-w-0 truncate text-base font-bold text-ink">{preview.title || '(제목 없음)'}</h3>
+              <div className="flex shrink-0 items-center gap-2">
+                {preview.live_url ? (
+                  <Link
+                    href={preview.live_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-700"
+                    title={preview.live_url}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" /> 발행된 콘텐츠 보기
+                  </Link>
+                ) : (
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-soft px-3 py-1.5 text-xs font-semibold text-ink-muted"
+                    title={preview.status === 'published' ? 'slug 미생성' : '아직 발행 전'}
+                  >
+                    URL 미생성
+                  </span>
+                )}
+                <button onClick={() => setPreview(null)} className="rounded-md p-1 text-ink-muted hover:bg-surface-muted">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
             {preview.cover_image_url && (
               // eslint-disable-next-line @next/next/no-img-element
@@ -262,19 +283,13 @@ export default function ContentCalendarPage() {
                 className="h-auto w-full border-b border-border bg-surface-subtle object-cover" />
             )}
             <div className="px-6 py-5 text-sm leading-relaxed text-ink-soft">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-muted">
+              <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
                 <span>
                   {preview.tenant_name}
                   {preview.partner_slug ? ` · 파트너:${preview.partner_slug}` : ''}
                   {preview.partner_category ? ` · ${PARTNER_CATEGORY_KO[preview.partner_category] ?? preview.partner_category}` : ''}
                   {' · '}{preview.date}
                 </span>
-                {preview.live_url && (
-                  <Link href={preview.live_url} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-brand-700 hover:underline">
-                    라이브 열기 <ExternalLink className="h-3 w-3" />
-                  </Link>
-                )}
               </div>
               {preview.body?.includes('<') ? (
                 <article className="prose prose-slate max-w-none prose-headings:text-ink prose-a:text-brand"

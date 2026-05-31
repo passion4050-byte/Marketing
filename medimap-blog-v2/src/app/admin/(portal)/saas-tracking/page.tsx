@@ -90,10 +90,10 @@ export default function SaasTrackingPage() {
         <div>
           <h1 className="admin-page-title flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-brand" />
-            SaaS 시장 노출도
+            GEO 최적화 관리
           </h1>
           <div className="admin-page-desc">
-            "GEO 최적화", "AEO 컨설팅" 같은 SaaS 카테고리 키워드 — 메디맵 자체가 잠재 고객에게 노출되는 정도 + 경쟁 SaaS 자동 발견
+            잠재 고객이 AI 에 "GEO 최적화", "AEO 컨설팅" 등을 검색했을 때 메디맵이 얼마나 노출되는지 측정하고, 경쟁 SaaS 도메인을 자동으로 발견합니다.
           </div>
         </div>
       </header>
@@ -107,41 +107,41 @@ export default function SaasTrackingPage() {
 
       {/* KPI 4 카드 */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <KpiCard label="SaaS 키워드" value={`${data.keywords.length}`} suffix="개" />
+        <KpiCard label="추적 중인 키워드" value={`${data.keywords.length}`} suffix="개" />
         <KpiCard
-          label="총 인용 수 (30일)"
+          label="최근 30일 AI 인용"
           value={`${data.mention_count}`}
           suffix="건"
-          subtext={data.t1_count > 0 ? `T1 ${data.t1_count}건 포함` : 'T1 0건 (현재)'}
+          subtext={data.t1_count > 0 ? `메디맵 인용 ${data.t1_count}건` : '메디맵 인용 0건'}
         />
         <KpiCard
-          label="메디맵 T1 share"
+          label="메디맵 점유율"
           value={`${t1Share}%`}
           highlight={t1Share >= 5}
           subtext="목표 5% 이상"
         />
         <KpiCard
-          label="경쟁 SaaS 도메인"
+          label="경쟁 SaaS 발견"
           value={`${data.competitor_domains.length}`}
-          suffix="개 발견"
+          suffix="곳"
         />
       </div>
 
-      {/* 차트: 메디맵 T1 share 추이 */}
+      {/* 차트: 메디맵 점유율 추이 */}
       <section className="card">
         <header className="border-b border-border px-4 py-3 md:px-5">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
             <TrendingUp className="h-4 w-4 text-brand" />
-            메디맵 T1 share 추이 (SaaS 키워드 한정, 30일)
+            메디맵 점유율 추이 (최근 30일)
           </h2>
           <div className="mt-1 text-[11px] text-ink-muted">
-            메디맵 SaaS 가 "GEO/AEO" 카테고리 검색에서 잠재 고객 노출 정도 — 누적 효과 검증
+            AI 가 "GEO/AEO" 카테고리 검색에서 메디맵을 인용한 비율 — 콘텐츠 누적 효과 확인
           </div>
         </header>
         <div className="p-2 md:p-4">
           {data.daily_trend.every((d) => d.total === 0) ? (
             <div className="flex h-32 items-center justify-center text-[12px] text-ink-muted">
-              SaaS 키워드 측정 데이터 없음 — 매일 22:00 UTC cron 후 누적
+              아직 측정 데이터가 없습니다 — 매일 22:00 UTC (KST 익일 07시) 자동 수집 후 누적됩니다
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>

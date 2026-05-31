@@ -74,7 +74,7 @@ export default function IntegrationsPage() {
       <header className="admin-page-header">
         <div>
           <h1 className="admin-page-title">연동 (Integrations)</h1>
-          <p className="admin-page-desc">YouTube OAuth · Resend · Slack 알림 · 외부 API 연결 관리</p>
+          <p className="admin-page-desc">YouTube · 이메일 · Slack 등 외부 서비스 연동을 관리합니다</p>
         </div>
       </header>
 

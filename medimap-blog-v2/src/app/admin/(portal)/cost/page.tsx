@@ -17,7 +17,7 @@ export default function CostPage() {
       <header className="admin-page-header">
         <div>
           <h1 className="admin-page-title">비용 모니터</h1>
-          <p className="admin-page-desc">LLM API 사용량 · Vercel function invocation · 일일/월간 추이</p>
+          <p className="admin-page-desc">AI 모델 호출 비용과 서버 사용량 추이를 모니터링합니다</p>
         </div>
       </header>
 

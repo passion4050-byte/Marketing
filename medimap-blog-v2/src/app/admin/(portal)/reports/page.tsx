@@ -138,7 +138,7 @@ export default function ReportsListPage() {
       <header className="admin-page-header">
         <div>
           <h1 className="admin-page-title">월간 보고서 — {period}</h1>
-          <p className="admin-page-desc">클라이언트별 ROI 보고서 · 매일 18시 KST 에 발송일 일치 tenant 자동 발송</p>
+          <p className="admin-page-desc">클라이언트별 월간 ROI 보고서를 미리보기·발송합니다. 매일 18시 KST 에 설정된 발송일과 일치하는 클라이언트에게 자동 발송됩니다</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select

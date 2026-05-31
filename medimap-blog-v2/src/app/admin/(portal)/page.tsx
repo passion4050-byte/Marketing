@@ -650,7 +650,7 @@ export default async function AdminDashboardPage({
       <header className="admin-page-header">
         <div>
           <h1 className="admin-page-title">운영 대시보드</h1>
-          <p className="admin-page-desc">전체 클라이언트 KPI 한눈에 · 발행 추이 · AI 인용 share</p>
+          <p className="admin-page-desc">전체 클라이언트의 KPI · 발행 추이 · AI 인용 점유율을 한눈에 확인합니다</p>
         </div>
       </header>
 

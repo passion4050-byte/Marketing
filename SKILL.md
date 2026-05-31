@@ -2992,3 +2992,68 @@ on:
 - `tenants/page.tsx` — edit modal 발송일 dropdown
 - `reports/page.tsx` — 완전 재디자인 (자사 분리 / 발송 가능 / 미등록 / D-day / 오늘 발송 강조)
 - `content-settings/page.tsx` — "변경은 즉시 다음 발행 플랜부터 반영됩니다" 로 안내 단순화 (cron 안내 제거 — 다른 페이지에서 관리)
+
+---
+
+## Round 54 (2026-05-31) — 캘린더 라이브 보기 + saas-tracking 리네이밍 + 어드민 전체 안내 문구 가독성
+
+### 배경
+
+사용자 보고:
+1. `/admin/calendar` 의 콘텐츠 modal 에서 발행된 글의 라이브 URL 로 가는 버튼이 작고 본문 안에 있어서 못 찾음. cover image 포함된 진짜 글을 확인하고 싶음.
+2. `/admin/saas-tracking` 제목 "SaaS 시장 노출도" → "GEO 최적화 관리" 로 변경. 다른 어드민 문구도 jargon 많음.
+3. calendar API 가 **자사글에 live_url 생성 안 함** — content-queue 와 로직 불일치.
+
+### Fix A — calendar API 자사글 live_url 생성
+
+기존: published + 파트너 + slug + partner_slug 모두 있어야 live_url 생성. 자사 글은 NULL.
+
+```typescript
+const liveUrl =
+  row.status === 'published' && row.slug
+    ? row.is_partner_content && row.partner_category && row.tenants?.partner_slug
+      ? `${PUBLIC_BLOG_BASE}/with-partners/${row.partner_category}/${row.tenants.partner_slug}/${row.slug}`
+      : `${PUBLIC_BLOG_BASE}/blog/${row.slug}`
+    : null;
+```
+
+content-queue route 와 동일 로직 — 자사글은 `/blog/{slug}`.
+
+### Fix B — calendar modal 헤더 prominent 라이브 보기 버튼
+
+기존: 본문 안에 작은 "라이브 열기" 텍스트 링크. 사용자 못 찾음.
+
+신규: sticky modal 헤더에 brand blue 버튼 "발행된 콘텐츠 보기 ↗". live_url 없으면 "URL 미생성" 회색 disabled 배지 + tooltip ("slug 미생성" 또는 "아직 발행 전").
+
+### Fix C — saas-tracking 리네이밍 + 안내 단순화
+
+- 제목 "SaaS 시장 노출도" → "GEO 최적화 관리"
+- 안내 문구 — 한 문장으로 자연어화. "잠재 고객이 AI 에 검색했을 때 메디맵이 얼마나 노출되는지 측정하고, 경쟁 SaaS 도메인을 자동으로 발견합니다"
+- KPI 라벨 — "SaaS 키워드" → "추적 중인 키워드", "총 인용 수 (30일)" → "최근 30일 AI 인용", "메디맵 T1 share" → "메디맵 점유율", "경쟁 SaaS 도메인" → "경쟁 SaaS 발견"
+- 차트 제목 — "메디맵 T1 share 추이 (SaaS 키워드 한정, 30일)" → "메디맵 점유율 추이 (최근 30일)"
+
+### Fix D — 어드민 전체 페이지 안내 문구 가독성
+
+14개 페이지의 `admin-page-desc` 전체 동사형 + 자연어로 통일. 예:
+- "admin 액션 hook · tenants / keywords / content-queue CRUD 기록" → "어드민이 수행한 모든 작업 기록 (클라이언트 · 키워드 · 콘텐츠 변경 이력)"
+- "global · per-tenant 프롬프트 / 카테고리 / 메디맵 CTA 정책" → "콘텐츠 자동 생성 정책 (프롬프트 · 카테고리 · CTA) 을 관리합니다"
+- "LLM API 사용량 · Vercel function invocation · 일일/월간 추이" → "AI 모델 호출 비용과 서버 사용량 추이를 모니터링합니다"
+- "AI 인용 → 클릭 → 전환 · GA4 + ShortLink 추적" → "AI 인용 → 클릭 → 실제 문의/예약까지의 전환 ROI 를 추적합니다"
+- "YouTube OAuth · Resend · Slack 알림 · 외부 API 연결 관리" → "YouTube · 이메일 · Slack 등 외부 서비스 연동을 관리합니다"
+
+### 새 함정 (Round 54)
+
+**(BM) 두 endpoint 가 같은 데이터의 live_url 을 다르게 생성**
+- 증상: calendar 와 content-queue 가 같은 generated_contents 행을 다르게 처리 (자사글 NULL vs `/blog/{slug}`)
+- 정답: 두 endpoint 의 url generation 로직을 공통 utility 로 추출. 향후 Round 55 candidate.
+
+**(BN) jargon 약어가 admin 첫 사용자에게 진입 장벽**
+- 증상: "T1 share", "SaaS 카테고리", "grounding rate", "OAuth · CRUD" 같은 엔지니어 단어를 운영자가 이해 못 함
+- 정답: KPI 라벨 / desc 모두 일반 사용자 한국어로. 예: "T1 share" → "점유율", "grounding rate" → "출처 명시율" 등 (다음 라운드 추가 정리).
+
+### Round 54 산출물
+
+- `medimap-blog-v2/src/app/api/admin/calendar/route.ts` — 자사글 live_url 생성
+- `medimap-blog-v2/src/app/admin/(portal)/calendar/page.tsx` — modal 헤더 라이브 보기 버튼
+- `medimap-blog-v2/src/app/admin/(portal)/saas-tracking/page.tsx` — 제목/KPI/차트 문구 가독성
+- 14개 admin 페이지 `admin-page-desc` 일괄 가독성 개선

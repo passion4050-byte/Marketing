@@ -15,7 +15,7 @@ export default function FunnelPage() {
       <header className="admin-page-header">
         <div>
           <h1 className="admin-page-title">Funnel · ROI</h1>
-          <p className="admin-page-desc">AI 인용 → 클릭 → 전환 · GA4 + ShortLink 추적</p>
+          <p className="admin-page-desc">AI 인용 → 클릭 → 실제 문의/예약까지의 전환 ROI 를 추적합니다</p>
         </div>
       </header>
 
