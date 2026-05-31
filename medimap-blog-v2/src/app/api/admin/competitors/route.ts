@@ -49,6 +49,9 @@ const AUTHORITY_DOMAINS = new Set<string>([
   'www.k-health.com', 'k-health.com',    // 의료 전문매체
   'www.dailymedi.com', 'dailymedi.com',  // 데일리메디
   'news.docdocdoc.co.kr', 'www.docdocdoc.co.kr', 'docdocdoc.co.kr',  // 청년의사
+  'news.hidoc.co.kr', 'hidoc.co.kr',     // 하이닥 (Round 36)
+  // 의료 장비 제조사 (Round 36)
+  'www.zeiss.co.kr', 'zeiss.co.kr',      // Carl Zeiss 한국
 ]);
 const PLATFORM_DOMAINS = new Set<string>([
   'www.modoodoc.com', 'modoodoc.com',
@@ -65,15 +68,25 @@ const NOISE_DOMAINS = new Set<string>([
   'ko.wikipedia.org', 'en.wikipedia.org', 'wikipedia.org',
   'm.search.naver.com', 'search.naver.com',
   'tistory.com',
+  // Round 36 — 카카오 채널 (일반). 메디맵 path 는 별도 처리 안 됨 (competitors API 라 T1 분류 안 함)
+  'pf.kakao.com',
 ]);
 
 type Tier = 'T1' | 'T2' | 'T3' | 'T4' | 'T5' | 'NOISE';
 
-function classify(domain: string | null, clientHomepageDomain: string | null): Tier {
+/**
+ * Round 36 (2026-05-31) — clientDomains set 으로 확장.
+ * tenant.homepage + tenant.additional_domains 모두 매칭하여 T2 분류.
+ */
+function classify(domain: string | null, clientDomains: Set<string> | null): Tier {
   if (!domain) return 'NOISE';
   const d = domain.toLowerCase();
   if (MEDIMAP_DOMAINS.has(d)) return 'T1';
-  if (clientHomepageDomain && d.endsWith(clientHomepageDomain)) return 'T2';
+  if (clientDomains && clientDomains.size > 0) {
+    for (const cd of clientDomains) {
+      if (d === cd || d.endsWith('.' + cd)) return 'T2';
+    }
+  }
   if (AUTHORITY_DOMAINS.has(d)) return 'T3';
   if (PLATFORM_DOMAINS.has(d)) return 'T4';
   if (NOISE_DOMAINS.has(d)) return 'NOISE';
@@ -98,9 +111,10 @@ export async function GET(req: Request) {
   const tenantIdFilter = tenantIdParam ? Number(tenantIdParam) : null;
 
   // 1. 전체 tenants (selector 용)
+  // Round 36 (2026-05-31): additional_domains 까지 가져와 T2 분류에 사용.
   const { data: tenantsAll } = await sb
     .from('tenants')
-    .select('id, name, homepage, business_model, partner_slug')
+    .select('id, name, homepage, business_model, partner_slug, additional_domains')
     .order('id');
   const tenantsList = (tenantsAll ?? []).map(
     (t: { id: number; name: string; business_model: string | null; partner_slug: string | null }) => ({
@@ -120,7 +134,18 @@ export async function GET(req: Request) {
         is_self: selectedTenantRow.business_model === 'self' || selectedTenantRow.partner_slug === 'medimap-self',
       }
     : null;
-  const selectedClientDomain = selectedTenantRow ? extractDomain(selectedTenantRow.homepage) : null;
+  // Round 36 — selected tenant 의 자체 도메인 set (homepage + additional_domains 통합)
+  const selectedClientDomains: Set<string> | null = selectedTenantRow
+    ? (() => {
+        const set = new Set<string>();
+        const main = extractDomain(selectedTenantRow.homepage);
+        if (main) set.add(main.toLowerCase());
+        (selectedTenantRow.additional_domains ?? []).forEach((d: string) => {
+          if (d) set.add(d.toLowerCase().replace(/^www\./, ''));
+        });
+        return set.size > 0 ? set : null;
+      })()
+    : null;
 
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -190,7 +215,7 @@ export async function GET(req: Request) {
       const kwBucket = keywordMatrix.get(kw)!;
 
       (r.source_domains ?? []).forEach((sd) => {
-        const tier = classify(sd.domain, selectedClientDomain);
+        const tier = classify(sd.domain, selectedClientDomains);
         // 경쟁사 페이지 = T3+T4+T5 만 카운트 (T1 메디맵, T2 자체 제외)
         if (tier === 'NOISE' || tier === 'T1' || tier === 'T2') return;
         tierCount[tier]++;

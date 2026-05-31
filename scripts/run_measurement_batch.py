@@ -150,15 +150,18 @@ async def main() -> int:
     if purpose_filter in ("own", "competitor_landscape"):
         where_purpose = f"AND k.purpose = '{purpose_filter}'"
         logger.info("PURPOSE_FILTER=%s", purpose_filter)
+    # Round 36 (2026-05-31) — fairness ORDER BY.
+    # 기존 ORDER BY k.id 는 id 큰 키워드 영원히 미측정 (own 24 + comp 12 = 36, LIMIT 20)
+    # 변경 ORDER BY k.last_measured_at NULLS FIRST → 신규/오래된 키워드 우선
     with sql_engine.connect() as conn:
         rows = conn.execute(text(
             f"""
             SELECT k.id, k.tenant_id, k.text AS keyword_text, t.name AS tenant_name,
-                   k.target_brand, k.purpose
+                   k.target_brand, k.purpose, k.last_measured_at
             FROM keywords k JOIN tenants t ON t.id=k.tenant_id
             WHERE k.is_active = true
               {where_purpose}
-            ORDER BY k.id
+            ORDER BY k.last_measured_at ASC NULLS FIRST, k.id
             LIMIT :limit
             """
         ), {"limit": keyword_limit}).mappings().all()
@@ -222,6 +225,18 @@ async def main() -> int:
 
     logger.info("==== 측정 완료 ====")
     logger.info("success=%d fail=%d mentions=%d", total_success, total_failed, total_mentions)
+
+    # Round 36 (2026-05-31) — fairness 갱신.
+    # 이번 batch 에서 처리된 keyword 들 last_measured_at = NOW() UPDATE.
+    # 다음 cron 은 last_measured_at 가장 오래된 (또는 NULL) 키워드 우선 픽업.
+    processed_ids = [r["id"] for r in rows]
+    if processed_ids:
+        with sql_engine.begin() as conn:
+            conn.execute(
+                text("UPDATE keywords SET last_measured_at = NOW() WHERE id = ANY(:ids)"),
+                {"ids": processed_ids},
+            )
+        logger.info("last_measured_at 갱신: %d 건", len(processed_ids))
 
     # Round 32 (2026-05-30) — 측정 직후 cited_urls 의 source domain 추적.
     # mode=production 의 Gemini/OpenAI/etc 응답에 cited_urls 가 있으면

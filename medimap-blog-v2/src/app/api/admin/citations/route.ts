@@ -51,6 +51,9 @@ const AUTHORITY_DOMAINS = new Set<string>([
   'www.k-health.com', 'k-health.com',    // 의료 전문매체
   'www.dailymedi.com', 'dailymedi.com',  // 데일리메디
   'news.docdocdoc.co.kr', 'www.docdocdoc.co.kr', 'docdocdoc.co.kr',  // 청년의사
+  'news.hidoc.co.kr', 'hidoc.co.kr',     // 하이닥 (Round 36)
+  // 의료 장비 제조사 (Round 36)
+  'www.zeiss.co.kr', 'zeiss.co.kr',      // Carl Zeiss 한국
 ]);
 const PLATFORM_DOMAINS = new Set<string>([
   'www.modoodoc.com', 'modoodoc.com',
@@ -67,14 +70,22 @@ const NOISE_DOMAINS = new Set<string>([
   'ko.wikipedia.org', 'en.wikipedia.org', 'wikipedia.org',
   'm.search.naver.com', 'search.naver.com',
   'tistory.com',  // 개인 블로그 플랫폼 자체 (subdomain 은 별도 분류)
+  // Round 36 — pf.kakao.com 의 메디맵 path (_xnWQkG) 는 위 classify 함수가 T1 으로 별도 처리.
+  // 그 외 일반 카카오 채널 path 는 경쟁사 카테고리에서 제외.
+  'pf.kakao.com',
 ]);
 
 type Tier = 'T1' | 'T2' | 'T3' | 'T4' | 'T5' | 'NOISE';
 
+/**
+ * Round 36 (2026-05-31) — clientDomains 가 set 으로 확장.
+ * 기존 단일 homepage 도메인 매칭 → tenant.homepage + tenant.additional_domains 모두 매칭.
+ * 예: BGN 의 bgneye.com + bgnblog.com 둘 다 T2 (자체) 로 분류.
+ */
 function classifyDomain(
   domain: string | null,
   finalUrl: string | null,
-  clientHomepageDomain: string | null
+  clientDomains: Set<string> | null
 ): Tier {
   if (!domain) return 'NOISE';
   const d = domain.toLowerCase();
@@ -82,7 +93,11 @@ function classifyDomain(
   if (d === 'pf.kakao.com' && finalUrl) {
     if (MEDIMAP_KAKAO_PATHS.some((p) => finalUrl.includes(p))) return 'T1';
   }
-  if (clientHomepageDomain && d.endsWith(clientHomepageDomain)) return 'T2';
+  if (clientDomains && clientDomains.size > 0) {
+    for (const cd of clientDomains) {
+      if (d === cd || d.endsWith('.' + cd)) return 'T2';
+    }
+  }
   if (AUTHORITY_DOMAINS.has(d)) return 'T3';
   if (PLATFORM_DOMAINS.has(d)) return 'T4';
   if (NOISE_DOMAINS.has(d)) return 'NOISE';
@@ -111,9 +126,10 @@ export async function GET(req: Request) {
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
   // 1. 전체 tenants (selector 용)
+  // Round 36 (2026-05-31): additional_domains 도 함께 가져와 T2 분류에 사용.
   const { data: tenantsAll } = await sb
     .from('tenants')
-    .select('id, name, homepage, business_model, partner_slug')
+    .select('id, name, homepage, business_model, partner_slug, additional_domains')
     .order('id');
   const tenantsList = (tenantsAll ?? []).map(
     (t: { id: number; name: string; homepage: string | null; business_model: string | null; partner_slug: string | null }) => ({
@@ -122,16 +138,24 @@ export async function GET(req: Request) {
       is_self: t.business_model === 'self' || t.partner_slug === 'medimap-self',
     })
   );
-  const tenantHomepageMap = new Map<number, string>();
-  (tenantsAll ?? []).forEach((t: { id: number; homepage: string | null }) => {
-    const d = extractDomainFromUrl(t.homepage);
-    if (d) tenantHomepageMap.set(t.id, d);
-  });
+  // Round 36 — tenant 별 자체 도메인 set (homepage + additional_domains 통합).
+  const tenantDomainsMap = new Map<number, Set<string>>();
+  (tenantsAll ?? []).forEach(
+    (t: { id: number; homepage: string | null; additional_domains: string[] | null }) => {
+      const set = new Set<string>();
+      const main = extractDomainFromUrl(t.homepage);
+      if (main) set.add(main.toLowerCase());
+      (t.additional_domains ?? []).forEach((d) => {
+        if (d) set.add(d.toLowerCase().replace(/^www\./, ''));
+      });
+      if (set.size > 0) tenantDomainsMap.set(t.id, set);
+    }
+  );
   const selectedTenant = tenantIdFilter
     ? tenantsList.find((t) => t.id === tenantIdFilter) ?? null
     : null;
-  const selectedClientDomain = tenantIdFilter
-    ? tenantHomepageMap.get(tenantIdFilter) ?? null
+  const selectedClientDomains = tenantIdFilter
+    ? tenantDomainsMap.get(tenantIdFilter) ?? null
     : null;
 
   // 2. mentions trend — tenant 필터 적용
@@ -225,8 +249,8 @@ export async function GET(req: Request) {
     }) => {
       const tenantId = queryTenantMap.get(r.query_id);
       const keywordId = queryKeywordMap.get(r.query_id);
-      const clientDomain =
-        selectedClientDomain ?? (tenantId ? tenantHomepageMap.get(tenantId) ?? null : null);
+      const clientDomains =
+        selectedClientDomains ?? (tenantId ? tenantDomainsMap.get(tenantId) ?? null : null);
       const date = r.created_at.slice(0, 10);
       if (!shareByDate.has(date)) shareByDate.set(date, { total: 0, t1: 0 });
       const dateBucket = shareByDate.get(date)!;
@@ -245,7 +269,7 @@ export async function GET(req: Request) {
       const kwBucket = keywordId ? keywordStats.get(keywordId)! : null;
 
       (r.source_domains ?? []).forEach((sd) => {
-        const tier = classifyDomain(sd.domain, sd.final_url, clientDomain);
+        const tier = classifyDomain(sd.domain, sd.final_url, clientDomains);
         if (tier === 'NOISE') return;
         tierCount[tier]++;
         const key = sd.domain;
