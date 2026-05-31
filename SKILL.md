@@ -2866,3 +2866,51 @@ KPI 위에 "위협 → 학습 → 액션" 3단 박스 추가. 같은 데이터 (
 
 - `medimap-blog-v2/src/app/admin/(portal)/competitors/page.tsx` — 인사이트 3단 박스 + 모바일 카드 list
 - `medimap-blog-v2/src/app/admin/(portal)/domain-classifications/page.tsx` — 5-tier 설명 박스
+
+---
+
+## Round 52 fix (2026-05-31) — 산업 종속 라벨 일반화
+
+### 증상
+
+사용자 보고: 밴스모자이너의원(모발이식 클라이언트)의 competitors 페이지 KPI 4번째 카드가 "경쟁 안과/병원 ⚠️" 로 표시. 모우림(모발이식), TETE 등 안과 외 클라이언트 모두 동일 버그.
+
+### 진단
+
+`TIER_LABELS.T5.label = '경쟁 안과/병원'` 으로 하드코딩. 메디맵이 처음 안과 마케팅으로 시작했을 때 라벨이 그대로 남아있음. T3 desc "MSD/아산/삼성 등" 도 안과 한정 예시.
+
+### Fix — 일반화 + 동적
+
+1. **TIER_LABELS.T5.label** = `'동종업계 경쟁사'` (산업 무관 default)
+2. **`extractCategoryLabel(businessModel)`** 함수 — `business_model` 문자열 키워드 매칭 → 동적 라벨:
+   - 모발이식/FUE/FUT → "경쟁 모발이식 병원"
+   - 안과/라식/라섹/백내장 → "경쟁 안과"
+   - 피부/레이저 → "경쟁 피부과"
+   - 성형 → "경쟁 성형외과"
+   - 치과/임플란트 → "경쟁 치과"
+   - 한방/한의원 → "경쟁 한의원"
+   - 정형/척추 → "경쟁 정형외과"
+   - 산부인과/여성 → "경쟁 산부인과"
+   - 기본값 → "동종업계 경쟁사"
+3. **KPI 4번째 카드 라벨** — `extractCategoryLabel(businessModel)` 사용
+4. **T3 desc** "MSD/아산/삼성 등" → "종합병원·학회·의료매체" (산업 무관)
+5. **T4 desc** "모두닥/강남언니 등" → "모두닥·강남언니·하이닥 등" (의료 플랫폼은 산업 무관이라 사례만 보강)
+6. **인사이트 박스 액션 멘트** "T5 (경쟁 안과)" → 동적 라벨
+7. **CitationsTabs.tsx** "경쟁 안과 분석" → "동종업계 경쟁사 분석"
+8. **domain-classifications 설명 박스** "T5 경쟁 안과·병원" → "T5 동종업계 경쟁사"
+
+### 새 함정 (Round 52 fix)
+
+**(BI) 초기 비즈니스(안과) 라벨이 멀티 클라이언트 SaaS 로 확장 시 그대로 남는 함정**
+- 증상: 첫 클라이언트 산업의 용어가 코드 상수에 박혀 다른 산업 클라이언트에도 그대로 노출
+- 정답: 모든 산업 종속 단어는 (a) 클라이언트 단위 동적 라벨 함수 + (b) default 는 일반화된 단어로. 신규 SaaS 의 첫 클라이언트 라벨링 시 점검 필수.
+
+### 코드
+
+- `medimap-blog-v2/src/app/admin/(portal)/competitors/page.tsx` — TIER_LABELS + extractCategoryLabel + KPI/액션 동적
+- `medimap-blog-v2/src/components/admin/CitationsTabs.tsx` — desc 일반화
+- `medimap-blog-v2/src/app/admin/(portal)/domain-classifications/page.tsx` — 5-tier 설명 박스 일반화
+
+### admin-mock.ts / aeo.ts 의 산업 종속
+
+남아있지만 mock 데이터 (이미 라이브 DB 로 대체됨) — 사용 안 됨. 굳이 수정 안 함.

@@ -58,11 +58,27 @@ type CompetitorData = {
   tier_distribution: { T3: number; T4: number; T5: number };
 };
 
+// Round 52 fix (2026-05-31) — 라벨 산업 종속 제거. 안과 외 클라이언트(모발이식·피부·한방) 도 동일 적용.
 const TIER_LABELS: Record<string, { label: string; color: string; short: string }> = {
   T3: { label: '권위/공식 사이트', color: '#F59E0B', short: '권위' },
   T4: { label: '의료 플랫폼', color: '#A855F7', short: '플랫폼' },
-  T5: { label: '경쟁 안과/병원', color: '#94A3B8', short: '경쟁사' },
+  T5: { label: '동종업계 경쟁사', color: '#94A3B8', short: '경쟁' },
 };
+
+// Round 52 fix — business_model 에서 진료과목 키워드 추출 → "경쟁 모발이식 병원" 식으로 라벨 동적화.
+function extractCategoryLabel(businessModel: string | null | undefined): string {
+  if (!businessModel) return '동종업계 경쟁사';
+  const bm = businessModel.toLowerCase();
+  if (bm.includes('모발이식') || bm.includes('fue') || bm.includes('fut') || bm.includes('hair')) return '경쟁 모발이식 병원';
+  if (bm.includes('안과') || bm.includes('라식') || bm.includes('라섹') || bm.includes('백내장')) return '경쟁 안과';
+  if (bm.includes('피부') || bm.includes('피부과') || bm.includes('레이저')) return '경쟁 피부과';
+  if (bm.includes('성형')) return '경쟁 성형외과';
+  if (bm.includes('치과') || bm.includes('임플란트')) return '경쟁 치과';
+  if (bm.includes('한방') || bm.includes('한의원')) return '경쟁 한의원';
+  if (bm.includes('정형') || bm.includes('척추')) return '경쟁 정형외과';
+  if (bm.includes('산부인과') || bm.includes('여성')) return '경쟁 산부인과';
+  return '동종업계 경쟁사';
+}
 
 export default function CompetitorsPage() {
   // Round 34 phase 5 (2026-05-30): URL query 로 tenantId 공유.
@@ -307,7 +323,7 @@ export default function CompetitorsPage() {
                 </div>
                 <ul className="space-y-1.5 text-[11px] text-ink-soft">
                   {data.tier_distribution.T5 > 5 && (
-                    <li>• T5 (경쟁 안과) {data.tier_distribution.T5}건 → DIRECT 라벨링</li>
+                    <li>• T5 ({extractCategoryLabel(businessModel)}) {data.tier_distribution.T5}건 → DIRECT 라벨링</li>
                   )}
                   {data.tier_distribution.T3 > 0 && (
                     <li>• 권위 사이트 인용 패턴 학습 → 콘텐츠 인용성 향상</li>
@@ -336,17 +352,17 @@ export default function CompetitorsPage() {
               <div className="mt-2 kpi-value" style={{ color: TIER_LABELS.T3.color }}>
                 {data.tier_distribution.T3}
               </div>
-              <div className="text-[11px] text-ink-muted">MSD/아산/삼성 등</div>
+              <div className="text-[11px] text-ink-muted">종합병원·학회·의료매체</div>
             </div>
             <div className="card card-pad">
               <div className="kpi-label">의료 플랫폼</div>
               <div className="mt-2 kpi-value" style={{ color: TIER_LABELS.T4.color }}>
                 {data.tier_distribution.T4}
               </div>
-              <div className="text-[11px] text-ink-muted">모두닥/강남언니 등</div>
+              <div className="text-[11px] text-ink-muted">모두닥·강남언니·하이닥 등</div>
             </div>
             <div className="card card-pad border-ink/20">
-              <div className="kpi-label">경쟁 안과/병원 ⚠️</div>
+              <div className="kpi-label">{extractCategoryLabel(businessModel)} ⚠️</div>
               <div className="mt-2 kpi-value text-ink">{data.tier_distribution.T5}</div>
               <div className="text-[11px] text-ink-muted">따라잡을 직접 경쟁사</div>
             </div>

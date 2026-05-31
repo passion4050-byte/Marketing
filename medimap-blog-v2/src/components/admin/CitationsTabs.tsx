@@ -22,7 +22,7 @@ const TABS = [
     href: '/admin/competitors',
     label: '경쟁사 현황 보기',
     icon: Crosshair,
-    desc: '비즈니스 모델 키워드 기준 경쟁 안과 분석',
+    desc: '비즈니스 모델 키워드 기준 동종업계 경쟁사 분석',
   },
 ];
 

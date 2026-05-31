@@ -427,7 +427,7 @@ export default function DomainClassificationsPage() {
           <strong className="text-brand-700"> T1</strong> 우리 자산 ·
           <strong className="text-status-warning"> T3</strong> 종합병원·학회 (콘텐츠 톤 학습 대상) ·
           <strong className="text-status-info"> T4</strong> 의료 플랫폼 (인용 점유율 경쟁) ·
-          <strong className="text-status-danger"> T5</strong> 경쟁 안과·병원 (직접 위협) ·
+          <strong className="text-status-danger"> T5</strong> 동종업계 경쟁사 (직접 위협) ·
           <strong className="text-ink-muted"> NOISE</strong> 무관 도메인 (집계 제외).
           자동 분류 도메인은 <span className="rounded bg-amber-100 px-1 text-amber-800">🤖 auto</span> 배지, 수동 분류는 <span className="rounded bg-green-100 px-1 text-green-800">✋ manual</span> 배지로 구분됩니다.
         </div>
