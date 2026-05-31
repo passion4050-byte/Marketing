@@ -12,18 +12,32 @@
  *   - 최근 검수 대기 Top 3 = draft/pending top 3 + tenant 이름 (별도 fetch — fix 12 패턴)
  *   - 최근 AI 인용 = 미구현 → 빈 상태 메시지
  */
+import nextDynamic from 'next/dynamic';
 import { ArrowUpRight, ClipboardCheck, DollarSign, Users, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { getServerClient } from '@/lib/supabase';
 import { cn } from '@/lib/cn';
-import {
-  DashboardCharts,
-  type TierTrendPoint,
-  type ClientRankingItem,
-  type KeywordGroundingItem,
-  type NewDomainItem,
+import type {
+  TierTrendPoint,
+  ClientRankingItem,
+  KeywordGroundingItem,
+  NewDomainItem,
 } from '@/components/admin/DashboardCharts';
 import { DashboardFilters } from '@/components/admin/DashboardFilters';
+
+// Round 57 (2026-05-31) — recharts 번들 lazy load. KPI 카드는 즉시, 차트는 비동기.
+const DashboardCharts = nextDynamic(
+  () => import('@/components/admin/DashboardCharts').then((m) => m.DashboardCharts),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="card flex h-64 items-center justify-center text-[12px] text-ink-muted">차트 로딩 중…</div>
+        <div className="card flex h-64 items-center justify-center text-[12px] text-ink-muted">차트 로딩 중…</div>
+      </div>
+    ),
+  }
+);
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';

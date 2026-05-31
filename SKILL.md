@@ -3171,7 +3171,7 @@ KpiCard 컴포넌트에 `href` prop 추가 — `<a>` 로 래핑, `scroll-mt-20` 
 - `medimap-blog-v2/src/app/admin/(portal)/reports/page.tsx` — 3개 GroupCard + CategoryFilterBar + isSelf medimap-self 추가
 - `medimap-blog-v2/src/app/admin/(portal)/saas-tracking/page.tsx` — KpiCard href 지원 + section id (#share-trend / #keyword-grounding / #competitor-saas)
 
-### 다음 라운드 후보 (Round 57)
+### 다음 라운드 후보 (Round 58)
 
 **학습 → 콘텐츠 활용 워크플로우** (큰 작업, 별도 분리):
 - learned-insights 페이지의 분석 결과를 → 콘텐츠 생성에 직접 활용하는 기능
@@ -3179,3 +3179,68 @@ KpiCard 컴포넌트에 `href` prop 추가 — `<a>` 로 래핑, `scroll-mt-20` 
 - DB schema: `applied_insights` 테이블 (insight_id → tenant_id 매핑)
 - API: `/api/admin/insights/apply` (insight 를 tenant 의 content_settings 에 inject)
 - UI: learned-insights 카드에 "이 클라이언트에 적용" 버튼 + applied 표시
+
+---
+
+## Round 57 (2026-05-31) — SEO/속도 진단 + recharts lazy load + 핸드오프 가이드
+
+### 점검 결과
+
+**medimap-blog (자사 SaaS 사이트)** — SEO 기본기 양호:
+- ✅ `robots.ts` — AI 크롤러 전체 허용 + admin/client/api 차단 + sitemap 명시
+- ✅ `sitemap.ts` — try/catch fallback (Round 12)
+- ✅ `next.config.js` — AVIF/WebP, compress, poweredByHeader off, redirects (한글→영문)
+- ✅ Pretendard font preconnect + dns-prefetch
+- ✅ `force-dynamic` + middleware no-store (Round 16)
+- ⚠️ 보강 가능: next/font self-host (CDN 의존 제거 → CLS 감소), Article JSON-LD 풍부화
+
+**medimap-blog-v2 (admin)** — 운영자용:
+- ✅ `(portal)/layout.tsx` robots noindex/nofollow (Round 5)
+- ✅ `force-dynamic` 일관
+- ⚠️ 병목: recharts (~100KB) 가 6개 파일에서 직접 import → 첫 로드 부담
+
+### Fix — recharts dynamic import (2 핵심 페이지)
+
+운영자 매일 진입 경로 2개에 next/dynamic 적용:
+
+```typescript
+const DashboardCharts = nextDynamic(
+  () => import('@/components/admin/DashboardCharts').then((m) => m.DashboardCharts),
+  { ssr: false, loading: () => <SkeletonChart /> }
+);
+```
+
+적용:
+- `/admin/(portal)/page.tsx` — DashboardCharts (대시보드 차트 3개)
+- `/admin/(portal)/reports/[tenantId]/page.tsx` — ReportTrendChart (보고서 추이)
+
+효과: 첫 페인트 시 recharts 번들 제외 → KPI 카드 / 표 부터 즉시 표시. 차트는 비동기 로드.
+
+**중요한 import alias 함정**:
+- `admin/(portal)/page.tsx` 는 `export const dynamic = 'force-dynamic'` 이 있어서 `import dynamic from 'next/dynamic'` 하면 변수명 충돌. → `import nextDynamic from 'next/dynamic'` 로 alias 필수.
+
+### 새 함정 (Round 57)
+
+**(BR) Next.js 의 `export const dynamic` 과 `next/dynamic` 변수명 충돌**
+- 증상: 같은 파일에서 둘 다 쓰면 `dynamic` 이 shadow 됨. `Cannot read properties` 런타임 에러.
+- 정답: `import nextDynamic from 'next/dynamic'` alias.
+
+**(BS) `ssr: false` dynamic 컴포넌트의 type 은 별도 import**
+- 증상: dynamic component 의 named export `type` 도 같이 import 하면 lazy 로드 안 됨 (type 강제로 번들에 포함)
+- 정답: `import type { ... } from '@/components/...'` 로 type 만 분리, component 만 dynamic.
+
+### 다음 라운드 후보 (Round 58+)
+
+**추가 SEO/속도 최적화 (시간 들 때 진행)**
+1. medimap-blog 의 next/font self-host (Pretendard 로컬화)
+2. saas-tracking / citations / competitors / learned-insights 의 recharts 도 dynamic 처리 (4 페이지)
+3. Article JSON-LD 풍부화 (mainEntityOfPage, breadcrumb, faq 추가)
+4. medimap-blog 의 ISR 도입 가능 항목 검토 (`force-dynamic` 일괄을 일부 ISR 로 전환 — TTFB 단축)
+5. Vercel Analytics 또는 PageSpeed Insight 정기 모니터링 자동화
+
+### Round 57 산출물
+
+- `medimap-blog-v2/src/app/admin/(portal)/page.tsx` — DashboardCharts dynamic
+- `medimap-blog-v2/src/app/admin/(portal)/reports/[tenantId]/page.tsx` — ReportTrendChart dynamic
+- `handoff/round57-2026-05-31/HANDOFF.md` — 내일 작업 가이드
+- SKILL.md 갱신

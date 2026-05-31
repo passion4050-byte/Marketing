@@ -14,11 +14,24 @@
  *
  * print:hidden + print:* 클래스로 PDF 저장 친화.
  */
+import dynamic from 'next/dynamic';
 import { ArrowDown, ArrowUp, Award, FileText, Target, TrendingUp, Users, Zap, AlertCircle } from 'lucide-react';
 import { getServerClient } from '@/lib/supabase';
 import { classifyDomain, loadClassifierSets } from '@/lib/domain-classifier';
-import { ReportTrendChart } from './_components/ReportTrendChart';
 import { PrintButton } from './_components/PrintButton';
+
+// Round 57 (2026-05-31) — recharts 번들 (~100KB) lazy load. 첫 페인트 후 비동기 로드.
+const ReportTrendChart = dynamic(
+  () => import('./_components/ReportTrendChart').then((m) => m.ReportTrendChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-40 items-center justify-center rounded border border-dashed border-border text-[11px] text-ink-muted">
+        차트 로딩 중…
+      </div>
+    ),
+  }
+);
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
