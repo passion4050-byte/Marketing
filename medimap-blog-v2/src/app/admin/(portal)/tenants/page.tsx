@@ -24,6 +24,7 @@ interface SbTenant {
   publish_count: number | null;
   monthly_cost: number | null;
   joined_at: string | null;
+  report_send_day: number | null; // Round 53 — 1~28일
 }
 
 const STATUS_CHIP: Record<TenantStatus, { label: string; cls: string }> = {
@@ -333,6 +334,18 @@ export default function TenantsPage() {
                   <option value="active">활성</option>
                   <option value="paused">일시정지</option>
                 </select>
+              </div>
+
+              {/* Round 53 — 월간 보고서 발송일 (1~28일) */}
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink">월간 보고서 발송일</label>
+                <select className="input-base" value={String(draft.report_send_day ?? 1)}
+                  onChange={(e) => setDraft((p) => ({ ...p, report_send_day: Number(e.target.value) }))}>
+                  {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                    <option key={d} value={d}>{d}일</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[10px] text-ink-muted">매월 이 날 18시 KST 에 보고서 이메일 자동 발송</p>
               </div>
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-border px-6 py-4">

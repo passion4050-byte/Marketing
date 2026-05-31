@@ -19,7 +19,8 @@ export const dynamic = 'force-dynamic';
 const ALLOWED_INSERT = new Set([
   'name', 'domain_category', 'region', 'business_model', 'address',
   'naver_place_url', 'phone', 'homepage', 'email',
-  'partner_slug', 'status', 'publish_count', 'monthly_cost', 'joined_at'
+  'partner_slug', 'status', 'publish_count', 'monthly_cost', 'joined_at',
+  'report_send_day', // Round 53 (2026-05-31) — 월간 보고서 발송일 (1~28)
 ]);
 
 const NOT_NULL_PROTECT = new Set(['name', 'domain_category', 'region', 'business_model']);

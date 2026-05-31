@@ -346,11 +346,7 @@ export default function ContentSettingsPage() {
       <div className="card mb-5 flex items-start gap-3 border-l-4 border-l-status-warn bg-amber-50/70 p-4 text-[12px] text-ink-soft">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-status-warn" />
         <div>
-          <div className="font-semibold text-ink">변경은 즉시 다음 발행 cycle 부터 반영됩니다.</div>
-          <div className="mt-0.5 text-ink-muted">
-            cron 시각/요일 자체를 바꾸려면 <code className="rounded bg-white px-1 py-0.5">.github/workflows/auto-publish.yml</code> 도 함께 수정해야 합니다.
-            (이 페이지는 prompt 빌드 정책만 관리.)
-          </div>
+          <div className="font-semibold text-ink">변경은 즉시 다음 발행 플랜부터 반영됩니다.</div>
         </div>
       </div>
 

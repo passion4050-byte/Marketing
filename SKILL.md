@@ -2914,3 +2914,81 @@ KPI 위에 "위협 → 학습 → 액션" 3단 박스 추가. 같은 데이터 (
 ### admin-mock.ts / aeo.ts 의 산업 종속
 
 남아있지만 mock 데이터 (이미 라이브 DB 로 대체됨) — 사용 안 됨. 굳이 수정 안 함.
+
+---
+
+## Round 53 (2026-05-31) — 보고서 발송일 + 일별 cron 분기 + Mock 경고 fix + reports 페이지 재디자인
+
+### 배경
+
+사용자 보고:
+1. 월간 보고서 list 페이지의 "⚠ Mock 데이터 — 라이브 미연동" 경고 — 실제로는 tenants list / 이메일 / 발행수 모두 라이브. 경고가 거짓.
+2. 클라이언트별 발송일 설정 기능 부재 — 매월 1일 일괄만 가능.
+3. reports 페이지 디자인 단조 — "안 이뻐".
+
+### Fix A — DB migration: tenants.report_send_day
+
+```sql
+ALTER TABLE tenants
+  ADD COLUMN IF NOT EXISTS report_send_day SMALLINT NOT NULL DEFAULT 1
+  CHECK (report_send_day BETWEEN 1 AND 28);
+
+CREATE INDEX IF NOT EXISTS idx_tenants_report_send_day ON tenants(report_send_day) WHERE email IS NOT NULL;
+```
+
+1~28일 범위 (29~31 은 매월 존재하지 않을 수 있어 제외). email 있는 tenant 만 인덱스.
+
+### Fix B — endpoint 의 today_day 필터 + force 모드
+
+`/api/admin/reports/email` 의 `all=true` 모드:
+- 기본: KST today.day 와 `report_send_day` 일치하는 tenant 만 발송
+- `force: true` body 옵션 — 필터 무시하고 모든 email 있는 tenant 발송 (수동 manual run / 일괄 발송 버튼)
+
+### Fix C — workflow cron 매일 실행
+
+```yaml
+on:
+  schedule:
+    - cron: '0 9 * * *'   # 매일 09:00 UTC = 18:00 KST
+```
+
+이전: `0 9 1 * *` (매월 1일만). endpoint 의 today_day 필터로 분기됨.
+
+### Fix D — tenants edit modal 의 발송일 dropdown
+
+상태 select 옆에 "월간 보고서 발송일" select (1~28일). 저장 시 `/api/admin/tenants` PUT 으로 컬럼 업데이트.
+
+### Fix E — reports/page.tsx 완전 재디자인
+
+- MockBanner 제거 → 실데이터 안내 박스 ("실데이터 연동 완료")
+- **자사(메디맵) 별도 섹션** — `partner_slug === 'medimap'` 또는 name 시작 "메디맵". 그라데이션 카드, "외부 발송 대상 아님" 명시.
+- **두 그룹 분리**:
+  - 발송 가능 (이메일 등록) — 2열 grid 카드. 이름, 이메일 chip, 발송일 + D-day, 발행수 큰 숫자, 미리보기/발송 버튼.
+  - 이메일 미등록 — 3열 grid, dashed border. 편집 deep-link.
+- **오늘 발송 강조** — `report_send_day === todayDay` 인 카드는 좌측 색띠 + animate-pulse "오늘 발송" 배지.
+- **정렬 옵션** — 다음 발송 빠른순 / 이름순 / 발행수순.
+- **전체 즉시 발송 버튼** — confirm 후 `all: true, force: true` 호출 — 일괄 manual run.
+
+### 새 함정 (Round 53)
+
+**(BJ) Mock 경고가 실제는 라이브 데이터인데 거짓 경고로 남아있는 함정**
+- 증상: 일부 컬럼만 placeholder(`—`)인데 페이지 전체를 mock 으로 라벨링
+- 정답: MockBanner 는 진짜 mock 데이터일 때만 사용. placeholder dash 는 별도 안내. 라이브 전환 시 banner 삭제.
+
+**(BK) 매달 일자 28일 제한 — 29~31 일은 매월 존재하지 않을 수 있음**
+- 증상: report_send_day=31 설정 시 2월/4월/6월/9월/11월 발송 안 됨
+- 정답: CHECK constraint 로 1~28 만 허용. UI dropdown 도 28까지.
+
+**(BL) KST today_day 추출 — UTC 시각 + 9시간 보정 필요**
+- 증상: cron 이 UTC 기준이라 그대로 `new Date().getUTCDate()` 쓰면 KST 자정~09시 사이 하루 차이
+- 정답: `new Date(Date.now() + 9 * 3600 * 1000).getUTCDate()` — KST 일자.
+
+### Round 53 산출물
+
+- Supabase migration `round53_tenants_report_send_day`
+- `/api/admin/tenants/route.ts` — ALLOWED_INSERT 에 `report_send_day` 추가
+- `/api/admin/reports/email/route.ts` — today_day 필터 + force 모드
+- `.github/workflows/send-monthly-reports.yml` — cron 매일 실행
+- `tenants/page.tsx` — edit modal 발송일 dropdown
+- `reports/page.tsx` — 완전 재디자인 (자사 분리 / 발송 가능 / 미등록 / D-day / 오늘 발송 강조)
+- `content-settings/page.tsx` — "변경은 즉시 다음 발행 플랜부터 반영됩니다" 로 안내 단순화 (cron 안내 제거 — 다른 페이지에서 관리)

@@ -1,11 +1,13 @@
-name: Send monthly reports (1st of month 09:00 UTC = 18:00 KST)
+name: Send monthly reports (daily 09:00 UTC = 18:00 KST, filtered by report_send_day)
 
-# Round 48 (2026-05-31) — 매월 1일 모든 클라이언트에 월간 보고서 자동 발송.
+# Round 53 (2026-05-31) — 매일 실행, endpoint 가 today.day == tenant.report_send_day 인 tenant 만 발송.
+# Round 48 (2026-05-31) — 모든 클라이언트에 월간 보고서 자동 발송 (구버전).
 #
 # 흐름:
 #   1. Vercel deployed admin endpoint 호출 — /api/admin/reports/email
-#   2. body: { all: true, cronSecret: CRON_SECRET }
-#   3. endpoint 가 Supabase 에서 email 있는 tenants 추출 + 각 클라이언트에 Resend 발송
+#   2. body: { all: true, cronSecret: CRON_SECRET, force?: true }
+#   3. endpoint 가 Supabase 에서 today.day == report_send_day 인 tenants 추출 → Resend 발송
+#   4. force=true 면 today_day 필터 무시 (manual run 용)
 #
 # 필수 secrets:
 #   - VERCEL_PROD_URL — 예: https://geo-v2-beta.vercel.app
@@ -14,7 +16,7 @@ name: Send monthly reports (1st of month 09:00 UTC = 18:00 KST)
 
 on:
   schedule:
-    - cron: '0 9 1 * *'   # 매월 1일 09:00 UTC = 18:00 KST
+    - cron: '0 9 * * *'   # 매일 09:00 UTC = 18:00 KST. endpoint 가 today_day == report_send_day 인 tenant 만 발송.
   workflow_dispatch:
     inputs:
       period:
@@ -81,8 +83,8 @@ jobs:
         run: |
           {
             echo "## 월간 보고서 자동 발송"
-            echo "- 매월 1일 09:00 UTC 자동 실행"
+            echo "- 매일 09:00 UTC (18:00 KST) 자동 실행"
             echo "- /api/admin/reports/email?all=true 호출"
-            echo "- tenants 의 email 있는 모든 클라이언트에 Resend 발송"
+            echo "- endpoint 가 today.day == tenant.report_send_day 인 tenant 만 발송"
             echo "- 결과는 위 step 의 RESPONSE 참조"
           } >> "$GITHUB_STEP_SUMMARY"

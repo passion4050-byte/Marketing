@@ -81,6 +81,9 @@ export async function POST(req: NextRequest) {
   const origin = req.nextUrl.origin;
 
   // Round 48 — all=true 모드 (cron 일괄 발송)
+  // Round 53 (2026-05-31) — today.day 와 tenant.report_send_day 일치하는 tenant 만 발송.
+  //   cron 이 매일 실행되더라도 클라이언트별 발송일에 맞춰 분기됨.
+  //   force=true 면 today_day 필터 무시 (수동 manual run 용).
   if (body.all) {
     const cronSecret = process.env.CRON_SECRET;
     if (cronSecret && body.cronSecret !== cronSecret) {
@@ -90,11 +93,21 @@ export async function POST(req: NextRequest) {
     const sb = getServerClient();
     if (!sb) return NextResponse.json({ ok: false, error: 'supabase not configured' }, { status: 503 });
 
-    const { data: tenants } = await sb
+    // KST (UTC+9) 기준 오늘 일자
+    const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    const todayDay = kstNow.getUTCDate(); // 1~31
+    const force = (body as { force?: boolean }).force === true;
+
+    let query = sb
       .from('tenants')
-      .select('id, name, email')
+      .select('id, name, email, report_send_day')
       .not('email', 'is', null)
       .neq('email', '');
+    if (!force) {
+      // report_send_day 가 today_day 와 일치하는 tenant 만
+      query = query.eq('report_send_day', todayDay);
+    }
+    const { data: tenants } = await query;
 
     const results: Array<Awaited<ReturnType<typeof sendOne>> & { tenantId: number; tenantName: string }> = [];
     for (const t of tenants ?? []) {
@@ -112,6 +125,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       period,
+      today_day: todayDay,
+      force,
       total: results.length,
       sent: results.filter((r) => r.ok).length,
       failed: results.filter((r) => !r.ok).length,
