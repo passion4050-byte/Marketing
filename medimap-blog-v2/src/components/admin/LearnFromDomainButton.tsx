@@ -198,7 +198,7 @@ export function LearnFromDomainButton({
                 </div>
 
                 {/* 평균 지표 그리드 */}
-                <div className="mb-4 grid grid-cols-3 gap-2 text-[11px]">
+                <div className="mb-4 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-3">
                   <Metric label="평균 제목" value={`${analysis.summary.avg_title_length}자`} />
                   <Metric label="평균 본문" value={`${analysis.summary.avg_word_count} 단어`} />
                   <Metric label="평균 H2 / H3" value={`${analysis.summary.avg_h2_count} / ${analysis.summary.avg_h3_count}`} />

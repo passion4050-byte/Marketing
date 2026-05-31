@@ -1427,3 +1427,79 @@ DB:
 - UNSPLASH_ACCESS_KEY GitHub Secret 등록 (자사 글 cover 깨짐 해소)
 - 의료법 린터 규칙 DB 이전 (X 패턴 추가 적용)
 - generator.py prompt 템플릿 DB 이전 (X 패턴)
+
+---
+
+## Round 37 G + H (2026-05-31 야간 후반) — 모바일 햄버거 + 대시보드 차트 3개
+
+### G — AdminShell 모바일 햄버거 사이드바
+
+**문제**: 어드민 사이드바 228px 고정 폭 — 모바일(< 768px)에서 거의 화면 절반 점유, 메인 콘텐츠 누르기 어려움.
+
+**해결**: Tailwind `md` (768px) breakpoint 기준 반응형:
+- 데스크탑(md+): 기존 고정 사이드바 (hidden md:flex)
+- 모바일: 상단 고정 헤더(h-14, fixed top-0) + 햄버거 버튼 + drawer overlay
+- drawer 열림 시 `body.style.overflow = 'hidden'` scroll lock
+- 라우트 변경 시 `useEffect(() => setMobileOpen(false), [pathname])` 자동 close
+- 모든 nav item `min-h-[44px]` (애플 HIG tap target)
+- 메인 콘텐츠 `pt-14 md:pt-0` (모바일 헤더 높이 보정)
+
+### H — 운영 대시보드 차트 3개 (사용자 요청 + 스파링 제안)
+
+사용자 요청 + 추가 제안 분석 후 3개 확정:
+
+**차트 1: 메디맵 AI 인용 점유율(T1 share) 추이** — 라인 (30일)
+- "메디맵 자체 도메인이 AI 응답에 인용되는 비율" — SaaS 직접 효과 검증
+- 사용자 요청 정확 반영
+- 현재 0% — 시간 누적 후 상승 추적이 가치 증명
+
+**차트 2: 5-tier 점유율 추이** — stacked area (30일)
+- 사용자 요청 "클라이언트(T2) vs 경쟁사(T5) 비교" 를 5-tier 전체로 확장 — 정보 풍부
+- T1(메디맵) / T3(권위) / T4(플랫폼) / T5(외부·경쟁) / NOISE
+- "T1 ↑ + T5 ↓" 가 진짜 성공 패턴
+
+**차트 3: 클라이언트별 AI 인용 ranking** — 가로 막대 (Top 5)
+- 추가 제안 — 영업 우선순위 결정 자료
+- 색상 분리: T1 인용 있는 클라이언트(브랜드 블루) vs 없는 클라이언트(퍼플)
+- 향후 4 엔진 활성화 후 더 가치 큼
+
+### 차트 데이터 처리 패턴
+
+server component (page.tsx) 에서 직접 SQL 호출 + JS 집계 → client component (DashboardCharts.tsx) 에 props 전달:
+- responses 최근 30일 (source_domains NOT NULL) + queries (engine != stub) join
+- domain_classifications 분류 사전 read
+- JS 에서 일자별 group + tenant 별 group + tier 분류
+- recharts ResponsiveContainer + AreaChart/LineChart/BarChart
+
+### 추가 제안 (Round 38+ 후보)
+
+스파링 분석 시 도출:
+- **Top 키워드 grounding rate** — 어느 키워드가 잘 grounding 되나, 콘텐츠 우선순위 결정
+- **신규 T5 도메인 알림** — Slack notify, 시장 변화 감지
+- **엔진별 인용 분포** — Gemini/Claude/Perplexity/OpenAI 비교 (4 엔진 활성화 후)
+- **카테고리별 baseline 비교** — 안과/피부과/성형외과 등 카테고리별 평균 메타 구조
+
+### 새 함정 (Round 37 G/H 추가)
+
+**(Z) 모바일 햄버거 sidebar — 라우트 변경 시 close + body scroll lock 필수**
+- 증상: drawer 열린 채 다른 메뉴 클릭 → 라우트 변경되지만 drawer 그대로 → UX 어색
+- 정답: `useEffect(() => setMobileOpen(false), [pathname])` + `body.style.overflow` 토글. cleanup 으로 `''` 복원.
+
+**(AA) recharts 차트는 client component 강제** — server 에서 import 시 빌드 에러
+- 증상: `'use client'` 안 붙이고 recharts 사용 → "ResponsiveContainer is not exported from 'recharts'" 류 에러
+- 정답: 차트 wrapper 컴포넌트 별도 파일 + `'use client'` 첫 줄. server page 는 props 로 데이터만 전달.
+
+### Round 37 G/H 산출물
+
+코드:
+- `medimap-blog-v2/src/components/admin/AdminShell.tsx` — 햄버거 사이드바 + drawer overlay
+- `medimap-blog-v2/src/components/admin/LearnFromDomainButton.tsx` — modal grid `grid-cols-2 sm:grid-cols-3` 모바일 대응
+- `medimap-blog-v2/src/components/admin/DashboardCharts.tsx` — 차트 3개 (라인/stacked area/가로 막대)
+- `medimap-blog-v2/src/app/admin/(portal)/page.tsx` — fetchDashboardData 차트 데이터 집계 + import
+
+### Round 37 미진 (다음 라운드)
+
+- 모바일 표 → 카드 변환 (tenants/citations/competitors/learned-insights/domain-classifications)
+- 모든 모달 풀스크린 (모바일)
+- 키워드 풀 Tier 1+2 (사용자 결정 — 다른 작업 먼저)
+- E 잔여 잡일 / F 검증 시드 — 사무실 결정 후

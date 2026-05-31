@@ -16,6 +16,11 @@ import { ArrowUpRight, ClipboardCheck, DollarSign, Users, Zap } from 'lucide-rea
 import Link from 'next/link';
 import { getServerClient } from '@/lib/supabase';
 import { cn } from '@/lib/cn';
+import {
+  DashboardCharts,
+  type TierTrendPoint,
+  type ClientRankingItem,
+} from '@/components/admin/DashboardCharts';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -47,6 +52,8 @@ async function fetchDashboardData() {
         engine: string;
         citedAt: string;
       }>,
+      tierTrend: [] as TierTrendPoint[],
+      clientRanking: [] as ClientRankingItem[],
       error: 'supabase not configured',
     };
   }
@@ -191,6 +198,135 @@ async function fetchDashboardData() {
     // mentions/queries query 실패 시 빈 list (graceful)
   }
 
+  // Round 37 H (2026-05-31) — 차트 3개 데이터 server-side 집계.
+  // 1. tier_trend: 일자별 T1/T3/T4/T5/NOISE 카운트 (30일)
+  // 2. client_ranking: 클라이언트별 총 인용 source Top 5
+  let tierTrend: TierTrendPoint[] = [];
+  let clientRanking: ClientRankingItem[] = [];
+  try {
+    // 분류 사전 로드
+    const { data: domainClassRows } = await sb
+      .from('domain_classifications')
+      .select('domain, tier')
+      .eq('is_active', true);
+    const classMap = new Map<string, string>();
+    (domainClassRows ?? []).forEach((r: { domain: string; tier: string }) => {
+      classMap.set(r.domain.toLowerCase(), r.tier);
+    });
+
+    // 최근 30일 responses (production 측정만, source_domains 있는 것)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: respRows } = await sb
+      .from('responses')
+      .select('id, query_id, source_domains, created_at')
+      .gte('created_at', thirtyDaysAgo)
+      .not('source_domains', 'is', null);
+
+    // query_id → tenant_id, engine
+    const queryIdSet = Array.from(
+      new Set((respRows ?? []).map((r: { query_id: number }) => r.query_id))
+    );
+    const queryTenantMap = new Map<number, number>();
+    if (queryIdSet.length > 0) {
+      const { data: queryRows } = await sb
+        .from('queries')
+        .select('id, tenant_id, engine')
+        .in('id', queryIdSet)
+        .neq('engine', 'stub');
+      (queryRows ?? []).forEach((q: { id: number; tenant_id: number }) => {
+        queryTenantMap.set(q.id, q.tenant_id);
+      });
+    }
+
+    // tenant_id → name
+    const tenantIdsAll = Array.from(new Set(Array.from(queryTenantMap.values())));
+    const tenantNameMap = new Map<number, string>();
+    if (tenantIdsAll.length > 0) {
+      const { data: tenantsAll } = await sb
+        .from('tenants')
+        .select('id, name')
+        .in('id', tenantIdsAll);
+      (tenantsAll ?? []).forEach((t: { id: number; name: string }) => {
+        tenantNameMap.set(t.id, t.name);
+      });
+    }
+
+    // 일자별 집계 + 클라이언트별 집계
+    const trendMap = new Map<
+      string,
+      { t1: number; t3: number; t4: number; t5: number; noise: number; total: number }
+    >();
+    const clientMap = new Map<number, { total: number; t1: number; t5: number }>();
+
+    (respRows ?? []).forEach(
+      (r: {
+        query_id: number;
+        source_domains: Array<{ domain: string }> | null;
+        created_at: string;
+      }) => {
+        const tenantId = queryTenantMap.get(r.query_id);
+        if (!tenantId) return; // stub engine 또는 누락
+        const dateKey = r.created_at.slice(5, 10); // 'MM-DD'
+
+        if (!trendMap.has(dateKey)) {
+          trendMap.set(dateKey, { t1: 0, t3: 0, t4: 0, t5: 0, noise: 0, total: 0 });
+        }
+        const bucket = trendMap.get(dateKey)!;
+
+        if (!clientMap.has(tenantId)) {
+          clientMap.set(tenantId, { total: 0, t1: 0, t5: 0 });
+        }
+        const cbucket = clientMap.get(tenantId)!;
+
+        (r.source_domains ?? []).forEach((sd: { domain: string }) => {
+          if (!sd.domain) return;
+          const d = sd.domain.toLowerCase();
+          const cls = classMap.get(d) ?? 'T5'; // unknown → T5 default
+          bucket.total++;
+          cbucket.total++;
+          if (cls === 'T1') {
+            bucket.t1++;
+            cbucket.t1++;
+          } else if (cls === 'T3') bucket.t3++;
+          else if (cls === 'T4') bucket.t4++;
+          else if (cls === 'NOISE') bucket.noise++;
+          else {
+            bucket.t5++;
+            cbucket.t5++;
+          }
+        });
+      }
+    );
+
+    // tier_trend — 30일치 채움 (없는 날 0)
+    const allDays: string[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const dt = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+      allDays.push(dt.toISOString().slice(5, 10));
+    }
+    tierTrend = allDays.map((d) => {
+      const b = trendMap.get(d) ?? { t1: 0, t3: 0, t4: 0, t5: 0, noise: 0, total: 0 };
+      return {
+        date: d,
+        ...b,
+        t1_share: b.total > 0 ? b.t1 / b.total : 0,
+      };
+    });
+
+    // client_ranking — Top 5 by total
+    clientRanking = Array.from(clientMap.entries())
+      .map(([tid, v]) => ({
+        tenant_name: tenantNameMap.get(tid) ?? `tenant#${tid}`,
+        total: v.total,
+        t1: v.t1,
+        t5: v.t5,
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+  } catch {
+    /* 차트 데이터 실패 시 빈 array — 컴포넌트가 graceful 표시 */
+  }
+
   return {
     activeTenants: clientCount ?? 0,
     pendingQueue: pendingCount ?? 0,
@@ -198,6 +334,8 @@ async function fetchDashboardData() {
     citations24h,
     recentDrafts,
     recentCitations,
+    tierTrend,
+    clientRanking,
     error: costError,
   };
 }
@@ -366,6 +504,11 @@ export default async function AdminDashboardPage() {
             </ul>
           )}
         </div>
+      </section>
+
+      {/* Round 37 H (2026-05-31) — KPI 차트 3개 */}
+      <section className="mt-6">
+        <DashboardCharts tierTrend={d.tierTrend} clientRanking={d.clientRanking} />
       </section>
 
       {d.error && (

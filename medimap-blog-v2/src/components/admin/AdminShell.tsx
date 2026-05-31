@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import {
   Beaker,
   BookOpen,
@@ -13,12 +14,14 @@ import {
   LayoutDashboard,
   LinkIcon,
   LogOut,
+  Menu,
   Plug,
   Settings,
   ShieldCheck,
   Tag,
   UserCog,
   Users,
+  X,
   Zap
 } from 'lucide-react';
 import { showToast } from '@/lib/clientActions';
@@ -51,6 +54,26 @@ const NAV = [
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  // Round 37 G (2026-05-31) — 모바일 햄버거 사이드바.
+  // md (768px) 이상: 고정 사이드바. 미만: 햄버거 + drawer overlay.
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // 라우트 변경 시 자동 close (모바일 drawer)
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // drawer 열렸을 때 body scroll lock
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileOpen]);
 
   const onLogout = async () => {
     await fetch('/api/admin/logout', { method: 'POST' });
@@ -58,64 +81,120 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     window.location.href = '/admin/login';
   };
 
-  return (
-    <div className="flex min-h-screen bg-surface-subtle">
-      <aside className="sticky top-0 flex h-screen w-[228px] shrink-0 flex-col border-r border-border bg-surface-base">
-        <div className="border-b border-border px-5 pb-3 pt-5">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-white">
-              <ShieldCheck className="h-4 w-4" />
-            </div>
-            <div>
-              <div className="text-sm font-bold text-ink">MEDIMAP GEO</div>
-              <div className="text-[10px] font-medium uppercase tracking-wider text-brand-700">
-                Admin Console
-              </div>
+  const sidebarContent = (
+    <>
+      <div className="border-b border-border px-5 pb-3 pt-5">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-white">
+            <ShieldCheck className="h-4 w-4" />
+          </div>
+          <div>
+            <div className="text-sm font-bold text-ink">MEDIMAP GEO</div>
+            <div className="text-[10px] font-medium uppercase tracking-wider text-brand-700">
+              Admin Console
             </div>
           </div>
         </div>
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
-          {NAV.map((g) => (
-            <div key={g.group} className="mb-5">
-              <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-ink-faint">
-                {g.group}
-              </div>
-              <ul className="space-y-0.5">
-                {g.items.map((it) => {
-                  const active = pathname === it.href || pathname?.startsWith(it.href + '/');
-                  const Icon = it.icon;
-                  return (
-                    <li key={it.href}>
-                      <Link
-                        href={it.href}
-                        className={cn(
-                          'flex items-center gap-2 rounded-md px-3 py-2 text-sm transition',
-                          active
-                            ? 'bg-brand-50 font-semibold text-brand-700'
-                            : 'text-ink-soft hover:bg-surface-subtle'
-                        )}
-                      >
-                        <Icon className="h-4 w-4" />
-                        {it.label}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+      </div>
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
+        {NAV.map((g) => (
+          <div key={g.group} className="mb-5">
+            <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-ink-faint">
+              {g.group}
             </div>
-          ))}
-        </nav>
-        <div className="border-t border-border px-3 py-3">
-          <button
-            type="button"
-            onClick={onLogout}
-            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-ink-muted hover:bg-surface-subtle hover:text-status-danger"
-          >
-            <LogOut className="h-4 w-4" /> 로그아웃
-          </button>
-        </div>
+            <ul className="space-y-0.5">
+              {g.items.map((it) => {
+                const active = pathname === it.href || pathname?.startsWith(it.href + '/');
+                const Icon = it.icon;
+                return (
+                  <li key={it.href}>
+                    <Link
+                      href={it.href}
+                      className={cn(
+                        // 모바일 친화: min-height 44px (애플 HIG tap target)
+                        'flex min-h-[44px] items-center gap-2 rounded-md px-3 py-2 text-sm transition',
+                        active
+                          ? 'bg-brand-50 font-semibold text-brand-700'
+                          : 'text-ink-soft hover:bg-surface-subtle active:bg-surface-subtle'
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {it.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </nav>
+      <div className="border-t border-border px-3 py-3">
+        <button
+          type="button"
+          onClick={onLogout}
+          className="flex min-h-[44px] w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-ink-muted hover:bg-surface-subtle hover:text-status-danger"
+        >
+          <LogOut className="h-4 w-4" /> 로그아웃
+        </button>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="flex min-h-screen bg-surface-subtle">
+      {/* 데스크탑 사이드바 (md+) */}
+      <aside className="sticky top-0 hidden h-screen w-[228px] shrink-0 flex-col border-r border-border bg-surface-base md:flex">
+        {sidebarContent}
       </aside>
-      <main className="flex-1 min-w-0">{children}</main>
+
+      {/* 모바일 햄버거 헤더 (md 미만) */}
+      <div className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-surface-base px-4 md:hidden">
+        <button
+          type="button"
+          onClick={() => setMobileOpen(true)}
+          aria-label="메뉴 열기"
+          className="-ml-2 flex h-10 w-10 items-center justify-center rounded-md text-ink-soft hover:bg-surface-subtle active:bg-surface-subtle"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-white">
+            <ShieldCheck className="h-3.5 w-3.5" />
+          </div>
+          <span className="text-sm font-bold text-ink">MEDIMAP GEO</span>
+        </div>
+        <div className="w-10" />
+      </div>
+
+      {/* 모바일 drawer overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-ink/50 backdrop-blur-sm md:hidden"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden
+        />
+      )}
+
+      {/* 모바일 drawer 사이드바 */}
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-border bg-surface-base transition-transform md:hidden',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => setMobileOpen(false)}
+          aria-label="메뉴 닫기"
+          className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-md text-ink-soft hover:bg-surface-subtle"
+        >
+          <X className="h-5 w-5" />
+        </button>
+        {sidebarContent}
+      </aside>
+
+      {/* 메인 콘텐츠 — 모바일은 햄버거 헤더 높이만큼 padding-top */}
+      <main className="flex-1 min-w-0 pt-14 md:pt-0">{children}</main>
     </div>
   );
 }
