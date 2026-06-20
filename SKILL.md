@@ -3458,6 +3458,108 @@ Round 57 시 위 검증 안 함 → Round 58 fix 2 추가 push 필요.
 
 ---
 
+## Round 59 누적 (2026-06-01) — 일괄 정리
+
+### 주요 fix
+
+**fix 4 — Supabase client 의 Next.js fetch auto-cache (CRITICAL)**
+```typescript
+// lib/supabase.ts
+createClient(url, key, {
+  global: {
+    fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' as RequestCache }),
+  },
+});
+```
+Next.js 13+ 의 fetch auto-cache 가 Supabase 내부 fetch 까지 캐시 → 5/30 응답이 6/20 까지 stale. `force-dynamic` / `Cache-Control` header 모두 무력. **global.fetch override 가 유일한 해결**.
+
+**fix 5 — content-queue UIUX 완벽 개선**
+- isSelfContent() 함수 (partner_slug 기반) — cron 의 잘못된 `is_partner_content` 마킹 우회
+- 카드 좌측 4px stripe (자사 brand / 파트너 accent)
+- 필터 chip (전체/자사/파트너)
+- 본문 미리보기 modal: 좁은 max-w + 큰 폰트 + H1/H2/H3 위계 + 메타 정보 헤더
+
+**fix 6 — blog_category 매핑 강화**
+- title 도 같이 보고 hospital/content/ai 3분류
+- 단일 키워드 편향 해결 (이전엔 모든 자사 글이 ai_trend)
+
+### Round 59 새 함정
+
+**(BX) Next.js fetch auto-cache — 모든 Supabase 호출 stale**
+- 증상: 어드민 API 가 옛 데이터 반환 (force-dynamic 무력)
+- 정답: createClient 의 global.fetch override 로 cache 차단
+
+**(BY) is_partner_content 컬럼 cron 잘못 마킹**
+- 증상: 모든 draft 가 is_partner_content=false 로 저장 → admin UI 에서 파트너 글이 "자사" 로 잘못 분류
+- 정답: 컬럼 무시. partner_slug 기반 분기 (`medimap` / `medimap-self` 이외 = 파트너)
+
+### Round 59 산출물
+
+- `lib/supabase.ts` — global.fetch no-store
+- `content-queue/page.tsx` — UIUX 개선 + isSelfContent() + 필터 chip + modal 가독성
+- `content-queue/[id]/route.ts` — isSelf 분기 fix (medimap-self 자사 인식)
+- `scheduler.py` — _map_blog_category(keyword, title) 강화
+- `auto-publish.yml` — ANTHROPIC_MODEL env + cron 2회/일
+- `schema.ts` — Article LD-JSON wordCount/articleBody/url
+- `site.ts` — siteConfig.url default = medimap-blog-phi.vercel.app
+- middleware.ts — admin API cache no-store
+- 자사 발행 18편 (DB 직접) + 카테고리 균형 재분류
+
+---
+
+## Round 60 (2026-06-01) — cron 이미지 자동 추가 fix
+
+### 증상
+
+자사 발행 18편 모두 `cover_image_url=NULL`. cron 의 image_picker 가 작동 안 함.
+
+### 진단
+
+`generate_image_for_content()` 흐름:
+1. is_self_tenant=True → Unsplash 시도 → UNSPLASH_ACCESS_KEY 미설정 시 실패
+2. Pollinations 시도 → 응답 받음
+3. Storage upload (`_upload_to_supabase`) → 실패 시 **`return None`** ← 함정
+4. cron 이 None 받으면 cover_image_url 그대로 NULL
+
+핵심 함정 — Storage upload 가 401/500 받으면 cover 가 NULL 채로 저장. Pollinations 응답은 받았는데 폐기.
+
+### Fix — Raw Pollinations URL fallback
+
+```python
+storage_url = _upload_to_supabase(img_bytes, keyword, title)
+if not storage_url:
+    # Storage 실패 → raw Pollinations URL 그대로 사용 (cover NULL 회피)
+    return {
+        "url": url,  # raw Pollinations URL (image.pollinations.ai)
+        ...
+        "source": "pollinations_raw",
+    }
+```
+
+medimap-blog 의 next.config.js 가 `image.pollinations.ai` remote pattern 이미 허용 → next/image 정상 렌더.
+
+### 백필 — 옛 글 18편 cover 채움
+
+```sql
+UPDATE generated_contents
+SET cover_image_url = 'https://image.pollinations.ai/prompt/{escaped_prompt}?width=1600&height=900&model=flux&seed={id}&nologo=true&enhance=true'
+WHERE status = 'published' AND tenant_id = 12 AND cover_image_url IS NULL;
+```
+
+### 새 함정 (Round 60)
+
+**(BZ) Storage upload 실패 시 모든 작업 폐기 (graceful 아님)**
+- 증상: Pollinations 응답 OK 인데 Storage upload 1번 실패로 cover NULL 채로 저장 → 운영자가 다음 cron 사이클까지 못 알아챔
+- 정답: 단계별 fallback — Storage 실패 → raw URL fallback → 둘 다 실패 시만 NULL
+
+### Round 60 산출물
+
+- `image_picker.py` — Storage 실패 시 raw Pollinations URL fallback
+- DB 백필 — 자사 18편 cover_image_url 채움
+
+
+---
+
 ## Round 58 fix 3 (2026-06-01) — Sonnet 응답 잘림 (max_tokens 도달)
 
 ### 증상

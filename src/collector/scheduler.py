@@ -322,7 +322,8 @@ def _generate_draft(
                         or getattr(_t, "partner_slug", "") == "medimap-self"
                     )
                     if _is_self:
-                        obj.blog_category = _map_blog_category(keyword)
+                        # Round 59 fix 6 — title 도 전달해서 더 정확히 분류 (keyword 단일이면 편향)
+                        obj.blog_category = _map_blog_category(keyword, getattr(obj, "title", "") or "")
                 except Exception:  # noqa: BLE001
                     pass  # 매핑 실패는 발행 차단 사유 아님
 
@@ -412,35 +413,54 @@ def _generate_draft(
         return obj.status
 
 
-def _map_blog_category(keyword: str) -> str:
-    """자사 인사이트 키워드 → blog_category slug 매핑.
+def _map_blog_category(keyword: str, title: str = "") -> str:
+    """자사 인사이트 키워드 + title → blog_category slug 매핑.
 
     medimap-blog/src/lib/posts.ts BLOG_CATEGORY_SLUGS 와 동일:
         content_marketing | ai_trend | hospital_marketing
 
-    매칭 우선순위 (Round 25, 2026-05-29 수정):
-        1. 의료법/광고/마케팅/병원 운영 → hospital_marketing (가장 구체적)
-        2. 콘텐츠/포스팅/블로그 → content_marketing
-        3. GEO/AEO/AI 트렌드 → ai_trend (마케팅 단어 없을 때만)
-        4. default → hospital_marketing
-
-    Round 24 의 우선순위는 'GEO' 가 위였으나 "병원 마케팅 GEO" 가 ai_trend 로
-    분류되어 사용자 의도(hospital_marketing)와 충돌. 마케팅/광고/의료법이 더
-    구체적 의도이므로 GEO 보다 먼저 매칭.
+    Round 59 fix 6 (2026-06-01) — 단일 키워드만 보면 편향 (모든 자사 글이 "의료 GEO 최적화"
+    키워드 → 다 ai_trend). title 도 함께 보고 더 정확히 분류:
+        1. content_marketing — 콘텐츠/전략/블로그/SEO 인사이트 (마케팅 채널/방법)
+        2. ai_trend — AI 기술·검색엔진·GEO 원리 (기술 트렌드 자체)
+        3. hospital_marketing — 의료법·병원 운영·환자 유치 실전 (현장 노하우)
     """
-    k = (keyword or "").strip()
-    if not k:
+    text = ((keyword or "") + " " + (title or "")).strip().lower()
+    if not text:
         return "hospital_marketing"
-    # 1) 의료법/광고/마케팅/병원 운영 — 가장 구체적 → 먼저
-    if any(t in k for t in ["의료법", "광고", "마케팅", "SEO", "병원 운영", "병원 마케팅"]):
+
+    # 1) hospital_marketing — 의료법·병원 운영·환자 유치 실전 (가장 구체적)
+    hospital_kws = [
+        "의료법", "광고 가이드", "광고가이드",
+        "병원 운영", "병원운영", "환자 유치", "환자유치",
+        "현장", "노하우", "실무", "실전", "전담의", "운영자",
+        "신뢰", "후기", "리뷰",
+    ]
+    if any(t in text for t in hospital_kws):
         return "hospital_marketing"
-    # 2) 콘텐츠 운영 관련
-    if any(t in k for t in ["콘텐츠", "포스팅", "블로그 글", "키워드 전략"]):
+
+    # 2) content_marketing — 콘텐츠/전략/SEO/로컬 인사이트
+    content_kws = [
+        "콘텐츠", "포스팅", "블로그 글", "블로그글",
+        "키워드 전략", "키워드전략",
+        "로컬 seo", "로컬seo", "지역 seo", "지역seo",
+        "전략", "접점", "고객", "환자와", "공감",
+        "인사이트", "가이드", "방법",
+    ]
+    if any(t in text for t in content_kws):
         return "content_marketing"
-    # 3) AI/검색엔진 트렌드 (의료법·마케팅 단어 없을 때만)
-    if any(t in k for t in ["GEO", "AEO", "AI 검색", "AI검색", "Perplexity", "ChatGPT", "Gemini", "Claude", "LLM"]):
+
+    # 3) ai_trend — AI 검색엔진·GEO/AEO 원리·기술 트렌드
+    ai_kws = [
+        "geo", "aeo", "ai 검색", "ai검색", "ai 시대", "ai시대",
+        "perplexity", "chatgpt", "gemini", "claude", "llm",
+        "검색 시대", "검색시대", "생성형", "ai 기술", "기술 트렌드",
+        "원칙", "원리",
+    ]
+    if any(t in text for t in ai_kws):
         return "ai_trend"
-    # 4) default
+
+    # 4) default — 가장 안전 (실전 노하우)
     return "hospital_marketing"
 
 

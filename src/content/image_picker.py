@@ -209,7 +209,20 @@ def generate_image_for_content(
 
     storage_url = _upload_to_supabase(img_bytes, keyword, title)
     if not storage_url:
-        return None
+        # Round 60 fix (2026-06-01) — Storage upload 실패 시 raw Pollinations URL 그대로 사용.
+        # 한 달간 cover 비어있던 함정 (Storage 401/500 시 cover NULL 채로 저장).
+        # medimap-blog 의 next.config.js 가 image.pollinations.ai remote pattern 이미 허용.
+        # 단점: Pollinations 가 다운되면 깨진 이미지. 그래도 NULL 보다 시각 우위.
+        logger.warning(
+            "Storage upload 실패 → raw Pollinations URL fallback (cover NULL 회피)"
+        )
+        return {
+            "url": url,  # raw Pollinations URL
+            "alt": alt_text,
+            "prompt": prompt,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "source": "pollinations_raw",  # source 구분
+        }
 
     return {
         "url": storage_url,
