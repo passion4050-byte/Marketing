@@ -1184,10 +1184,11 @@ class AnthropicProvider:
         )
         try:
             # Round 58 fix (2026-06-01) — assistant prefill `{` 로 JSON object 시작 강제
+            # Round 58 fix 3 — max_tokens 2048 → 4096
             msg = self._client.messages.create(
                 model=self._model,
                 system=_FAQ_SYSTEM_PROMPT,
-                max_tokens=2048,
+                max_tokens=4096,
                 messages=[
                     {"role": "user", "content": prompt},
                     {"role": "assistant", "content": "{"},  # prefill
@@ -1196,6 +1197,15 @@ class AnthropicProvider:
             raw = "".join(b.text for b in msg.content if hasattr(b, "text"))
             if not raw.lstrip().startswith("{"):
                 raw = "{" + raw
+            # Round 58 fix 3 — 응답 잘림 감지
+            stop_reason = getattr(msg, "stop_reason", None)
+            if stop_reason == "max_tokens":
+                raise LLMError(
+                    f"Anthropic FAQ 응답 잘림 (max_tokens 4096 도달). "
+                    f"raw 마지막 200자: {raw[-200:]!r}."
+                )
+        except LLMError:
+            raise
         except Exception as e:
             raise LLMError(f"Anthropic 호출 실패: {e}") from e
         pairs = _parse_qa_json(raw)
@@ -1236,11 +1246,11 @@ class AnthropicProvider:
         )
         try:
             # Round 58 fix (2026-06-01) — assistant prefill `{` 로 JSON object 시작 강제.
-            # Sonnet 4.6 가 ```json fence 또는 설명 prefix 붙이는 경향 해결.
+            # Round 58 fix 3 (2026-06-01) — max_tokens 4096 → 8192 (한국어 blog 4-5 sections 안전 마진)
             msg = self._client.messages.create(
                 model=self._model,
                 system=_BLOG_SYSTEM_PROMPT,
-                max_tokens=4096,
+                max_tokens=8192,
                 messages=[
                     {"role": "user", "content": prompt},
                     {"role": "assistant", "content": "{"},  # prefill
@@ -1250,6 +1260,16 @@ class AnthropicProvider:
             # prefill 의 `{` 가 응답에 포함되지 않으므로 직접 prepend
             if not raw.lstrip().startswith("{"):
                 raw = "{" + raw
+            # Round 58 fix 3 — 응답 잘림 감지 (max_tokens 도달 시 stop_reason == "max_tokens")
+            stop_reason = getattr(msg, "stop_reason", None)
+            if stop_reason == "max_tokens":
+                raise LLMError(
+                    f"Anthropic 응답 잘림 (max_tokens 8192 도달). "
+                    f"raw 마지막 200자: {raw[-200:]!r}. "
+                    f"system prompt 단축 또는 max_tokens 증가 필요."
+                )
+        except LLMError:
+            raise
         except Exception as e:
             raise LLMError(f"Anthropic 호출 실패: {e}") from e
         post = _parse_blog_json(raw)

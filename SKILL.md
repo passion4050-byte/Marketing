@@ -3406,3 +3406,110 @@ if not raw.lstrip().startswith("{"):
 
 push 후 GitHub Actions `auto-publish` workflow 수동 재실행 → 성공 시 drafts ≥ 1 + errors=0 + exit 0.
 
+---
+
+## Round 58 fix 2 (2026-06-01) — Vercel 빌드 실패 (함정 BR 재현)
+
+### 증상
+
+Vercel deploy hook 실행 → Build Failed:
+```
+import dynamic from 'next/dynamic';
+^^^^^^^
+-- previous definition of 'dynamic' here
+```
+
+`reports/[tenantId]/page.tsx` 에서 `import dynamic from 'next/dynamic'` 과 `export const dynamic = 'force-dynamic'` 둘 다 사용 → 변수명 충돌. TypeScript redeclaration 에러.
+
+### 진단
+
+Round 57 에서 BR 함정 인지했지만 부분 적용:
+- ✅ `admin/(portal)/page.tsx` — `nextDynamic` alias 적용
+- ❌ `admin/(portal)/reports/[tenantId]/page.tsx` — `dynamic` 그대로 → 충돌
+
+함정 인지 후 grep 으로 전체 찾았어야 했음.
+
+### Fix
+
+`reports/[tenantId]/page.tsx` 에서 동일하게 `nextDynamic` alias:
+```typescript
+import nextDynamic from 'next/dynamic';
+const ReportTrendChart = nextDynamic(...);
+```
+
+### 교훈
+
+함정 발견 시 grep 으로 **전체 파일 점검**:
+```bash
+grep -r "import dynamic from 'next/dynamic'" src/ | \
+  while read line; do
+    file=$(echo $line | cut -d: -f1)
+    if grep -q "export const dynamic" $file; then
+      echo "충돌 위험: $file"
+    fi
+  done
+```
+
+Round 57 시 위 검증 안 함 → Round 58 fix 2 추가 push 필요.
+
+### Round 58 fix 2 산출물
+
+- `medimap-blog-v2/src/app/admin/(portal)/reports/[tenantId]/page.tsx` — `nextDynamic` alias
+
+---
+
+## Round 58 fix 3 (2026-06-01) — Sonnet 응답 잘림 (max_tokens 도달)
+
+### 증상
+
+`auto-publish` workflow #70 실패. raw 분석:
+- `{` 로 시작 (prefill 작동) ✅
+- 정상 JSON 구조 시작 (`title`, `meta_description`, `keywords`, `canonical_keyword`, `intro_paragraphs`)
+- `intro_paragraphs` 첫 string **중간에서 끝남** → invalid JSON
+- error `line 59 column 6 (char 4151)` — JSON 깊은 곳에서 ',' 누락
+
+### 진단
+
+`max_tokens=4096` 이 한국어 blog post (title + meta + 5 sections + intro + conclusion + references + images) 에 부족.
+
+한국어는 token 효율 영어보다 낮음:
+- 영어 4096 토큰 ≈ 3000 단어 (blog 충분)
+- 한국어 4096 토큰 ≈ 1500-2000 자 (제목 + meta + 1-2 섹션만)
+
+### Fix — max_tokens 증가 + stop_reason 감지
+
+1. **blog**: `max_tokens=4096` → `8192` (안전 마진 2배)
+2. **faq**: `max_tokens=2048` → `4096`
+3. **stop_reason 감지**:
+   ```python
+   if msg.stop_reason == "max_tokens":
+       raise LLMError(f"Anthropic 응답 잘림 (max_tokens 도달). raw 마지막 200자: {raw[-200:]!r}")
+   ```
+
+→ 잘림 시 명확한 에러 메시지로 진단 시간 단축. fallback chain 작동 (Gemini 로 자동 대체).
+
+### 새 함정 (Round 58 fix 3)
+
+**(BY) Anthropic max_tokens — 한국어 콘텐츠는 영어 대비 2배 필요**
+- 증상: blog post 한국어 응답이 잘려 invalid JSON
+- 정답: 한국어 blog 8192, FAQ 4096 최소. Tool use API 도 별도 응답 길이 한도 있음.
+
+**(BZ) stop_reason 미체크 함정 — JSON 파싱 에러로 위장**
+- 증상: 응답 잘렸는데 단순 JSON 파싱 실패 메시지만 나옴 → 원인 진단 어려움
+- 정답: `msg.stop_reason == "max_tokens"` 명시 체크 → 즉시 잘림 진단.
+
+### 다음 단계 후보 (Round 59)
+
+**Anthropic Tool use API 전환** (가장 robust):
+- `tools=[{"name": "blog_post", "input_schema": {...}}]`
+- `tool_choice={"type": "tool", "name": "blog_post"}`
+- 100% valid JSON 보장 — schema 자체에 강제됨
+- prefill / lenient parser / fence strip 모두 불필요
+- 단점: 코드 변경 큼 (응답 구조 다름 — content[0].input 형식)
+
+### Round 58 fix 3 산출물
+
+- `src/content/llm.py`:
+  - `generate_blog_post`: max_tokens 4096 → 8192, stop_reason 체크
+  - `generate_faq`: max_tokens 2048 → 4096, stop_reason 체크
+
