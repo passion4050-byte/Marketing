@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 }, { headers: NO_STORE });
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500, headers: NO_STORE });
   }
 
   await logAudit(req, sb, 'apply_insight', `applied_insights:${data?.id}`, {
