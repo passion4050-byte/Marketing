@@ -1,3 +1,21 @@
+<!-- 사용자 명시 규칙 (2026-06-20) — Claude 가 무조건 지켜야 함 -->
+## 🔴 사용자 명시 규칙 — Skill 저장
+
+사용자가 "스킬 저장", "스킬 업데이트", "스킬 누적" 비슷한 요청을 하면 **반드시 다음 두 가지 동시 진행**:
+
+1. **`.skill` 패키지 + Save skill 버튼** (정상 Claude 흐름)
+   - `mcp__cowork__present_files` 로 사용자에게 카드 표시
+   - 사용자가 "Save skill" 버튼 클릭 → 시스템에 영구 설치
+   - **이걸 빼먹지 말 것. 사용자가 "원래 버튼 흐름이었잖아" 라고 지적했음.**
+
+2. **GitHub 저장**: `C:\Users\user\Documents\Marketing\SKILL.md` 갱신 + git commit + push
+   - 다중 PC 동기화 (사무실 ↔ 집)
+   - git push 안내까지 반드시 포함
+
+**하나만 하면 안 됨**. 둘 다 동시 진행이 사용자 요구사항.
+
+---
+
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
