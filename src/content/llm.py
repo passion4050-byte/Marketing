@@ -892,6 +892,9 @@ def _lenient_json_loads(raw: str) -> dict:
     2026-05-24: Gemini 가 markdown wrap + 한국어 콘텐츠 안에 escape 안 된 줄바꿈/
     따옴표 넣어서 malformed JSON 빈번. response_mime_type 강제 후에도 가끔
     실패. 자동 보정 (smart quotes / trailing comma / control char) 시도.
+
+    Round 58 (2026-06-01): Claude Sonnet 4.6 가 작은따옴표를 `\\'` 로 escape 하는
+    경향 — 표준 JSON 에서 invalid. 또한 ```json fence + 후미 ``` 추가 처리.
     """
     import json as _json
     import re as _re
@@ -900,18 +903,33 @@ def _lenient_json_loads(raw: str) -> dict:
     except _json.JSONDecodeError:
         pass
     fixed = raw
+    # Round 58 — markdown fence strip (앞/뒤 모두)
+    fixed = _re.sub(r"^\s*```(?:json)?\s*\n?", "", fixed)
+    fixed = _re.sub(r"\n?```\s*$", "", fixed)
+    fixed = fixed.strip()
     # smart quotes → ASCII
     fixed = fixed.replace("“", '"').replace("”", '"')
     fixed = fixed.replace("‘", "'").replace("’", "'")
+    # Round 58 — Claude Sonnet 의 `\'` (작은따옴표 escape) → `'` (JSON 비표준 → 표준)
+    #   주의: string value 안에서만 발생 가정. backslash escape 전체를 푸는 것은 위험.
+    fixed = fixed.replace("\\'", "'")
     # trailing comma in object/array
     fixed = _re.sub(r",\s*([}\]])", r"\1", fixed)
     # control char in string (Gemini 가 \n 안 escape 한 경우) — string 안 \n → \\n
     # 가장 위험. 일단 stub 우회 — strip 시도만.
     try:
         return _json.loads(fixed)
-    except _json.JSONDecodeError as e:
-        # 마지막 시도: strict=False
+    except _json.JSONDecodeError:
+        pass
+    # Round 58 — 마지막 fallback: strict=False (control character 허용)
+    try:
         return _json.loads(fixed, strict=False)
+    except _json.JSONDecodeError as e:
+        # 최종 실패 시 더 자세한 진단 정보
+        raise _json.JSONDecodeError(
+            f"{e.msg} (lenient 시도 후에도 실패. raw 첫 200자: {raw[:200]!r})",
+            e.doc, e.pos
+        ) from e
 
 def _parse_qa_json(text: str) -> list[FAQPair]:
     """LLM 응답에서 FAQ JSON 추출."""
@@ -1165,13 +1183,19 @@ class AnthropicProvider:
             angle=angle, tenant_data_block=tenant_data_block, correction_hint=correction_hint,
         )
         try:
+            # Round 58 fix (2026-06-01) — assistant prefill `{` 로 JSON object 시작 강제
             msg = self._client.messages.create(
                 model=self._model,
                 system=_FAQ_SYSTEM_PROMPT,
                 max_tokens=2048,
-                messages=[{"role": "user", "content": prompt}],
+                messages=[
+                    {"role": "user", "content": prompt},
+                    {"role": "assistant", "content": "{"},  # prefill
+                ],
             )
             raw = "".join(b.text for b in msg.content if hasattr(b, "text"))
+            if not raw.lstrip().startswith("{"):
+                raw = "{" + raw
         except Exception as e:
             raise LLMError(f"Anthropic 호출 실패: {e}") from e
         pairs = _parse_qa_json(raw)
@@ -1211,13 +1235,21 @@ class AnthropicProvider:
             correction_hint=correction_hint,
         )
         try:
+            # Round 58 fix (2026-06-01) — assistant prefill `{` 로 JSON object 시작 강제.
+            # Sonnet 4.6 가 ```json fence 또는 설명 prefix 붙이는 경향 해결.
             msg = self._client.messages.create(
                 model=self._model,
                 system=_BLOG_SYSTEM_PROMPT,
                 max_tokens=4096,
-                messages=[{"role": "user", "content": prompt}],
+                messages=[
+                    {"role": "user", "content": prompt},
+                    {"role": "assistant", "content": "{"},  # prefill
+                ],
             )
             raw = "".join(b.text for b in msg.content if hasattr(b, "text"))
+            # prefill 의 `{` 가 응답에 포함되지 않으므로 직접 prepend
+            if not raw.lstrip().startswith("{"):
+                raw = "{" + raw
         except Exception as e:
             raise LLMError(f"Anthropic 호출 실패: {e}") from e
         post = _parse_blog_json(raw)
@@ -1502,7 +1534,9 @@ def _build_provider_chain() -> list:
     chain = []
     if (k := os.getenv("ANTHROPIC_API_KEY")):
         try:
-            chain.append(AnthropicProvider(api_key=k))
+            # Round 58 (2026-06-01) — ANTHROPIC_MODEL 환경변수 적용
+            model = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
+            chain.append(AnthropicProvider(api_key=k, model=model))
         except Exception as e:  # noqa: BLE001
             logger.warning("AnthropicProvider init 실패: %s", e)
     if (k := os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")):
@@ -1546,7 +1580,9 @@ def get_provider(provider_name: str | None = None) -> LLMProvider:
         key = os.getenv("ANTHROPIC_API_KEY")
         if not key:
             raise LLMError("ANTHROPIC_API_KEY 미설정.")
-        return AnthropicProvider(api_key=key)
+        # Round 58 (2026-06-01) — ANTHROPIC_MODEL 환경변수 적용. 미설정 시 default haiku.
+        model = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
+        return AnthropicProvider(api_key=key, model=model)
 
     if name == "openai":
         key = os.getenv("OPENAI_API_KEY")

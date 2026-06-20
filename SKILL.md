@@ -3244,3 +3244,165 @@ const DashboardCharts = nextDynamic(
 - `medimap-blog-v2/src/app/admin/(portal)/reports/[tenantId]/page.tsx` — ReportTrendChart dynamic
 - `handoff/round57-2026-05-31/HANDOFF.md` — 내일 작업 가이드
 - SKILL.md 갱신
+
+---
+
+## Round 58 (2026-06-01) — Anthropic LLM 연동 (Claude Sonnet 4.6)
+
+### 배경
+
+사용자가 Claude Code 구독을 통해 Anthropic API key 발급 후 LLM provider 로 anthropic 사용 결정. POC 단계.
+
+env 설정:
+- `LLM_PROVIDER=anthropic`
+- `ANTHROPIC_API_KEY=sk-ant-...`
+- `ANTHROPIC_MODEL=claude-sonnet-4-6`
+
+### 진단 — Anthropic 모델 환경변수 미적용 함정
+
+**문제**: factory 패턴에서 `AnthropicProvider(api_key)` 만 호출 → 두 번째 인자 `model` 안 전달 → default `claude-haiku-4-5-20251001` 강제.
+
+사용자가 `ANTHROPIC_MODEL=claude-sonnet-4-6` 설정해도 무시되는 silent 함정.
+
+### Fix — 두 곳 모두 ANTHROPIC_MODEL 적용
+
+1. **`medimap-blog-v2/src/lib/llm/factory.ts`** (Next.js admin/API):
+   ```typescript
+   return new AnthropicProvider(
+     process.env.ANTHROPIC_API_KEY ?? '',
+     process.env.ANTHROPIC_MODEL || undefined
+   );
+   ```
+
+2. **`src/content/llm.py`** (Python cron 발행):
+   - `_build_provider_chain()` (fallback chain)
+   - `_get_provider_from_env(name="anthropic")` (단일 provider)
+   둘 다 `os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")` 로 model 인자 전달.
+
+### Cost 단가 추가
+
+- **Next.js (`base.ts`)** — `claude-sonnet-4-6` 이미 정의됨 ✅ (`{ input: 3e-6, output: 15e-6 }`)
+- **Python (`cost.py`)** — 추가:
+  - `claude-sonnet-4-6`: input $3.0 / output $15.0
+  - `claude-sonnet-4-5`: 동일
+  - `claude-opus-4-6/4-7`: input $15.0 / output $75.0
+
+비용 가드레일 (MAX_DAILY_USD) 가 sonnet 단가로 정확히 계산됨.
+
+### 환경변수 등록 — 두 곳 필수
+
+1. **Vercel 환경변수** (Next.js admin 용):
+   - https://vercel.com → medimap-blog-v2 → Settings → Environment Variables
+   - `LLM_PROVIDER=anthropic`
+   - `ANTHROPIC_API_KEY=sk-ant-...`
+   - `ANTHROPIC_MODEL=claude-sonnet-4-6`
+   - 적용 환경: Production + Preview 둘 다 체크
+
+2. **GitHub Actions Secrets** (Python cron 발행 용):
+   - https://github.com/passion4050-byte/Marketing → Settings → Secrets and variables → Actions
+   - 같은 3개 동일하게 등록
+   - 이미 `auto-publish.yml` 에서 사용 중인 env 패턴이라 별도 workflow 변경 불필요
+
+### 검증 방법
+
+push + Vercel 빌드 후:
+1. `/admin/cost` 접속 → 다음 cron 후 LLM 호출 row 의 `model` 컬럼이 `claude-sonnet-4-6` 으로 나타나야 정상
+2. 다음 발행 cycle (UTC 23:00 = KST 08:00) 의 GitHub Actions 로그에서 `provider=anthropic model=claude-sonnet-4-6` 확인
+3. `llm_call_logs` 테이블 직접 조회로 검증 가능
+
+### 새 함정 (Round 58)
+
+**(BT) Factory 패턴이 env 변수 일부만 읽는 silent 함정**
+- 증상: API key 만 전달되고 model 인자 누락 → constructor default 모델 강제. 사용자가 model env 변수 설정해도 무시.
+- 정답: factory 패턴 추가 시 모든 관련 env 변수 (`PROVIDER`, `KEY`, `MODEL`, `MAX_TOKENS` 등) 한 번에 전달. 또는 provider class 내부에서 직접 `os.getenv` 호출.
+
+**(BU) Anthropic 모델 ID 명명 — 두 가지 패턴**
+- 짧은 형식: `claude-sonnet-4-6`, `claude-opus-4-7`
+- 긴 형식: `claude-haiku-4-5-20251001` (날짜 suffix)
+- 둘 다 유효하지만 cost 단가 매핑이 짧은 형식 한정이면 긴 형식 호출 시 cost=0 fallback. cost.py / base.ts 양쪽에 alias 등록.
+
+**(BV) API key 채팅 노출 — POC 라도 작업 종료 후 revoke 권장**
+- 증상: API key 가 채팅 로그, 캐시, IDE history 에 남을 수 있음
+- 정답: POC 후 즉시 revoke + 새 key 발급 → Vercel/GitHub Secrets 갱신
+
+### Round 58 산출물
+
+- `medimap-blog-v2/src/lib/llm/factory.ts` — ANTHROPIC_MODEL env 전달
+- `src/content/llm.py` — `_build_provider_chain` + `_get_provider_from_env` 둘 다 model 전달
+- `src/content/cost.py` — sonnet-4-6 / opus-4-6 / opus-4-7 단가 추가
+- `handoff/round58-2026-06-01/ENV-SETUP.md` — Vercel + GitHub Secrets 등록 가이드 (별도 파일)
+
+---
+
+## Round 58 fix (2026-06-01) — Sonnet JSON 파싱 실패 + assistant prefill
+
+### 증상
+
+`auto-publish` workflow 첫 실행 (#69) 실패:
+```
+scheduler.auto_content_error channel=blog_html
+error='JSON 파싱 실패: Expecting ',' delimiter: line 75 column 6 (char 4227);
+raw=```json\n{\n "title": "의료 GEO 최적화로 지역 환자들 찾기..."
+```
+
+Process exit code 3, drafts=1 errors=1 published=0.
+
+### 진단
+
+Sonnet 4.6 가 Haiku 와 달리:
+1. **```json fence 로 응답을 감쌈** (system prompt "코드 블록 X" 무시)
+2. **작은따옴표를 `\\'` 로 escape** — JSON 비표준 (큰따옴표 `\"` 만 허용)
+3. raw 내부에 `'내 주변 치과\\' \\'강남 안과\\'` 같은 invalid escape 발견
+
+### Fix A — `_lenient_json_loads` 보강
+
+```python
+# markdown fence strip (앞/뒤 모두)
+fixed = _re.sub(r"^\s*```(?:json)?\s*\n?", "", fixed)
+fixed = _re.sub(r"\n?```\s*$", "", fixed)
+# Round 58 — Claude Sonnet 의 `\'` (작은따옴표 escape) → `'`
+fixed = fixed.replace("\\'", "'")
+```
+
+기존 `_parse_blog_json` 의 markdown strip 외에 `_lenient_json_loads` 에도 추가 (이중 안전망).
+
+### Fix B — Anthropic assistant prefill
+
+가장 robust 방법. user 메시지 후 assistant 응답을 `{` 로 prefill → Sonnet 의 첫 출력 token 이 JSON object 키부터 시작:
+
+```python
+messages=[
+    {"role": "user", "content": prompt},
+    {"role": "assistant", "content": "{"},  # prefill
+]
+raw = response_text
+if not raw.lstrip().startswith("{"):
+    raw = "{" + raw
+```
+
+효과:
+- markdown fence 차단 (assistant 가 `{` 이후로 응답하니 ```json 못 씀)
+- "여기 JSON 입니다:" 같은 prefix 차단
+- 토큰 절약 (불필요한 wrapping 제거)
+
+### 새 함정 (Round 58 fix)
+
+**(BW) Sonnet 4.6 는 Haiku 보다 `(코드 블록 X)` 지시 무시 경향이 강함**
+- 증상: system prompt 에 명시해도 markdown fence 로 감쌈
+- 정답: assistant prefill `{` 로 형식 강제. 또는 Tool use API 사용.
+
+**(BX) JSON 비표준 `\\'` escape — 한국어 LLM 응답에 자주 발생**
+- 증상: 작은따옴표를 `\\'` 로 escape → `json.loads` 실패
+- 정답: `_lenient_json_loads` 에서 `\\'` → `'` 치환. 또는 다른 lenient JSON parser (json5, demjson3) 사용.
+
+### Round 58 fix 산출물
+
+- `src/content/llm.py`:
+  - `_lenient_json_loads`: markdown fence strip + `\\'` 치환 + 에러 메시지 raw 진단 정보
+  - `AnthropicProvider.generate_blog_post`: assistant prefill `{`
+  - `AnthropicProvider.generate_faq`: assistant prefill `{`
+
+### 검증
+
+push 후 GitHub Actions `auto-publish` workflow 수동 재실행 → 성공 시 drafts ≥ 1 + errors=0 + exit 0.
+

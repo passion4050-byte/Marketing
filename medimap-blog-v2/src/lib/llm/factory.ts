@@ -21,7 +21,11 @@ function tryCreate(engine: LlmEngine): LlmProvider | null {
       case 'chatgpt':
         return new OpenAiProvider(process.env.OPENAI_API_KEY ?? '');
       case 'claude':
-        return new AnthropicProvider(process.env.ANTHROPIC_API_KEY ?? '');
+        // Round 58 (2026-06-01) — ANTHROPIC_MODEL 환경변수 적용 (이전엔 default 'claude-haiku-4-5' 강제됨)
+        return new AnthropicProvider(
+          process.env.ANTHROPIC_API_KEY ?? '',
+          process.env.ANTHROPIC_MODEL || undefined
+        );
       case 'gemini':
         return new GeminiProvider(process.env.GOOGLE_API_KEY ?? '');
       case 'perplexity':

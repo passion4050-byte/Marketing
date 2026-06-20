@@ -24,6 +24,11 @@ PRICING: dict[str, dict[str, float]] = {
     # Anthropic Claude
     "claude-haiku-4-5-20251001": {"input": 1.0, "output": 5.0},
     "claude-haiku-4-5":          {"input": 1.0, "output": 5.0},
+    # Round 58 (2026-06-01) — sonnet-4-6 / opus-4-6 단가 (보수적 정찰, 실제는 청구서 기준)
+    "claude-sonnet-4-6":         {"input": 3.0,  "output": 15.0},
+    "claude-sonnet-4-5":         {"input": 3.0,  "output": 15.0},
+    "claude-opus-4-6":           {"input": 15.0, "output": 75.0},
+    "claude-opus-4-7":           {"input": 15.0, "output": 75.0},
     # OpenAI (Phase 6 + 콘텐츠 generator)
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
     "gpt-4o":      {"input": 2.50, "output": 10.00},
