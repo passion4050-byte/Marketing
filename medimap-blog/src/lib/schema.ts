@@ -39,11 +39,13 @@ export function breadcrumbLd(items: { name: string; href: string }[]): JsonLd {
   };
 }
 
-export function articleLd(post: PostMeta): JsonLd {
+export function articleLd(post: PostMeta & { source?: string }): JsonLd {
   // Round 59 (2026-06-01) — AEO 인용성 강화: wordCount + articleBody plain text + url 명시
-  // body 가 HTML 이면 tag strip 해서 plain text wordCount 계산
-  const plainBody = typeof post.body === "string"
-    ? post.body.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
+  // PostMeta + optional source (HTML/MDX). source 가 있으면 plain text 변환해서 wordCount/articleBody.
+  // Round 59 fix 3 (2026-06-01): body → source (PostMeta 에 body 없음, Post 의 source 가 본문)
+  const sourceText = typeof post.source === "string" ? post.source : "";
+  const plainBody = sourceText
+    ? sourceText.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
     : "";
   const wordCount = plainBody ? plainBody.split(/\s+/).filter(Boolean).length : undefined;
   const url = absoluteUrl(`/blog/${post.slug}`);
