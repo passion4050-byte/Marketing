@@ -292,69 +292,141 @@ export default function ContentManagementPage() {
       )}
 
       {/* === 본문 미리보기 + 인라인 편집 모달 === */}
-      {preview && (
+      {preview && (() => {
+        // Round 59 fix 5 — modal 가독성 개선
+        const previewIsSelf = isSelfContent(preview);
+        const wordCount = preview.body
+          ? preview.body.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().split(/\s+/).filter(Boolean).length
+          : 0;
+        const readingMin = Math.max(1, Math.ceil(wordCount / 300));
+        const charCount = preview.body ? preview.body.replace(/<[^>]+>/g, '').length : 0;
+        return (
         <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-ink/60 p-4"
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-ink/70 p-4 backdrop-blur-sm"
           onClick={() => { if (!editing) { setPreview(null); cancelEdit(); } }}
         >
-          <div className="card w-full max-w-3xl max-h-[88vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-border px-6 py-4">
-              {editing ? (
-                <input
-                  type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  placeholder="제목"
-                  className="flex-1 rounded-md border border-border px-3 py-1.5 text-sm font-semibold text-ink focus:border-brand focus:outline-none"
-                />
-              ) : (
-                <h3 className="text-base font-bold text-ink">{preview.title || '(제목 없음)'}</h3>
-              )}
-              <button
-                onClick={() => { setPreview(null); cancelEdit(); }}
-                className="ml-3 rounded-md p-1 text-ink-muted hover:bg-surface-muted"
-              >
-                <X className="h-4 w-4" />
-              </button>
+          <div className="card relative w-full max-w-4xl max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            {/* Round 59 fix 5 — 좌측 4px stripe (자사/파트너 색상) */}
+            <div className={cn('absolute inset-y-0 left-0 w-1 z-10', previewIsSelf ? 'bg-brand' : 'bg-accent')} />
+
+            {/* Sticky header — 자사/파트너 chip + 제목 + 닫기 */}
+            <div className="sticky top-0 z-10 border-b border-border bg-surface-base px-6 py-4 pl-7">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                {previewIsSelf ? (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-brand/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand">
+                    🏢 자사 인사이트
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-accent/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">
+                    🏥 파트너 병원
+                  </span>
+                )}
+                <span className="text-[12px] font-semibold text-ink">{preview.tenant_name}</span>
+                {!previewIsSelf && preview.partner_slug && (
+                  <span className="font-mono text-[10px] text-ink-muted">@{preview.partner_slug}</span>
+                )}
+                {preview.domain_category && (
+                  <span className="rounded bg-surface-soft px-1.5 py-0.5 text-[10px] text-ink-muted">{preview.domain_category}</span>
+                )}
+                {preview.keyword_text && (
+                  <span className="text-[10px] text-ink-muted">· 키워드: {preview.keyword_text}</span>
+                )}
+                <span className="ml-auto text-[10px] text-ink-faint">
+                  📝 {charCount.toLocaleString()}자 · ⏱️ {readingMin}분
+                </span>
+              </div>
+              <div className="flex items-start justify-between gap-3">
+                {editing ? (
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    placeholder="제목"
+                    className="flex-1 rounded-md border border-border px-3 py-1.5 text-base font-bold text-ink focus:border-brand focus:outline-none"
+                  />
+                ) : (
+                  <h3 className="text-lg font-bold leading-tight text-ink">{preview.title || '(제목 없음)'}</h3>
+                )}
+                <div className="flex shrink-0 items-center gap-1">
+                  {!editing && (
+                    <>
+                      <button onClick={() => startEdit(preview)} className="rounded-md border border-border bg-surface-base px-2 py-1 text-[11px] font-semibold text-ink-soft hover:bg-surface-subtle">
+                        <Edit3 className="inline h-3 w-3" /> 편집
+                      </button>
+                      <button onClick={() => void copyBody(preview)} className="rounded-md border border-border bg-surface-base px-2 py-1 text-[11px] font-semibold text-ink-soft hover:bg-surface-subtle">
+                        <ClipboardCopy className="inline h-3 w-3" /> 복사
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={() => { setPreview(null); cancelEdit(); }}
+                    className="rounded-md p-1.5 text-ink-muted hover:bg-surface-subtle"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              {/* 메타 정보 — compliance status + llm provider */}
+              <div className="mt-2 flex items-center gap-2 text-[10px] text-ink-muted">
+                <span className={cn(
+                  'inline-flex rounded-full px-1.5 py-0 font-bold',
+                  preview.compliance_status === 'pass' ? 'bg-status-successSoft text-status-success' :
+                  preview.compliance_status === 'warn' ? 'bg-status-warningSoft text-status-warning' :
+                  preview.compliance_status === 'fail' ? 'bg-status-dangerSoft text-status-danger' :
+                  'bg-surface-subtle'
+                )}>
+                  {preview.compliance_status === 'pass' ? '의료법 PASS' :
+                   preview.compliance_status === 'warn' ? '의료법 WARN' :
+                   preview.compliance_status === 'fail' ? '의료법 FAIL' : '검수 대기'}
+                </span>
+                <span>·</span>
+                <span className="font-mono">{preview.llm_provider || preview.channel}</span>
+                <span>·</span>
+                <span>#{preview.id}</span>
+                {preview.live_url && (
+                  <>
+                    <span>·</span>
+                    <a href={preview.live_url} target="_blank" rel="noopener noreferrer" className="text-brand-700 hover:underline">
+                      라이브 URL ↗
+                    </a>
+                  </>
+                )}
+              </div>
             </div>
+
             {!editing && (
               <CoverHero src={preview.cover_image_url} alt={preview.cover_image_alt || preview.title || 'cover'} />
             )}
-            <div className="px-6 py-5 text-sm leading-relaxed text-ink-soft">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-muted">
-                <span>
-                  {preview.tenant_name}
-                  {preview.partner_slug ? ` · 파트너:${preview.partner_slug}` : ''}
-                  {preview.domain_category ? ` · ${preview.domain_category}` : ''}
-                  {preview.keyword_text ? ` · ${preview.keyword_text}` : ''}
-                </span>
-                {!editing && (
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => startEdit(preview)} className="text-brand-700 hover:underline">
-                      <Edit3 className="inline h-3.5 w-3.5" /> 편집
-                    </button>
-                    <button onClick={() => void copyBody(preview)} className="text-brand-700 hover:underline">
-                      <ClipboardCopy className="inline h-3.5 w-3.5" /> 본문 복사
-                    </button>
-                  </div>
-                )}
-              </div>
+
+            {/* Round 59 fix 5 — 본문 가독성 강화: 더 큰 폰트, 좁은 max-width, 충분한 line-height */}
+            <div className="bg-surface-base px-6 py-6 pl-7 md:px-10 md:pl-11">
               {editing ? (
                 <textarea
                   value={editBody}
                   onChange={(e) => setEditBody(e.target.value)}
                   placeholder="본문 HTML"
-                  rows={20}
-                  className="block w-full rounded-md border border-border bg-surface-subtle px-3 py-3 font-mono text-xs text-ink focus:border-brand focus:outline-none"
+                  rows={24}
+                  className="block w-full rounded-md border border-border bg-surface-subtle px-3 py-3 font-mono text-xs leading-relaxed text-ink focus:border-brand focus:outline-none"
                   spellCheck={false}
                 />
               ) : preview.body?.includes('<') ? (
                 <article
-                  className="prose prose-slate max-w-none prose-headings:text-ink prose-a:text-brand"
+                  className={cn(
+                    'prose prose-slate mx-auto max-w-[680px]',
+                    'prose-headings:text-ink prose-headings:font-bold prose-h1:text-2xl prose-h1:mb-4 prose-h1:mt-0',
+                    'prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-3 prose-h2:border-b prose-h2:border-border prose-h2:pb-2',
+                    'prose-h3:text-base prose-h3:mt-6 prose-h3:mb-2',
+                    'prose-p:text-[15px] prose-p:leading-[1.85] prose-p:text-ink-soft',
+                    'prose-strong:text-ink prose-strong:font-bold',
+                    'prose-a:text-brand prose-a:no-underline hover:prose-a:underline',
+                    'prose-img:rounded-lg prose-img:shadow-sm prose-img:my-6',
+                    'prose-ul:my-4 prose-li:text-[15px] prose-li:leading-relaxed',
+                    'prose-blockquote:border-l-brand prose-blockquote:bg-brand-50/30 prose-blockquote:py-1'
+                  )}
                   dangerouslySetInnerHTML={{ __html: preview.body }}
                 />
               ) : (
-                <p className="whitespace-pre-wrap">{preview.body}</p>
+                <p className="mx-auto max-w-[680px] whitespace-pre-wrap text-[15px] leading-[1.85] text-ink-soft">{preview.body}</p>
               )}
             </div>
             <div className="sticky bottom-0 flex items-center justify-between gap-2 border-t border-border bg-surface-base/95 px-6 py-3 backdrop-blur">
@@ -386,12 +458,25 @@ export default function ContentManagementPage() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
 
 /* ─────────────────────── 검수 탭 (카드 list) ─────────────────────── */
+
+// Round 59 fix 5 (2026-06-01) — UIUX 완벽 개선:
+// (1) is_partner_content 무시, partner_slug 기반 정확 분기 (cron 의 잘못된 마킹 우회)
+// (2) 카드 좌측 4px stripe — 자사(brand) / 파트너(accent) 색상 구분
+// (3) 카테고리 필터 chip (전체 / 자사 / 파트너) — 검수 효율
+// (4) 파트너 글은 병원명을 진료과 라벨로 강조
+function isSelfContent(q: QueueItem): boolean {
+  const slug = q.partner_slug ?? '';
+  return slug === 'medimap' || slug === 'medimap-self' || (slug === '' && !q.is_partner_content);
+}
+
+type ContentFilter = 'all' | 'self' | 'partner';
 
 function PendingTab({
   items, busyId, onPreview, onApprove, onReject, onCopy
@@ -403,6 +488,17 @@ function PendingTab({
   onReject: (q: QueueItem) => void;
   onCopy: (q: QueueItem) => void;
 }) {
+  const [filter, setFilter] = useState<ContentFilter>('all');
+
+  const selfCount = items.filter(isSelfContent).length;
+  const partnerCount = items.length - selfCount;
+
+  const filtered = filter === 'all'
+    ? items
+    : filter === 'self'
+      ? items.filter(isSelfContent)
+      : items.filter((q) => !isSelfContent(q));
+
   if (items.length === 0) {
     return (
       <div className="card flex items-center justify-center px-6 py-12 text-sm text-ink-muted">
@@ -410,70 +506,130 @@ function PendingTab({
       </div>
     );
   }
+
   return (
     <div className="space-y-3">
-      {items.map((q) => (
-        <div key={String(q.id)} className="card">
-          <div className="flex items-start gap-4 border-b border-border px-5 py-3">
-            <CoverThumb src={q.cover_image_url} alt={q.cover_image_alt || q.title || 'cover'} />
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="chip-brand">{q.tenant_name}</span>
-                {/* Round 30 (2026-05-30): is_partner_content 분기. 자사 글은 '자사' 칩, 파트너 글은 'partner · slug' 칩. */}
-                {q.is_partner_content === false ? (
-                  <span className="rounded-md bg-brand/10 px-1.5 py-0.5 text-[10px] font-bold text-brand">
-                    자사
-                  </span>
-                ) : q.partner_slug ? (
-                  <span className="rounded-md bg-accent/10 px-1.5 py-0.5 text-[10px] font-bold text-accent">
-                    파트너 · {q.partner_slug}
-                  </span>
-                ) : null}
-                <span className="text-[11px] text-ink-muted">{q.llm_provider || q.channel || '?'}</span>
-                {q.keyword_text && <span className="text-[11px] text-ink-muted">· {q.keyword_text}</span>}
-              </div>
-              <h3 className="mt-1 text-sm font-bold text-ink">{q.title || '(제목 없음)'}</h3>
-              <p className="mt-1 text-xs text-ink-soft line-clamp-2">
-                {q.excerpt || (q.body ? q.body.replace(/<[^>]+>/g, '').slice(0, 180) : '')}
-              </p>
-            </div>
-            <div className="shrink-0 text-right">
-              <div className={cn(
-                'inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold',
-                q.compliance_status === 'pass' ? 'bg-status-successSoft text-status-success' :
-                q.compliance_status === 'warn' ? 'bg-status-warningSoft text-status-warning' :
-                q.compliance_status === 'fail' ? 'bg-status-dangerSoft text-status-danger' :
-                'bg-surface-subtle text-ink-muted'
-              )}>
-                {q.compliance_status === 'pass' ? '의료법 PASS' :
-                 q.compliance_status === 'warn' ? '의료법 WARN' :
-                 q.compliance_status === 'fail' ? '의료법 FAIL' : '검수 대기'}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center justify-between border-t border-border px-5 py-3">
-            <div className="flex items-center gap-3">
-              <button onClick={() => onPreview(q)} className="text-xs text-brand-700 hover:underline">
-                <FileText className="inline h-3.5 w-3.5" /> 본문 미리보기
-              </button>
-              <button onClick={() => onCopy(q)} className="text-xs text-brand-700 hover:underline">
-                <ClipboardCopy className="inline h-3.5 w-3.5" /> 본문 복사
-                {q.cover_image_url && <span className="ml-1 text-[10px] text-ink-muted">(+이미지)</span>}
-              </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => onReject(q)} disabled={busyId === q.id} className="btn-secondary text-xs">
-                <X className="h-3.5 w-3.5" /> 거부
-              </button>
-              <button onClick={() => onApprove(q)} disabled={busyId === q.id} className="btn-primary text-xs">
-                {busyId === q.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                발행 승인
-              </button>
-            </div>
-          </div>
+      {/* Round 59 fix 5 — 카테고리 필터 chip */}
+      <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-soft/40 p-2">
+        <span className="text-[11px] font-semibold text-ink-muted">필터:</span>
+        <FilterChip active={filter === 'all'} onClick={() => setFilter('all')} color="ink" label="전체" count={items.length} />
+        <FilterChip active={filter === 'self'} onClick={() => setFilter('self')} color="brand" label="🏢 자사 인사이트" count={selfCount} />
+        <FilterChip active={filter === 'partner'} onClick={() => setFilter('partner')} color="accent" label="🏥 파트너 병원" count={partnerCount} />
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="card flex items-center justify-center px-6 py-8 text-sm text-ink-muted">
+          "{filter === 'self' ? '자사' : '파트너'}" 카테고리에 검수 대기 글이 없습니다.
         </div>
-      ))}
+      ) : (
+        filtered.map((q) => {
+          const isSelf = isSelfContent(q);
+          return (
+            <div
+              key={String(q.id)}
+              className={cn(
+                'card relative overflow-hidden transition hover:shadow-md',
+                isSelf ? 'border-brand/20' : 'border-accent/20'
+              )}
+            >
+              {/* 좌측 4px stripe — 한눈에 자사/파트너 구분 */}
+              <div className={cn('absolute inset-y-0 left-0 w-1', isSelf ? 'bg-brand' : 'bg-accent')} />
+
+              <div className="flex items-start gap-4 border-b border-border px-5 py-3 pl-6">
+                <CoverThumb src={q.cover_image_url} alt={q.cover_image_alt || q.title || 'cover'} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Round 59 fix 5 — 자사/파트너 분기 chip (가장 prominent) */}
+                    {isSelf ? (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-brand/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand">
+                        🏢 자사 인사이트
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-accent/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">
+                        🏥 파트너 병원
+                      </span>
+                    )}
+                    {/* 병원명 / 클라이언트명 */}
+                    <span className="text-[12px] font-semibold text-ink">{q.tenant_name}</span>
+                    {/* 파트너만 partner_slug 표시 */}
+                    {!isSelf && q.partner_slug && (
+                      <span className="font-mono text-[10px] text-ink-muted">@{q.partner_slug}</span>
+                    )}
+                    <span className="text-[10px] text-ink-faint">|</span>
+                    <span className="text-[11px] text-ink-muted">{q.llm_provider || q.channel || '?'}</span>
+                    {q.keyword_text && <span className="text-[11px] text-ink-muted">· {q.keyword_text}</span>}
+                  </div>
+                  <h3 className="mt-1.5 text-sm font-bold text-ink">{q.title || '(제목 없음)'}</h3>
+                  <p className="mt-1 text-xs text-ink-soft line-clamp-2">
+                    {q.excerpt || (q.body ? q.body.replace(/<[^>]+>/g, '').slice(0, 180) : '')}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className={cn(
+                    'inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold',
+                    q.compliance_status === 'pass' ? 'bg-status-successSoft text-status-success' :
+                    q.compliance_status === 'warn' ? 'bg-status-warningSoft text-status-warning' :
+                    q.compliance_status === 'fail' ? 'bg-status-dangerSoft text-status-danger' :
+                    'bg-surface-subtle text-ink-muted'
+                  )}>
+                    {q.compliance_status === 'pass' ? '의료법 PASS' :
+                     q.compliance_status === 'warn' ? '의료법 WARN' :
+                     q.compliance_status === 'fail' ? '의료법 FAIL' : '검수 대기'}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-between border-t border-border px-5 py-3 pl-6">
+                <div className="flex items-center gap-3">
+                  <button onClick={() => onPreview(q)} className="text-xs text-brand-700 hover:underline">
+                    <FileText className="inline h-3.5 w-3.5" /> 본문 미리보기
+                  </button>
+                  <button onClick={() => onCopy(q)} className="text-xs text-brand-700 hover:underline">
+                    <ClipboardCopy className="inline h-3.5 w-3.5" /> 본문 복사
+                    {q.cover_image_url && <span className="ml-1 text-[10px] text-ink-muted">(+이미지)</span>}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => onReject(q)} disabled={busyId === q.id} className="btn-secondary text-xs">
+                    <X className="h-3.5 w-3.5" /> 거부
+                  </button>
+                  <button onClick={() => onApprove(q)} disabled={busyId === q.id} className="btn-primary text-xs">
+                    {busyId === q.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                    발행 승인
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })
+      )}
     </div>
+  );
+}
+
+/** Round 59 fix 5 — 카테고리 필터 chip */
+function FilterChip({
+  active, onClick, color, label, count
+}: { active: boolean; onClick: () => void; color: 'ink' | 'brand' | 'accent'; label: string; count: number }) {
+  const activeCls = color === 'brand'
+    ? 'bg-brand text-white border-brand'
+    : color === 'accent'
+      ? 'bg-accent text-white border-accent'
+      : 'bg-ink text-white border-ink';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition',
+        active ? activeCls : 'border-border bg-surface-base text-ink-soft hover:bg-surface-subtle'
+      )}
+    >
+      {label}
+      <span className={cn(
+        'inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[10px]',
+        active ? 'bg-white/25 text-white' : 'bg-surface-subtle text-ink-muted'
+      )}>{count}</span>
+    </button>
   );
 }
 
