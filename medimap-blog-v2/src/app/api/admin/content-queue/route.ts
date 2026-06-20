@@ -116,5 +116,10 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  return NextResponse.json({ ok: true, items });
+  // Round 59 fix 2 (2026-06-01) — Vercel edge cache 명시 차단. Ctrl+Shift+R 해도 stale 응답
+  // 받는 함정 (force-dynamic 만으로는 Vercel edge cache 못 막음).
+  return NextResponse.json(
+    { ok: true, items },
+    { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0', 'CDN-Cache-Control': 'no-store', 'Vercel-CDN-Cache-Control': 'no-store' } }
+  );
 }

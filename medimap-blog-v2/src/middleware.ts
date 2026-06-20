@@ -61,5 +61,12 @@ export function middleware(req: NextRequest) {
   }
 
   // cookie 가 있으면 통과 (검증은 server-side route 에서 강화)
-  return NextResponse.next();
+  // Round 59 fix 2 (2026-06-01) — /api/admin/* 응답 cache 차단 (Vercel edge / CDN 무력화)
+  const res = NextResponse.next();
+  if (isApi) {
+    res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    res.headers.set('CDN-Cache-Control', 'no-store');
+    res.headers.set('Vercel-CDN-Cache-Control', 'no-store');
+  }
+  return res;
 }
