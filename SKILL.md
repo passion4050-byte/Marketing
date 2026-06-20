@@ -3247,6 +3247,130 @@ const DashboardCharts = nextDynamic(
 
 ---
 
+## Round 58~62 (2026-06-01 ~ 2026-06-20) — Anthropic 연동 + 운영 인프라 완비 (대형 누적)
+
+### Round 58 — Anthropic LLM 연동
+
+- `LLM_PROVIDER=anthropic`, `ANTHROPIC_MODEL=claude-sonnet-4-6` 추가
+- factory.ts + llm.py 양쪽이 `ANTHROPIC_MODEL` env 안 읽던 silent 함정 fix
+- cost.py 에 sonnet-4-6 / opus 단가 추가
+- workflow.yml 에 `ANTHROPIC_MODEL` secret 전달 추가
+- **fix 1** — Sonnet 4.6 의 `\\'` (작은따옴표 escape) JSON 파싱 실패 → assistant prefill `{` 강제
+- **fix 2** — Vercel 빌드 실패 (`reports/[tenantId]/page.tsx` 의 `dynamic` 변수명 충돌 — Round 57 의 함정 BR 재현 잔여)
+- **fix 3** — max_tokens=4096 부족으로 한국어 응답 잘림 → 8192 + `stop_reason="max_tokens"` 감지
+
+### Round 59 (CRITICAL) — Next.js fetch cache 함정
+
+**최대 함정 (BX)** — Next.js 13+ 의 fetch auto-cache 가 Supabase JS client 내부 fetch 까지 캐시 → admin API 응답이 stale (5/30 데이터가 6/20 까지 반환됨).
+
+`force-dynamic` / `Cache-Control` header / middleware no-store / Vercel Redeploy 모두 무력. 해결은 단 하나:
+
+```typescript
+// lib/supabase.ts
+createClient(url, key, {
+  global: {
+    fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' as RequestCache }),
+  },
+});
+```
+
+이게 Round 50+ 모든 캐시 fix 가 무력했던 root cause. **모든 Supabase 호출이 영향**.
+
+#### 동시 진행
+
+- cron 2회/일 (08시 + 14시 KST)
+- content-queue UIUX 완벽 개선 (자사/파트너 stripe + 필터 chip + 본문 modal 가독성)
+- `isSelfContent()` 함수 — cron 의 잘못된 `is_partner_content` 마킹 우회 (partner_slug 기반 분기)
+- blog_category 매핑 강화 — title 도 함께 보고 hospital/content/ai 균형 분류 (단일 키워드 편향 해결)
+- siteConfig.url default `medimap-blog-phi.vercel.app` 로 변경 (이전 `medimap.kr` 은 다른 회사 사이트 — 도메인 confusion 함정)
+- Article LD-JSON 보강 (wordCount + articleBody + url)
+- content-queue API 응답에 명시적 Cache-Control no-store + middleware 안전망
+
+### Round 60 — 이미지 자동 추가 + 한국 특화
+
+- Storage upload 실패 시 `return None` → cover NULL 채로 저장되는 함정 fix
+- Raw Pollinations URL fallback 추가 (Storage 실패해도 cover 살아있음)
+- **fix 2** — Pollinations prompt 가 서양 의료진 출력 함정 (asian east asian Korean people, Seoul South Korea, `no western faces` 명시 강제)
+- DB 자사 18편 body 안에 figure 일괄 삽입 + cover 한국 특화 prompt 재생성
+- `dbRowToPostMeta` 의 cover_image_url 매핑 누락 함정 (DbPostRow 에 선언만 하고 PostMeta 변환 코드 빠짐) — 18편 cover 다 안 보이던 버그
+
+### Round 61 — LLM 응답 HTML entity 영구 차단
+
+Gemini/Sonnet 이 한국어 응답 시 `'` → `&#x27;`, `&` → `&amp;` escape 한 채 반환 함정.
+
+```python
+def _decode_html_entities_deep(obj):
+    import html as _html
+    if isinstance(obj, str): return _html.unescape(obj)
+    if isinstance(obj, dict): return {k: _decode_html_entities_deep(v) for k, v in obj.items()}
+    if isinstance(obj, list): return [_decode_html_entities_deep(v) for v in obj]
+    return obj
+```
+
+`_parse_blog_json` + `_parse_qa_json` 양쪽 적용. 향후 cron 발행 글 entity 영구 차단.
+
+### Round 62 — 학습 → 콘텐츠 활용 워크플로우 인프라
+
+- DB schema: `applied_insights` 테이블 (insight × tenant 매핑)
+- API: `/api/admin/insights/apply` (POST upsert / DELETE soft / GET filter)
+- Python loader: `applied_insights_loader.py` — prompt block 으로 변환
+- **fix** — `NextResponse.json(body, init1, init2)` 3-arg signature 함정 → `NextResponse.json(body, { status, headers })` 단일 init 으로 merge
+
+### Round 58~62 새 함정 누적 (BR~CB)
+
+| 코드 | 함정 | 정답 |
+|---|---|---|
+| BR | `export const dynamic` vs `import dynamic from 'next/dynamic'` 변수명 충돌 | `nextDynamic` alias |
+| BS | dynamic component type 같이 import 시 lazy 무력 | `import type` 분리 |
+| BT | Anthropic factory가 model env 안 읽음 | constructor 에 model 전달 |
+| BU | Sonnet `\\'` invalid JSON escape | assistant prefill `{` 강제 |
+| BV | API key 채팅 노출 | POC 종료 후 즉시 revoke |
+| BW | Sonnet markdown fence + prefix 강제 무시 | prefill 또는 Tool use API |
+| BX | **(CRITICAL) Next.js fetch auto-cache 가 Supabase client 도 캐시** | `createClient` 의 `global.fetch` override |
+| BY | 한국어 max_tokens 영어 대비 2배 필요 | 8192 + stop_reason 감지 |
+| BZ | Storage upload 실패 시 모든 작업 폐기 | raw URL fallback |
+| CA | DB 컬럼 → PostMeta 매핑 누락 (type 만 있고 변환 코드 빠짐) | 매핑 코드 점검 |
+| CB | `NextResponse.json(body, init1, init2)` 3-arg 안됨 | `status + headers` 같은 init 안에 |
+
+### Round 58~62 산출물 누적
+
+**Code 변경**:
+- `lib/supabase.ts` — global.fetch no-store override (BX 핵심)
+- `lib/llm/factory.ts` + `src/content/llm.py` — ANTHROPIC_MODEL env 전달, assistant prefill, max_tokens 8192, stop_reason 감지, `_decode_html_entities_deep`
+- `src/content/image_picker.py` — 한국 특화 prompt + raw Pollinations fallback
+- `src/content/applied_insights_loader.py` — 새 파일 (학습 prompt loader)
+- `src/collector/scheduler.py` — blog_category mapping 강화 (keyword+title)
+- `src/content/cost.py` — sonnet-4-6 / opus 단가
+- `medimap-blog/src/lib/posts.ts` — cover_image_url → PostMeta 매핑 (CA fix)
+- `medimap-blog/src/lib/schema.ts` — Article LD-JSON wordCount/articleBody/url
+- `medimap-blog/src/lib/site.ts` — siteConfig.url default fix
+- `medimap-blog/src/app/layout.tsx` — Google Search Console verification meta
+- `medimap-blog-v2/src/app/admin/(portal)/content-queue/page.tsx` — UIUX 완벽 개선 (자사/파트너 stripe + 필터 + modal 가독성)
+- `medimap-blog-v2/src/app/admin/(portal)/reports/[tenantId]/page.tsx` — nextDynamic alias
+- `medimap-blog-v2/src/app/api/admin/content-queue/[id]/route.ts` — isSelf 분기 fix
+- `medimap-blog-v2/src/app/api/admin/insights/apply/route.ts` — 새 파일 (Round 62)
+- `medimap-blog-v2/src/middleware.ts` — admin API cache 안전망
+- `.github/workflows/auto-publish.yml` — cron 2회/일 + ANTHROPIC_MODEL secret
+
+**DB 변경**:
+- Migration `round58_*`, `round62_applied_insights`
+- 자사 발행 18편 + 카테고리 균형 재분류 (hospital 8 / content 6 / ai 4)
+- HTML entity 일괄 decode + cover URL 한국 특화 + body figure 일괄 삽입
+- 옛 양식·placeholder·FAQ-only 글 일괄 거부
+
+**운영 변경**:
+- Google Search Console: 인증 + sitemap 제출 + 핵심 3편 우선 색인 요청
+- Anthropic Sonnet 4.6 본격 cron 발행 환경 완비
+
+### 다음 라운드 후보 (Round 63+)
+
+1. **Round 56 후속** — 학습 → 콘텐츠 활용 UI 마무리 (tenant dropdown + 적용 chip)
+2. **본 사이트로 마이그레이션** — vercel.app 한계 → medi-map.co.kr/blog 서브패스로 이전 (domain authority)
+3. **백링크 전략** — 의료 매체 기고 (mkhealth, hidoc, hinews) — 1편당 1개 백링크
+4. **자동 검수 (의료법 + quality)** — 검수 부담 줄이기 (AI 1차 통과 → 운영자는 borderline 만)
+5. **Tool use API 전환** — Anthropic structured output (prefill 함정 영구 제거)
+
+
 ## Round 58 (2026-06-01) — Anthropic LLM 연동 (Claude Sonnet 4.6)
 
 ### 배경
