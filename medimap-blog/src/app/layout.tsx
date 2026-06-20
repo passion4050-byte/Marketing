@@ -27,6 +27,11 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
   alternates: { canonical: "/" },
   formatDetection: { telephone: false },
+  // Round 62 후속 (2026-06-20) — Google Search Console 소유권 확인 meta tag.
+  // 인증 후에도 유지 (제거 시 인증 해제됨).
+  verification: {
+    google: "PHHfi6PtKyOBdqwbUTsFMYCDt4pUiKZU_hH7sKsThFs",
+  },
 };
 
 export const viewport: Viewport = {
