@@ -21,6 +21,16 @@ export function getServerClient(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return null;
-  _server = createClient(url, key, { auth: { persistSession: false } });
+  // Round 59 fix 4 (2026-06-01) — 🚨 critical: Next.js 13+ 의 fetch auto-cache 가
+  // Supabase 내부 fetch 까지 캐시 → 응답이 stale (예: 5/30 데이터 6/20 까지 그대로).
+  // force-dynamic / Cache-Control headers 모두 무력. 해결책 = supabase client 의 fetch
+  // 자체에 cache: 'no-store' 강제 (global.fetch override).
+  _server = createClient(url, key, {
+    auth: { persistSession: false },
+    global: {
+      fetch: ((input: RequestInfo | URL, init?: RequestInit) =>
+        fetch(input, { ...init, cache: 'no-store' as RequestCache })) as typeof fetch,
+    },
+  });
   return _server;
 }
