@@ -943,10 +943,29 @@ def _parse_qa_json(text: str) -> list[FAQPair]:
     except json.JSONDecodeError as e:
         raise LLMError(f"JSON 파싱 실패: {e}; raw={text[:500]}") from e
 
+    # Round 61 — HTML entity 영구 차단
+    data = _decode_html_entities_deep(data)
     pairs_raw = data.get("qa_pairs") or data.get("faq") or data.get("pairs") or []
     if not pairs_raw:
         raise LLMError(f"qa_pairs 키 없음: {data}")
     return [FAQPair(question=p["q"], answer=p["a"]) for p in pairs_raw if "q" in p and "a" in p]
+
+
+def _decode_html_entities_deep(obj):
+    """Round 61 (2026-06-01) — LLM 응답의 모든 string 에 html.unescape() 재귀 적용.
+
+    Gemini/Sonnet 이 한국어 응답 시 `'` → `&#x27;`, `&` → `&amp;` 로 escape 한 채 반환.
+    DB 에 그대로 저장되면 라이브 페이지에 entity 가 literal 로 노출됨.
+    JSON 파싱 직후 dict/list/str 재귀 순회로 영구 차단.
+    """
+    import html as _html
+    if isinstance(obj, str):
+        return _html.unescape(obj)
+    if isinstance(obj, dict):
+        return {k: _decode_html_entities_deep(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_decode_html_entities_deep(v) for v in obj]
+    return obj
 
 
 def _parse_blog_json(text: str) -> dict:
@@ -960,6 +979,9 @@ def _parse_blog_json(text: str) -> dict:
         data = _lenient_json_loads(m.group(0))
     except json.JSONDecodeError as e:
         raise LLMError(f"JSON 파싱 실패: {e}; raw={text[:500]}") from e
+
+    # Round 61 — HTML entity 영구 차단
+    data = _decode_html_entities_deep(data)
 
     # 최소 필드 검증
     if "title" not in data and "sections" not in data:

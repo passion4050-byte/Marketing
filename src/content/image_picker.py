@@ -54,11 +54,15 @@ PROMPT_TEMPLATE = (
 
 # Round 29 (2026-05-30): 자사 인사이트 실사 톤. Pollinations + Unsplash 둘 다 사용.
 PROMPT_TEMPLATE_REALISTIC = (
-    "professional editorial photography, korean medical clinic environment, "
+    # Round 60 fix 2 (2026-06-01) — 한국 특화 강화. 서양 의료진 출력 함정 해결.
+    # 'asian', 'east asian features', 'Seoul' 명시 + ethnicity hint 강제.
+    "professional editorial photography, "
+    "asian east asian Korean people, Seoul South Korea modern clinic interior, "
     "scene depicting {context}, "
-    "natural daylight, documentary style, shot on DSLR, high quality, "
-    "shallow depth of field, clean composition, modern aesthetic, "
-    "no text, no logo, no watermark"
+    "Korean medical professionals with east asian features, "
+    "natural daylight, documentary style, shot on DSLR, photorealistic, "
+    "shallow depth of field, clean composition, modern Korean aesthetic, "
+    "no text, no logo, no watermark, no western faces"
 )
 
 

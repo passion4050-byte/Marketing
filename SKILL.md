@@ -3557,6 +3557,78 @@ WHERE status = 'published' AND tenant_id = 12 AND cover_image_url IS NULL;
 - `image_picker.py` — Storage 실패 시 raw Pollinations URL fallback
 - DB 백필 — 자사 18편 cover_image_url 채움
 
+### Round 60 fix 2 (2026-06-01) — 서양 의료진 + 본문 figure 누락
+
+- PROMPT_TEMPLATE_REALISTIC 에 `asian east asian Korean people, Seoul South Korea` + `no western faces` 명시 강제
+- 자사 18편 body 안에 figure 일괄 삽입 (첫 H2 직후, Pollinations 한국 특화 URL)
+- `dbRowToPostMeta` 의 cover_image_url 매핑 누락 함정 (DB 채워졌지만 UI render skip)
+
+---
+
+## Round 61 (2026-06-01) — LLM 응답 HTML entity 영구 차단
+
+### 함정
+
+Gemini/Sonnet 이 한국어 응답 시 작은따옴표를 `&#x27;`, `&` 를 `&amp;` 로 escape 한 채 반환. DB 에 저장 → 라이브 페이지에 literal entity 노출 ("우리 병원, 지역 검색에서 &#x27;진짜&#x27;...").
+
+### Fix
+
+`_decode_html_entities_deep` 함수 — dict/list/str 재귀 순회 + `html.unescape()`. `_parse_blog_json` + `_parse_qa_json` 양쪽에서 호출. 향후 cron 발행 글 entity 영구 차단.
+
+### 산출물
+
+- `src/content/llm.py` — `_decode_html_entities_deep` + parse 함수 두 곳 적용
+- DB 18편 일괄 unescape 백필 완료
+
+---
+
+## Round 62 (2026-06-01) — 학습 → 콘텐츠 활용 워크플로우 (인프라)
+
+### 목표
+
+`learned_insights` 의 분석 결과를 cron prompt 에 inject — 메디맵 자사 + 각 클라이언트 별로 독립 적용 가능.
+
+### DB schema
+
+```sql
+CREATE TABLE applied_insights (
+  id SERIAL PRIMARY KEY,
+  insight_id INTEGER NOT NULL REFERENCES learned_insights(id) ON DELETE CASCADE,
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  applied_by VARCHAR(100),
+  note TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  UNIQUE(insight_id, tenant_id)
+);
+```
+
+### API
+
+- `POST /api/admin/insights/apply` — upsert applied_insights (insight × tenant 매핑)
+- `DELETE /api/admin/insights/apply` — soft delete (is_active=false)
+- `GET /api/admin/insights/apply?tenant_id=N` — 적용된 list
+
+### Python loader
+
+`src/content/applied_insights_loader.py` — `load_applied_insights_block(tenant_id)`:
+1. PostgREST 로 applied_insights 조회 (is_active=true)
+2. learned_insights 의 title/summary/patterns 가져옴
+3. prompt block 으로 조립 (`--- 적용된 학습 인사이트 ---\n... ---`)
+4. cron 의 `_build_blog_user_prompt` 에서 호출 → user prompt 끝에 append
+
+### 남은 작업 (다음 라운드)
+
+- learned-insights UI 에 tenant dropdown + 적용 list chip
+- generator.py 가 applied_insights_loader 호출 + prompt inject
+- 검증: 다음 cron 의 콘텐츠 quality 확인
+
+### Round 62 산출물
+
+- Migration `round62_applied_insights`
+- `/api/admin/insights/apply/route.ts`
+- `src/content/applied_insights_loader.py`
+
 
 ---
 
