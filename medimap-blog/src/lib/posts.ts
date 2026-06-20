@@ -333,6 +333,12 @@ function dbRowToPostMeta(row: DbPostRow): PostMeta {
     readingMinutes: readingTimeMinutes(stripHtml(row.body)),
     source_type: "html",
     blogCategory: blogCategorySlug,
+    // Round 60 fix (2026-06-01) — cover_image_url / cover_image_alt 누락 함정 해결.
+    // SELECT 컬럼 + DbPostRow 타입은 있었는데 PostMeta 매핑이 빠져서
+    // /blog index + post 페이지에 cover 안 보이던 버그.
+    cover: row.cover_image_url ?? undefined,
+    cover_image_url: row.cover_image_url ?? undefined,
+    cover_image_alt: row.cover_image_alt ?? undefined,
   };
 }
 
