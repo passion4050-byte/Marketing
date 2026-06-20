@@ -40,6 +40,13 @@ export function breadcrumbLd(items: { name: string; href: string }[]): JsonLd {
 }
 
 export function articleLd(post: PostMeta): JsonLd {
+  // Round 59 (2026-06-01) — AEO 인용성 강화: wordCount + articleBody plain text + url 명시
+  // body 가 HTML 이면 tag strip 해서 plain text wordCount 계산
+  const plainBody = typeof post.body === "string"
+    ? post.body.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
+    : "";
+  const wordCount = plainBody ? plainBody.split(/\s+/).filter(Boolean).length : undefined;
+  const url = absoluteUrl(`/blog/${post.slug}`);
   return {
     "@context": "https://schema.org",
     "@type": "Article",
@@ -48,7 +55,8 @@ export function articleLd(post: PostMeta): JsonLd {
     datePublished: post.date,
     dateModified: post.updated ?? post.date,
     inLanguage: "ko-KR",
-    mainEntityOfPage: { "@type": "WebPage", "@id": absoluteUrl(`/blog/${post.slug}`) },
+    url,
+    mainEntityOfPage: { "@type": "WebPage", "@id": url },
     author: post.author
       ? { "@type": "Person", name: post.author }
       : { "@type": "Organization", name: siteConfig.publisher.name },
@@ -60,6 +68,9 @@ export function articleLd(post: PostMeta): JsonLd {
     image: post.cover ? [absoluteUrl(post.cover)] : undefined,
     articleSection: post.category,
     keywords: post.tags?.join(", "),
+    wordCount,
+    // AEO: articleBody plain text — AI 가 인용 시 정확한 본문 매칭
+    articleBody: plainBody || undefined,
   };
 }
 

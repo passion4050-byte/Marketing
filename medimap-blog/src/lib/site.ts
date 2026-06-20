@@ -4,10 +4,12 @@ export const siteConfig = {
   tagline: "헬스케어의 미래를 함께 만들어갑니다",
   description:
     "메디맵은 Medical과 Map의 합성어로, 건강을 찾을 수 있는 지도를 만들어 환자와 병·의원을 연결합니다.",
-  url: process.env.NEXT_PUBLIC_SITE_URL || "https://medimap.kr",
+  // Round 59 (2026-06-01) — 긴급 fix: medimap.kr 은 다른 회사 사이트. 우리 콘텐츠 블로그는
+  // medimap-blog-phi.vercel.app. schema.org URL 이 다른 회사 가리키면 SEO 도메인 confusion.
+  url: process.env.NEXT_PUBLIC_SITE_URL || "https://medimap-blog-phi.vercel.app",
   basePath: process.env.NEXT_PUBLIC_BASE_PATH || "",
   shortlinkBase:
-    process.env.NEXT_PUBLIC_SHORTLINK_BASE || "https://m.medimap.kr/r",
+    process.env.NEXT_PUBLIC_SHORTLINK_BASE || "https://medimap-blog-phi.vercel.app/r",
   contact: {
     kakao: "https://pf.kakao.com/_xnWQkG",
     naverPlace: "https://map.naver.com/p/search/%EB%A9%94%EB%94%94%EB%A7%B5/place/1091694610?c=15.00,0,0,0,dh&placePath=/home?bk_query=%EB%A9%94%EB%94%94%EB%A7%B5&entry=bmp&from=map&fromPanelNum=2&timestamp=202605242051&locale=ko&svcName=map_pcv5&searchText=%EB%A9%94%EB%94%94%EB%A7%B5",

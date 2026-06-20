@@ -1,11 +1,13 @@
 name: Auto-publish content (cron)
 
-# 2026-05-28 Round 22: Phase 3 완료 → 매일 23:00 UTC (= 08:00 KST) 단일 실행.
-# 이전: 매 시간 (Round 20 정지 전). 이제는 콘텐츠 설정(content_settings) DB 기반.
-# 수동 실행은 workflow_dispatch (Actions UI) 로 가능.
+# 2026-05-28 Round 22: Phase 3 완료 → 매일 23:00 UTC 단일 실행.
+# 2026-06-01 Round 59: 자사 노출도 0% → 콘텐츠 양 부족 진단. 2회/일 로 확대.
+#   - 08:00 KST (23:00 UTC) — 자사 인사이트 발행
+#   - 14:00 KST (05:00 UTC) — 파트너 콘텐츠 발행 (워크플로우 안에서 rotation 적용)
 on:
   schedule:
     - cron: '0 23 * * *'   # 매일 23:00 UTC = 08:00 KST
+    - cron: '0 5 * * *'    # 매일 05:00 UTC = 14:00 KST (Round 59 추가)
   workflow_dispatch: {}
 
 permissions:
@@ -53,6 +55,8 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Round 59 (2026-06-01) — ANTHROPIC_MODEL secret 전달 (이전 누락 → default Haiku 강제됨)
+          ANTHROPIC_MODEL: ${{ secrets.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001' }}
           MAX_DAILY_USD: ${{ secrets.MAX_DAILY_USD || '10' }}
           IMAGE_GEN_ENABLED: ${{ secrets.IMAGE_GEN_ENABLED || 'true' }}
         run: python scripts/run_auto_content_once.py
