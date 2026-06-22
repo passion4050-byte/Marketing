@@ -89,12 +89,17 @@ export async function GET(req: Request) {
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const classifierSets = await loadClassifierSets();
 
-  // 2. competitor_landscape keywords 만 추출 (Round 34 phase 2 — 비즈니스 모델 키워드)
+  // 2. 경쟁 추적 키워드 추출.
+  //    Round 68 — 자사(메디맵 self) 선택 시 'own' 키워드로 경쟁사 데이터 표시.
+  //    (메디맵은 competitor_landscape 키워드가 없고 own 키워드 응답에 경쟁사가 잡힘)
+  const isSelfTenant = !!selectedTenant?.is_self;
   let landscapeKwQuery = sb
     .from('keywords')
     .select('id, text, tenant_id')
-    .eq('purpose', 'competitor_landscape')
     .eq('is_active', true);
+  landscapeKwQuery = isSelfTenant
+    ? landscapeKwQuery.or('purpose.eq.own,purpose.is.null')
+    : landscapeKwQuery.eq('purpose', 'competitor_landscape');
   if (tenantIdFilter) landscapeKwQuery = landscapeKwQuery.eq('tenant_id', tenantIdFilter);
   const { data: landscapeKeywords } = await landscapeKwQuery;
   const landscapeKwIds = new Set(

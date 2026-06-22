@@ -74,12 +74,20 @@ export async function GET(req: Request) {
   const selectedClientDomains = tenantIdFilter ? tenantDomainsMap.get(tenantIdFilter) ?? null : null;
   const clientLabel = tenantIdFilter ? tenantNameMap.get(tenantIdFilter) ?? '클라이언트' : '클라이언트 자체';
 
-  // landscape 키워드
-  let kwQuery = sb
-    .from('keywords')
-    .select('id, text, tenant_id')
-    .eq('purpose', 'competitor_landscape')
-    .eq('is_active', true);
+  // Round 68 — 자사(메디맵 self) 선택 시 own 키워드로 경쟁 데이터 표시
+  const selRow = tenantIdFilter
+    ? (tenantsAll ?? []).find((t: { id: number }) => t.id === tenantIdFilter)
+    : null;
+  const isSelfTenant =
+    !!selRow &&
+    ((selRow as { business_model?: string }).business_model === 'self' ||
+      (selRow as { partner_slug?: string }).partner_slug === 'medimap-self');
+
+  // 키워드 (자사는 own, 그 외는 competitor_landscape)
+  let kwQuery = sb.from('keywords').select('id, text, tenant_id').eq('is_active', true);
+  kwQuery = isSelfTenant
+    ? kwQuery.or('purpose.eq.own,purpose.is.null')
+    : kwQuery.eq('purpose', 'competitor_landscape');
   if (tenantIdFilter) kwQuery = kwQuery.eq('tenant_id', tenantIdFilter);
   const { data: landscapeKeywords } = await kwQuery;
   const kwTextById = new Map<number, string>();
