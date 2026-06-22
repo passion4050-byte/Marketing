@@ -20,14 +20,15 @@ const ENGINE_META: Record<string, { label: string; color: string }> = {
   openai: { label: 'ChatGPT', color: '#10A37F' },
 };
 
-export function EngineChip({ engine }: { engine: string }) {
+export function EngineChip({ engine, count }: { engine: string; count?: number }) {
   const meta = ENGINE_META[engine.toLowerCase()] ?? { label: engine, color: '#64748B' };
   return (
     <span
-      className="inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+      className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
       style={{ backgroundColor: `${meta.color}1A`, color: meta.color }}
     >
       {meta.label}
+      {count != null && <span className="font-mono">×{count}</span>}
     </span>
   );
 }

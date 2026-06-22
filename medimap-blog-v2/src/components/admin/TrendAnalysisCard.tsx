@@ -1,8 +1,10 @@
 /**
- * Round 65 (2026-06-22) — 추이 분석 카드.
+ * Round 65 (2026-06-22) — 추이 분석 카드. / Round 66 — 우리 라인 + 엔진별 우리·경쟁사.
  *
- * 경쟁사 페이지 상단. 키워드 드롭다운 + 보기 토글(AI엔진별/경쟁사 도메인별/클라이언트별)
- * + 30일 멀티라인 추이 + 요약 스탯. /api/admin/competitors/trends 소비.
+ * 경쟁사 페이지 상단. 키워드 드롭다운 + 보기 토글:
+ *   - AI 엔진별 인용  : 엔진마다 '우리'(실선 굵게) / '경쟁사'(점선) 2 라인
+ *   - 경쟁사 점유 현황 : '우리 점유'(brand, 굵게) + 경쟁사 도메인 top 6
+ *   - 클라이언트별     : 클라이언트별 추이
  */
 'use client';
 
@@ -27,18 +29,18 @@ type TrendData = {
   byEngine: Dim;
   byCompetitor: Dim;
   byClient: Dim;
-  summary: { total: number; top_engine: string | null; top_competitor: string | null };
+  summary: { total: number; own_total: number; top_engine: string | null; top_competitor: string | null };
 };
 
 type Mode = 'engine' | 'competitor' | 'client';
 
 const MODE_META: Record<Mode, { label: string; dim: keyof Pick<TrendData, 'byEngine' | 'byCompetitor' | 'byClient'> }> = {
   engine: { label: 'AI 엔진별 인용', dim: 'byEngine' },
-  competitor: { label: '경쟁사 도메인별', dim: 'byCompetitor' },
+  competitor: { label: '경쟁사 점유 현황', dim: 'byCompetitor' },
   client: { label: '클라이언트별', dim: 'byClient' },
 };
 
-const PALETTE = ['#1B68FF', '#15B8A6', '#A855F7', '#F59E0B', '#EF4444', '#0EA5E9', '#64748B'];
+const PALETTE = ['#15B8A6', '#A855F7', '#F59E0B', '#EF4444', '#0EA5E9', '#64748B', '#EC4899'];
 const ENGINE_COLORS: Record<string, string> = {
   claude: '#D97757',
   gemini: '#1B68FF',
@@ -52,18 +54,36 @@ const ENGINE_LABELS: Record<string, string> = {
   openai: 'ChatGPT',
 };
 
-function displayLabel(mode: Mode, name: string): string {
-  if (mode === 'engine') return ENGINE_LABELS[name.toLowerCase()] ?? name;
-  return name;
-}
-function colorFor(mode: Mode, name: string, i: number): string {
-  if (mode === 'engine') return ENGINE_COLORS[name.toLowerCase()] ?? PALETTE[i % PALETTE.length];
-  return PALETTE[i % PALETTE.length];
+type LineStyle = { name: string; stroke: string; strokeWidth: number; dash?: string };
+
+function lineStyleFor(mode: Mode, raw: string, i: number): LineStyle {
+  if (mode === 'engine') {
+    const [eng, kind] = raw.split('·');
+    const key = (eng ?? '').toLowerCase();
+    const color = ENGINE_COLORS[key] ?? PALETTE[i % PALETTE.length];
+    const isOwn = kind === '우리';
+    return {
+      name: `${ENGINE_LABELS[key] ?? eng}·${kind ?? ''}`,
+      stroke: color,
+      strokeWidth: isOwn ? 2.5 : 1.5,
+      dash: isOwn ? undefined : '4 3',
+    };
+  }
+  if (mode === 'competitor') {
+    const isOwn = raw === '우리 점유';
+    return {
+      name: raw,
+      stroke: isOwn ? '#1B68FF' : PALETTE[i % PALETTE.length],
+      strokeWidth: isOwn ? 3 : 2,
+      dash: undefined,
+    };
+  }
+  return { name: raw, stroke: PALETTE[i % PALETTE.length], strokeWidth: 2 };
 }
 
 export function TrendAnalysisCard({ tenantId }: { tenantId: number | null }) {
   const [keyword, setKeyword] = useState<string>('');
-  const [mode, setMode] = useState<Mode>('engine');
+  const [mode, setMode] = useState<Mode>('competitor');
   const [data, setData] = useState<TrendData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -90,7 +110,8 @@ export function TrendAnalysisCard({ tenantId }: { tenantId: number | null }) {
   }, [tenantId, keyword]);
 
   const dim = data ? data[MODE_META[mode].dim] : null;
-  const hasData = !!data && data.summary.total > 0 && !!dim && dim.series.length > 0;
+  const hasData =
+    !!data && (data.summary.total > 0 || data.summary.own_total > 0) && !!dim && dim.series.length > 0;
 
   return (
     <section className="mb-6 card card-pad print:hidden">
@@ -101,7 +122,6 @@ export function TrendAnalysisCard({ tenantId }: { tenantId: number | null }) {
           <span className="text-[10px] text-ink-muted">최근 30일 · AI 인용 흐름</span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {/* 키워드 드롭다운 */}
           <select
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
@@ -114,7 +134,6 @@ export function TrendAnalysisCard({ tenantId }: { tenantId: number | null }) {
               </option>
             ))}
           </select>
-          {/* 보기 토글 */}
           <div className="flex rounded-lg border border-border bg-surface-base p-0.5">
             {(Object.keys(MODE_META) as Mode[]).map((m) => (
               <button
@@ -134,15 +153,19 @@ export function TrendAnalysisCard({ tenantId }: { tenantId: number | null }) {
       </div>
 
       {/* 요약 스탯 */}
-      <div className="mb-3 grid grid-cols-3 gap-2">
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="rounded-lg bg-brand-50/50 px-3 py-2">
+          <div className="text-[10px] uppercase tracking-wider text-brand-700">우리 점유</div>
+          <div className="text-lg font-bold text-brand">{data?.summary.own_total ?? 0}</div>
+        </div>
         <div className="rounded-lg bg-surface-subtle px-3 py-2">
-          <div className="text-[10px] uppercase tracking-wider text-ink-muted">총 인용</div>
+          <div className="text-[10px] uppercase tracking-wider text-ink-muted">경쟁사 인용</div>
           <div className="text-lg font-bold text-ink">{data?.summary.total ?? 0}</div>
         </div>
         <div className="rounded-lg bg-surface-subtle px-3 py-2">
           <div className="text-[10px] uppercase tracking-wider text-ink-muted">최다 인용 엔진</div>
           <div className="truncate text-lg font-bold text-ink">
-            {data?.summary.top_engine ? displayLabel('engine', data.summary.top_engine) : '—'}
+            {data?.summary.top_engine ? ENGINE_LABELS[data.summary.top_engine.toLowerCase()] ?? data.summary.top_engine : '—'}
           </div>
         </div>
         <div className="rounded-lg bg-surface-subtle px-3 py-2">
@@ -166,7 +189,7 @@ export function TrendAnalysisCard({ tenantId }: { tenantId: number | null }) {
           </div>
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={260}>
+        <ResponsiveContainer width="100%" height={280}>
           <LineChart data={dim!.data} margin={{ top: 4, right: 16, bottom: 0, left: -8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#E5EBED" />
             <XAxis dataKey="date" fontSize={10} stroke="#64748B" interval="preserveStartEnd" minTickGap={24} />
@@ -176,18 +199,22 @@ export function TrendAnalysisCard({ tenantId }: { tenantId: number | null }) {
               labelStyle={{ fontSize: 11, fontWeight: 600 }}
             />
             <Legend wrapperStyle={{ fontSize: 11 }} />
-            {dim!.series.map((name, i) => (
-              <Line
-                key={`v${i}`}
-                type="monotone"
-                dataKey={`v${i}`}
-                name={displayLabel(mode, name)}
-                stroke={colorFor(mode, name, i)}
-                strokeWidth={2}
-                dot={{ r: 2 }}
-                activeDot={{ r: 4 }}
-              />
-            ))}
+            {dim!.series.map((raw, i) => {
+              const st = lineStyleFor(mode, raw, i);
+              return (
+                <Line
+                  key={`v${i}`}
+                  type="monotone"
+                  dataKey={`v${i}`}
+                  name={st.name}
+                  stroke={st.stroke}
+                  strokeWidth={st.strokeWidth}
+                  strokeDasharray={st.dash}
+                  dot={{ r: 2 }}
+                  activeDot={{ r: 4 }}
+                />
+              );
+            })}
           </LineChart>
         </ResponsiveContainer>
       )}

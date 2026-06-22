@@ -146,11 +146,17 @@ export async function GET(req: Request) {
       byKw: Map<string, { count: number; engines: Set<string>; urls: Set<string> }>;
     }
   >();
-  // keyword → competitor 별 카운트
+  // keyword → competitor 별 카운트 (+ Round 66 엔진별 카운트)
   const keywordMatrix = new Map<
     string,
-    { total_sources: number; competitors: Map<string, { count: number; tier: Tier }> }
+    {
+      total_sources: number;
+      competitors: Map<string, { count: number; tier: Tier }>;
+      engines: Map<string, number>;
+    }
   >();
+  // Round 66 — 클라이언트(자사) 현황: T1 메디맵 / T2 클라이언트 자체 / 전체 비-NOISE 출처
+  const clientStatus = { medimap_t1: 0, client_t2: 0, total_sources: 0 };
 
   filteredResp.forEach(
     (r: {
@@ -161,16 +167,24 @@ export async function GET(req: Request) {
       const kw = kwId ? keywordTextMap.get(kwId) ?? '?' : '?';
       const engine = queryEngineMap.get(r.query_id) ?? '?';  // Round 64
       if (!keywordMatrix.has(kw)) {
-        keywordMatrix.set(kw, { total_sources: 0, competitors: new Map() });
+        keywordMatrix.set(kw, { total_sources: 0, competitors: new Map(), engines: new Map() });
       }
       const kwBucket = keywordMatrix.get(kw)!;
 
       (r.source_domains ?? []).forEach((sd) => {
         const tier = classifyDomain(sd.domain, null, selectedClientDomains, classifierSets);
+        // Round 66 — 클라이언트 현황 집계 (스킵 전에)
+        if (tier !== 'NOISE') clientStatus.total_sources++;
+        if (tier === 'T1') clientStatus.medimap_t1++;
+        if (tier === 'T2') clientStatus.client_t2++;
         // 경쟁사 페이지 = T3+T4+T5 만 카운트 (T1 메디맵, T2 자체 제외)
         if (tier === 'NOISE' || tier === 'T1' || tier === 'T2') return;
         tierCount[tier]++;
         kwBucket.total_sources++;
+        // Round 66 — 키워드별 엔진 인용 카운트
+        if (engine && engine !== '?') {
+          kwBucket.engines.set(engine, (kwBucket.engines.get(engine) ?? 0) + 1);
+        }
 
         if (sd.domain) {
           if (!domainAgg.has(sd.domain)) {
@@ -245,13 +259,17 @@ export async function GET(req: Request) {
     .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0) || b.count - a.count);
 
   const keywordCompetitorMatrix = Array.from(keywordMatrix.entries())
-    .map(([keyword, { total_sources, competitors }]) => ({
+    .map(([keyword, { total_sources, competitors, engines }]) => ({
       keyword,
       total_sources,
       competitors: Array.from(competitors.entries())
         .map(([domain, v]) => ({ domain, count: v.count, tier: v.tier }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 5),
+      // Round 66 — 키워드별 AI 엔진 인용 횟수
+      engines: Array.from(engines.entries())
+        .map(([engine, count]) => ({ engine, count }))
+        .sort((a, b) => b.count - a.count),
     }))
     .sort((a, b) => b.total_sources - a.total_sources);
 
@@ -263,5 +281,7 @@ export async function GET(req: Request) {
     competitor_top: competitorTop,
     keyword_competitor_matrix: keywordCompetitorMatrix,
     tier_distribution: tierCount,
+    // Round 66 — 클라이언트(자사) 현황
+    client_status: clientStatus,
   });
 }

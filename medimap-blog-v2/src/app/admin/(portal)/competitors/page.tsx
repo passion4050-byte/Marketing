@@ -11,7 +11,7 @@
  */
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Bar,
@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { CitationsTabs } from '@/components/admin/CitationsTabs';
-import { CitationBreakdown, type Citation } from '@/components/admin/CitationBreakdown';
+import { CitationBreakdown, EngineChip, type Citation } from '@/components/admin/CitationBreakdown';
 import { TrendAnalysisCard } from '@/components/admin/TrendAnalysisCard';
 
 type TenantOption = { id: number; name: string; is_self: boolean };
@@ -56,8 +56,10 @@ type CompetitorData = {
     keyword: string;
     total_sources: number;
     competitors: Array<{ domain: string; count: number; tier: string }>;
+    engines: Array<{ engine: string; count: number }>;
   }>;
   tier_distribution: { T3: number; T4: number; T5: number };
+  client_status: { medimap_t1: number; client_t2: number; total_sources: number };
 };
 
 // Round 52 fix (2026-05-31) — 라벨 산업 종속 제거. 안과 외 클라이언트(모발이식·피부·한방) 도 동일 적용.
@@ -373,8 +375,9 @@ export default function CompetitorsPage() {
           {/* === Round 65 — 추이 분석 (경쟁사 차트 바로 위) === */}
           <TrendAnalysisCard tenantId={tenantId} />
 
-          {/* === Top 경쟁사 도메인 차트 (Round 64 — 콤팩트화) === */}
-          <section className="mb-6 card card-pad">
+          {/* === Top 경쟁사 도메인 차트 + 우리 현황 (Round 66) === */}
+          <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <section className="card card-pad lg:col-span-2">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="section-title">경쟁사 도메인 Top 10</h2>
               <span className="text-[10px] text-ink-muted">막대 위에 마우스 → 상세 · 아래 표에서 행 클릭 → 인용 드릴다운</span>
@@ -408,6 +411,46 @@ export default function CompetitorsPage() {
             )}
           </section>
 
+          {/* Round 66 — 우리(자사) 현황 패널 (경쟁사 Top10 옆) */}
+          <aside className="card card-pad">
+            <h3 className="section-title mb-3">우리 현황</h3>
+            {(() => {
+              const cs = data.client_status;
+              const ours = cs.medimap_t1 + cs.client_t2;
+              const comp = data.tier_distribution.T3 + data.tier_distribution.T4 + data.tier_distribution.T5;
+              const total = ours + comp;
+              const sharePct = total > 0 ? Math.round((ours / total) * 1000) / 10 : 0;
+              return (
+                <div className="space-y-3">
+                  <div>
+                    <div className="kpi-label">우리 점유율</div>
+                    <div className="kpi-value text-brand">{sharePct}%</div>
+                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface-subtle">
+                      <div className="h-full rounded-full bg-brand" style={{ width: `${Math.min(100, sharePct)}%` }} />
+                    </div>
+                    <div className="mt-1 text-[10px] text-ink-muted">
+                      우리 {ours} · 경쟁사 {comp} · 전체 {total}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-lg bg-surface-subtle px-3 py-2">
+                      <div className="text-[10px] text-ink-muted">메디맵 콘텐츠 ⭐</div>
+                      <div className="text-lg font-bold text-brand">{cs.medimap_t1}</div>
+                    </div>
+                    <div className="rounded-lg bg-surface-subtle px-3 py-2">
+                      <div className="text-[10px] text-ink-muted">클라이언트 자체</div>
+                      <div className="text-lg font-bold text-accent">{cs.client_t2}</div>
+                    </div>
+                  </div>
+                  <div className="text-[10px] text-ink-muted">
+                    AI 인용 출처 중 우리(메디맵+자사) 비중. 왼쪽 경쟁사 Top10 과 비교해 점유 우위를 한눈에.
+                  </div>
+                </div>
+              );
+            })()}
+          </aside>
+          </div>
+
           {/* === 키워드별 경쟁사 매트릭스 === */}
           <section className="mb-6 card">
             <header className="border-b border-border px-5 py-3">
@@ -428,6 +471,7 @@ export default function CompetitorsPage() {
                       <th className="px-3 py-2 text-left">키워드</th>
                       <th className="px-2 py-2 text-right">총 출처</th>
                       <th className="px-3 py-2 text-left">Top 경쟁사 (인용 횟수)</th>
+                      <th className="px-3 py-2 text-left">AI 엔진별 인용</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -449,6 +493,17 @@ export default function CompetitorsPage() {
                                 {c.domain} <strong>×{c.count}</strong>
                               </span>
                             ))}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex flex-wrap gap-1">
+                            {m.engines.length === 0 ? (
+                              <span className="text-[10px] text-ink-faint">—</span>
+                            ) : (
+                              m.engines.map((e) => (
+                                <EngineChip key={e.engine} engine={e.engine} count={e.count} />
+                              ))
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -517,9 +572,8 @@ export default function CompetitorsPage() {
                     {data.competitor_top.map((c, i) => {
                       const isOpen = expandedDomain === c.domain;
                       return (
-                        <>
+                        <Fragment key={`${c.domain}-${i}`}>
                           <tr
-                            key={`${c.domain}-${i}`}
                             className="cursor-pointer border-t border-border hover:bg-surface-subtle"
                             onClick={() => setExpandedDomain(isOpen ? null : c.domain)}
                           >
@@ -566,7 +620,7 @@ export default function CompetitorsPage() {
                               </td>
                             </tr>
                           )}
-                        </>
+                        </Fragment>
                       );
                     })}
                   </tbody>
