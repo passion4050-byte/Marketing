@@ -3340,6 +3340,33 @@ def _decode_html_entities_deep(obj):
 | BZ | Storage upload 실패 시 모든 작업 폐기 | raw URL fallback |
 | CA | DB 컬럼 → PostMeta 매핑 누락 (type 있고 변환 코드 빠짐) | 매핑 코드 점검 |
 | CB | `NextResponse.json(body, init1, init2)` 안됨 | 단일 init 안에 status + headers |
+| **CC** | **(CRITICAL) Sonnet 4.6 등 일부 모델이 assistant prefill 미지원 → `400 invalid_request_error: This model does not support assistant message prefill`. cron 전 콘텐츠 채널(blog_html/schema_org) 발행 실패 → exit 3, 비용 $0 (토큰 청구 전 거부)** | **prefill 메시지(`{"role":"assistant","content":"{"}`) + 직후 `{` prepend 줄 제거. `_parse_blog_json`/`_parse_qa_json` 가 정규식으로 JSON 추출하므로 안전 (BU 의 prefill 해법을 CC 가 무효화 — prefill 자체가 함정).** |
+
+> **함정 BU↔CC 교훈**: Round 58 의 BU fix(작은따옴표 escape 회피용 prefill)가 Round 63 에서 모델 비호환으로 역효과. prefill 같은 모델별 비표준 트릭보다 **견고한 파서**(정규식 추출 + lenient loads + html.unescape)에 의존하는 게 모델 교체에 강건. 다음 단계 후보 #5(Tool use API structured output)가 근본 해법.
+
+### Round 63 (2026-06-22) — prefill 영구 제거 + Gemini 우선 fallback + 측정 production 인입
+
+**증상**: auto-publish cron #74 exit 3 (errors=2, drafts=0, 비용 $0). 로그: `Anthropic 호출 실패: Error code 400 — This model does not support assistant message prefill`.
+
+**근본 원인 (3중)**:
+1. **함정 CC** — `ANTHROPIC_MODEL`=Sonnet 4.6 이 prefill 미지원인데 `generate_blog_post`/`generate_faq` 가 prefill 사용.
+2. `LLM_PROVIDER=anthropic` **단일** 설정이라 Gemini fallback 미작동 (전멸).
+3. AI 인용 측정이 `ENGINE_MODE=stub` 기본값으로 돌아 **실제 Claude API 미사용** (대시보드 "sample_index:0 / (unknown)" = 가짜 데모 데이터).
+
+**비즈니스 정책 (사용자 확정)**:
+- 콘텐츠 발행: **Gemini(무료) 주력 → 막히면 Claude 대체** (fallback)
+- Claude API 결제 목적: **AI 인용 추적**(경쟁사·시장 모니터링)에 4엔진 중 하나로 사용
+
+**수정**:
+- `src/content/llm.py` — `generate_blog_post`/`generate_faq` 의 assistant prefill + `{` prepend 제거 (CC).
+- `src/content/llm.py` — `_build_provider_chain` 순서 **Gemini > Anthropic > OpenAI** 로 뒤집음 (이전 Anthropic 우선). fallback 모드에서 Gemini 주력 + Claude 대체 실현.
+- `.github/workflows/measure-ai-mentions.yml` + `measure-competitor-mentions.yml` — `GOOGLE_API_KEY || GEMINI_API_KEY` 폴백 (secret 이름 GEMINI_API_KEY 만 있어도 production 측정 Gemini 엔진 활성).
+
+**필요한 Secret 변경 (GitHub Actions, 코드 push 후)**:
+- `LLM_PROVIDER` = **`fallback`** (gemini 단일 → fallback 으로; Gemini 우선 + Claude 대체)
+- `ENGINE_MODE` = **`production`** (stub → 실제 4엔진 측정 활성. 비용 ~$0.20~0.30/일, `MAX_DAILY_USD` 가드)
+
+**환경 함정 (사무실 PC)**: repo 가 `C:\Users\user\` 인데 로그인 계정 `owner` → `.git` 쓰기 권한 거부로 6/1 이후 fetch/pull 불가, 로컬이 R57 에 고착 + CRLF 노이즈 477파일. 해결: 관리자 PowerShell `takeown`+`icacls` 로 소유권 이전 → `git fetch && reset --hard origin/main` → `core.autocrlf true`.
 
 ### Round 58~62 산출물 누적
 

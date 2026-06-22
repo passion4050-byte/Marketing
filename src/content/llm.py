@@ -1205,7 +1205,9 @@ class AnthropicProvider:
             angle=angle, tenant_data_block=tenant_data_block, correction_hint=correction_hint,
         )
         try:
-            # Round 58 fix (2026-06-01) — assistant prefill `{` 로 JSON object 시작 강제
+            # Round 63 (2026-06-22) — assistant prefill 제거 (함정 CC).
+            #   Sonnet 4.6 등 일부 모델이 assistant prefill 미지원 → 400 invalid_request_error.
+            #   _parse_qa_json 이 정규식으로 JSON 객체를 추출하므로 prefill 없이도 안전.
             # Round 58 fix 3 — max_tokens 2048 → 4096
             msg = self._client.messages.create(
                 model=self._model,
@@ -1213,12 +1215,9 @@ class AnthropicProvider:
                 max_tokens=4096,
                 messages=[
                     {"role": "user", "content": prompt},
-                    {"role": "assistant", "content": "{"},  # prefill
                 ],
             )
             raw = "".join(b.text for b in msg.content if hasattr(b, "text"))
-            if not raw.lstrip().startswith("{"):
-                raw = "{" + raw
             # Round 58 fix 3 — 응답 잘림 감지
             stop_reason = getattr(msg, "stop_reason", None)
             if stop_reason == "max_tokens":
@@ -1267,7 +1266,9 @@ class AnthropicProvider:
             correction_hint=correction_hint,
         )
         try:
-            # Round 58 fix (2026-06-01) — assistant prefill `{` 로 JSON object 시작 강제.
+            # Round 63 (2026-06-22) — assistant prefill 제거 (함정 CC).
+            #   Sonnet 4.6 등 일부 모델이 assistant prefill 미지원 → 400 invalid_request_error.
+            #   _parse_blog_json 이 정규식으로 JSON 객체를 추출하므로 prefill 없이도 안전.
             # Round 58 fix 3 (2026-06-01) — max_tokens 4096 → 8192 (한국어 blog 4-5 sections 안전 마진)
             msg = self._client.messages.create(
                 model=self._model,
@@ -1275,13 +1276,9 @@ class AnthropicProvider:
                 max_tokens=8192,
                 messages=[
                     {"role": "user", "content": prompt},
-                    {"role": "assistant", "content": "{"},  # prefill
                 ],
             )
             raw = "".join(b.text for b in msg.content if hasattr(b, "text"))
-            # prefill 의 `{` 가 응답에 포함되지 않으므로 직접 prepend
-            if not raw.lstrip().startswith("{"):
-                raw = "{" + raw
             # Round 58 fix 3 — 응답 잘림 감지 (max_tokens 도달 시 stop_reason == "max_tokens")
             stop_reason = getattr(msg, "stop_reason", None)
             if stop_reason == "max_tokens":
@@ -1570,10 +1567,17 @@ class FallbackProvider:
 
 def _build_provider_chain() -> list:
     """환경변수로 가능한 provider 만 활성.
-    우선순위: Anthropic > Gemini > OpenAI > Stub.
-    Anthropic credit 있으면 우선 (Round 38 사용자 결정 후 충전 시).
+    우선순위: Gemini > Anthropic > OpenAI > Stub.
+    Round 63 (2026-06-22) — 비즈니스 정책 변경: Gemini(무료)를 주력으로,
+      Gemini 가 quota/503 으로 막히면 Anthropic(유료)이 자동 대체.
+      (이전 Round 38: Anthropic 우선 → Round 63 에서 Gemini 우선으로 뒤집음.)
     """
     chain = []
+    if (k := os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")):
+        try:
+            chain.append(GeminiProvider(api_key=k))
+        except Exception as e:  # noqa: BLE001
+            logger.warning("GeminiProvider init 실패: %s", e)
     if (k := os.getenv("ANTHROPIC_API_KEY")):
         try:
             # Round 58 (2026-06-01) — ANTHROPIC_MODEL 환경변수 적용
@@ -1581,11 +1585,6 @@ def _build_provider_chain() -> list:
             chain.append(AnthropicProvider(api_key=k, model=model))
         except Exception as e:  # noqa: BLE001
             logger.warning("AnthropicProvider init 실패: %s", e)
-    if (k := os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")):
-        try:
-            chain.append(GeminiProvider(api_key=k))
-        except Exception as e:  # noqa: BLE001
-            logger.warning("GeminiProvider init 실패: %s", e)
     if (k := os.getenv("OPENAI_API_KEY")):
         try:
             chain.append(OpenAIProvider(api_key=k))
