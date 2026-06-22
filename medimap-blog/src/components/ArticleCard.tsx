@@ -16,16 +16,7 @@ export function ArticleCard({ post, variant = "default" }: Props) {
         compact ? "p-0" : "p-0"
       }`}
     >
-      {post.cover_image_url && (
-        <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface-alt">
-          <img
-            src={post.cover_image_url}
-            alt={post.cover_image_alt ?? post.title}
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-            loading="lazy"
-          />
-        </div>
-      )}
+      {/* Round 77 — 블로그 리스트 썸네일 제거 (구도 단조·엑박 방지) */}
       <div className={compact ? "p-5" : "p-6"}>
       <div className="flex items-center gap-1.5">
         {post.category && <span className="pill-label">{post.category}</span>}

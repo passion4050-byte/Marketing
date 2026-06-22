@@ -531,6 +531,23 @@ function isSelfContent(q: QueueItem): boolean {
 
 type ContentFilter = 'all' | 'self' | 'partner';
 
+// Round 77 — 카드 본문 미리줄. FAQ(JSON-LD)면 raw JSON 대신 첫 질문들을 표시.
+function cardExcerpt(q: QueueItem): string {
+  const body = q.body ?? '';
+  if (body.includes('application/ld+json') || body.trim().startsWith('{')) {
+    const m = body.match(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/i);
+    const jsonStr = (m ? m[1] : body).trim();
+    try {
+      const data = JSON.parse(jsonStr) as { mainEntity?: Array<{ name?: string }> };
+      const qs = (data.mainEntity ?? []).map((e) => e?.name).filter(Boolean) as string[];
+      if (qs.length > 0) return `FAQ · ${qs.slice(0, 3).join(' / ')}`;
+    } catch {
+      // fall through
+    }
+  }
+  return q.excerpt || body.replace(/<[^>]+>/g, '').slice(0, 180);
+}
+
 function PendingTab({
   items, busyId, onPreview, onApprove, onReject, onCopy
 }: {
@@ -614,7 +631,7 @@ function PendingTab({
                   </div>
                   <h3 className="mt-1.5 text-sm font-bold text-ink">{q.title || '(제목 없음)'}</h3>
                   <p className="mt-1 text-xs text-ink-soft line-clamp-2">
-                    {q.excerpt || (q.body ? q.body.replace(/<[^>]+>/g, '').slice(0, 180) : '')}
+                    {cardExcerpt(q)}
                   </p>
                 </div>
                 <div className="shrink-0 text-right">
