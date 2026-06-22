@@ -108,15 +108,17 @@ export async function GET(req: Request) {
   // 3. queries — competitor_landscape 키워드 + tenant 필터
   let queriesQuery = sb
     .from('queries')
-    .select('id, tenant_id, keyword_id')
+    .select('id, tenant_id, keyword_id, engine')  // Round 64 — engine 추가 (드릴다운)
     .neq('engine', 'stub')  // Round 36 fix 2 — production 측정만, stub 시드 제외
     .gte('requested_at', cutoff);
   if (tenantIdFilter) queriesQuery = queriesQuery.eq('tenant_id', tenantIdFilter);
   const { data: queries } = await queriesQuery;
   const queryKeywordMap = new Map<number, number>();
-  (queries ?? []).forEach((q: { id: number; keyword_id: number }) => {
+  const queryEngineMap = new Map<number, string>();  // Round 64 — query → 엔진
+  (queries ?? []).forEach((q: { id: number; keyword_id: number; engine: string }) => {
     if (landscapeKwIds.has(q.keyword_id)) {
       queryKeywordMap.set(q.id, q.keyword_id);
+      queryEngineMap.set(q.id, q.engine);
     }
   });
   const validQueryIds = new Set(queryKeywordMap.keys());
@@ -135,7 +137,14 @@ export async function GET(req: Request) {
   // domain → { count, tier, keywords, urls }
   const domainAgg = new Map<
     string,
-    { count: number; tier: Tier; keywords: Set<string>; urls: Set<string> }
+    {
+      count: number;
+      tier: Tier;
+      keywords: Set<string>;
+      urls: Set<string>;
+      // Round 64 — 키워드별 인용 상세 (드릴다운): 키워드 → {인용수, 엔진, 콘텐츠 URL}
+      byKw: Map<string, { count: number; engines: Set<string>; urls: Set<string> }>;
+    }
   >();
   // keyword → competitor 별 카운트
   const keywordMatrix = new Map<
@@ -150,6 +159,7 @@ export async function GET(req: Request) {
     }) => {
       const kwId = queryKeywordMap.get(r.query_id);
       const kw = kwId ? keywordTextMap.get(kwId) ?? '?' : '?';
+      const engine = queryEngineMap.get(r.query_id) ?? '?';  // Round 64
       if (!keywordMatrix.has(kw)) {
         keywordMatrix.set(kw, { total_sources: 0, competitors: new Map() });
       }
@@ -169,12 +179,22 @@ export async function GET(req: Request) {
               tier,
               keywords: new Set(),
               urls: new Set(),
+              byKw: new Map(),
             });
           }
           const dom = domainAgg.get(sd.domain)!;
           dom.count++;
           dom.keywords.add(kw);
           if (sd.final_url) dom.urls.add(sd.final_url);
+
+          // Round 64 — 키워드별 인용 상세 누적 (드릴다운)
+          if (!dom.byKw.has(kw)) {
+            dom.byKw.set(kw, { count: 0, engines: new Set(), urls: new Set() });
+          }
+          const kwDetail = dom.byKw.get(kw)!;
+          kwDetail.count++;
+          if (engine && engine !== '?') kwDetail.engines.add(engine);
+          if (sd.final_url) kwDetail.urls.add(sd.final_url);
 
           // 키워드 매트릭스
           if (!kwBucket.competitors.has(sd.domain)) {
@@ -204,12 +224,21 @@ export async function GET(req: Request) {
 
   const competitorTop = Array.from(domainAgg.entries())
     .filter(([domain]) => !applyLabel || labelMap.has(domain.toLowerCase()))
-    .map(([domain, { count, tier, keywords, urls }]) => ({
+    .map(([domain, { count, tier, keywords, urls, byKw }]) => ({
       domain,
       tier,
       count,
       keywords: Array.from(keywords),
       urls: Array.from(urls).slice(0, 5),
+      // Round 64 — 키워드별 인용 상세 (인용수 desc 정렬)
+      citations: Array.from(byKw.entries())
+        .map(([keyword, v]) => ({
+          keyword,
+          count: v.count,
+          engines: Array.from(v.engines).sort(),
+          urls: Array.from(v.urls).slice(0, 8),
+        }))
+        .sort((a, b) => b.count - a.count),
       label: labelMap.get(domain.toLowerCase())?.label ?? null,
       priority: labelMap.get(domain.toLowerCase())?.priority ?? null,
     }))

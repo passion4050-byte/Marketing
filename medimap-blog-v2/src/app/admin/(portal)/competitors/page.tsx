@@ -27,7 +27,6 @@ import { LearnFromDomainButton } from '@/components/admin/LearnFromDomainButton'
 import {
   ChevronDown,
   ChevronRight,
-  ExternalLink,
   Loader2,
   Printer,
   RefreshCw,
@@ -35,6 +34,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { CitationsTabs } from '@/components/admin/CitationsTabs';
+import { CitationBreakdown, type Citation } from '@/components/admin/CitationBreakdown';
 
 type TenantOption = { id: number; name: string; is_self: boolean };
 type SelectedTenant = TenantOption & { business_model: string };
@@ -49,6 +49,7 @@ type CompetitorData = {
     count: number;
     keywords: string[];
     urls: string[];
+    citations: Citation[];
   }>;
   keyword_competitor_matrix: Array<{
     keyword: string;
@@ -368,21 +369,32 @@ export default function CompetitorsPage() {
             </div>
           </section>
 
-          {/* === Top 경쟁사 도메인 차트 === */}
+          {/* === Top 경쟁사 도메인 차트 (Round 64 — 콤팩트화) === */}
           <section className="mb-6 card card-pad">
-            <h2 className="section-title mb-3">경쟁사 도메인 Top 10</h2>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="section-title">경쟁사 도메인 Top 10</h2>
+              <span className="text-[10px] text-ink-muted">막대 위에 마우스 → 상세 · 아래 표에서 행 클릭 → 인용 드릴다운</span>
+            </div>
             {data.competitor_top.length === 0 ? (
-              <div className="flex h-60 items-center justify-center text-sm text-ink-muted">
+              <div className="flex h-40 items-center justify-center text-sm text-ink-muted">
                 아직 경쟁사 출처 데이터 없음
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={Math.max(240, data.competitor_top.length * 28)}>
-                <BarChart data={data.competitor_top.slice(0, 10)} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5EBED" />
+              <ResponsiveContainer
+                width="100%"
+                height={Math.min(300, Math.max(150, data.competitor_top.slice(0, 10).length * 26))}
+              >
+                <BarChart
+                  data={data.competitor_top.slice(0, 10)}
+                  layout="vertical"
+                  margin={{ top: 0, right: 12, bottom: 0, left: 4 }}
+                  barCategoryGap="22%"
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5EBED" horizontal={false} />
                   <XAxis type="number" fontSize={10} stroke="#64748B" allowDecimals={false} />
-                  <YAxis type="category" dataKey="domain" fontSize={10} stroke="#64748B" width={180} />
-                  <Tooltip />
-                  <Bar dataKey="count" name="인용 횟수">
+                  <YAxis type="category" dataKey="domain" fontSize={10} stroke="#64748B" width={150} />
+                  <Tooltip cursor={{ fill: '#1B68FF0A' }} content={<CompetitorBarTooltip />} />
+                  <Bar dataKey="count" name="인용 횟수" maxBarSize={16} radius={[0, 3, 3, 0]}>
                     {data.competitor_top.slice(0, 10).map((d, i) => (
                       <Cell key={i} fill={TIER_LABELS[d.tier]?.color ?? '#94A3B8'} />
                     ))}
@@ -532,7 +544,7 @@ export default function CompetitorsPage() {
                               <td colSpan={5} className="px-4 py-3">
                                 <div className="mb-2 flex items-center justify-between gap-2">
                                   <div className="text-[11px] font-semibold text-ink-muted">
-                                    실제 인용된 URL ({c.urls.length}개) — 클릭하면 새 탭에서 열림
+                                    키워드별 인용 상세 ({c.citations.length}개 키워드) — 어떤 키워드로 · 몇 번 · 어느 AI · 어떤 콘텐츠
                                   </div>
                                   {/* Round 36 fix 3 — 도메인 일괄 분석 + 메디맵 가이드 비교 진단 */}
                                   <LearnFromDomainButton
@@ -543,28 +555,9 @@ export default function CompetitorsPage() {
                                     tenantId={tenantId}
                                   />
                                 </div>
-                                {c.urls.length === 0 ? (
-                                  <div className="text-[11px] text-ink-faint">URL 데이터 없음</div>
-                                ) : (
-                                  <ul className="space-y-1.5">
-                                    {c.urls.map((url, ui) => (
-                                      <li key={ui} className="flex items-start gap-2">
-                                        <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-brand" />
-                                        <a
-                                          href={url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="text-[11px] text-brand-700 underline decoration-dotted hover:text-brand"
-                                        >
-                                          {decodeURIComponent(url).slice(0, 110)}
-                                          {url.length > 110 && '…'}
-                                        </a>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
+                                <CitationBreakdown citations={c.citations} />
                                 <div className="mt-2 text-[10px] text-ink-muted">
-                                  💡 <strong>학습 포인트</strong> — 위 버튼으로 N개 URL 일괄 분석 → 메디맵 가이드 v3 와 자동 비교 → 권장 변경사항 진단
+                                  💡 <strong>학습 포인트</strong> — 위 버튼으로 URL 일괄 분석 → 메디맵 가이드 v3 와 자동 비교 → 권장 변경사항 진단
                                 </div>
                               </td>
                             </tr>
@@ -621,22 +614,12 @@ export default function CompetitorsPage() {
                         </div>
                       </button>
 
-                      {/* expand 내용 */}
+                      {/* expand 내용 — Round 64 키워드별 인용 드릴다운 */}
                       {isOpen && (
                         <div className="border-t border-border bg-brand-50/30 px-3 py-3">
-                          <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
-                            인용된 키워드
-                          </div>
-                          <div className="mb-3 flex flex-wrap gap-1">
-                            {c.keywords.map((kw, ki) => (
-                              <span key={ki} className="rounded bg-surface-base px-1.5 py-0.5 text-[10px] text-ink-soft">
-                                {kw}
-                              </span>
-                            ))}
-                          </div>
                           <div className="mb-2 flex items-center justify-between gap-2">
                             <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
-                              실제 URL ({c.urls.length}개)
+                              키워드별 인용 상세 ({c.citations.length})
                             </div>
                             <LearnFromDomainButton
                               domain={c.domain}
@@ -646,29 +629,7 @@ export default function CompetitorsPage() {
                               tenantId={tenantId}
                             />
                           </div>
-                          {c.urls.length === 0 ? (
-                            <div className="text-[10px] text-ink-faint">URL 데이터 없음</div>
-                          ) : (
-                            <ul className="space-y-1">
-                              {c.urls.slice(0, 5).map((url, ui) => (
-                                <li key={ui} className="flex items-start gap-1.5">
-                                  <ExternalLink className="mt-0.5 h-2.5 w-2.5 shrink-0 text-brand" />
-                                  <a
-                                    href={url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="break-all text-[10px] text-brand-700 underline decoration-dotted"
-                                  >
-                                    {decodeURIComponent(url).slice(0, 80)}
-                                    {url.length > 80 && '…'}
-                                  </a>
-                                </li>
-                              ))}
-                              {c.urls.length > 5 && (
-                                <li className="text-[10px] text-ink-muted">… 그 외 {c.urls.length - 5}개 (데스크탑에서 전체 보기)</li>
-                              )}
-                            </ul>
-                          )}
+                          <CitationBreakdown citations={c.citations} />
                         </div>
                       )}
                     </div>
@@ -680,6 +641,27 @@ export default function CompetitorsPage() {
           </section>
         </>
       )}
+    </div>
+  );
+}
+
+// Round 64 — 차트 막대 호버 시 도메인·인용수·tier·키워드수 표시
+function CompetitorBarTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload: { domain: string; count: number; tier: string; keywords?: string[] } }>;
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+  const d = payload[0].payload;
+  return (
+    <div className="rounded-md border border-border bg-surface-base px-2.5 py-1.5 text-[11px] shadow-md">
+      <div className="font-mono font-semibold text-ink">{d.domain}</div>
+      <div className="mt-0.5 text-ink-soft">
+        인용 <strong className="text-ink">{d.count}</strong>회 · {TIER_LABELS[d.tier]?.label ?? d.tier}
+      </div>
+      <div className="mt-0.5 text-[10px] text-ink-muted">키워드 {d.keywords?.length ?? 0}개 · 행 클릭 시 상세</div>
     </div>
   );
 }

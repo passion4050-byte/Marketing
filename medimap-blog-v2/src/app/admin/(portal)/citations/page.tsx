@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { CitationsTabs } from '@/components/admin/CitationsTabs';
+import { CitationBreakdown, type Citation } from '@/components/admin/CitationBreakdown';
 
 type TenantOption = { id: number; name: string; is_self: boolean };
 
@@ -80,6 +81,7 @@ type CitationsData = {
     count: number;
     keywords: string[];
     urls: string[];
+    citations: Citation[];
   }>;
 };
 
@@ -531,28 +533,9 @@ export default function CitationsPage() {
                               <tr key={`${c.domain}-expand`} className="bg-brand-50/40">
                                 <td colSpan={5} className="px-4 py-3">
                                   <div className="mb-2 text-[11px] font-semibold text-ink-muted">
-                                    실제 인용된 URL ({c.urls.length}개) — 클릭하면 새 탭에서 열림
+                                    키워드별 인용 상세 ({c.citations.length}개 키워드) — 어떤 키워드로 · 몇 번 · 어느 AI · 어떤 콘텐츠
                                   </div>
-                                  {c.urls.length === 0 ? (
-                                    <div className="text-[11px] text-ink-faint">URL 데이터 없음</div>
-                                  ) : (
-                                    <ul className="space-y-1.5">
-                                      {c.urls.map((url, ui) => (
-                                        <li key={ui} className="flex items-start gap-2">
-                                          <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-brand" />
-                                          <a
-                                            href={url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-[11px] text-brand-700 underline decoration-dotted hover:text-brand"
-                                          >
-                                            {decodeURIComponent(url).slice(0, 110)}
-                                            {url.length > 110 && '…'}
-                                          </a>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  )}
+                                  <CitationBreakdown citations={c.citations} />
                                   <div className="mt-2 text-[10px] text-ink-muted">
                                     💡 <strong>학습 포인트</strong> — 위 URL 의 페이지 구조 (제목 패턴, FAQ schema,
                                     글 길이) 를 분석해 메디맵 콘텐츠 가이드에 반영
