@@ -3368,6 +3368,32 @@ def _decode_html_entities_deep(obj):
 
 **환경 함정 (사무실 PC)**: repo 가 `C:\Users\user\` 인데 로그인 계정 `owner` → `.git` 쓰기 권한 거부로 6/1 이후 fetch/pull 불가, 로컬이 R57 에 고착 + CRLF 노이즈 477파일. 해결: 관리자 PowerShell `takeown`+`icacls` 로 소유권 이전 → `git fetch && reset --hard origin/main` → `core.autocrlf true`.
 
+### Round 64~79 (2026-06-22) — 경쟁사 분석 UI · A/B 풀스택 · 콘텐츠 품질
+
+> 상세 핸드오프: `handoff/round79-2026-06-22/HANDOFF.md`
+
+**새 함정 (CD~CI)**
+
+| 코드 | 함정 | 정답 |
+|---|---|---|
+| CD | llm.py module-level logger 미정의 → **fallback 모드에서만** NameError | `import logging` + `logger=getLogger(__name__)` |
+| CE | Cowork sandbox mount 스테일/truncation (편집 직후 esbuild/grep 가짜 에러, 멀티바이트 잘림 `콘�`) | **Read 도구가 진실**, Vercel 빌드/Supabase MCP 가 권위 검증 |
+| CF | repo 가 타 계정 폴더(`C:\Users\user`) → 로그인(`owner`)이 `.git` 쓰기 거부 | 관리자 PS `takeown /r` + `icacls /grant` |
+| CG | git push 비번 인증 폐지 + 터미널 붙여넣기 화살표 escape(`%1B%5BD`) | `git config --global credential.helper manager` → 브라우저 로그인 |
+| CH | schema_org 본문 = `<script type=application/ld+json>` 래핑 → HTML 브랜치서 script 렌더 → **빈 화면** | ld+json 정규식 추출 후 FAQPage mainEntity → Q&A 렌더 |
+| CI | 블로그 title/description `&#x27;` 노출 (본문 HTML은 브라우저 자동 디코드, React text는 아님) | `posts.ts` dbRowToPostMeta 에서 `decodeEntities` |
+
+**주요 산출물**
+- **어드민 인용 분석**: 키워드별 드릴다운(엔진+콘텐츠 URL), 추이 분석 차트(경쟁사 점유/AI엔진별 토글 + **기간 7/30/90일**), 우리 현황 패널, 경쟁사 상세에 **우리 병원 순위 강조 행**, 도메인 클릭 이동. (`CitationBreakdown.tsx`, `TrendAnalysisCard.tsx`, competitors/citations page+route, trends route)
+- **콘텐츠 엔진**: 적용 인사이트 prompt 주입(`apply_insights` 파라미터), **AEO 7-principles 프롬프트**(`_BLOG_SYSTEM_PROMPT` D-2 섹션: H2 자연어 질문·정의형 문장·표/체크리스트·의사 자격·4줄 단락), 이미지 품질(image_picker flux 프롬프트 강화 + 전 cover 1600×900).
+- **A/B 풀스택**: `ab_tests` 스키마(Supabase blogkey, R72 적용됨) + `scripts/run_ab_test.py`(생성) + `scripts/run_ab_analysis.py`+`ab-analysis.yml`(측정·승자판정 일일) + `scripts/run_ab_auto.py`+`ab-auto-generate.yml`(완전자동 주간) + `/api/admin/ab-tests` + `ab-tests/page.tsx`(실데이터, mock 대체).
+- **콘텐츠큐**: 미리보기 FAQ Q&A 렌더(CH), 카드 FAQ 미리줄·FAQ placeholder(아이콘), 블로그 엔티티 디코드(CI), 블로그 리스트 썸네일 제거.
+
+**운영 메모**
+- `LLM_PROVIDER=fallback` (Gemini 무료 **20콜/일** 한계 → Claude 대체). `ENGINE_MODE=production`(측정). `IMAGE_GEN_ENABLED=true`(커버 — 꺼지면 cover null).
+- 빈 커버 채우기: **Backfill drafts cover** 워크플로우(dry_run 확인 후 실행). A/B 결과(승자)는 측정 누적 **수주~수개월** 필요 — 코드 아닌 데이터 한계.
+- 편집 검증은 **Vercel 빌드**(함정 CE로 로컬 tsc 불가). push는 GCM 브라우저 인증.
+
 ### Round 58~62 산출물 누적
 
 **Code 변경**:
