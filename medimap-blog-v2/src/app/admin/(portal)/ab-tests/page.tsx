@@ -70,7 +70,7 @@ export default function AbTestsPage() {
         <div>
           <h1 className="admin-page-title">A/B 콘텐츠 테스트 ({tests.length})</h1>
           <p className="admin-page-desc">
-            변형 A(기존 스타일) vs B(학습 인사이트 반영) 의 AI 인용 효과를 비교합니다
+            같은 키워드로 ‘기존 방식’과 ‘학습 개선 방식’ 두 글을 만들어, AI가 어느 쪽을 더 자주 인용하는지 비교합니다
           </p>
         </div>
         <button onClick={() => void load()} className="btn-secondary text-xs">
@@ -79,9 +79,10 @@ export default function AbTestsPage() {
       </header>
 
       <div className="mb-5 rounded-lg border border-border bg-brand-50/40 px-4 py-3 text-[12px] leading-relaxed text-ink-soft">
-        <strong className="text-brand">측정 방식</strong> — 각 변형 글의 URL 이 AI 응답의 인용 출처로 등장한 횟수를 비교합니다.{' '}
-        결과(승자)는 AI 엔진이 크롤링·인용을 누적해야 나오므로 <strong>수 주~수개월</strong> 걸립니다.{' '}
-        생성: <code className="rounded bg-surface-subtle px-1">scripts/run_ab_test.py</code> · 측정: 매일 06:00 KST 자동.
+        <strong className="text-brand">어떻게 동작하나요?</strong> 변형 <strong>A</strong>는 기존 방식으로,
+        변형 <strong>B</strong>는 경쟁사 분석으로 학습한 개선점을 반영해 같은 키워드로 글을 만듭니다.
+        두 글이 AI(ChatGPT·Perplexity·Gemini)에 <strong>인용된 횟수</strong>를 매일 자동으로 세어, 어떤 글쓰기 방식이 더 효과적인지 찾아냅니다.{' '}
+        <span className="text-ink-muted">AI가 새 글을 발견·인용하기까지 시간이 걸려, 결과 막대는 보통 수 주 뒤부터 채워집니다.</span>
       </div>
 
       {loading ? (
@@ -95,11 +96,9 @@ export default function AbTestsPage() {
       ) : tests.length === 0 ? (
         <div className="card px-6 py-12 text-center text-sm text-ink-muted">
           <Beaker className="mx-auto mb-2 h-6 w-6 text-ink-faint" />
-          아직 A/B 테스트가 없습니다.
+          아직 진행 중인 테스트가 없습니다.
           <div className="mt-1 text-[11px] text-ink-faint">
-            서버에서{' '}
-            <code className="rounded bg-surface-subtle px-1">python scripts/run_ab_test.py &lt;tenant_id&gt; &quot;키워드&quot;</code>{' '}
-            로 변형 2개를 생성하세요.
+            매주 자동으로, 학습 인사이트가 적용된 병원의 키워드를 골라 A/B 테스트를 생성합니다.
           </div>
         </div>
       ) : (

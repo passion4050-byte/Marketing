@@ -409,6 +409,8 @@ export default function ContentManagementPage() {
                   className="block w-full rounded-md border border-border bg-surface-subtle px-3 py-3 font-mono text-xs leading-relaxed text-ink focus:border-brand focus:outline-none"
                   spellCheck={false}
                 />
+              ) : preview.body && preview.body.trim().startsWith('{') ? (
+                <FaqPreview body={preview.body} />
               ) : preview.body?.includes('<') ? (
                 <article
                   className={cn(
@@ -425,8 +427,12 @@ export default function ContentManagementPage() {
                   )}
                   dangerouslySetInnerHTML={{ __html: preview.body }}
                 />
-              ) : (
+              ) : preview.body ? (
                 <p className="mx-auto max-w-[680px] whitespace-pre-wrap text-[15px] leading-[1.85] text-ink-soft">{preview.body}</p>
+              ) : (
+                <div className="mx-auto max-w-[680px] py-10 text-center text-sm text-ink-muted">
+                  본문이 비어 있습니다. (FAQ 스키마 콘텐츠는 raw_qa_pairs 를 참조하세요)
+                </div>
               )}
             </div>
             <div className="sticky bottom-0 flex items-center justify-between gap-2 border-t border-border bg-surface-base/95 px-6 py-3 backdrop-blur">
@@ -460,6 +466,50 @@ export default function ContentManagementPage() {
         </div>
         );
       })()}
+    </div>
+  );
+}
+
+/* ─────────────────────── FAQ(JSON-LD) 미리보기 ─────────────────────── */
+// Round 74 — schema_org 콘텐츠 body 가 JSON-LD 라 raw 로 보이던 문제 → Q&A 로 렌더.
+function FaqPreview({ body }: { body: string }) {
+  let pairs: Array<{ q: string; a: string }> = [];
+  try {
+    const data = JSON.parse(body) as { mainEntity?: unknown };
+    const entities = Array.isArray(data.mainEntity) ? data.mainEntity : [];
+    pairs = entities
+      .map((e) => ({
+        q: (e as { name?: string })?.name ?? '',
+        a: (e as { acceptedAnswer?: { text?: string } })?.acceptedAnswer?.text ?? '',
+      }))
+      .filter((p) => p.q || p.a);
+  } catch {
+    // parse 실패 → raw 표시
+  }
+  if (pairs.length === 0) {
+    return (
+      <pre className="mx-auto max-w-[680px] overflow-x-auto whitespace-pre-wrap rounded-lg bg-surface-subtle p-4 text-[12px] leading-relaxed text-ink-soft">
+        {body}
+      </pre>
+    );
+  }
+  return (
+    <div className="mx-auto max-w-[680px] space-y-3">
+      <div className="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
+        FAQ 스키마 콘텐츠 · {pairs.length}문항
+      </div>
+      {pairs.map((p, i) => (
+        <div key={i} className="rounded-lg border border-border p-4">
+          <div className="mb-1.5 flex gap-2 text-[15px] font-bold text-ink">
+            <span className="shrink-0 text-brand">Q.</span>
+            <span>{p.q}</span>
+          </div>
+          <div className="flex gap-2 text-[14px] leading-[1.8] text-ink-soft">
+            <span className="shrink-0 font-bold text-accent">A.</span>
+            <span className="whitespace-pre-wrap">{p.a}</span>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
