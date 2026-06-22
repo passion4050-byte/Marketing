@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { CitationsTabs } from '@/components/admin/CitationsTabs';
-import { CitationBreakdown, EngineChip, type Citation } from '@/components/admin/CitationBreakdown';
+import { CitationBreakdown, EngineChip, DomainTick, DomainLink, type Citation } from '@/components/admin/CitationBreakdown';
 import { TrendAnalysisCard } from '@/components/admin/TrendAnalysisCard';
 
 type TenantOption = { id: number; name: string; is_self: boolean };
@@ -295,7 +295,7 @@ export default function CompetitorsPage() {
                     <ul className="space-y-1.5">
                       {top3.map((c, i) => (
                         <li key={i} className="flex items-center justify-between gap-2 text-[11px]">
-                          <span className="truncate font-mono text-ink" title={c.domain}>{c.domain}</span>
+                          <DomainLink domain={c.domain} className="truncate font-mono text-ink hover:text-brand hover:underline" />
                           <span className="shrink-0 rounded bg-status-dangerSoft px-1.5 py-0.5 font-bold text-status-danger">
                             ×{c.count}
                           </span>
@@ -321,7 +321,7 @@ export default function CompetitorsPage() {
                     <ul className="space-y-1.5">
                       {t3.map((c, i) => (
                         <li key={i} className="flex items-center justify-between gap-2 text-[11px]">
-                          <span className="truncate font-mono text-ink" title={c.domain}>{c.domain}</span>
+                          <DomainLink domain={c.domain} className="truncate font-mono text-ink hover:text-brand hover:underline" />
                           <span className="shrink-0 rounded bg-status-warningSoft px-1.5 py-0.5 font-bold text-status-warning">
                             ×{c.count}
                           </span>
@@ -412,7 +412,7 @@ export default function CompetitorsPage() {
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5EBED" horizontal={false} />
                   <XAxis type="number" fontSize={10} stroke="#64748B" allowDecimals={false} />
-                  <YAxis type="category" dataKey="domain" fontSize={10} stroke="#64748B" width={150} />
+                  <YAxis type="category" dataKey="domain" stroke="#64748B" width={150} tick={<DomainTick />} />
                   <Tooltip cursor={{ fill: '#1B68FF0A' }} content={<CompetitorBarTooltip />} />
                   <Bar dataKey="count" name="인용 횟수" maxBarSize={16} radius={[0, 3, 3, 0]}>
                     {data.competitor_top.slice(0, 10).map((d, i) => (
@@ -610,7 +610,9 @@ export default function CompetitorsPage() {
                             <td className="px-2 py-2 text-ink-muted">
                               {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                             </td>
-                            <td className="px-3 py-2 font-mono text-ink">{c.domain}</td>
+                            <td className="px-3 py-2 font-mono">
+                              <DomainLink domain={c.domain} className="text-ink hover:text-brand hover:underline" />
+                            </td>
                             <td className="px-2 py-2">
                               <span
                                 className="inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-bold"

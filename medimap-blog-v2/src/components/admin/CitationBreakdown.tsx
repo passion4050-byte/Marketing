@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Round 64 (2026-06-22) — 키워드별 인용 드릴다운 (공용).
  *
@@ -5,6 +7,51 @@
  * "어떤 키워드로, 몇 번, 어느 AI 엔진이, 어떤 콘텐츠(URL)를 인용했는지" 세분화.
  */
 import { ExternalLink } from 'lucide-react';
+
+// Round 69 — 도메인 → https://{domain} 새 탭 이동 헬퍼.
+function domainHref(domain: string): string {
+  return `https://${domain.replace(/^https?:\/\//, '').replace(/\/+$/, '')}`;
+}
+
+// 차트 Y축 라벨용 (recharts custom tick — SVG text)
+export function DomainTick(props: {
+  x?: number;
+  y?: number;
+  payload?: { value?: string };
+}) {
+  const { x = 0, y = 0, payload } = props;
+  const domain = payload?.value ?? '';
+  return (
+    <text
+      x={x}
+      y={y}
+      dy={3}
+      textAnchor="end"
+      fontSize={10}
+      fill="#2563EB"
+      style={{ cursor: 'pointer', textDecoration: 'underline' }}
+      onClick={() => window.open(domainHref(domain), '_blank', 'noopener,noreferrer')}
+    >
+      {domain}
+    </text>
+  );
+}
+
+// 텍스트 도메인 링크 (표/박스용 — 행 클릭 expand 와 겹치지 않게 stopPropagation)
+export function DomainLink({ domain, className }: { domain: string; className?: string }) {
+  return (
+    <a
+      href={domainHref(domain)}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className={className ?? 'hover:underline'}
+      title={`${domain} 새 탭으로 열기`}
+    >
+      {domain}
+    </a>
+  );
+}
 
 export type Citation = {
   keyword: string;

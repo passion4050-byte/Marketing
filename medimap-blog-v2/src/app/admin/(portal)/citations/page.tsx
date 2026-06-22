@@ -44,7 +44,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { CitationsTabs } from '@/components/admin/CitationsTabs';
-import { CitationBreakdown, type Citation } from '@/components/admin/CitationBreakdown';
+import { CitationBreakdown, DomainTick, DomainLink, type Citation } from '@/components/admin/CitationBreakdown';
 
 type TenantOption = { id: number; name: string; is_self: boolean };
 
@@ -392,7 +392,7 @@ export default function CitationsPage() {
                   <BarChart data={data.top_domains} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="#E5EBED" />
                     <XAxis type="number" fontSize={10} stroke="#64748B" allowDecimals={false} />
-                    <YAxis type="category" dataKey="domain" fontSize={10} stroke="#64748B" width={150} />
+                    <YAxis type="category" dataKey="domain" stroke="#64748B" width={150} tick={<DomainTick />} />
                     <Tooltip />
                     <Bar dataKey="count" name="Count">
                       {data.top_domains.map((d, i) => (
@@ -512,7 +512,9 @@ export default function CitationsPage() {
                               <td className="px-2 py-2 text-ink-muted">
                                 {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                               </td>
-                              <td className="px-3 py-2 font-mono text-ink">{c.domain}</td>
+                              <td className="px-3 py-2 font-mono text-ink">
+                                <DomainLink domain={c.domain} className="text-brand hover:underline" />
+                              </td>
                               <td className="px-2 py-2">
                                 <span
                                   className="inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-bold"
