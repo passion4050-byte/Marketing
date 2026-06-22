@@ -395,6 +395,7 @@ def generate_blog_post(
     rag_k: int = 5,
     include_cta: bool = True,
     cta_utm_campaign: Optional[str] = None,
+    apply_insights: bool = True,
 ) -> BlogResult:
     """키워드 + (선택) 참조 URL + (선택) 이미지 → SEO 친화적 블로그 post.
 
@@ -448,6 +449,25 @@ def generate_blog_post(
             logger.info("blog.learned_guidance_injected", category=tenant.domain_category, len=len(guidance))
     except Exception as e:  # noqa: BLE001
         logger.warning("blog.learned_guidance_load_failed", error=str(e))
+
+    # Round 71 (2026-06-22) — 테넌트별 '적용중' 학습 인사이트 주입 (Phase 2 실연결).
+    #   /admin/learned-insights 에서 [적용중] 표시한 applied_insights 가 실제 발행 prompt 에 반영됨.
+    #   apply_insights=False (A/B 변형 A=베이스라인) 이면 주입 생략.
+    if apply_insights:
+        try:
+            from src.content.applied_insights_loader import load_applied_insights_block
+            applied_block = load_applied_insights_block(tenant_id)
+            if applied_block:
+                references_block = (
+                    f"{references_block}\n\n{applied_block}".strip()
+                    if references_block
+                    else applied_block
+                )
+                logger.info(
+                    "blog.applied_insights_injected", tenant_id=tenant_id, len=len(applied_block)
+                )
+        except Exception as e:  # noqa: BLE001
+            logger.warning("blog.applied_insights_load_failed", error=str(e))
 
     tenant_data_block = base_tenant_data
 
