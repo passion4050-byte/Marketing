@@ -303,14 +303,32 @@ function extractDescriptionFromBody(body: string, fallback: string): string {
   return stripHtml(body).trim().replace(/\s+/g, " ").slice(0, 180) || fallback;
 }
 
+// Round 77 — LLM 이 ' → &#x27;, " → &quot; 등으로 escape 한 HTML 엔티티 디코드.
+//   본문(HTML)은 브라우저가 자동 디코드하지만, title/description 은 React text 라 그대로 노출됨 → 수동 디코드.
+//   &amp; 는 이중 디코드 방지 위해 마지막에 처리.
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&#x27;/gi, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#34;/g, '"')
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&");
+}
+
 function dbRowToPostMeta(row: DbPostRow): PostMeta {
   // DB 의 title/excerpt/published_at 컬럼 우선, 비었으면 본문 추출 폴백.
   // 날짜 변환은 toIsoDate 로 통일 — postgres.js 가 timestamptz 를 Date 객체로 줄 수 있음.
-  const title = (row.title || "").trim() || extractTitleFromBody(row.body, row.keyword_text);
+  const title = decodeEntities((row.title || "").trim() || extractTitleFromBody(row.body, row.keyword_text));
   const rawExcerpt = (row.excerpt || "").trim();
-  const description = rawExcerpt
-    ? (rawExcerpt.includes("<") ? stripHtml(rawExcerpt).trim().slice(0, 180) : rawExcerpt)
-    : extractDescriptionFromBody(row.body, row.keyword_text);
+  const description = decodeEntities(
+    rawExcerpt
+      ? (rawExcerpt.includes("<") ? stripHtml(rawExcerpt).trim().slice(0, 180) : rawExcerpt)
+      : extractDescriptionFromBody(row.body, row.keyword_text)
+  );
   const date =
     toIsoDate(row.published_at) ??
     toIsoDate(row.created_at) ??
