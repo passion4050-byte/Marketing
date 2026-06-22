@@ -24,8 +24,8 @@ on:
       engine_mode:
         description: 'engine mode (stub | production)'
         type: choice
-        options: [stub, production]
-        default: stub
+        options: [production, stub]
+        default: production
       keyword_limit:
         description: '최대 키워드 수 (경쟁사 키워드 총 8개 + 여유)'
         type: string

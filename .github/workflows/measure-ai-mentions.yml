@@ -18,8 +18,8 @@ on:
       engine_mode:
         description: 'engine mode (stub | production)'
         type: choice
-        options: [stub, production]
-        default: stub
+        options: [production, stub]
+        default: production
       keyword_limit:
         description: '최대 키워드 수 (테스트용)'
         type: string
