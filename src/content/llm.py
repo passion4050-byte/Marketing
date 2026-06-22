@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from dataclasses import dataclass
@@ -26,6 +27,12 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from src.storage.models import GeneratedContent
+
+# Round 63 (2026-06-22) — module-level logger 누락 fix.
+#   FallbackProvider / _build_provider_chain 이 logger.info/warning 사용 →
+#   logger 미정의로 fallback 모드에서 NameError ("name 'logger' is not defined").
+#   anthropic 단일 모드에선 FallbackProvider 미생성이라 안 드러났던 잠복 버그.
+logger = logging.getLogger(__name__)
 
 
 @dataclass
