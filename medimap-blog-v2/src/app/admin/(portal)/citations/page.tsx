@@ -392,7 +392,7 @@ export default function CitationsPage() {
                   <BarChart data={data.top_domains} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="#E5EBED" />
                     <XAxis type="number" fontSize={10} stroke="#64748B" allowDecimals={false} />
-                    <YAxis type="category" dataKey="domain" stroke="#64748B" width={150} tick={<DomainTick />} />
+                    <YAxis type="category" dataKey="domain" stroke="#64748B" width={150} interval={0} tick={<DomainTick />} />
                     <Tooltip />
                     <Bar dataKey="count" name="Count">
                       {data.top_domains.map((d, i) => (

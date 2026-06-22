@@ -162,6 +162,8 @@ export async function GET(req: Request) {
   >();
   // Round 66 — 클라이언트(자사) 현황: T1 메디맵 / T2 클라이언트 자체 / 전체 비-NOISE 출처
   const clientStatus = { medimap_t1: 0, client_t2: 0, total_sources: 0 };
+  // Round 73 — 클라이언트(자사) 도메인이 인용된 키워드 종류 수집
+  const clientKeywordSet = new Set<string>();
 
   filteredResp.forEach(
     (r: {
@@ -181,7 +183,10 @@ export async function GET(req: Request) {
         // Round 66 — 클라이언트 현황 집계 (스킵 전에)
         if (tier !== 'NOISE') clientStatus.total_sources++;
         if (tier === 'T1') clientStatus.medimap_t1++;
-        if (tier === 'T2') clientStatus.client_t2++;
+        if (tier === 'T2') {
+          clientStatus.client_t2++;
+          if (kw && kw !== '?') clientKeywordSet.add(kw);
+        }
         // 경쟁사 페이지 = T3+T4+T5 만 카운트 (T1 메디맵, T2 자체 제외)
         if (tier === 'NOISE' || tier === 'T1' || tier === 'T2') return;
         tierCount[tier]++;
@@ -286,7 +291,7 @@ export async function GET(req: Request) {
     competitor_top: competitorTop,
     keyword_competitor_matrix: keywordCompetitorMatrix,
     tier_distribution: tierCount,
-    // Round 66 — 클라이언트(자사) 현황
-    client_status: clientStatus,
+    // Round 66/73 — 클라이언트(자사) 현황 + 인용 키워드 종류
+    client_status: { ...clientStatus, keywords: Array.from(clientKeywordSet) },
   });
 }

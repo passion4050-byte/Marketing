@@ -59,7 +59,7 @@ type CompetitorData = {
     engines: Array<{ engine: string; count: number }>;
   }>;
   tier_distribution: { T3: number; T4: number; T5: number };
-  client_status: { medimap_t1: number; client_t2: number; total_sources: number };
+  client_status: { medimap_t1: number; client_t2: number; total_sources: number; keywords: string[] };
 };
 
 // Round 52 fix (2026-05-31) — 라벨 산업 종속 제거. 안과 외 클라이언트(모발이식·피부·한방) 도 동일 적용.
@@ -157,7 +157,7 @@ export default function CompetitorsPage() {
         domain: data.selected_tenant.name,
         tier: 'T2',
         count: data.client_status.client_t2,
-        keywords: [] as string[],
+        keywords: data.client_status.keywords ?? [],
         urls: [] as string[],
         citations: [] as Citation[],
         _client: true,
@@ -166,10 +166,6 @@ export default function CompetitorsPage() {
     }
     return base;
   })();
-  const clientRowIndex = detailRows.findIndex((r) => r._client);
-  const clientRank = clientRowIndex >= 0 ? clientRowIndex + 1 : null;
-  const clientCount =
-    data?.selected_tenant && !data.selected_tenant.is_self ? data.client_status.client_t2 : null;
 
   return (
     <div className="px-8 py-6 print:px-0 print:py-0">
@@ -435,7 +431,7 @@ export default function CompetitorsPage() {
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5EBED" horizontal={false} />
                   <XAxis type="number" fontSize={10} stroke="#64748B" allowDecimals={false} />
-                  <YAxis type="category" dataKey="domain" stroke="#64748B" width={150} tick={<DomainTick />} />
+                  <YAxis type="category" dataKey="domain" stroke="#64748B" width={150} interval={0} tick={<DomainTick />} />
                   <Tooltip cursor={{ fill: '#1B68FF0A' }} content={<CompetitorBarTooltip />} />
                   <Bar dataKey="count" name="인용 횟수" maxBarSize={16} radius={[0, 3, 3, 0]}>
                     {data.competitor_top.slice(0, 10).map((d, i) => (
@@ -571,14 +567,7 @@ export default function CompetitorsPage() {
           <section className="card">
             <header className="border-b border-border px-5 py-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <h2 className="section-title">경쟁사 도메인 상세</h2>
-                  {clientCount != null && (
-                    <span className="rounded-md bg-brand px-2 py-0.5 text-[11px] font-bold text-white">
-                      우리 {clientRank}위 · {clientCount}회
-                    </span>
-                  )}
-                </div>
+                <h2 className="section-title">경쟁사 도메인 상세</h2>
                 {/* Round 42 B — 라벨 필터 토글 (tenantId 있을 때만) */}
                 {tenantId && (
                   <div className="flex flex-wrap items-center gap-1 text-[10px]">
@@ -643,7 +632,11 @@ export default function CompetitorsPage() {
                               <span className="inline-flex rounded-md bg-brand/15 px-1.5 py-0.5 text-[10px] font-bold text-brand">자사</span>
                             </td>
                             <td className="px-2 py-2 text-right font-mono font-bold text-brand">{c.count}</td>
-                            <td className="px-3 py-2 text-[11px] text-brand-700">AI 인용 출처 기준 우리 병원 위치</td>
+                            <td className="px-3 py-2">
+                              <div className="line-clamp-2 text-[11px] text-brand-700">
+                                {c.keywords.length > 0 ? c.keywords.join(', ') : '인용된 키워드 없음'}
+                              </div>
+                            </td>
                           </tr>
                         );
                       }
@@ -723,6 +716,9 @@ export default function CompetitorsPage() {
                             <div className="text-[9px] uppercase text-brand-700">우리 위치</div>
                           </div>
                         </div>
+                        {c.keywords.length > 0 && (
+                          <div className="mt-1.5 text-[10px] text-brand-700">{c.keywords.join(', ')}</div>
+                        )}
                       </div>
                     );
                   }
