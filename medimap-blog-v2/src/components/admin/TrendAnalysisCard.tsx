@@ -1,10 +1,9 @@
 /**
- * Round 65 (2026-06-22) — 추이 분석 카드. / Round 66 — 우리 라인 + 엔진별 우리·경쟁사.
+ * Round 65~67 (2026-06-22) — 추이 분석 카드.
  *
- * 경쟁사 페이지 상단. 키워드 드롭다운 + 보기 토글:
- *   - AI 엔진별 인용  : 엔진마다 '우리'(실선 굵게) / '경쟁사'(점선) 2 라인
- *   - 경쟁사 점유 현황 : '우리 점유'(brand, 굵게) + 경쟁사 도메인 top 6
- *   - 클라이언트별     : 클라이언트별 추이
+ * 탭 2개:
+ *   - 경쟁사 점유 현황 : 메디맵(굵은 파랑) + 선택 클라이언트(민트) + 경쟁사 도메인 top6 (전체 엔진)
+ *   - AI 엔진별 인용   : 위와 동일 구성 + 엔진 드롭다운으로 한 엔진만 필터
  */
 'use client';
 
@@ -25,28 +24,26 @@ import { cn } from '@/lib/cn';
 type Dim = { series: string[]; data: Array<Record<string, number | string>> };
 type TrendData = {
   keywords: string[];
+  engines: string[];
   dates: string[];
-  byEngine: Dim;
-  byCompetitor: Dim;
-  byClient: Dim;
-  summary: { total: number; own_total: number; top_engine: string | null; top_competitor: string | null };
+  series: Dim;
+  summary: {
+    medimap_total: number;
+    client_total: number;
+    competitor_total: number;
+    top_engine: string | null;
+    top_competitor: string | null;
+    client_label: string;
+  };
 };
 
-type Mode = 'engine' | 'competitor' | 'client';
-
-const MODE_META: Record<Mode, { label: string; dim: keyof Pick<TrendData, 'byEngine' | 'byCompetitor' | 'byClient'> }> = {
-  engine: { label: 'AI 엔진별 인용', dim: 'byEngine' },
-  competitor: { label: '경쟁사 점유 현황', dim: 'byCompetitor' },
-  client: { label: '클라이언트별', dim: 'byClient' },
+type Mode = 'competitor' | 'engine';
+const MODE_LABEL: Record<Mode, string> = {
+  competitor: '경쟁사 점유 현황',
+  engine: 'AI 엔진별 인용',
 };
 
-const PALETTE = ['#15B8A6', '#A855F7', '#F59E0B', '#EF4444', '#0EA5E9', '#64748B', '#EC4899'];
-const ENGINE_COLORS: Record<string, string> = {
-  claude: '#D97757',
-  gemini: '#1B68FF',
-  perplexity: '#20808D',
-  openai: '#10A37F',
-};
+const PALETTE = ['#A855F7', '#F59E0B', '#EF4444', '#64748B', '#0EA5E9', '#EC4899'];
 const ENGINE_LABELS: Record<string, string> = {
   claude: 'Claude',
   gemini: 'Gemini',
@@ -54,36 +51,16 @@ const ENGINE_LABELS: Record<string, string> = {
   openai: 'ChatGPT',
 };
 
-type LineStyle = { name: string; stroke: string; strokeWidth: number; dash?: string };
-
-function lineStyleFor(mode: Mode, raw: string, i: number): LineStyle {
-  if (mode === 'engine') {
-    const [eng, kind] = raw.split('·');
-    const key = (eng ?? '').toLowerCase();
-    const color = ENGINE_COLORS[key] ?? PALETTE[i % PALETTE.length];
-    const isOwn = kind === '우리';
-    return {
-      name: `${ENGINE_LABELS[key] ?? eng}·${kind ?? ''}`,
-      stroke: color,
-      strokeWidth: isOwn ? 2.5 : 1.5,
-      dash: isOwn ? undefined : '4 3',
-    };
-  }
-  if (mode === 'competitor') {
-    const isOwn = raw === '우리 점유';
-    return {
-      name: raw,
-      stroke: isOwn ? '#1B68FF' : PALETTE[i % PALETTE.length],
-      strokeWidth: isOwn ? 3 : 2,
-      dash: undefined,
-    };
-  }
-  return { name: raw, stroke: PALETTE[i % PALETTE.length], strokeWidth: 2 };
+function lineStyleFor(name: string, i: number, clientLabel: string): { stroke: string; strokeWidth: number } {
+  if (name === '메디맵 인용 현황') return { stroke: '#1B68FF', strokeWidth: 3 };
+  if (name === clientLabel) return { stroke: '#15B8A6', strokeWidth: 2.5 };
+  return { stroke: PALETTE[i % PALETTE.length], strokeWidth: 2 };
 }
 
 export function TrendAnalysisCard({ tenantId }: { tenantId: number | null }) {
   const [keyword, setKeyword] = useState<string>('');
   const [mode, setMode] = useState<Mode>('competitor');
+  const [engine, setEngine] = useState<string>(''); // engine 모드에서만 사용 ('' = 전체)
   const [data, setData] = useState<TrendData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -93,6 +70,7 @@ export function TrendAnalysisCard({ tenantId }: { tenantId: number | null }) {
     const params = new URLSearchParams();
     if (tenantId) params.set('tenantId', String(tenantId));
     if (keyword) params.set('keyword', keyword);
+    if (mode === 'engine' && engine) params.set('engine', engine);
     fetch(`/api/admin/competitors/trends${params.toString() ? '?' + params.toString() : ''}`, {
       cache: 'no-store',
     })
@@ -107,11 +85,15 @@ export function TrendAnalysisCard({ tenantId }: { tenantId: number | null }) {
     return () => {
       alive = false;
     };
-  }, [tenantId, keyword]);
+  }, [tenantId, keyword, mode, engine]);
 
-  const dim = data ? data[MODE_META[mode].dim] : null;
+  const clientLabel = data?.summary.client_label ?? '클라이언트';
+  const dim = data?.series ?? null;
   const hasData =
-    !!data && (data.summary.total > 0 || data.summary.own_total > 0) && !!dim && dim.series.length > 0;
+    !!data &&
+    (data.summary.medimap_total + data.summary.client_total + data.summary.competitor_total > 0) &&
+    !!dim &&
+    dim.series.length > 0;
 
   return (
     <section className="mb-6 card card-pad print:hidden">
@@ -134,8 +116,23 @@ export function TrendAnalysisCard({ tenantId }: { tenantId: number | null }) {
               </option>
             ))}
           </select>
+          {/* AI 엔진별 모드일 때만 엔진 드롭다운 */}
+          {mode === 'engine' && (
+            <select
+              value={engine}
+              onChange={(e) => setEngine(e.target.value)}
+              className="rounded-lg border border-brand-200 bg-brand-50/50 px-2.5 py-1.5 text-xs font-semibold text-brand-700 focus:border-brand focus:outline-none"
+            >
+              <option value="">전체 엔진</option>
+              {(data?.engines ?? []).map((e) => (
+                <option key={e} value={e}>
+                  {ENGINE_LABELS[e] ?? e}
+                </option>
+              ))}
+            </select>
+          )}
           <div className="flex rounded-lg border border-border bg-surface-base p-0.5">
-            {(Object.keys(MODE_META) as Mode[]).map((m) => (
+            {(Object.keys(MODE_LABEL) as Mode[]).map((m) => (
               <button
                 key={m}
                 type="button"
@@ -145,7 +142,7 @@ export function TrendAnalysisCard({ tenantId }: { tenantId: number | null }) {
                   mode === m ? 'bg-brand text-white' : 'text-ink-soft hover:bg-surface-subtle'
                 )}
               >
-                {MODE_META[m].label}
+                {MODE_LABEL[m]}
               </button>
             ))}
           </div>
@@ -155,18 +152,18 @@ export function TrendAnalysisCard({ tenantId }: { tenantId: number | null }) {
       {/* 요약 스탯 */}
       <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div className="rounded-lg bg-brand-50/50 px-3 py-2">
-          <div className="text-[10px] uppercase tracking-wider text-brand-700">우리 점유</div>
-          <div className="text-lg font-bold text-brand">{data?.summary.own_total ?? 0}</div>
+          <div className="text-[10px] uppercase tracking-wider text-brand-700">메디맵 인용 ⭐</div>
+          <div className="text-lg font-bold text-brand">{data?.summary.medimap_total ?? 0}</div>
+        </div>
+        <div className="rounded-lg px-3 py-2" style={{ backgroundColor: '#15B8A615' }}>
+          <div className="truncate text-[10px] uppercase tracking-wider" style={{ color: '#0F766E' }} title={clientLabel}>
+            {clientLabel}
+          </div>
+          <div className="text-lg font-bold text-accent">{data?.summary.client_total ?? 0}</div>
         </div>
         <div className="rounded-lg bg-surface-subtle px-3 py-2">
           <div className="text-[10px] uppercase tracking-wider text-ink-muted">경쟁사 인용</div>
-          <div className="text-lg font-bold text-ink">{data?.summary.total ?? 0}</div>
-        </div>
-        <div className="rounded-lg bg-surface-subtle px-3 py-2">
-          <div className="text-[10px] uppercase tracking-wider text-ink-muted">최다 인용 엔진</div>
-          <div className="truncate text-lg font-bold text-ink">
-            {data?.summary.top_engine ? ENGINE_LABELS[data.summary.top_engine.toLowerCase()] ?? data.summary.top_engine : '—'}
-          </div>
+          <div className="text-lg font-bold text-ink">{data?.summary.competitor_total ?? 0}</div>
         </div>
         <div className="rounded-lg bg-surface-subtle px-3 py-2">
           <div className="text-[10px] uppercase tracking-wider text-ink-muted">최다 경쟁사</div>
@@ -199,17 +196,16 @@ export function TrendAnalysisCard({ tenantId }: { tenantId: number | null }) {
               labelStyle={{ fontSize: 11, fontWeight: 600 }}
             />
             <Legend wrapperStyle={{ fontSize: 11 }} />
-            {dim!.series.map((raw, i) => {
-              const st = lineStyleFor(mode, raw, i);
+            {dim!.series.map((name, i) => {
+              const st = lineStyleFor(name, i, clientLabel);
               return (
                 <Line
                   key={`v${i}`}
                   type="monotone"
                   dataKey={`v${i}`}
-                  name={st.name}
+                  name={name}
                   stroke={st.stroke}
                   strokeWidth={st.strokeWidth}
-                  strokeDasharray={st.dash}
                   dot={{ r: 2 }}
                   activeDot={{ r: 4 }}
                 />

@@ -1,14 +1,14 @@
 /**
- * Round 65 (2026-06-22) — 추이 분석 API. / Round 66 — 우리(자사) 라인 + 엔진별 우리·경쟁사.
+ * Round 65~67 (2026-06-22) — 추이 분석 API.
  *
- * 경쟁사 페이지 상단 "추이 분석" 차트용 시계열. 키워드 필터(선택) + 30일 일별.
- *   - byEngine     : 엔진마다 2개 시리즈 — "{engine}·우리"(T1+T2) / "{engine}·경쟁사"(T3~T5)
- *   - byCompetitor : "우리 점유"(T1+T2) + 경쟁사 도메인별 top 6  (= 경쟁사 점유 현황)
- *   - byClient     : 클라이언트(tenant)별 추이 top 6
+ * 경쟁사 페이지 상단 "추이 분석" 차트. 30일 일별 시계열.
+ * 단일 series 구성: 메디맵(T1) + 선택 클라이언트(T2) + 경쟁사 도메인 top 6.
+ *   - 탭 "경쟁사 점유 현황" : engine 필터 없음 (전체 엔진 합산)
+ *   - 탭 "AI 엔진별 인용"   : ?engine=gemini 처럼 한 엔진으로 필터
  *
- * dataKey 에 '.' 이 들어가면 recharts 가 nested path 로 해석하므로 v0..vN 키 + series 라벨 분리.
+ * dataKey 의 '.' 충돌 회피 위해 v0..vN 키 + series 라벨 분리.
  *
- * Query: ?tenantId=4  ?keyword=라식
+ * Query: ?tenantId=4  ?keyword=라식  ?engine=gemini
  */
 import { NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
@@ -36,12 +36,12 @@ export async function GET(req: Request) {
   const tenantIdParam = url.searchParams.get('tenantId');
   const tenantIdFilter = tenantIdParam ? Number(tenantIdParam) : null;
   const keywordFilter = url.searchParams.get('keyword')?.trim() || null;
+  const engineFilter = url.searchParams.get('engine')?.trim().toLowerCase() || null;
 
   const DAYS = 30;
   const cutoff = new Date(Date.now() - DAYS * 24 * 60 * 60 * 1000).toISOString();
   const classifierSets = await loadClassifierSets();
 
-  // 날짜 축
   const today = new Date();
   const labels: string[] = [];
   const idxOf = new Map<string, number>();
@@ -72,6 +72,7 @@ export async function GET(req: Request) {
     }
   );
   const selectedClientDomains = tenantIdFilter ? tenantDomainsMap.get(tenantIdFilter) ?? null : null;
+  const clientLabel = tenantIdFilter ? tenantNameMap.get(tenantIdFilter) ?? '클라이언트' : '클라이언트 자체';
 
   // landscape 키워드
   let kwQuery = sb
@@ -92,7 +93,7 @@ export async function GET(req: Request) {
     if (!keywordFilter || text === keywordFilter) targetKwIds.add(id);
   });
 
-  // queries (engine 포함)
+  // queries
   let queriesQuery = sb
     .from('queries')
     .select('id, tenant_id, keyword_id, engine')
@@ -101,9 +102,12 @@ export async function GET(req: Request) {
   if (tenantIdFilter) queriesQuery = queriesQuery.eq('tenant_id', tenantIdFilter);
   const { data: queries } = await queriesQuery;
   const qMeta = new Map<number, { tenant: number; engine: string }>();
+  const enginesAvailable = new Set<string>();
   (queries ?? []).forEach((q: { id: number; tenant_id: number; keyword_id: number; engine: string }) => {
     if (targetKwIds.has(q.keyword_id)) {
-      qMeta.set(q.id, { tenant: q.tenant_id, engine: (q.engine || '?').toLowerCase() });
+      const eng = (q.engine || '?').toLowerCase();
+      qMeta.set(q.id, { tenant: q.tenant_id, engine: eng });
+      if (eng !== '?') enginesAvailable.add(eng);
     }
   });
   const validQ = new Set(qMeta.keys());
@@ -117,13 +121,13 @@ export async function GET(req: Request) {
   const filtered = (respRows ?? []).filter((r: { query_id: number }) => validQ.has(r.query_id));
 
   // 누적기
-  const compByEngine = new Map<string, number[]>(); // 엔진별 경쟁사 인용
-  const ownByEngine = new Map<string, number[]>(); // 엔진별 우리(T1+T2) 인용
+  const medimapSeries = zeros();
+  const clientSeries = zeros();
   const byDomain = new Map<string, { total: number; series: number[] }>();
-  const byClient = new Map<number, { total: number; series: number[] }>();
-  const ownSeries = zeros(); // 우리 점유 합계 (T1+T2)
-  let ownTotal = 0;
-  let compTotal = 0;
+  const engineTotals = new Map<string, number>();
+  let medimapTotal = 0;
+  let clientTotal = 0;
+  let competitorTotal = 0;
 
   filtered.forEach(
     (r: {
@@ -133,6 +137,7 @@ export async function GET(req: Request) {
     }) => {
       const meta = qMeta.get(r.query_id);
       if (!meta) return;
+      if (engineFilter && meta.engine !== engineFilter) return; // 엔진 필터
       const di = idxOf.get(r.created_at.slice(0, 10));
       if (di == null) return;
       const clientDomains =
@@ -141,101 +146,76 @@ export async function GET(req: Request) {
       (r.source_domains ?? []).forEach((sd) => {
         const tier: Tier = classifyDomain(sd.domain, sd.final_url ?? null, clientDomains, classifierSets);
         if (tier === 'NOISE') return;
+        engineTotals.set(meta.engine, (engineTotals.get(meta.engine) ?? 0) + 1);
 
-        // 우리(메디맵 T1 + 클라이언트 자체 T2)
-        if (tier === 'T1' || tier === 'T2') {
-          ownSeries[di]++;
-          ownTotal++;
-          if (!ownByEngine.has(meta.engine)) ownByEngine.set(meta.engine, zeros());
-          ownByEngine.get(meta.engine)![di]++;
+        if (tier === 'T1') {
+          medimapSeries[di]++;
+          medimapTotal++;
           return;
         }
-
-        // 경쟁사 (T3/T4/T5)
-        compTotal++;
-        if (!compByEngine.has(meta.engine)) compByEngine.set(meta.engine, zeros());
-        compByEngine.get(meta.engine)![di]++;
+        if (tier === 'T2') {
+          clientSeries[di]++;
+          clientTotal++;
+          return;
+        }
+        // 경쟁사 T3/T4/T5
+        competitorTotal++;
         if (sd.domain) {
           if (!byDomain.has(sd.domain)) byDomain.set(sd.domain, { total: 0, series: zeros() });
           const d = byDomain.get(sd.domain)!;
           d.total++;
           d.series[di]++;
         }
-        if (meta.tenant != null) {
-          if (!byClient.has(meta.tenant)) byClient.set(meta.tenant, { total: 0, series: zeros() });
-          const c = byClient.get(meta.tenant)!;
-          c.total++;
-          c.series[di]++;
-        }
       });
     }
   );
 
-  const buildDim = (labelsArr: string[], seriesArr: number[][]): Dim => ({
-    series: labelsArr,
+  // series 빌드 — 메디맵 + (클라이언트) + 경쟁사 top6
+  const topDomains = Array.from(byDomain.entries())
+    .sort((a, b) => b[1].total - a[1].total)
+    .slice(0, 6);
+  const seriesLabels: string[] = ['메디맵 인용 현황'];
+  const seriesData: number[][] = [medimapSeries];
+  if (tenantIdFilter || clientTotal > 0) {
+    seriesLabels.push(clientLabel);
+    seriesData.push(clientSeries);
+  }
+  topDomains.forEach(([dom, v]) => {
+    seriesLabels.push(dom);
+    seriesData.push(v.series);
+  });
+  const seriesDim: Dim = {
+    series: seriesLabels,
     data: labels.map((d, i) => {
       const row: Record<string, number | string> = { date: d };
-      seriesArr.forEach((s, si) => {
+      seriesData.forEach((s, si) => {
         row[`v${si}`] = s[i];
       });
       return row;
     }),
-  });
+  };
 
-  // 엔진: 우리 + 경쟁사 (엔진당 2 시리즈)
   const engineOrder = ['claude', 'gemini', 'perplexity', 'openai'];
-  const enginesAll = Array.from(new Set([...ownByEngine.keys(), ...compByEngine.keys()])).sort(
-    (a, b) => (engineOrder.indexOf(a) + 1 || 99) - (engineOrder.indexOf(b) + 1 || 99)
-  );
-  const engineLabels: string[] = [];
-  const engineSeries: number[][] = [];
-  enginesAll.forEach((e) => {
-    engineLabels.push(`${e}·우리`);
-    engineSeries.push(ownByEngine.get(e) ?? zeros());
-    engineLabels.push(`${e}·경쟁사`);
-    engineSeries.push(compByEngine.get(e) ?? zeros());
-  });
-  const engineDim = buildDim(engineLabels, engineSeries);
-
-  // 경쟁사 점유 현황 = 우리 점유 + 경쟁사 도메인 top 6
-  const topDomains = Array.from(byDomain.entries())
-    .sort((a, b) => b[1].total - a[1].total)
-    .slice(0, 6);
-  const competitorDim = buildDim(
-    ['우리 점유', ...topDomains.map(([dom]) => dom)],
-    [ownSeries, ...topDomains.map(([, v]) => v.series)]
-  );
-
-  // 클라이언트별 top 6
-  const topClients = Array.from(byClient.entries())
-    .sort((a, b) => b[1].total - a[1].total)
-    .slice(0, 6);
-  const clientDim = buildDim(
-    topClients.map(([id]) => tenantNameMap.get(id) ?? `#${id}`),
-    topClients.map(([, v]) => v.series)
-  );
-
-  // 요약
-  const engineTotals = enginesAll.map((e) => ({
-    engine: e,
-    total: (ownByEngine.get(e) ?? []).reduce((x, y) => x + y, 0) + (compByEngine.get(e) ?? []).reduce((x, y) => x + y, 0),
-  }));
-  const topEngine = engineTotals.length
-    ? engineTotals.reduce((a, b) => (a.total >= b.total ? a : b)).engine
-    : null;
+  const topEngine =
+    engineTotals.size > 0
+      ? Array.from(engineTotals.entries()).reduce((a, b) => (a[1] >= b[1] ? a : b))[0]
+      : null;
 
   return NextResponse.json({
     ok: true,
     keywords: Array.from(allKeywordSet).sort(),
+    engines: Array.from(enginesAvailable).sort(
+      (a, b) => (engineOrder.indexOf(a) + 1 || 99) - (engineOrder.indexOf(b) + 1 || 99)
+    ),
     dates: labels,
-    byEngine: engineDim,
-    byCompetitor: competitorDim,
-    byClient: clientDim,
+    series: seriesDim,
     summary: {
-      total: compTotal,
-      own_total: ownTotal,
+      medimap_total: medimapTotal,
+      client_total: clientTotal,
+      competitor_total: competitorTotal,
       top_engine: topEngine,
       top_competitor: topDomains.length ? topDomains[0][0] : null,
+      client_label: clientLabel,
     },
   });
 }

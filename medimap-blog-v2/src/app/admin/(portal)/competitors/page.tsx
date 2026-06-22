@@ -264,6 +264,19 @@ export default function CompetitorsPage() {
         </div>
       ) : (
         <>
+          {/* Round 67 — 경쟁사 측정 데이터 없을 때 안내 (메디맵/자사 혼동 방지) */}
+          {data.competitor_top.length === 0 && (
+            <div className="mb-6 card card-pad border-l-4 border-l-status-warning">
+              <div className="text-sm font-semibold text-ink">이 클라이언트는 아직 경쟁사 측정 데이터가 없습니다</div>
+              <div className="mt-1 text-[12px] leading-relaxed text-ink-soft">
+                이 페이지는 <strong>경쟁사 추적용(competitor_landscape) 키워드</strong>만 집계합니다.{' '}
+                {data.selected_tenant?.business_model === 'self'
+                  ? '메디맵(자사)은 자사 키워드로 추적되므로, 상단 ‘자사 인용’ 탭에서 경쟁/점유 데이터를 확인하세요.'
+                  : '이 병원에 competitor_landscape 키워드를 등록하면 채워집니다. 자사 키워드 기반 데이터는 ‘자사 인용’ 탭에 있습니다.'}
+              </div>
+            </div>
+          )}
+
           {/* === Round 51 (2026-05-31) — 이번 주 인사이트 박스: 위협 / 학습 후보 / 액션 === */}
           {data.competitor_top.length > 0 && (
             <section className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -413,37 +426,54 @@ export default function CompetitorsPage() {
 
           {/* Round 66 — 우리(자사) 현황 패널 (경쟁사 Top10 옆) */}
           <aside className="card card-pad">
-            <h3 className="section-title mb-3">우리 현황</h3>
+            <h3 className="section-title mb-1">내 점유 현황</h3>
+            <p className="mb-3 text-[11px] text-ink-muted">
+              AI가 답변에 인용한 출처 중 <strong className="text-brand">우리 편</strong>(메디맵이 쓴 글 + 병원 사이트)이 차지하는 비율
+            </p>
             {(() => {
               const cs = data.client_status;
-              const ours = cs.medimap_t1 + cs.client_t2;
+              const medimap = cs.medimap_t1;
+              const client = cs.client_t2;
+              const ours = medimap + client;
               const comp = data.tier_distribution.T3 + data.tier_distribution.T4 + data.tier_distribution.T5;
               const total = ours + comp;
               const sharePct = total > 0 ? Math.round((ours / total) * 1000) / 10 : 0;
               return (
                 <div className="space-y-3">
+                  {/* 큰 점유율 + 우리 vs 경쟁사 스택 바 */}
                   <div>
-                    <div className="kpi-label">우리 점유율</div>
-                    <div className="kpi-value text-brand">{sharePct}%</div>
-                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface-subtle">
-                      <div className="h-full rounded-full bg-brand" style={{ width: `${Math.min(100, sharePct)}%` }} />
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-extrabold text-brand">{sharePct}%</span>
+                      <span className="text-[11px] text-ink-muted">우리 점유율</span>
                     </div>
-                    <div className="mt-1 text-[10px] text-ink-muted">
-                      우리 {ours} · 경쟁사 {comp} · 전체 {total}
+                    <div className="mt-2 flex h-3 w-full overflow-hidden rounded-full bg-surface-subtle">
+                      <div className="h-full bg-brand" style={{ width: `${Math.min(100, sharePct)}%` }} />
+                      <div className="h-full flex-1 bg-ink-muted/30" />
                     </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-lg bg-surface-subtle px-3 py-2">
-                      <div className="text-[10px] text-ink-muted">메디맵 콘텐츠 ⭐</div>
-                      <div className="text-lg font-bold text-brand">{cs.medimap_t1}</div>
-                    </div>
-                    <div className="rounded-lg bg-surface-subtle px-3 py-2">
-                      <div className="text-[10px] text-ink-muted">클라이언트 자체</div>
-                      <div className="text-lg font-bold text-accent">{cs.client_t2}</div>
+                    <div className="mt-1 flex justify-between text-[10px]">
+                      <span className="font-semibold text-brand">우리 {ours}회</span>
+                      <span className="text-ink-muted">경쟁사 {comp}회 · 전체 {total}회</span>
                     </div>
                   </div>
-                  <div className="text-[10px] text-ink-muted">
-                    AI 인용 출처 중 우리(메디맵+자사) 비중. 왼쪽 경쟁사 Top10 과 비교해 점유 우위를 한눈에.
+                  {/* 분해: 메디맵 글 / 병원 사이트 */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between rounded-lg bg-surface-subtle px-3 py-2">
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-ink">메디맵 GEO 콘텐츠 ⭐</div>
+                        <div className="text-[10px] text-ink-muted">우리가 발행한 글이 AI에 인용된 횟수</div>
+                      </div>
+                      <span className="shrink-0 text-xl font-bold text-brand">{medimap}</span>
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg bg-surface-subtle px-3 py-2">
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-ink">병원 홈페이지</div>
+                        <div className="text-[10px] text-ink-muted">병원 자체 사이트가 AI에 인용된 횟수</div>
+                      </div>
+                      <span className="shrink-0 text-xl font-bold text-accent">{client}</span>
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-brand-50/50 px-3 py-2 text-[10px] leading-relaxed text-ink-soft">
+                    💡 이 숫자가 오를수록 AI가 우리를 더 자주 추천한다는 뜻입니다. 왼쪽 <strong>경쟁사 Top10</strong> 막대와 비교해보세요.
                   </div>
                 </div>
               );
@@ -593,8 +623,8 @@ export default function CompetitorsPage() {
                               </span>
                             </td>
                             <td className="px-2 py-2 text-right font-mono">{c.count}</td>
-                            <td className="px-3 py-2 text-[11px] text-ink-soft line-clamp-1">
-                              {c.keywords.join(', ')}
+                            <td className="px-3 py-2">
+                              <div className="line-clamp-2 text-[11px] text-ink-soft">{c.keywords.join(', ')}</div>
                             </td>
                           </tr>
                           {isOpen && (

@@ -525,8 +525,8 @@ export default function CitationsPage() {
                                 </span>
                               </td>
                               <td className="px-2 py-2 text-right font-mono">{c.count}</td>
-                              <td className="px-3 py-2 text-[11px] text-ink-soft line-clamp-1">
-                                {c.keywords.join(', ')}
+                              <td className="px-3 py-2">
+                                <div className="line-clamp-2 text-[11px] text-ink-soft">{c.keywords.join(', ')}</div>
                               </td>
                             </tr>
                             {isOpen && (
