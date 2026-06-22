@@ -35,6 +35,7 @@ import {
 import { cn } from '@/lib/cn';
 import { CitationsTabs } from '@/components/admin/CitationsTabs';
 import { CitationBreakdown, type Citation } from '@/components/admin/CitationBreakdown';
+import { TrendAnalysisCard } from '@/components/admin/TrendAnalysisCard';
 
 type TenantOption = { id: number; name: string; is_self: boolean };
 type SelectedTenant = TenantOption & { business_model: string };
@@ -368,6 +369,9 @@ export default function CompetitorsPage() {
               <div className="text-[11px] text-ink-muted">따라잡을 직접 경쟁사</div>
             </div>
           </section>
+
+          {/* === Round 65 — 추이 분석 (경쟁사 차트 바로 위) === */}
+          <TrendAnalysisCard tenantId={tenantId} />
 
           {/* === Top 경쟁사 도메인 차트 (Round 64 — 콤팩트화) === */}
           <section className="mb-6 card card-pad">
