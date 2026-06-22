@@ -409,7 +409,7 @@ export default function ContentManagementPage() {
                   className="block w-full rounded-md border border-border bg-surface-subtle px-3 py-3 font-mono text-xs leading-relaxed text-ink focus:border-brand focus:outline-none"
                   spellCheck={false}
                 />
-              ) : preview.body && preview.body.trim().startsWith('{') ? (
+              ) : preview.body && (preview.body.includes('application/ld+json') || preview.body.trim().startsWith('{')) ? (
                 <FaqPreview body={preview.body} />
               ) : preview.body?.includes('<') ? (
                 <article
@@ -473,9 +473,12 @@ export default function ContentManagementPage() {
 /* ─────────────────────── FAQ(JSON-LD) 미리보기 ─────────────────────── */
 // Round 74 — schema_org 콘텐츠 body 가 JSON-LD 라 raw 로 보이던 문제 → Q&A 로 렌더.
 function FaqPreview({ body }: { body: string }) {
+  // body 가 <script type="application/ld+json"> 래핑이면 그 안의 JSON 만 추출
+  const m = body.match(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/i);
+  const jsonStr = (m ? m[1] : body).trim();
   let pairs: Array<{ q: string; a: string }> = [];
   try {
-    const data = JSON.parse(body) as { mainEntity?: unknown };
+    const data = JSON.parse(jsonStr) as { mainEntity?: unknown };
     const entities = Array.isArray(data.mainEntity) ? data.mainEntity : [];
     pairs = entities
       .map((e) => ({
@@ -489,7 +492,7 @@ function FaqPreview({ body }: { body: string }) {
   if (pairs.length === 0) {
     return (
       <pre className="mx-auto max-w-[680px] overflow-x-auto whitespace-pre-wrap rounded-lg bg-surface-subtle p-4 text-[12px] leading-relaxed text-ink-soft">
-        {body}
+        {jsonStr}
       </pre>
     );
   }
