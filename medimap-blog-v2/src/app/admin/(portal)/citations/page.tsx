@@ -121,6 +121,8 @@ export default function CitationsPage() {
   // 클라이언트 selector 검색 + 드롭다운
   const [tenantSearch, setTenantSearch] = useState('');
   const [tenantDropdownOpen, setTenantDropdownOpen] = useState(false);
+  // Round 75 — 기간 필터 (일수)
+  const [days, setDays] = useState(30);
   // 키워드 클릭 → modal
   const [modalKeyword, setModalKeyword] = useState<string | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
@@ -130,10 +132,10 @@ export default function CitationsPage() {
     setLoading(true);
     setError(null);
     try {
-      const url = tenantId
-        ? `/api/admin/citations?tenantId=${tenantId}`
-        : '/api/admin/citations';
-      const res = await fetch(url, { cache: 'no-store' });
+      const params = new URLSearchParams();
+      if (tenantId) params.set('tenantId', String(tenantId));
+      params.set('days', String(days));
+      const res = await fetch(`/api/admin/citations?${params.toString()}`, { cache: 'no-store' });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error ?? 'fetch failed');
       setData(json);
@@ -147,7 +149,7 @@ export default function CitationsPage() {
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId]);
+  }, [tenantId, days]);
 
   const totalMentions = useMemo(
     () => (data ? data.mention_trend.reduce((s, d) => s + d.count, 0) : 0),
@@ -205,6 +207,21 @@ export default function CitationsPage() {
           <p className="admin-page-desc">최근 30일간 AI 가 우리 콘텐츠를 인용한 횟수와 키워드별 효과를 분석합니다</p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border border-border bg-surface-base p-0.5 print:hidden">
+            {[7, 30, 90].map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDays(d)}
+                className={cn(
+                  'rounded-md px-2.5 py-1 text-[11px] font-semibold transition',
+                  days === d ? 'bg-brand text-white' : 'text-ink-soft hover:bg-surface-subtle'
+                )}
+              >
+                {d}일
+              </button>
+            ))}
+          </div>
           <button onClick={() => window.print()} className="btn-secondary text-xs">
             <Printer className="h-3.5 w-3.5" /> PDF 출력
           </button>
@@ -294,7 +311,7 @@ export default function CitationsPage() {
           )}
         </div>
         <div className="mt-3 text-[11px] text-ink-muted">
-          현재 선택: <strong className="text-ink">{selectedName}</strong> · 최근 30일 기준 ·
+          현재 선택: <strong className="text-ink">{selectedName}</strong> · 최근 {days}일 기준 ·
           총 {tenants.length}개 병원
         </div>
       </section>

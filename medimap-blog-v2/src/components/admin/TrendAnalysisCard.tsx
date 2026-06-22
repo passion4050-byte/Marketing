@@ -57,7 +57,7 @@ function lineStyleFor(name: string, i: number, clientLabel: string): { stroke: s
   return { stroke: PALETTE[i % PALETTE.length], strokeWidth: 2 };
 }
 
-export function TrendAnalysisCard({ tenantId }: { tenantId: number | null }) {
+export function TrendAnalysisCard({ tenantId, days = 30 }: { tenantId: number | null; days?: number }) {
   const [keyword, setKeyword] = useState<string>('');
   const [mode, setMode] = useState<Mode>('competitor');
   const [engine, setEngine] = useState<string>(''); // engine 모드에서만 사용 ('' = 전체)
@@ -71,6 +71,7 @@ export function TrendAnalysisCard({ tenantId }: { tenantId: number | null }) {
     if (tenantId) params.set('tenantId', String(tenantId));
     if (keyword) params.set('keyword', keyword);
     if (mode === 'engine' && engine) params.set('engine', engine);
+    params.set('days', String(days));
     fetch(`/api/admin/competitors/trends${params.toString() ? '?' + params.toString() : ''}`, {
       cache: 'no-store',
     })
@@ -85,7 +86,7 @@ export function TrendAnalysisCard({ tenantId }: { tenantId: number | null }) {
     return () => {
       alive = false;
     };
-  }, [tenantId, keyword, mode, engine]);
+  }, [tenantId, keyword, mode, engine, days]);
 
   const clientLabel = data?.summary.client_label ?? '클라이언트';
   const dim = data?.series ?? null;
@@ -101,7 +102,7 @@ export function TrendAnalysisCard({ tenantId }: { tenantId: number | null }) {
         <div className="flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-brand" />
           <h2 className="section-title">추이 분석</h2>
-          <span className="text-[10px] text-ink-muted">최근 30일 · AI 인용 흐름</span>
+          <span className="text-[10px] text-ink-muted">최근 {days}일 · AI 인용 흐름</span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select

@@ -111,6 +111,8 @@ export default function CompetitorsPage() {
   const [tenantDropdownOpen, setTenantDropdownOpen] = useState(false);
   // Round 42 B — label 필터 (DIRECT/INDIRECT/REFERENCE/TO_LEARN/IGNORE)
   const [labelFilter, setLabelFilter] = useState<string | null>(null);
+  // Round 75 — 기간 필터 (일수)
+  const [days, setDays] = useState(30);
 
   const load = async () => {
     setLoading(true);
@@ -120,6 +122,7 @@ export default function CompetitorsPage() {
       const params = new URLSearchParams();
       if (tenantId) params.set('tenantId', String(tenantId));
       if (labelFilter) params.set('label', labelFilter);
+      params.set('days', String(days));
       const url = `/api/admin/competitors${params.toString() ? '?' + params.toString() : ''}`;
       const res = await fetch(url, { cache: 'no-store' });
       const json = await res.json();
@@ -135,7 +138,7 @@ export default function CompetitorsPage() {
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId, labelFilter]);
+  }, [tenantId, labelFilter, days]);
 
   const tenants = data?.tenants ?? [];
   const selectedName = data?.selected_tenant?.name ?? '전체 클라이언트';
@@ -175,6 +178,21 @@ export default function CompetitorsPage() {
           <p className="admin-page-desc">AI 가 우리 클라이언트와 함께 추천하는 경쟁 의료기관을 추적합니다. 행 클릭 시 실제 인용 URL 확인</p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border border-border bg-surface-base p-0.5 print:hidden">
+            {[7, 30, 90].map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDays(d)}
+                className={cn(
+                  'rounded-md px-2.5 py-1 text-[11px] font-semibold transition',
+                  days === d ? 'bg-brand text-white' : 'text-ink-soft hover:bg-surface-subtle'
+                )}
+              >
+                {d}일
+              </button>
+            ))}
+          </div>
           <button onClick={() => window.print()} className="btn-secondary text-xs">
             <Printer className="h-3.5 w-3.5" /> PDF 출력
           </button>
@@ -269,7 +287,7 @@ export default function CompetitorsPage() {
           </div>
         )}
         <div className="mt-2 text-[11px] text-ink-muted">
-          현재 선택: <strong className="text-ink">{selectedName}</strong> · 최근 30일 기준
+          현재 선택: <strong className="text-ink">{selectedName}</strong> · 최근 {days}일 기준
         </div>
       </section>
 
@@ -405,7 +423,7 @@ export default function CompetitorsPage() {
           </section>
 
           {/* === Round 65 — 추이 분석 (경쟁사 차트 바로 위) === */}
-          <TrendAnalysisCard tenantId={tenantId} />
+          <TrendAnalysisCard tenantId={tenantId} days={days} />
 
           {/* === Top 경쟁사 도메인 차트 + 우리 현황 (Round 66) === */}
           <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">

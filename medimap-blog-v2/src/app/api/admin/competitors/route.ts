@@ -86,7 +86,10 @@ export async function GET(req: Request) {
       })()
     : null;
 
-  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  // Round 75 — 기간 필터 (일수). 기본 30, 1~365 클램프.
+  const daysParam = url.searchParams.get('days');
+  const days = daysParam ? Math.max(1, Math.min(365, Number(daysParam) || 30)) : 30;
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
   const classifierSets = await loadClassifierSets();
 
   // 2. 경쟁 추적 키워드 추출.

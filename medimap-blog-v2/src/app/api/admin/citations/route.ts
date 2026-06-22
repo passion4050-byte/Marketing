@@ -46,8 +46,11 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const tenantIdParam = url.searchParams.get('tenantId');
   const tenantIdFilter = tenantIdParam ? Number(tenantIdParam) : null;
+  // Round 75 — 기간 필터 (일수). 기본 30, 1~365 클램프.
+  const daysParam = url.searchParams.get('days');
+  const days = daysParam ? Math.max(1, Math.min(365, Number(daysParam) || 30)) : 30;
 
-  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
   const classifierSets = await loadClassifierSets();
 
   // 1. 전체 tenants (selector 용)
@@ -100,7 +103,7 @@ export async function GET(req: Request) {
   });
   const today = new Date();
   const mentionTrend: Array<{ date: string; count: number }> = [];
-  for (let i = 29; i >= 0; i--) {
+  for (let i = days - 1; i >= 0; i--) {
     const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
     const ds = d.toISOString().slice(0, 10);
     mentionTrend.push({ date: ds.slice(5), count: mentionByDate.get(ds) ?? 0 });
@@ -323,7 +326,7 @@ export async function GET(req: Request) {
 
   // 메디맵 share trend
   const medimapShareTrend: Array<{ date: string; share_pct: number }> = [];
-  for (let i = 29; i >= 0; i--) {
+  for (let i = days - 1; i >= 0; i--) {
     const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
     const ds = d.toISOString().slice(0, 10);
     const bucket = shareByDate.get(ds);

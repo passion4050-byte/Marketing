@@ -38,7 +38,9 @@ export async function GET(req: Request) {
   const keywordFilter = url.searchParams.get('keyword')?.trim() || null;
   const engineFilter = url.searchParams.get('engine')?.trim().toLowerCase() || null;
 
-  const DAYS = 30;
+  // Round 75 — 기간 필터 (일수). 기본 30, 1~365 클램프.
+  const daysParam = url.searchParams.get('days');
+  const DAYS = daysParam ? Math.max(1, Math.min(365, Number(daysParam) || 30)) : 30;
   const cutoff = new Date(Date.now() - DAYS * 24 * 60 * 60 * 1000).toISOString();
   const classifierSets = await loadClassifierSets();
 
