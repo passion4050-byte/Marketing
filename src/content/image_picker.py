@@ -49,6 +49,8 @@ PROMPT_TEMPLATE = (
     "expressive friendly character emotions, soft hospital interior background, "
     "premium quality, 16:9 cinematic aspect ratio, "
     "vibrant blue and white color palette, "
+    # Round 73 — 품질 강화
+    "highly detailed, crisp 3D render, octane render quality, sharp focus, "
     "no text, no logo, not photorealistic"
 )
 
@@ -62,7 +64,10 @@ PROMPT_TEMPLATE_REALISTIC = (
     "Korean medical professionals with east asian features, "
     "natural daylight, documentary style, shot on DSLR, photorealistic, "
     "shallow depth of field, clean composition, modern Korean aesthetic, "
-    "no text, no logo, no watermark, no western faces"
+    # Round 73 — 품질 강화 descriptor
+    "ultra high resolution, sharp focus, fine detail, professional color grading, "
+    "8k uhd, magazine editorial quality, "
+    "no text, no logo, no watermark, no western faces, no distorted hands"
 )
 
 
@@ -187,9 +192,8 @@ def generate_image_for_content(
 
     prompt = build_prompt(keyword, title, realistic=is_self_tenant)
     model = os.environ.get("POLLINATIONS_MODEL", "flux")
-    # Round 29: 자사는 width 1600 으로 더 큰 사이즈 (품질 개선)
-    if is_self_tenant:
-        width, height = 1600, 900
+    # Round 73 — 모든 cover 1600x900 으로 통일 (품질 개선)
+    width, height = 1600, 900
     seed = abs(hash(keyword + (title or ""))) % (2**31)
     alt_text = f"{title or keyword}"
 

@@ -1,0 +1,41 @@
+name: A/B analysis (daily 06:00 KST)
+
+# Round 73 (2026-06-22) — A/B 테스트 측정 귀속 + 자동 승자 판정.
+# 매일 변형 A/B URL 의 AI 인용 수를 집계해 ab_tests 갱신. 충분 표본 + 명확 차이면 자동 종료.
+
+on:
+  schedule:
+    - cron: '0 21 * * *'   # 21:00 UTC = 06:00 KST
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ab-analysis
+  cancel-in-progress: false
+
+jobs:
+  analyze:
+    name: Run A/B analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Verify required secrets
+        run: |
+          if [ -z "${{ secrets.DATABASE_URL }}" ]; then
+            echo "::error::DATABASE_URL 미설정"
+            exit 1
+          fi
+      - name: Run A/B analysis
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/run_ab_analysis.py
