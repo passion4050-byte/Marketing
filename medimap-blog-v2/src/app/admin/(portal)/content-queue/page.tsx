@@ -84,9 +84,18 @@ async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
-function CoverThumb({ src, alt }: { src: string | null; alt: string }) {
+function CoverThumb({ src, alt, channel }: { src: string | null; alt: string; channel?: string | null }) {
   const [errored, setErrored] = useState(false);
   if (!src || errored) {
+    // Round 79 — FAQ(schema_org)는 이미지가 원래 없음 → 깨진 아이콘 대신 FAQ 표시
+    if (channel === 'schema_org') {
+      return (
+        <div className="flex h-16 w-24 flex-col items-center justify-center rounded-md border border-brand/20 bg-brand-50/40 text-brand">
+          <MessageSquare className="h-4 w-4" />
+          <span className="mt-0.5 text-[9px] font-bold">FAQ</span>
+        </div>
+      );
+    }
     return (
       <div className="flex h-16 w-24 items-center justify-center rounded-md border border-dashed border-border bg-surface-subtle text-ink-muted">
         <ImageOff className="h-4 w-4" />
@@ -606,7 +615,7 @@ function PendingTab({
               <div className={cn('absolute inset-y-0 left-0 w-1', isSelf ? 'bg-brand' : 'bg-accent')} />
 
               <div className="flex items-start gap-4 border-b border-border px-5 py-3 pl-6">
-                <CoverThumb src={q.cover_image_url} alt={q.cover_image_alt || q.title || 'cover'} />
+                <CoverThumb src={q.cover_image_url} alt={q.cover_image_alt || q.title || 'cover'} channel={q.channel} />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     {/* Round 59 fix 5 — 자사/파트너 분기 chip (가장 prominent) */}
