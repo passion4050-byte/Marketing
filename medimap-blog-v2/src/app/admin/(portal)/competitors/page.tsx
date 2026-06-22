@@ -148,6 +148,29 @@ export default function CompetitorsPage() {
     ? data.tier_distribution.T3 + data.tier_distribution.T4 + data.tier_distribution.T5
     : 0;
 
+  // Round 70 — 클라이언트(선택 tenant) 인용 횟수를 경쟁사 순위에 삽입 (강조 행).
+  const detailRows = (() => {
+    if (!data) return [] as Array<CompetitorData['competitor_top'][number] & { _client: boolean }>;
+    const base = data.competitor_top.map((c) => ({ ...c, _client: false }));
+    if (data.selected_tenant && !data.selected_tenant.is_self) {
+      const clientRow = {
+        domain: data.selected_tenant.name,
+        tier: 'T2',
+        count: data.client_status.client_t2,
+        keywords: [] as string[],
+        urls: [] as string[],
+        citations: [] as Citation[],
+        _client: true,
+      };
+      return [...base, clientRow].sort((a, b) => b.count - a.count);
+    }
+    return base;
+  })();
+  const clientRowIndex = detailRows.findIndex((r) => r._client);
+  const clientRank = clientRowIndex >= 0 ? clientRowIndex + 1 : null;
+  const clientCount =
+    data?.selected_tenant && !data.selected_tenant.is_self ? data.client_status.client_t2 : null;
+
   return (
     <div className="px-8 py-6 print:px-0 print:py-0">
       <header className="admin-page-header print:hidden">
@@ -548,7 +571,14 @@ export default function CompetitorsPage() {
           <section className="card">
             <header className="border-b border-border px-5 py-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="section-title">경쟁사 도메인 상세</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="section-title">경쟁사 도메인 상세</h2>
+                  {clientCount != null && (
+                    <span className="rounded-md bg-brand px-2 py-0.5 text-[11px] font-bold text-white">
+                      우리 {clientRank}위 · {clientCount}회
+                    </span>
+                  )}
+                </div>
                 {/* Round 42 B — 라벨 필터 토글 (tenantId 있을 때만) */}
                 {tenantId && (
                   <div className="flex flex-wrap items-center gap-1 text-[10px]">
@@ -599,7 +629,24 @@ export default function CompetitorsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.competitor_top.map((c, i) => {
+                    {detailRows.map((c, i) => {
+                      // Round 70 — 우리 병원(클라이언트) 강조 행 (순위 위치에 삽입)
+                      if (c._client) {
+                        return (
+                          <tr key={`client-${i}`} className="border-y-2 border-brand bg-brand-50/70">
+                            <td className="px-2 py-2"></td>
+                            <td className="px-3 py-2">
+                              <span className="font-semibold text-brand">⭐ {c.domain}</span>
+                              <span className="ml-1.5 rounded bg-brand px-1.5 py-0.5 text-[9px] font-bold text-white">우리 병원</span>
+                            </td>
+                            <td className="px-2 py-2">
+                              <span className="inline-flex rounded-md bg-brand/15 px-1.5 py-0.5 text-[10px] font-bold text-brand">자사</span>
+                            </td>
+                            <td className="px-2 py-2 text-right font-mono font-bold text-brand">{c.count}</td>
+                            <td className="px-3 py-2 text-[11px] text-brand-700">AI 인용 출처 기준 우리 병원 위치</td>
+                          </tr>
+                        );
+                      }
                       const isOpen = expandedDomain === c.domain;
                       return (
                         <Fragment key={`${c.domain}-${i}`}>
@@ -661,7 +708,24 @@ export default function CompetitorsPage() {
 
               {/* Round 52 — 모바일 카드 list */}
               <div className="space-y-2 px-3 py-3 md:hidden">
-                {data.competitor_top.map((c, i) => {
+                {detailRows.map((c, i) => {
+                  // Round 70 — 우리 병원 강조 카드 (순위 위치)
+                  if (c._client) {
+                    return (
+                      <div key={`m-client-${i}`} className="rounded-lg border-2 border-brand bg-brand-50/70 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <span className="truncate font-semibold text-brand">⭐ {c.domain}</span>
+                            <span className="shrink-0 rounded bg-brand px-1.5 py-0.5 text-[9px] font-bold text-white">우리 병원</span>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <div className="font-mono text-[16px] font-bold text-brand">{c.count}</div>
+                            <div className="text-[9px] uppercase text-brand-700">우리 위치</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
                   const isOpen = expandedDomain === c.domain;
                   const tierMeta = TIER_LABELS[c.tier];
                   return (
