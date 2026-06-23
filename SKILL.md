@@ -3382,6 +3382,7 @@ def _decode_html_entities_deep(obj):
 | CG | git push 비번 인증 폐지 + 터미널 붙여넣기 화살표 escape(`%1B%5BD`) | `git config --global credential.helper manager` → 브라우저 로그인 |
 | CH | schema_org 본문 = `<script type=application/ld+json>` 래핑 → HTML 브랜치서 script 렌더 → **빈 화면** | ld+json 정규식 추출 후 FAQPage mainEntity → Q&A 렌더 |
 | CI | 블로그 title/description `&#x27;` 노출 (본문 HTML은 브라우저 자동 디코드, React text는 아님) | `posts.ts` dbRowToPostMeta 에서 `decodeEntities` |
+| CJ | cron 발행 글 cover NULL 군집(16편). `image_picker` 가 **Pollinations 다운로드 실패(5xx/timeout) 시 `return None`** → cover NULL. (Round 60 fix는 Storage 업로드 실패만 raw URL 폴백, 다운로드 실패는 폴백 없었음) | **Round 81** — 재시도 2회 + 다운로드 최종 실패 시에도 raw Pollinations URL 폴백(None 금지). 별도로 GitHub Secret `IMAGE_GEN_ENABLED` 가 빈값/false면 cron이 이미지 생성 자체를 skip하니 `true`/미설정 확인 |
 
 **주요 산출물**
 - **어드민 인용 분석**: 키워드별 드릴다운(엔진+콘텐츠 URL), 추이 분석 차트(경쟁사 점유/AI엔진별 토글 + **기간 7/30/90일**), 우리 현황 패널, 경쟁사 상세에 **우리 병원 순위 강조 행**, 도메인 클릭 이동. (`CitationBreakdown.tsx`, `TrendAnalysisCard.tsx`, competitors/citations page+route, trends route)

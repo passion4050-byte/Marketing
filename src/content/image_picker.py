@@ -203,17 +203,33 @@ def generate_image_for_content(
         f"?width={width}&height={height}&model={model}&seed={seed}&nologo=true&enhance=true"
     )
 
-    try:
-        with httpx.Client(timeout=60, follow_redirects=True) as client:
-            r = client.get(url)
-            r.raise_for_status()
-            img_bytes = r.content
-        if not img_bytes or len(img_bytes) < 1024:
-            logger.warning("Pollinations 응답 너무 작음: %d bytes", len(img_bytes))
-            return None
-    except Exception as e:
-        logger.exception("Pollinations 호출 실패: %s", e)
-        return None
+    # Round 81 (2026-06-23) — 함정 CJ: Pollinations 5xx/timeout 시 cover NULL 군집(16편).
+    #   기존엔 다운로드 실패 → return None → cover NULL. 이제 재시도 2회 + 최종 실패 시에도
+    #   raw Pollinations URL fallback (None 반환 금지). 브라우저가 로드 시 on-the-fly 재생성.
+    img_bytes: bytes | None = None
+    for attempt in range(2):
+        try:
+            with httpx.Client(timeout=45, follow_redirects=True) as client:
+                r = client.get(url)
+                r.raise_for_status()
+                img_bytes = r.content
+            if img_bytes and len(img_bytes) >= 1024:
+                break
+            logger.warning("Pollinations 응답 너무 작음(attempt %d): %d bytes", attempt, len(img_bytes or b""))
+            img_bytes = None
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Pollinations 호출 실패(attempt %d): %s", attempt, e)
+            img_bytes = None
+
+    if not img_bytes:
+        logger.warning("Pollinations 다운로드 최종 실패 → raw URL fallback (cover NULL 회피)")
+        return {
+            "url": url,
+            "alt": alt_text,
+            "prompt": prompt,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "source": "pollinations_raw_fallback",
+        }
 
     storage_url = _upload_to_supabase(img_bytes, keyword, title)
     if not storage_url:
