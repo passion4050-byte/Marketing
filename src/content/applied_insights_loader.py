@@ -56,7 +56,7 @@ def load_applied_insights_block(tenant_id: int, max_count: int = 5) -> Optional[
                 f"{SUPABASE_URL}/rest/v1/learned_insights",
                 params={
                     "id": f"in.({','.join(map(str, insight_ids))})",
-                    "select": "id,title,summary,patterns",
+                    "select": "id,title,summary,patterns,source_domain",
                 },
                 headers={
                     "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -69,25 +69,49 @@ def load_applied_insights_block(tenant_id: int, max_count: int = 5) -> Optional[
             if not insights:
                 return None
 
-            # 3. prompt block 조립
-            lines = ["--- 적용된 학습 인사이트 (콘텐츠에 반영 필수) ---"]
+            # 3. prompt block 조립.
+            #   Round 81 (2026-06-23) — patterns 는 {"scope","per_url":[{h2_count,word_count,
+            #   image_count,table_count,ul_ol_count,...}]} dict. 기존 코드는 list 만 처리해
+            #   아무것도 주입 안 됨. → per_url 구조 메트릭을 평균내 actionable 가이드로 변환.
+            def _avg(rows, key):
+                vals = [
+                    r.get(key, 0)
+                    for r in rows
+                    if isinstance(r, dict) and isinstance(r.get(key), (int, float))
+                ]
+                return round(sum(vals) / len(vals)) if vals else 0
+
+            lines = ["--- 학습 인사이트: 경쟁사 구조 분석 (이를 능가하는 콘텐츠 작성) ---"]
             for ins in insights:
+                domain = (ins.get("source_domain") or "경쟁사").strip()
                 title = (ins.get("title") or "").strip()
                 summary = (ins.get("summary") or "").strip()
                 patterns = ins.get("patterns")
+
                 if title:
                     lines.append(f"• {title}")
+                else:
+                    lines.append(f"• 경쟁사 {domain} 구조 분석")
                 if summary:
                     lines.append(f"  요약: {summary[:200]}")
-                if patterns and isinstance(patterns, list):
-                    for p in patterns[:3]:
-                        if isinstance(p, str):
-                            lines.append(f"  - {p[:150]}")
-                        elif isinstance(p, dict):
-                            note = p.get("note") or p.get("description") or ""
-                            if note:
-                                lines.append(f"  - {note[:150]}")
-            lines.append("--- 위 인사이트의 톤·구조·키워드를 본문에 자연스럽게 반영하세요 ---")
+
+                per_url = []
+                if isinstance(patterns, dict):
+                    per_url = patterns.get("per_url") or []
+                elif isinstance(patterns, list):
+                    per_url = patterns
+                if per_url:
+                    lines.append(
+                        f"  경쟁사 {domain} 평균 구조 (URL {len(per_url)}개): "
+                        f"H2 {_avg(per_url, 'h2_count')}개 · 본문 {_avg(per_url, 'word_count')}단어 · "
+                        f"이미지 {_avg(per_url, 'image_count')}장 · 표 {_avg(per_url, 'table_count')}개 · "
+                        f"리스트 {_avg(per_url, 'ul_ol_count')}개"
+                    )
+
+            lines.append(
+                "--- 위 경쟁사 구조를 능가하도록: H2는 자연어 질문 5개 이상, 표/체크리스트 1개 이상, "
+                "정의형 첫 문장, 이미지 적정 배치로 더 깊고 구조화된 글을 작성하세요 ---"
+            )
             return "\n".join(lines)
     except Exception:  # noqa: BLE001
         return None
