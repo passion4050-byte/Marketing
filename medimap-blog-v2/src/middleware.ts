@@ -34,11 +34,12 @@ export function middleware(req: NextRequest) {
   }
 
   // Round 50 — Cron secret 우회 (GitHub Actions 가 admin endpoint 호출)
+  // Round 81 보안 — 헤더 전용. 쿼리파라미터(?cronSecret=)는 referer/프록시/브라우저 히스토리/
+  //   Vercel 액세스 로그로 시크릿이 유출되므로 제거. 모든 cron/자가호출은 x-cron-secret 헤더 사용.
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && isApi) {
     const headerSecret = req.headers.get('x-cron-secret');
-    const querySecret = req.nextUrl.searchParams.get('cronSecret');
-    if (headerSecret === cronSecret || querySecret === cronSecret) {
+    if (headerSecret === cronSecret) {
       return NextResponse.next();
     }
   }

@@ -535,10 +535,12 @@ def generate_blog_post(
             angle=angle,
             correction_hint=correction_hint,
         )
+        _bit, _bot = getattr(provider, "_last_usage", (0, 0))  # Round 81 — 실토큰 미터링
         _log_llm_call(
             session, tenant_id,
             provider=last_result.provider, model=last_result.provider,
             channel="blog_html", keyword=keyword,
+            input_tokens=_bit, output_tokens=_bot,
         )
         # LLM이 제안한 image 메타와 사용자 업로드 src를 매핑
         post_dict = dict(last_result.post_dict)

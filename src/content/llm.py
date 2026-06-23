@@ -1042,6 +1042,31 @@ def _build_user_prompt(
 # ─── Provider 구현 ──────────────────────────────────────────────
 
 
+# Round 81 (2026-06-23) — USD 토큰 미터링. provider 응답에서 usage 토큰 추출.
+#   각 provider 가 호출 직후 self._last_usage = (input, output) 저장 →
+#   FallbackProvider 가 자식 usage 를 프록시 → generator 가 _log_llm_call 에 전달.
+def _gemini_usage(resp) -> tuple[int, int]:
+    try:
+        u = resp.usage_metadata
+        return int(getattr(u, "prompt_token_count", 0) or 0), int(getattr(u, "candidates_token_count", 0) or 0)
+    except Exception:  # noqa: BLE001
+        return 0, 0
+
+
+def _anthropic_usage(msg) -> tuple[int, int]:
+    try:
+        return int(getattr(msg.usage, "input_tokens", 0) or 0), int(getattr(msg.usage, "output_tokens", 0) or 0)
+    except Exception:  # noqa: BLE001
+        return 0, 0
+
+
+def _openai_usage(resp) -> tuple[int, int]:
+    try:
+        return int(getattr(resp.usage, "prompt_tokens", 0) or 0), int(getattr(resp.usage, "completion_tokens", 0) or 0)
+    except Exception:  # noqa: BLE001
+        return 0, 0
+
+
 class GeminiProvider:
     name = "gemini"
 
@@ -1075,6 +1100,7 @@ class GeminiProvider:
         resp = self._client.models.generate_content(
             model=self._model, contents=prompt, config=config
         )
+        self._last_usage = _gemini_usage(resp)  # Round 81 — 토큰 미터링
         return resp.text or ""
 
     def generate_faq(
@@ -1294,6 +1320,7 @@ class AnthropicProvider:
                 ],
             )
             raw = "".join(b.text for b in msg.content if hasattr(b, "text"))
+            self._last_usage = _anthropic_usage(msg)  # Round 81 — 토큰 미터링
             # Round 58 fix 3 — 응답 잘림 감지 (max_tokens 도달 시 stop_reason == "max_tokens")
             stop_reason = getattr(msg, "stop_reason", None)
             if stop_reason == "max_tokens":
@@ -1459,6 +1486,7 @@ class OpenAIProvider:
                 response_format={"type": "json_object"},
             )
             raw = resp.choices[0].message.content or ""
+            self._last_usage = _openai_usage(resp)  # Round 81 — 토큰 미터링
         except Exception as e:
             raise LLMError(f"OpenAI 호출 실패: {e}") from e
         post = _parse_blog_json(raw)
@@ -1558,7 +1586,10 @@ class FallbackProvider:
                 method = getattr(p, method_name, None)
                 if method is None:
                     continue
-                return method(*args, **kwargs)
+                result = method(*args, **kwargs)
+                # Round 81 — 성공한 자식 provider 의 토큰 usage 를 프록시 (USD 미터링)
+                self._last_usage = getattr(p, "_last_usage", (0, 0))
+                return result
             except Exception as e:  # noqa: BLE001
                 logger.warning(
                     "FallbackProvider: %s.%s 실패 — %s — 다음 provider 시도",

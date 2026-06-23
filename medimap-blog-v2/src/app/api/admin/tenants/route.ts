@@ -109,9 +109,16 @@ export async function POST(req: NextRequest) {
     if (host) {
       const analyzeUrl = `${proto}://${host}/api/admin/tenants/${data.id}/analyze-homepage?apply=true`;
       // fire-and-forget — 응답 기다리지 않음. 실패해도 tenant 생성 자체는 성공.
-      fetch(analyzeUrl, { method: 'POST' }).catch(() => {
-        // graceful — 로그만 남기고 무시
-      });
+      // Round 81 — x-cron-secret 헤더로 미들웨어 통과 (쿠키 없는 서버↔서버 호출이라
+      //   이전엔 401 로 자동 분석이 prod 에서 실행 안 됐음). CRON_SECRET 미설정 시 조용히 skip.
+      if (process.env.CRON_SECRET) {
+        fetch(analyzeUrl, {
+          method: 'POST',
+          headers: { 'x-cron-secret': process.env.CRON_SECRET },
+        }).catch(() => {
+          // graceful — 로그만 남기고 무시
+        });
+      }
     }
   }
 
