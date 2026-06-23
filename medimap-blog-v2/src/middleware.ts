@@ -43,9 +43,20 @@ export function middleware(req: NextRequest) {
     }
   }
 
-  // ADMIN_PASSWORD 미설정 (dev mode) → 통과
+  // ADMIN_PASSWORD 미설정 → fail CLOSED (Round 81 보안 수정).
+  //   이전엔 fail-open(통과)이라 env 누락/오타 한 번이면 admin 전체(읽기·쓰기·삭제)가
+  //   public 으로 노출되는 P0 구멍이었음. 공개 블로그 미들웨어는 이미 fail-closed.
+  //   login 페이지는 위 PUBLIC_PAGE_PATHS 에서 통과되므로 리다이렉트 루프 없음.
   if (!process.env.ADMIN_PASSWORD) {
-    return NextResponse.next();
+    if (isApi) {
+      return new NextResponse(
+        JSON.stringify({ ok: false, error: 'admin not configured (ADMIN_PASSWORD unset)' }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    const loginUrl = new URL('/admin/login', req.url);
+    loginUrl.searchParams.set('setup', '1');
+    return NextResponse.redirect(loginUrl);
   }
 
   // cookie 없으면 차단

@@ -282,7 +282,7 @@ export default function LearnedInsightsPage() {
         <header className="border-b border-border px-5 py-3">
           <h2 className="section-title">학습 인사이트 누적 ({insights.length}건, 적용 {appliedCount}건)</h2>
           <div className="mt-1 text-[11px] text-ink-muted">
-            /admin/competitors 의 [전체 분석 & 반영] 클릭 시 여기에 누적. Phase 2 에서 적용된 항목만 generator 에 주입 예정.
+            /admin/competitors 의 [전체 분석 & 반영] 클릭 시 여기에 누적. <strong>[적용중]</strong> 토글한 항목은 같은 진료과(domain_category) 병원의 콘텐츠 생성 프롬프트에 <strong>실제로 주입됩니다</strong>(발행·A/B 반영).
           </div>
         </header>
 
@@ -353,7 +353,7 @@ export default function LearnedInsightsPage() {
                           ? 'bg-brand text-white hover:bg-brand-dark'
                           : 'border border-border text-ink-soft hover:bg-surface-soft'
                       )}
-                      title={it.applied ? '클릭하여 비활성화' : '클릭하여 활성화 (Phase 2 에서 generator 에 주입)'}
+                      title={it.applied ? '클릭하여 비활성화 (콘텐츠 주입 중단)' : '클릭하여 활성화 — 같은 진료과 병원 콘텐츠 생성에 즉시 주입'}
                     >
                       {it.applied ? (
                         <>
@@ -482,25 +482,24 @@ export default function LearnedInsightsPage() {
         )}
       </section>
 
-      {/* Phase 2 안내 */}
+      {/* 주입 동작 안내 (Phase 2 — 활성) */}
       <section className="card">
         <header className="border-b border-border px-5 py-3">
           <h2 className="section-title">
-            <Sparkles className="mr-1 inline h-4 w-4 text-brand" />다음 단계 — Phase 2 (예정)
+            <Sparkles className="mr-1 inline h-4 w-4 text-brand" />인사이트 주입 — 활성 (작동 중)
           </h2>
         </header>
         <div className="space-y-1.5 px-5 py-4 text-[12px] text-ink-soft">
-          <p>현재는 인사이트 누적 + 검수 + 운영자 메모 단계입니다 (Phase 1).</p>
+          <p><strong>[적용중]</strong> 토글한 인사이트는 매 발행 cron + A/B 생성 시 콘텐츠 프롬프트에 <strong>실제로 주입됩니다.</strong></p>
           <p>
-            <strong>Phase 2</strong> 에서 <code className="font-mono text-brand">scripts/run_publish.py</code> 의 콘텐츠 생성기가
-            <strong> 적용중</strong> 표시된 인사이트의 권장사항을 카테고리별로 집계하여 prompt 에 주입합니다.
+            매칭은 <strong>같은 진료과(domain_category)</strong> 기준 — 예: 안과 경쟁사 인사이트는 안과 병원 콘텐츠에만 주입(타 진료과 noise 0).
+            인사이트의 권장사항·요약지표 + 경쟁사 평균 구조(H2·본문·표 수)를 "이를 능가하라"는 가이드로 변환해 주입합니다.
           </p>
           <p>
-            예: 안과 카테고리에서 "FAQ schema 100% 사용" 인사이트 3개 적용 시 → 안과 새 콘텐츠 생성 시 prompt 에
-            <span className="font-mono text-brand"> "JSON-LD FAQPage schema 의무 삽입"</span> 자동 추가.
+            A/B 테스트에서는 변형 A(베이스라인)는 주입 <strong>생략</strong>, 변형 B만 주입해 인사이트 효과를 분리 측정합니다.
           </p>
           <p className="text-ink-muted">
-            Phase 2 는 사무실에서 Anthropic credit + Gemini paid tier 결정 후 함께 진행 예정 (Round 38).
+            연결: <code className="font-mono text-brand">generator.py</code> → <code className="font-mono text-brand">learned_insights_loader</code> + <code className="font-mono text-brand">applied_insights_loader</code> (Round 62/81).
           </p>
         </div>
       </section>
