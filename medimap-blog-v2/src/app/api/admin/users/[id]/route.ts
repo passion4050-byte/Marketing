@@ -22,8 +22,9 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
   for (const [k, v] of Object.entries(body)) {
     if (ALLOWED.has(k)) payload[k] = v === '' ? null : v;
   }
-  const { data, error } = await sb.from('users').update(payload).eq('id', id).select().single();
+  const { data, error } = await sb.from('users').update(payload).eq('id', id).select().maybeSingle();
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (!data) return NextResponse.json({ ok: false, error: 'user not found' }, { status: 404 });
   await logAudit(req, sb, 'update_user', `users:${id}`, { diff: payload });
   return NextResponse.json({ ok: true, user: data });
 }

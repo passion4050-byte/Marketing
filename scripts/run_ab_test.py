@@ -29,10 +29,17 @@ from src.storage.db import SessionLocal  # noqa: E402
 
 
 def _applied_insight_ids(session, tenant_id: int) -> list[int]:
+    # Round 81 — 변형 B 에 실제 주입되는 소스(learned_insights.applied, 같은 진료과)를 기록.
+    #   기존엔 빈 applied_insights 테이블을 읽어 항상 [] 였음(split-brain 잔재). 이제 정확히 기록.
     rows = session.execute(
         text(
-            "SELECT insight_id FROM applied_insights "
-            "WHERE tenant_id = :t AND is_active = true"
+            """
+            SELECT li.id FROM learned_insights li
+            JOIN tenants t ON t.id = :t
+            WHERE li.applied = true
+              AND li.domain_category IS NOT NULL
+              AND li.domain_category = t.domain_category
+            """
         ),
         {"t": tenant_id},
     ).fetchall()

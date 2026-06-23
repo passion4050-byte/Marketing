@@ -36,8 +36,9 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
     return NextResponse.json({ ok: false, error: 'no fields to update' }, { status: 400 });
   }
   const { data, error } = await sb
-    .from('tenants').update(payload).eq('id', id).select().single();
+    .from('tenants').update(payload).eq('id', id).select().maybeSingle();
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (!data) return NextResponse.json({ ok: false, error: 'tenant not found' }, { status: 404 });
   await logAudit(req, sb, 'update_tenant', `tenants:${id}`, { diff: payload });
   return NextResponse.json({ ok: true, tenant: data });
 }

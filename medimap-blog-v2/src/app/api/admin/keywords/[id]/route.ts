@@ -25,8 +25,9 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
   if (Object.keys(payload).length === 0) {
     return NextResponse.json({ ok: false, error: 'no fields' }, { status: 400 });
   }
-  const { data, error } = await sb.from('keywords').update(payload).eq('id', id).select().single();
+  const { data, error } = await sb.from('keywords').update(payload).eq('id', id).select().maybeSingle();
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (!data) return NextResponse.json({ ok: false, error: 'keyword not found' }, { status: 404 });
   await logAudit(req, sb, 'update_keyword', `keywords:${id}`, { diff: payload });
   return NextResponse.json({ ok: true, keyword: data });
 }
