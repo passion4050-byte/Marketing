@@ -1618,6 +1618,21 @@ def get_provider(provider_name: str | None = None) -> LLMProvider:
     """
     name = (provider_name or os.getenv("LLM_PROVIDER", "stub")).lower().strip()
 
+    # Round 81 (2026-06-23) — 비밀값 오타 하나로 전체 파이프라인(발행·A/B)이 죽던 문제 방어.
+    #   흔한 별칭을 정규화 (예: claude→anthropic, google→gemini).
+    _PROVIDER_ALIASES = {
+        "claude": "anthropic",
+        "anthropics": "anthropic",
+        "google": "gemini",
+        "googleai": "gemini",
+        "google-ai": "gemini",
+        "gemini-pro": "gemini",
+        "gpt": "openai",
+        "chatgpt": "openai",
+        "openai-gpt": "openai",
+    }
+    name = _PROVIDER_ALIASES.get(name, name)
+
     if name == "fallback":
         return FallbackProvider(_build_provider_chain())
 
@@ -1646,7 +1661,13 @@ def get_provider(provider_name: str | None = None) -> LLMProvider:
             raise LLMError("OPENAI_API_KEY 미설정.")
         return OpenAIProvider(api_key=key)
 
-    raise LLMError(f"알 수 없는 LLM_PROVIDER: {name}. (fallback|stub|gemini|anthropic|openai)")
+    # Round 81 (2026-06-23) — 알 수 없는 값이면 하드 크래시 대신 fallback 체인으로 안전 폴백.
+    #   (이전엔 LLM_PROVIDER 오타 = LLMError = 발행/A/B 전체 실패. 이제 경고 후 가용 provider 자동 사용.)
+    logger.warning(
+        "알 수 없는 LLM_PROVIDER=%r → fallback 체인으로 대체 (유효값: fallback|stub|gemini|anthropic|openai)",
+        name,
+    )
+    return FallbackProvider(_build_provider_chain())
 
 
 # ─── Cost Guardrail ─────────────────────────────────────────────

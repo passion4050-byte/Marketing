@@ -11,7 +11,10 @@ import { absoluteUrl } from "@/lib/site";
 //   가 webpack metadata-route-loader 와 충돌해 빌드 fail. 다시 revalidate=60 으로
 //   되돌리고, partners 호출만 try/catch 로 graceful degradation. partners.ts 의
 //   throw 가 sitemap 빌드를 막지 못하도록 보호.
-export const revalidate = 60;
+// Round 81 (2026-06-23): 60→3600. 동적 sitemap 이 매 분 재생성되면 Googlebot 이 콜드
+//   재생성(+Supabase 왕복)에 걸려 페치 타임아웃("가져올 수 없음") 위험. 캐시 정적본을
+//   더 오래 서빙해 페치 신뢰도↑. 발행은 일 단위라 1시간 신선도면 충분.
+export const revalidate = 3600;
 
 async function safeGetPartnerPosts(): Promise<PartnerPost[]> {
   try {
