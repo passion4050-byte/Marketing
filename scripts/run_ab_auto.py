@@ -37,7 +37,10 @@ def _candidates(session):
             FROM keywords k
             WHERE k.is_active = true
               AND k.tenant_id IN (
-                    SELECT DISTINCT tenant_id FROM applied_insights WHERE is_active = true
+                    -- Round 81: UI 토글이 쓰는 learned_insights.applied 를 직접 읽음.
+                    -- (기존엔 applied_insights 테이블을 봤으나 UI 와 desync — split-brain 버그)
+                    SELECT DISTINCT tenant_id FROM learned_insights
+                    WHERE applied = true AND tenant_id IS NOT NULL
                   )
               AND NOT EXISTS (
                     SELECT 1 FROM ab_tests a

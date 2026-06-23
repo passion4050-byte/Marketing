@@ -30,14 +30,18 @@ def load_applied_insights_block(tenant_id: int, max_count: int = 5) -> Optional[
 
     try:
         with httpx.Client(timeout=10) as client:
-            # 1. tenant 에 적용 중인 insight_id 목록
-            applied_r = client.get(
-                f"{SUPABASE_URL}/rest/v1/applied_insights",
+            # Round 81 (2026-06-23) — split-brain 버그 수정.
+            #   기존엔 applied_insights(is_active) 테이블을 읽었으나, UI 토글은
+            #   learned_insights.applied 에 씀 → 영원히 desync(엔진은 0으로 봄).
+            #   또한 learned_insights 엔 title/summary 컬럼이 없음(실재: notes/keyword).
+            #   → UI 가 쓰는 applied 컬럼을 직접, 실재 컬럼으로 단일 쿼리.
+            #   tenant 전용(tenant_id=X) + 글로벌(tenant_id IS NULL) 인사이트 모두 포함.
+            r = client.get(
+                f"{SUPABASE_URL}/rest/v1/learned_insights",
                 params={
-                    "tenant_id": f"eq.{tenant_id}",
-                    "is_active": "eq.true",
-                    "select": "insight_id",
-                    "order": "applied_at.desc",
+                    "applied": "eq.true",
+                    "or": f"(tenant_id.eq.{tenant_id},tenant_id.is.null)",
+                    "select": "id,source_domain,keyword,patterns,notes",
                     "limit": str(max_count),
                 },
                 headers={
@@ -45,55 +49,35 @@ def load_applied_insights_block(tenant_id: int, max_count: int = 5) -> Optional[
                     "apikey": SUPABASE_KEY,
                 },
             )
-            if applied_r.status_code != 200:
+            if r.status_code != 200:
                 return None
-            insight_ids = [row["insight_id"] for row in applied_r.json()]
-            if not insight_ids:
-                return None
-
-            # 2. 해당 insight 의 patterns / title / summary
-            insights_r = client.get(
-                f"{SUPABASE_URL}/rest/v1/learned_insights",
-                params={
-                    "id": f"in.({','.join(map(str, insight_ids))})",
-                    "select": "id,title,summary,patterns,source_domain",
-                },
-                headers={
-                    "Authorization": f"Bearer {SUPABASE_KEY}",
-                    "apikey": SUPABASE_KEY,
-                },
-            )
-            if insights_r.status_code != 200:
-                return None
-            insights = insights_r.json()
+            insights = r.json()
             if not insights:
                 return None
 
-            # 3. prompt block 조립.
-            #   Round 81 (2026-06-23) — patterns 는 {"scope","per_url":[{h2_count,word_count,
-            #   image_count,table_count,ul_ol_count,...}]} dict. 기존 코드는 list 만 처리해
-            #   아무것도 주입 안 됨. → per_url 구조 메트릭을 평균내 actionable 가이드로 변환.
+            # patterns 는 {"scope","per_url":[{h2_count,word_count,image_count,
+            #   table_count,ul_ol_count,...}]} dict → per_url 평균을 actionable 가이드로.
             def _avg(rows, key):
                 vals = [
-                    r.get(key, 0)
-                    for r in rows
-                    if isinstance(r, dict) and isinstance(r.get(key), (int, float))
+                    row.get(key, 0)
+                    for row in rows
+                    if isinstance(row, dict) and isinstance(row.get(key), (int, float))
                 ]
                 return round(sum(vals) / len(vals)) if vals else 0
 
             lines = ["--- 학습 인사이트: 경쟁사 구조 분석 (이를 능가하는 콘텐츠 작성) ---"]
             for ins in insights:
                 domain = (ins.get("source_domain") or "경쟁사").strip()
-                title = (ins.get("title") or "").strip()
-                summary = (ins.get("summary") or "").strip()
+                keyword = (ins.get("keyword") or "").strip()
+                notes = (ins.get("notes") or "").strip()
                 patterns = ins.get("patterns")
 
-                if title:
-                    lines.append(f"• {title}")
-                else:
-                    lines.append(f"• 경쟁사 {domain} 구조 분석")
-                if summary:
-                    lines.append(f"  요약: {summary[:200]}")
+                header = f"• 경쟁사 {domain}"
+                if keyword:
+                    header += f" (키워드: {keyword[:60]})"
+                lines.append(header)
+                if notes:
+                    lines.append(f"  메모: {notes[:200]}")
 
                 per_url = []
                 if isinstance(patterns, dict):
@@ -102,7 +86,7 @@ def load_applied_insights_block(tenant_id: int, max_count: int = 5) -> Optional[
                     per_url = patterns
                 if per_url:
                     lines.append(
-                        f"  경쟁사 {domain} 평균 구조 (URL {len(per_url)}개): "
+                        f"  {domain} 평균 구조 (URL {len(per_url)}개): "
                         f"H2 {_avg(per_url, 'h2_count')}개 · 본문 {_avg(per_url, 'word_count')}단어 · "
                         f"이미지 {_avg(per_url, 'image_count')}장 · 표 {_avg(per_url, 'table_count')}개 · "
                         f"리스트 {_avg(per_url, 'ul_ol_count')}개"
