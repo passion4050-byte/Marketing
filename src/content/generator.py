@@ -439,16 +439,19 @@ def generate_blog_post(
     # Round 38 Phase 2 (2026-05-31) — learned_insights 카테고리별 가이드 주입.
     # /admin/competitors 의 도메인 분석 → /admin/learned-insights 에서 [적용중] 표시된 인사이트만.
     # 빈 카테고리면 가이드 없음 (개념상 noop).
-    try:
-        from src.content.learned_insights_loader import get_guidance_for_category
-        guidance = get_guidance_for_category(tenant.domain_category)
-        if guidance:
-            references_block = (
-                f"{references_block}\n\n{guidance}".strip() if references_block else guidance
-            )
-            logger.info("blog.learned_guidance_injected", category=tenant.domain_category, len=len(guidance))
-    except Exception as e:  # noqa: BLE001
-        logger.warning("blog.learned_guidance_load_failed", error=str(e))
+    # Round 81 (2026-06-23) — apply_insights 게이트 추가. 이 경로가 게이트 없이 항상 주입돼
+    #   A/B 베이스라인(A, apply_insights=False)까지 오염시켜 A/B 차이를 무의미하게 만들던 버그 수정.
+    if apply_insights:
+        try:
+            from src.content.learned_insights_loader import get_guidance_for_category
+            guidance = get_guidance_for_category(tenant.domain_category)
+            if guidance:
+                references_block = (
+                    f"{references_block}\n\n{guidance}".strip() if references_block else guidance
+                )
+                logger.info("blog.learned_guidance_injected", category=tenant.domain_category, len=len(guidance))
+        except Exception as e:  # noqa: BLE001
+            logger.warning("blog.learned_guidance_load_failed", error=str(e))
 
     # Round 71 (2026-06-22) — 테넌트별 '적용중' 학습 인사이트 주입 (Phase 2 실연결).
     #   /admin/learned-insights 에서 [적용중] 표시한 applied_insights 가 실제 발행 prompt 에 반영됨.

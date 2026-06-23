@@ -37,10 +37,14 @@ def _candidates(session):
             FROM keywords k
             WHERE k.is_active = true
               AND k.tenant_id IN (
-                    -- Round 81: UI 토글이 쓰는 learned_insights.applied 를 직접 읽음.
-                    -- (기존엔 applied_insights 테이블을 봤으나 UI 와 desync — split-brain 버그)
-                    SELECT DISTINCT tenant_id FROM learned_insights
-                    WHERE applied = true AND tenant_id IS NOT NULL
+                    -- Round 81: UI 가 쓰는 learned_insights.applied + 같은 진료과(domain_category) 매칭.
+                    -- (기존엔 빈 applied_insights 테이블을 봐서 split-brain. 또 tenant 단순매칭이면
+                    --  같은 진료과 타 병원이 후보에서 빠짐 → 진료과 단위로 확장.)
+                    SELECT t.id FROM tenants t
+                    WHERE t.domain_category IN (
+                            SELECT domain_category FROM learned_insights
+                            WHERE applied = true AND domain_category IS NOT NULL
+                          )
                   )
               AND NOT EXISTS (
                     SELECT 1 FROM ab_tests a

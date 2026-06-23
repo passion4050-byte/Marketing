@@ -28,26 +28,37 @@ def load_applied_insights_block(tenant_id: int, max_count: int = 5) -> Optional[
     if not (SUPABASE_URL and SUPABASE_KEY):
         return None
 
+    headers = {"Authorization": f"Bearer {SUPABASE_KEY}", "apikey": SUPABASE_KEY}
     try:
         with httpx.Client(timeout=10) as client:
-            # Round 81 (2026-06-23) — split-brain 버그 수정.
-            #   기존엔 applied_insights(is_active) 테이블을 읽었으나, UI 토글은
-            #   learned_insights.applied 에 씀 → 영원히 desync(엔진은 0으로 봄).
-            #   또한 learned_insights 엔 title/summary 컬럼이 없음(실재: notes/keyword).
-            #   → UI 가 쓰는 applied 컬럼을 직접, 실재 컬럼으로 단일 쿼리.
-            #   tenant 전용(tenant_id=X) + 글로벌(tenant_id IS NULL) 인사이트 모두 포함.
+            # Round 81 (2026-06-23) — split-brain 수정 + 진료과(domain_category) 정밀 매칭.
+            #   ① UI 토글은 learned_insights.applied 에 씀(기존 applied_insights 테이블과 desync).
+            #   ② 매칭은 같은 진료과끼리만 — 안과 인사이트는 안과 병원에만, 모발이식은 모발이식에만.
+            #      (tenant_id 단순 매칭이면 같은 진료과 타 병원이 혜택 못 봄 / NULL 전역이면 noise.)
+            #   ③ learned_insights 엔 title/summary 컬럼 없음 → 실재 컬럼(notes/keyword) 사용.
+            #   1) tenant 의 진료과 조회
+            t_r = client.get(
+                f"{SUPABASE_URL}/rest/v1/tenants",
+                params={"id": f"eq.{tenant_id}", "select": "domain_category"},
+                headers=headers,
+            )
+            if t_r.status_code != 200:
+                return None
+            t_rows = t_r.json()
+            category = (t_rows[0].get("domain_category") if t_rows else None) or ""
+            category = category.strip()
+            if not category:
+                return None
+            # 2) 같은 진료과의 적용된(applied) 인사이트
             r = client.get(
                 f"{SUPABASE_URL}/rest/v1/learned_insights",
                 params={
                     "applied": "eq.true",
-                    "or": f"(tenant_id.eq.{tenant_id},tenant_id.is.null)",
+                    "domain_category": f"eq.{category}",
                     "select": "id,source_domain,keyword,patterns,notes",
                     "limit": str(max_count),
                 },
-                headers={
-                    "Authorization": f"Bearer {SUPABASE_KEY}",
-                    "apikey": SUPABASE_KEY,
-                },
+                headers=headers,
             )
             if r.status_code != 200:
                 return None

@@ -367,6 +367,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'summary required when save=true' }, { status: 400 });
     }
     const baseUrl = `https://${domain.replace(/^https?:\/\//, '').replace(/\/$/, '')}/`;
+    // Round 81: domain_category 가 안 오면 tenant_id 로 자동 도출 (프론트가 누락해도 NULL 방지).
+    //   진료과 매칭(loader/run_ab_auto)이 동작하려면 이 컬럼이 반드시 채워져야 함.
+    let resolvedCategory = body.domain_category ?? null;
+    if (!resolvedCategory && body.tenant_id) {
+      const { data: t } = await sb
+        .from('tenants')
+        .select('domain_category')
+        .eq('id', body.tenant_id)
+        .single();
+      resolvedCategory = t?.domain_category ?? null;
+    }
     const { error } = await sb
       .from('learned_insights')
       .upsert(
@@ -374,7 +385,7 @@ export async function POST(req: NextRequest) {
           source_url: baseUrl,
           source_domain: domain,
           source_tier: body.source_tier ?? null,
-          domain_category: body.domain_category ?? null,
+          domain_category: resolvedCategory,
           keyword: (body.keywords ?? []).join(', ') || null,
           tenant_id: body.tenant_id ?? null,
           patterns: {
