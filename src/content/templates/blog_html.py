@@ -93,12 +93,55 @@ def _md_to_html_inline(text: str) -> str:
     return escaped
 
 
+def _looks_like_md_table(seg: str) -> bool:
+    """마크다운 표 블록인지 — 헤더행(|...|) + 구분행(|---|) 패턴.
+
+    Round 81 (2026-06-23): AEO 표 강제용. 모델이 마크다운 표를 내도 기존엔
+    escape 돼 평문으로 렌더됐음 → 이 감지 후 실제 <table> 로 변환.
+    """
+    lines = [ln for ln in seg.strip().splitlines() if ln.strip()]
+    if len(lines) < 2 or "|" not in lines[0]:
+        return False
+    sep = lines[1].replace(" ", "")
+    return bool(re.fullmatch(r"\|?:?-{2,}:?(\|:?-{2,}:?)*\|?", sep))
+
+
+def _md_table_cells(row: str) -> list[str]:
+    row = row.strip()
+    if row.startswith("|"):
+        row = row[1:]
+    if row.endswith("|"):
+        row = row[:-1]
+    return [c.strip() for c in row.split("|")]
+
+
+def _md_table_to_html(seg: str) -> str:
+    lines = [ln for ln in seg.strip().splitlines() if ln.strip()]
+    header = _md_table_cells(lines[0])
+    rows = [_md_table_cells(r) for r in lines[2:]]  # lines[1] = 구분행 skip
+    out = ["<table>", "<thead>", "<tr>"]
+    out += [f"<th>{_md_to_html_inline(h)}</th>" for h in header]
+    out += ["</tr>", "</thead>", "<tbody>"]
+    for r in rows:
+        cells = "".join(f"<td>{_md_to_html_inline(c)}</td>" for c in r)
+        out.append(f"<tr>{cells}</tr>")
+    out += ["</tbody>", "</table>"]
+    return "\n".join(out)
+
+
 def _para_html(p: str) -> str:
     # 줄바꿈 보존 — 의미 단위마다 빈 줄 있으면 단락 분리
     parts = [seg for seg in p.split("\n\n") if seg.strip()]
     if not parts:
         return ""
-    return "\n".join(f"<p>{_md_to_html_inline(seg.strip())}</p>" for seg in parts)
+    out: list[str] = []
+    for seg in parts:
+        seg = seg.strip()
+        if _looks_like_md_table(seg):
+            out.append(_md_table_to_html(seg))
+        else:
+            out.append(f"<p>{_md_to_html_inline(seg)}</p>")
+    return "\n".join(out)
 
 
 def _image_html(img: ImageSlot) -> str:

@@ -379,6 +379,31 @@ def _join_blog_for_lint(post: BlogPost) -> str:
     return "\n".join(parts)
 
 
+# Round 81 (2026-06-23) — AEO 표 강제. 모델이 표를 빠뜨리면 재시도 힌트.
+_TABLE_HINT = (
+    "AEO 강화(필수): 본문 섹션 중 한 곳의 paragraphs 배열에, 비교/요약용 마크다운 표를 "
+    "별도 문자열 1개로 정확히 포함하세요. 형식 — 헤더행 `| 항목 | 값 |`, 구분행 `|---|---|`, "
+    "데이터행 3개 이상. 체크리스트로 대체 불가 — 표가 반드시 1개 있어야 합니다."
+)
+
+
+def _post_has_md_table(post: BlogPost) -> bool:
+    """post 의 어느 paragraph 든 마크다운 표 블록이 있으면 True."""
+    from src.content.templates.blog_html import _looks_like_md_table
+
+    blocks: list[str] = list(post.intro_paragraphs)
+    for sec in post.sections:
+        blocks.extend(sec.paragraphs)
+        for sub in sec.sub_sections:
+            blocks.extend(sub.paragraphs)
+    blocks.extend(post.conclusion_paragraphs)
+    for b in blocks:
+        for seg in (b or "").split("\n\n"):
+            if _looks_like_md_table(seg):
+                return True
+    return False
+
+
 def generate_blog_post(
     session: Session,
     tenant_id: int,
@@ -554,19 +579,35 @@ def generate_blog_post(
         last_report = lint_for_channel(session, tenant_id, "blog_html", joined)
         correction_history.append(last_report)
 
-        if last_report.status == "pass":
+        # Round 81 — AEO 표 강제. 의료법(compliance) 로직은 그대로 두고, 표 누락 시에만
+        #   재시도 힌트를 추가. 끝까지 표가 없어도 발행은 막지 않음(비차단).
+        has_table = _post_has_md_table(last_post)
+
+        if last_report.status == "pass" and has_table:
             logger.info("blog.passed", attempt=attempt, summary=last_report.summary())
+            break
+
+        if last_report.status == "pass" and not has_table:
+            if attempt < max_corrections:
+                correction_hint = _TABLE_HINT
+                logger.info("blog.retry_for_table", attempt=attempt)
+                continue
+            logger.info("blog.no_table_accepted", attempt=attempt)
             break
 
         if not last_report.has_errors() and last_report.status == "warn":
             if attempt < max_corrections:
                 correction_hint = _violations_to_correction_hint(last_report)
+                if not has_table:
+                    correction_hint = (correction_hint + "\n" + _TABLE_HINT) if correction_hint else _TABLE_HINT
                 continue
             logger.info("blog.warn_accepted", attempt=attempt)
             break
 
         if attempt < max_corrections:
             correction_hint = _violations_to_correction_hint(last_report)
+            if not has_table:
+                correction_hint = (correction_hint + "\n" + _TABLE_HINT) if correction_hint else _TABLE_HINT
             logger.info("blog.retry", attempt=attempt, summary=last_report.summary())
             continue
 
