@@ -129,6 +129,29 @@ def _md_table_to_html(seg: str) -> str:
     return "\n".join(out)
 
 
+_BULLET_RE = re.compile(r"^\s*[-•]\s+(.+)")
+_NUM_RE = re.compile(r"^\s*\d+[.)]\s+(.+)")
+
+
+def _looks_like_list(seg: str, pattern) -> bool:
+    """Round 81 — 모든 비어있지 않은 줄이 같은 목록 마커로 시작하면 목록 블록.
+
+    프롬프트가 요청하는 체크리스트(• 목록)도 표처럼 escape 돼 평문으로 렌더되던 문제 수정.
+    `*` 는 italic 마커와 충돌하므로 bullet 으로 취급하지 않음(`-`/`•` 만).
+    """
+    lines = [ln for ln in seg.strip().splitlines() if ln.strip()]
+    return len(lines) >= 2 and all(pattern.match(ln) for ln in lines)
+
+
+def _md_list_to_html(seg: str, pattern, tag: str) -> str:
+    lines = [ln for ln in seg.strip().splitlines() if ln.strip()]
+    items = "".join(
+        f"<li>{_md_to_html_inline(pattern.match(ln).group(1).strip())}</li>"
+        for ln in lines
+    )
+    return f"<{tag}>{items}</{tag}>"
+
+
 def _para_html(p: str) -> str:
     # 줄바꿈 보존 — 의미 단위마다 빈 줄 있으면 단락 분리
     parts = [seg for seg in p.split("\n\n") if seg.strip()]
@@ -139,6 +162,10 @@ def _para_html(p: str) -> str:
         seg = seg.strip()
         if _looks_like_md_table(seg):
             out.append(_md_table_to_html(seg))
+        elif _looks_like_list(seg, _BULLET_RE):
+            out.append(_md_list_to_html(seg, _BULLET_RE, "ul"))
+        elif _looks_like_list(seg, _NUM_RE):
+            out.append(_md_list_to_html(seg, _NUM_RE, "ol"))
         else:
             out.append(f"<p>{_md_to_html_inline(seg)}</p>")
     return "\n".join(out)
