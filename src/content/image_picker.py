@@ -43,32 +43,42 @@ KEYWORD_MAP: dict[str, str] = {
     "TETE라식": "premium LASIK clinic consultation",
 }
 
+# Round 81 (2026-06-24) — 사람 제거. AI(flux)가 얼굴·손·몸을 자주 망가뜨려(찌그러짐·잘림)
+#   이미지 퀄리티가 떨어지던 핵심 원인. 깔끔한 병원 인테리어·장비·정물 중심으로 전환
+#   (AI 는 공간/사물은 잘 그림) + 강한 no-people 네거티브.
 PROMPT_TEMPLATE = (
-    "Pixar Disney 3D animation style, warm cinematic lighting, "
-    "korean medical scene depicting {context}, "
-    "expressive friendly character emotions, soft hospital interior background, "
-    "premium quality, 16:9 cinematic aspect ratio, "
-    "vibrant blue and white color palette, "
-    # Round 73 — 품질 강화
-    "highly detailed, crisp 3D render, octane render quality, sharp focus, "
-    "no text, no logo, not photorealistic"
+    "professional interior photography, modern bright Korean medical clinic, "
+    "theme: {context}, clean minimalist interior, medical equipment and furniture, "
+    "soft warm natural daylight, shallow depth of field, photorealistic, fine detail, "
+    "8k uhd, magazine quality, "
+    "empty room, no people, no person, no face, no hands, no text, no logo, no watermark"
 )
 
-# Round 29 (2026-05-30): 자사 인사이트 실사 톤. Pollinations + Unsplash 둘 다 사용.
+# Round 29 (2026-05-30): 자사 인사이트 실사 톤. Round 81 — 사람 제거(정물·인테리어 중심).
 PROMPT_TEMPLATE_REALISTIC = (
-    # Round 60 fix 2 (2026-06-01) — 한국 특화 강화. 서양 의료진 출력 함정 해결.
-    # 'asian', 'east asian features', 'Seoul' 명시 + ethnicity hint 강제.
-    "professional editorial photography, "
-    "asian east asian Korean people, Seoul South Korea modern clinic interior, "
-    "scene depicting {context}, "
-    "Korean medical professionals with east asian features, "
-    "natural daylight, documentary style, shot on DSLR, photorealistic, "
-    "shallow depth of field, clean composition, modern Korean aesthetic, "
-    # Round 73 — 품질 강화 descriptor
-    "ultra high resolution, sharp focus, fine detail, professional color grading, "
-    "8k uhd, magazine editorial quality, "
-    "no text, no logo, no watermark, no western faces, no distorted hands"
+    "professional architectural editorial photography, "
+    "modern Seoul Korean medical clinic interior, theme: {context}, "
+    "clean bright minimalist space, medical equipment, furniture, documents and tablet on a desk, "
+    "natural daylight, documentary still-life, shot on DSLR, photorealistic, "
+    "shallow depth of field, ultra high resolution, sharp focus, fine detail, "
+    "professional color grading, 8k uhd, magazine editorial quality, "
+    "empty room, no people, no person, no face, no hands, no text, no logo, no watermark"
 )
+
+
+_PEOPLE_WORDS_RE = re.compile(
+    r"\b(consultation|patient|patients|people|person|doctor|doctors|professional|"
+    r"professionals|woman|women|man|men|senior|seniors|elderly|child|children|staff|"
+    r"team|portrait|face|faces|hand|hands|surgeon|nurse|nurses)\b",
+    re.IGNORECASE,
+)
+
+
+def _people_free(ctx: str) -> str:
+    """프롬프트 context 에서 사람 명사를 제거(공간·장비 중심으로)."""
+    out = _PEOPLE_WORDS_RE.sub("", ctx or "")
+    out = re.sub(r"\s{2,}", " ", out)
+    return out.strip(" ,")
 
 
 def keyword_to_english_context(keyword: str) -> str:
@@ -118,7 +128,7 @@ def build_prompt(keyword: str, title: Optional[str] = None, *, realistic: bool =
 
     Round 29 — realistic=True 면 자사 인사이트용 실사 톤. False 면 파트너용 Pixar 톤.
     """
-    context = keyword_to_english_context(keyword)
+    context = _people_free(keyword_to_english_context(keyword))  # Round 81 — 사람 제거
     template = PROMPT_TEMPLATE_REALISTIC if realistic else PROMPT_TEMPLATE
     return template.format(context=context)
 
@@ -346,12 +356,13 @@ def generate_body_illustration_for_section(
 
     # 섹션 제목에서 이모지/특수문자 제거 (Pollinations prompt 정화)
     clean_heading = re.sub(r"[^\w가-힣\s]+", " ", section_heading).strip()
-    en_ctx = keyword_to_english_context(keyword)
+    # Round 81 — 사람 제거. 깔끔한 병원 인테리어·장비 정물 (얼굴/손 왜곡 방지).
+    en_ctx = _people_free(keyword_to_english_context(keyword))
     prompt = (
-        f"Pixar 3D animation, korean medical scene about {en_ctx}, "
-        f"context: {clean_heading or 'consultation'}, "
-        f"warm pastel lighting, expressive friendly characters, "
-        f"modern clinic interior, no text, no logo"
+        f"professional interior photography, modern bright Korean medical clinic, "
+        f"theme: {en_ctx}, clean minimalist space, medical equipment and furniture, "
+        f"soft natural daylight, photorealistic, fine detail, shallow depth of field, 8k, "
+        f"empty room, no people, no person, no face, no hands, no text, no logo"
     )
     model = os.environ.get("POLLINATIONS_MODEL", "flux")
     seed = (abs(hash(keyword + clean_heading)) % (2**24)) + index

@@ -27,7 +27,7 @@ DEFAULTS: dict[str, str] = {
     "cta_target": "medimap_kakao",
     "keyword_seed_mode": "auto",
     "disclaimer_style": "amber_box_v3",
-    "image_count_total": "5",
+    "image_count_total": "3",
     "image_style": "pixar_3d",
     "image_realistic_only_for": "clinic_interior",
     "publish_schedule": "23:00_utc_daily",

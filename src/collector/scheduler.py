@@ -391,7 +391,8 @@ def _generate_draft(
                         s.commit()
 
                     # 본문 H2 앞에 body 일러스트 N 장 삽입 — Round 17 SQL 패턴 동등.
-                    body_count = settings.body_image_count() if settings else 4
+                    # Round 81 — 본문 일러스트 기본 2장(로딩속도·부담↓). settings 없으면 2.
+                    body_count = settings.body_image_count() if settings else 2
                     if body_count > 0 and obj.body:
                         new_body = inject_body_illustrations(
                             obj.body, keyword, max_count=body_count

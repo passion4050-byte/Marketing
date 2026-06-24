@@ -135,7 +135,7 @@ def main(self_only: bool = False, dry_run: bool = False) -> int:
             body = r.get("body") or ""
             if body:
                 try:
-                    new_body = inject_body_illustrations(body, keyword, max_count=4)
+                    new_body = inject_body_illustrations(body, keyword, max_count=2)
                     if new_body != body:
                         with engine.begin() as conn:
                             conn.execute(
