@@ -57,6 +57,8 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           # Round 59 (2026-06-01) — ANTHROPIC_MODEL secret 전달 (이전 누락 → default Haiku 강제됨)
           ANTHROPIC_MODEL: ${{ secrets.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001' }}
+          # Round 81 — Unsplash 실사 사진(자사 콘텐츠 cover). 미설정 시 사람없는 Pollinations 폴백.
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
           MAX_DAILY_USD: ${{ secrets.MAX_DAILY_USD || '10' }}
           # Round 81 — 실효 지출 캡(카운트 가드)을 cron 에 노출. USD 가드는 토큰 미기록으로
           #   현재 no-op 이므로, 일일 생성 건수 상한이 실질적 비용 제어 레버. secret 으로 조정.

@@ -188,16 +188,18 @@ def generate_image_for_content(
             # Round 30 fix (2026-05-30): keyword_to_english_context 의 fallback 이
             # 한글 keyword 를 query 에 포함시킴 → Unsplash 매칭 0개. 전용 함수로 대체.
             unsplash_query = keyword_to_unsplash_query(keyword)
-            storage_url = fetch_unsplash_to_storage(
+            uns = fetch_unsplash_to_storage(
                 unsplash_query,
                 name_hint=f"cover-{keyword}",
                 subdir="cover",
             )
-            if storage_url:
+            if uns and uns.get("url"):
+                # Round 81 — Unsplash 약관: 작가 크레딧을 cover_image_alt 에 넣어 figcaption 노출.
+                credit = f"Photo by {uns.get('author', 'Unsplash')} on Unsplash"
                 return {
-                    "url": storage_url,
-                    "alt": f"{title or keyword}",
-                    "prompt": f"unsplash:{unsplash_query}",
+                    "url": uns["url"],
+                    "alt": f"{title or keyword} · {credit}",
+                    "prompt": f"unsplash:{unsplash_query} | {uns.get('author_link', '')}",
                     "generated_at": datetime.now(timezone.utc).isoformat(),
                     "source": "unsplash",
                 }

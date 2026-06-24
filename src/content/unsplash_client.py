@@ -74,10 +74,14 @@ def search_unsplash_photo(
 
     # 가장 첫 결과 사용 (relevant order)
     photo = results[0]
+    user = photo.get("user") or {}
+    author_link = ((user.get("links") or {}).get("html") or "https://unsplash.com")
     return {
         "url": photo["urls"]["regular"],          # 1080px wide JPEG
         "alt": photo.get("alt_description") or query,
-        "author": (photo.get("user") or {}).get("name") or "Unsplash",
+        "author": user.get("name") or "Unsplash",
+        # Round 81 — 약관(작가 크레딧) 표기용 프로필 링크 + UTM.
+        "author_link": f"{author_link}?utm_source=medimap&utm_medium=referral",
         "unsplash_id": photo.get("id"),
         "download_location": (photo.get("links") or {}).get("download_location"),
     }
@@ -109,9 +113,10 @@ def fetch_unsplash_to_storage(
     name_hint: str,
     subdir: str = "self",
     orientation: str = "landscape",
-) -> Optional[str]:
-    """Unsplash 검색 → bytes → Supabase Storage 업로드 → public URL.
+) -> Optional[dict]:
+    """Unsplash 검색 → bytes → Supabase Storage 업로드 → 메타 dict.
 
+    Round 81 — 반환을 dict {url, author, author_link} 로 변경(작가 크레딧 약관 표기용).
     실패 시 None (image_picker 가 다른 fallback 으로).
     """
     meta = search_unsplash_photo(query, orientation=orientation)
@@ -134,9 +139,15 @@ def fetch_unsplash_to_storage(
         name_hint=f"unsplash-{name_hint}",
         subdir=subdir,
     )
+    if not storage_url:
+        return None
 
     # 3) Unsplash 약관 — 다운로드 카운트 트래킹
-    if storage_url and meta.get("download_location"):
+    if meta.get("download_location"):
         trigger_download_event(meta["download_location"])
 
-    return storage_url
+    return {
+        "url": storage_url,
+        "author": meta.get("author") or "Unsplash",
+        "author_link": meta.get("author_link") or "https://unsplash.com",
+    }
