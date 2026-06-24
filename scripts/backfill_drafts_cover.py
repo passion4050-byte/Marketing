@@ -52,7 +52,7 @@ def main(self_only: bool = False, dry_run: bool = False) -> int:
         else ""
     )
     query = f"""
-        SELECT gc.id, gc.tenant_id, gc.keyword_text, gc.title, gc.channel,
+        SELECT gc.id, gc.tenant_id, gc.keyword_text, gc.title, gc.channel, gc.body,
                t.business_model, t.partner_slug
         FROM generated_contents gc
         JOIN tenants t ON t.id = gc.tenant_id
@@ -82,7 +82,11 @@ def main(self_only: bool = False, dry_run: bool = False) -> int:
         return 0
 
     # 이미지 생성 모듈 lazy import (DATABASE_URL 검증 후)
-    from src.content.image_picker import generate_image_for_content, is_enabled
+    from src.content.image_picker import (
+        generate_image_for_content,
+        inject_body_illustrations,
+        is_enabled,
+    )
 
     if not is_enabled():
         logger.error("IMAGE_GEN_ENABLED != true — backfill skip")
@@ -126,6 +130,24 @@ def main(self_only: bool = False, dry_run: bool = False) -> int:
                         "id": cid,
                     },
                 )
+            # Round 81 — cover 뿐 아니라 본문 인라인 일러스트(<figure>)도 backfill.
+            #   밋밋한 기존 초안(이미지 0)을 #89 처럼 figure 가 들어간 형태로 일괄 복원.
+            body = r.get("body") or ""
+            if body:
+                try:
+                    new_body = inject_body_illustrations(body, keyword, max_count=4)
+                    if new_body != body:
+                        with engine.begin() as conn:
+                            conn.execute(
+                                text(
+                                    "UPDATE generated_contents SET body=:b, "
+                                    "updated_at=NOW() WHERE id=:id"
+                                ),
+                                {"b": new_body, "id": cid},
+                            )
+                        logger.info("  ✓ id=%s body 일러스트 주입", cid)
+                except Exception as e:  # noqa: BLE001
+                    logger.warning("body 일러스트 주입 실패 id=%s: %s", cid, e)
             logger.info(
                 "  ✓ id=%s cover updated — source=%s",
                 cid,

@@ -124,7 +124,12 @@ def build_prompt(keyword: str, title: Optional[str] = None, *, realistic: bool =
 
 
 def is_enabled() -> bool:
-    return os.environ.get("IMAGE_GEN_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
+    # Round 81 (2026-06-24) — opt-out 으로 변경 (기존: 기본값 "" → 미설정/빈값이면 False).
+    #   IMAGE_GEN_ENABLED 가 GitHub cron 외 경로(Streamlit '지금 1회 실행', 로컬 등)에 없으면
+    #   cover + 본문 일러스트가 통째로 조용히 꺼져 콘텐츠가 밋밋해지던 footgun.
+    #   이제 명시적 비활성('false'/'0'/'no'/'off')일 때만 끄고, 미설정/빈값/그 외는 활성.
+    val = (os.environ.get("IMAGE_GEN_ENABLED") or "").strip().lower()
+    return val not in ("0", "false", "no", "off")
 
 
 def _slugify_for_filename(s: str) -> str:
