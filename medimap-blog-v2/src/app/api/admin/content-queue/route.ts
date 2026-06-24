@@ -9,6 +9,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
+import { scoreContent } from '@/lib/contentQuality';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -98,6 +99,7 @@ export async function GET(req: NextRequest) {
       title: r.title,
       excerpt: r.excerpt,
       body: r.body,
+      quality: scoreContent(r.body, r.channel), // Round 81 — 구조 품질 자동 채점
       slug: r.slug,
       status: r.status,
       compliance_status: r.compliance_status,

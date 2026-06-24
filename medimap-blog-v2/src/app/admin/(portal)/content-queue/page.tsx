@@ -8,6 +8,29 @@ import {
 } from 'lucide-react';
 import { showToast } from '@/lib/clientActions';
 import { cn } from '@/lib/cn';
+import type { ContentQuality } from '@/lib/contentQuality';
+
+/** Round 81 — 구조 품질 점수 뱃지 (A/B/C/D + 점수, hover 시 부족 항목). */
+function QualityBadge({ quality, compact = false }: { quality: ContentQuality | null; compact?: boolean }) {
+  if (!quality) return null;
+  const tone =
+    quality.grade === 'A' ? 'bg-status-successSoft text-status-success'
+    : quality.grade === 'B' ? 'bg-brand-50 text-brand'
+    : quality.grade === 'C' ? 'bg-status-warningSoft text-status-warning'
+    : 'bg-status-dangerSoft text-status-danger';
+  const tip = quality.missing.length
+    ? `구조 점수 ${quality.score} · 부족: ${quality.missing.join(', ')}`
+    : `구조 점수 ${quality.score} · 모든 AEO 요소 충족 ✓`;
+  return (
+    <span
+      className={cn('inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold', tone)}
+      title={tip}
+    >
+      품질 {quality.grade}
+      {!compact && <span className="font-semibold opacity-80">{quality.score}</span>}
+    </span>
+  );
+}
 
 interface QueueItem {
   id: number | string;
@@ -20,6 +43,7 @@ interface QueueItem {
   title: string | null;
   excerpt: string | null;
   body: string;
+  quality: ContentQuality | null;
   slug: string | null;
   status: string | null;
   compliance_status: string | null;
@@ -342,6 +366,13 @@ export default function ContentManagementPage() {
                 )}
                 <span className="ml-auto text-[10px] text-ink-faint">
                   📝 {charCount.toLocaleString()}자 · ⏱️ {readingMin}분
+                  {preview.quality && (
+                    <span className="ml-1 text-ink-muted">
+                      · H2 {preview.quality.breakdown.h2}(질문 {preview.quality.breakdown.questionH2})
+                      · 표 {preview.quality.breakdown.tables} · 목록 {preview.quality.breakdown.lists}
+                      · 이미지 {preview.quality.breakdown.images}
+                    </span>
+                  )}
                 </span>
               </div>
               <div className="flex items-start justify-between gap-3">
@@ -388,6 +419,12 @@ export default function ContentManagementPage() {
                    preview.compliance_status === 'warn' ? '의료법 WARN' :
                    preview.compliance_status === 'fail' ? '의료법 FAIL' : '검수 대기'}
                 </span>
+                {preview.quality && (
+                  <>
+                    <span>·</span>
+                    <QualityBadge quality={preview.quality} />
+                  </>
+                )}
                 <span>·</span>
                 <span className="font-mono">{preview.llm_provider || preview.channel}</span>
                 <span>·</span>
@@ -644,6 +681,11 @@ function PendingTab({
                      q.compliance_status === 'warn' ? '의료법 WARN' :
                      q.compliance_status === 'fail' ? '의료법 FAIL' : '검수 대기'}
                   </div>
+                  {q.quality && (
+                    <div className="mt-1.5 flex justify-end">
+                      <QualityBadge quality={q.quality} />
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex items-center justify-between border-t border-border px-5 py-3 pl-6">
