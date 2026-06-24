@@ -94,11 +94,19 @@ export default function AbTestsPage() {
           데이터 로드 실패: {error}
         </div>
       ) : tests.length === 0 ? (
-        <div className="card px-6 py-12 text-center text-sm text-ink-muted">
+        <div className="card px-6 py-10 text-center text-sm text-ink-muted">
           <Beaker className="mx-auto mb-2 h-6 w-6 text-ink-faint" />
-          아직 진행 중인 테스트가 없습니다.
-          <div className="mt-1 text-[11px] text-ink-faint">
-            매주 자동으로, 학습 인사이트가 적용된 병원의 키워드를 골라 A/B 테스트를 생성합니다.
+          <div className="font-semibold text-ink-soft">아직 진행 중인 A/B 테스트가 없습니다</div>
+          <div className="mx-auto mt-4 max-w-md rounded-lg border border-border bg-surface-soft/50 p-4 text-left text-[12px] text-ink-muted">
+            <div className="mb-1.5 font-semibold text-ink-soft">A/B 테스트 시작하기</div>
+            <ol className="list-decimal space-y-1 pl-5">
+              <li><a href="/admin/learned-insights" className="font-semibold text-brand hover:underline">학습 인사이트</a>에서 인사이트를 <b>[적용]</b> 토글</li>
+              <li>GitHub Secret <code className="rounded bg-surface-base px-1 font-mono">LLM_PROVIDER</code> = <code className="rounded bg-surface-base px-1 font-mono">fallback</code> 확인</li>
+              <li>GitHub Actions → <b>A/B auto-generate</b> 워크플로 Run</li>
+            </ol>
+            <div className="mt-2 text-[11px] text-ink-faint">
+              같은 키워드로 A(베이스라인)·B(인사이트 반영) 변형 2개가 생성되고, 매일 AI 인용을 측정해 충분한 표본(인용 5건+)이 쌓이면 자동으로 승자를 판정합니다.
+            </div>
           </div>
         </div>
       ) : (
