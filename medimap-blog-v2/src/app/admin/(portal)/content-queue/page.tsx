@@ -422,18 +422,7 @@ export default function ContentManagementPage() {
                 <FaqPreview body={preview.body} />
               ) : preview.body?.includes('<') ? (
                 <article
-                  className={cn(
-                    'prose prose-slate mx-auto max-w-[680px]',
-                    'prose-headings:text-ink prose-headings:font-bold prose-h1:text-2xl prose-h1:mb-4 prose-h1:mt-0',
-                    'prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-3 prose-h2:border-b prose-h2:border-border prose-h2:pb-2',
-                    'prose-h3:text-base prose-h3:mt-6 prose-h3:mb-2',
-                    'prose-p:text-[15px] prose-p:leading-[1.85] prose-p:text-ink-soft',
-                    'prose-strong:text-ink prose-strong:font-bold',
-                    'prose-a:text-brand prose-a:no-underline hover:prose-a:underline',
-                    'prose-img:rounded-lg prose-img:shadow-sm prose-img:my-6',
-                    'prose-ul:my-4 prose-li:text-[15px] prose-li:leading-relaxed',
-                    'prose-blockquote:border-l-brand prose-blockquote:bg-brand-50/30 prose-blockquote:py-1'
-                  )}
+                  className="db-html-content mx-auto max-w-[680px] text-[15px] leading-[1.85]"
                   dangerouslySetInnerHTML={{ __html: preview.body }}
                 />
               ) : preview.body ? (

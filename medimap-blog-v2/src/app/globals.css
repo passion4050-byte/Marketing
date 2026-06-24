@@ -205,6 +205,30 @@ body {
 .db-html-content a {
   @apply text-brand underline-offset-2 hover:underline;
 }
+/* Round 81 — 검수 미리보기 가독성: 본문 위계(표/볼드/이미지) 스타일 보강 */
+.db-html-content strong {
+  @apply font-bold text-ink;
+}
+.db-html-content table {
+  @apply my-6 w-full border-collapse text-sm;
+}
+.db-html-content th,
+.db-html-content td {
+  @apply border border-border px-3 py-2 text-left;
+}
+.db-html-content th {
+  @apply bg-surface-soft font-semibold text-ink;
+}
+.db-html-content figure {
+  @apply my-6;
+}
+.db-html-content figure img,
+.db-html-content img {
+  @apply w-full h-auto rounded-lg;
+}
+.db-html-content figcaption {
+  @apply mt-1 text-[11.5px] text-ink-muted;
+}
 
 /* JSON 미리보기 (다크) */
 .json-preview {

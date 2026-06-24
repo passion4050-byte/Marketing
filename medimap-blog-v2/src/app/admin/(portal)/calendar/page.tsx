@@ -292,7 +292,7 @@ export default function ContentCalendarPage() {
                 </span>
               </div>
               {preview.body?.includes('<') ? (
-                <article className="prose prose-slate max-w-none prose-headings:text-ink prose-a:text-brand"
+                <article className="db-html-content max-w-none text-[15px] leading-[1.85]"
                   dangerouslySetInnerHTML={{ __html: preview.body }} />
               ) : (
                 <p className="whitespace-pre-wrap">{preview.body}</p>
