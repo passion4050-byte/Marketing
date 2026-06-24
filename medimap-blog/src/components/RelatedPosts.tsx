@@ -4,11 +4,19 @@ import type { PostMeta } from "@/lib/posts";
 export function RelatedPosts({
   posts,
   currentSlug,
+  currentCategory,
 }: {
   posts: PostMeta[];
   currentSlug: string;
+  /** Round 81 — 같은 카테고리(진료과/주제) 글을 우선 추천 → 내부 링크·체류시간·크롤 발견 ↑ */
+  currentCategory?: string;
 }) {
-  const others = posts.filter((p) => p.slug !== currentSlug).slice(0, 3);
+  const pool = posts.filter((p) => p.slug !== currentSlug);
+  const sameCat = currentCategory
+    ? pool.filter((p) => p.blogCategory === currentCategory)
+    : [];
+  const sameSlugs = new Set(sameCat.map((p) => p.slug));
+  const others = [...sameCat, ...pool.filter((p) => !sameSlugs.has(p.slug))].slice(0, 3);
   if (others.length === 0) return null;
   return (
     <section className="mx-auto mt-16 max-w-content">

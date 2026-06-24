@@ -376,10 +376,33 @@ function parseCoverCredit(
   return author && url ? { author, url } : undefined;
 }
 
+/** Round 81 — 본문의 질문형 H2 + 첫 답변 단락에서 FAQ Q&A 추출 → FAQPage 스키마 발동.
+ *  Type A(질문답변형) 글에서 People Also Ask / AI 발췌 유리. 비질문 글은 빈 배열. */
+const Q_PAT = /[?？]|(나요|까요|가요|인가요|있나요|되나요|무엇|어떻게|왜|언제|어디|얼마|몇)/;
+function extractFaqFromBody(body: string | null | undefined): { question: string; answer: string }[] {
+  if (!body) return [];
+  const faqs: { question: string; answer: string }[] = [];
+  const sections = body.split(/(?=<h2)/i);
+  for (const sec of sections) {
+    const h2 = sec.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
+    if (!h2) continue;
+    const q = (h2[1] || '').replace(/<[^>]+>/g, '').trim();
+    if (!q || !Q_PAT.test(q)) continue;
+    const after = sec.slice((h2.index ?? 0) + h2[0].length);
+    const p = after.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+    if (!p) continue;
+    const a = (p[1] || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+    if (a.length < 20) continue;
+    faqs.push({ question: q, answer: a });
+  }
+  return faqs.slice(0, 8); // Google FAQ 권장 상한
+}
+
 function dbRowToPost(row: DbPostRow): Post {
   return {
     ...dbRowToPostMeta(row),
     source: row.body,
+    faq: extractFaqFromBody(row.body),
   };
 }
 

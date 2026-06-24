@@ -240,7 +240,9 @@ export default async function BlogPostPage({
             <div className="mx-auto mt-10 prose-medimap">{heroImage}
           {content}</div>
 
-            {post.faq && post.faq.length > 0 && (
+            {/* Round 81 — DB 자동발행 글(html)은 본문 H2 가 이미 질문형이라 시각 FAQ 섹션 중복 →
+                MDX 글만 시각 노출. FAQPage 스키마(faqPageLd)는 두 경우 모두 발동(AEO). */}
+            {post.source_type !== "html" && post.faq && post.faq.length > 0 && (
               <section className="mx-auto mt-14 max-w-prose">
                 <h2 id="faq" className="text-2xl font-bold tracking-tight">
                   자주 묻는 질문
@@ -260,7 +262,7 @@ export default async function BlogPostPage({
           <TableOfContents />
         </div>
 
-        <RelatedPosts posts={allPosts} currentSlug={post.slug} />
+        <RelatedPosts posts={allPosts} currentSlug={post.slug} currentCategory={post.blogCategory} />
       </div>
     </>
   );
