@@ -404,6 +404,43 @@ def _post_has_md_table(post: BlogPost) -> bool:
     return False
 
 
+# Round 81 (2026-06-24) — A/B/C 리치 구조 로테이션.
+#   같은 키워드라도 시기별로, 다른 키워드끼리 구조가 달라 '중복감' 없이 다양한 리치 콘텐츠.
+#   3종 모두 표·목록·정의문·이미지를 포함(베이스 AEO 프롬프트가 강제) — SEO/AEO 상위노출 유리.
+_STRUCTURE_DIRECTIVES = {
+    "A": (
+        "[글 구조 A — 질문답변형(Q&A) 가이드]\n"
+        "- 모든 H2 를 환자가 실제로 검색·질문하는 자연어 문장으로(5~7개).\n"
+        "- 각 H2 도입부 첫 문장은 한 문장 정의형 답변(AI 가 그대로 발췌하기 좋게).\n"
+        "- 마지막 섹션에 '자주 묻는 질문' 3개를 짧게 Q/A 형태로.\n"
+        "- 비교/요약 마크다운 표 1개 + 핵심 항목 체크리스트(• 목록) 1개 필수."
+    ),
+    "B": (
+        "[글 구조 B — 비교·선택 가이드]\n"
+        "- 핵심은 '선택 기준'. 시술/방법/유형을 비교하는 마크다운 표를 2개 이상.\n"
+        "  (예: 종류별 특징 비교표, 장단점 표) 각 선택지의 '적합한 대상'을 명시.\n"
+        "- 'A vs B' 형태의 비교 소제목을 1개 이상 활용.\n"
+        "- 마지막에 '나에게 맞는 선택은?' 요약 체크리스트(• 목록)."
+    ),
+    "C": (
+        "[글 구조 C — 단계별 실행 가이드]\n"
+        "- 시간 순 단계(준비 → 과정 → 회복·관리)를 번호 목록(1. 2. 3.)으로 구성.\n"
+        "- 각 단계에 소요 기간/주의사항을 함께. '회복·관리 타임라인' 마크다운 표 1개.\n"
+        "- '준비물·체크리스트'(• 목록) 1개 이상 + 'N단계' 형태 소제목."
+    ),
+}
+
+
+def _pick_structure_type(keyword: str) -> str:
+    """키워드 + 발행일 기준 결정적 A/B/C 픽 — 같은 키워드도 날마다 구조가 달라짐."""
+    import datetime as _dt
+    import hashlib
+
+    h = int(hashlib.md5((keyword or "").encode("utf-8")).hexdigest(), 16)
+    idx = (h + _dt.date.today().timetuple().tm_yday) % 3
+    return "ABC"[idx]
+
+
 def generate_blog_post(
     session: Session,
     tenant_id: int,
@@ -496,6 +533,18 @@ def generate_blog_post(
                 )
         except Exception as e:  # noqa: BLE001
             logger.warning("blog.applied_insights_load_failed", error=str(e))
+
+    # Round 81 — A/B/C 리치 구조 로테이션. references_block 에 구조 디렉티브 주입
+    #   (provider 스레딩 불필요). 베이스 AEO 프롬프트의 표/정의문/이미지 요건 위에 형태만 다르게.
+    _structure_type = _pick_structure_type(keyword)
+    _structure_directive = _STRUCTURE_DIRECTIVES.get(_structure_type, "")
+    if _structure_directive:
+        references_block = (
+            f"{_structure_directive}\n\n{references_block}".strip()
+            if references_block
+            else _structure_directive
+        )
+        logger.info("blog.structure_type", keyword=keyword, structure=_structure_type)
 
     tenant_data_block = base_tenant_data
 
