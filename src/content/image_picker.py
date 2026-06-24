@@ -194,12 +194,14 @@ def generate_image_for_content(
                 subdir="cover",
             )
             if uns and uns.get("url"):
-                # Round 81 — Unsplash 약관: 작가 크레딧을 cover_image_alt 에 넣어 figcaption 노출.
-                credit = f"Photo by {uns.get('author', 'Unsplash')} on Unsplash"
+                # Round 81 — Unsplash 약관: 작가 크레딧(이름|프로필링크)을 cover_image_prompt 에
+                #   파싱 가능한 형태로 저장 → 블로그 figcaption 이 클릭 가능한 링크로 렌더.
+                _author = uns.get("author", "Unsplash")
+                _alink = uns.get("author_link", "https://unsplash.com")
                 return {
                     "url": uns["url"],
-                    "alt": f"{title or keyword} · {credit}",
-                    "prompt": f"unsplash:{unsplash_query} | {uns.get('author_link', '')}",
+                    "alt": f"{title or keyword}",
+                    "prompt": f"unsplash_credit|{_author}|{_alink}",
                     "generated_at": datetime.now(timezone.utc).isoformat(),
                     "source": "unsplash",
                 }

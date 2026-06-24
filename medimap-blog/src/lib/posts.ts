@@ -109,6 +109,8 @@ export interface PostMeta {
   source_type: PostSourceType;
   cover_image_url?: string;
   cover_image_alt?: string;
+  /** Round 81 — Unsplash 사진 출처(작가명 + 프로필 링크). 약관 준수 figcaption 링크용. */
+  coverCredit?: { author: string; url: string };
   /** Round 16 — 자사 인사이트 카테고리 (content_marketing / ai_trend / hospital_marketing). 파트너 콘텐츠는 undefined. */
   blogCategory?: BlogCategorySlug;
 }
@@ -186,6 +188,7 @@ interface DbPostRow {
   updated_at: string;
   cover_image_url: string | null;
   cover_image_alt: string | null;
+  cover_image_prompt: string | null;
 }
 
 const DB_SELECT = `
@@ -195,7 +198,7 @@ const DB_SELECT = `
   gc.slug, gc.title, gc.excerpt, gc.blog_category,
   gc.published_at,
   gc.created_at, gc.updated_at,
-  gc.cover_image_url, gc.cover_image_alt
+  gc.cover_image_url, gc.cover_image_alt, gc.cover_image_prompt
 `;
 
 const DB_FILTER = `
@@ -357,7 +360,20 @@ function dbRowToPostMeta(row: DbPostRow): PostMeta {
     cover: row.cover_image_url ?? undefined,
     cover_image_url: row.cover_image_url ?? undefined,
     cover_image_alt: row.cover_image_alt ?? undefined,
+    coverCredit: parseCoverCredit(row.cover_image_prompt),
   };
+}
+
+/** Round 81 — cover_image_prompt 에 저장된 "unsplash_credit|작가|프로필링크" 파싱. */
+function parseCoverCredit(
+  prompt: string | null | undefined,
+): { author: string; url: string } | undefined {
+  const p = (prompt ?? "").trim();
+  if (!p.startsWith("unsplash_credit|")) return undefined;
+  const parts = p.split("|");
+  const author = (parts[1] ?? "").trim();
+  const url = (parts[2] ?? "").trim();
+  return author && url ? { author, url } : undefined;
 }
 
 function dbRowToPost(row: DbPostRow): Post {

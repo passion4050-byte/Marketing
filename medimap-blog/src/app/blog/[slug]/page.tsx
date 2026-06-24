@@ -102,9 +102,32 @@ export default async function BlogPostPage({
         loading="eager"
         decoding="async"
       />
-      {post.cover_image_alt && (
+      {(post.coverCredit || post.cover_image_alt) && (
         <figcaption className="px-4 py-2 text-[11.5px] text-ink-subtle">
-          {post.cover_image_alt}
+          {post.coverCredit ? (
+            <>
+              Photo by{" "}
+              <a
+                href={post.coverCredit.url}
+                target="_blank"
+                rel="noopener nofollow"
+                className="underline hover:text-ink"
+              >
+                {post.coverCredit.author}
+              </a>{" "}
+              on{" "}
+              <a
+                href="https://unsplash.com/?utm_source=medimap&utm_medium=referral"
+                target="_blank"
+                rel="noopener nofollow"
+                className="underline hover:text-ink"
+              >
+                Unsplash
+              </a>
+            </>
+          ) : (
+            post.cover_image_alt
+          )}
         </figcaption>
       )}
     </figure>
