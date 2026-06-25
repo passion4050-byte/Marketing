@@ -34,6 +34,7 @@ from src.content.llm import (
     FAQPair,
     GenerationResult,
     InstagramGenerationResult,
+    LLMError,
     LLMProvider,
     NaverBlogGenerationResult,
     check_daily_budget,
@@ -568,22 +569,30 @@ def generate_blog_post(
             n_refs=len(references),
             n_images=image_count,
         )
-        last_result = provider.generate_blog_post(
-            keyword=keyword,
-            tenant_name=tenant.name,
-            tenant_category=tenant.domain_category,
-            tenant_region=tenant.region,
-            tenant_address=tenant.address or "",
-            tenant_naver_place_url=tenant.naver_place_url or "",
-            tenant_homepage=tenant.homepage or "",
-            tenant_phone=tenant.phone or "",
-            references_block=references_block,
-            tenant_data_block=tenant_data_block,
-            image_count=image_count,
-            target_chars=target_chars,
-            angle=angle,
-            correction_hint=correction_hint,
-        )
+        try:
+            last_result = provider.generate_blog_post(
+                keyword=keyword,
+                tenant_name=tenant.name,
+                tenant_category=tenant.domain_category,
+                tenant_region=tenant.region,
+                tenant_address=tenant.address or "",
+                tenant_naver_place_url=tenant.naver_place_url or "",
+                tenant_homepage=tenant.homepage or "",
+                tenant_phone=tenant.phone or "",
+                references_block=references_block,
+                tenant_data_block=tenant_data_block,
+                image_count=image_count,
+                target_chars=target_chars,
+                angle=angle,
+                correction_hint=correction_hint,
+            )
+        except LLMError as e:
+            # Round 81 — provider 호출/JSON 파싱 실패(예: Gemini 429 폴백 → Claude malformed JSON).
+            #   재시도 기회가 남았으면 다음 attempt 로(Claude 가 valid JSON 낼 확률↑). 소진 시 raise.
+            logger.warning("blog.provider_error_retry", attempt=attempt, error=str(e)[:200])
+            if attempt < max_corrections:
+                continue
+            raise
         _bit, _bot = getattr(provider, "_last_usage", (0, 0))  # Round 81 — 실토큰 미터링
         _log_llm_call(
             session, tenant_id,
