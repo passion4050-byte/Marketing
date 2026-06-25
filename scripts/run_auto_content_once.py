@@ -35,9 +35,16 @@ def main() -> int:
         return 2
 
     print(json.dumps(result, ensure_ascii=False))
-    # tenants > 0 + (drafts + published) > 0 이면 정상 동작
-    if result.get("errors", 0) > 0:
+    # Round 81 — 부분 성공은 성공으로 처리. 1건이라도 생성되면 exit 0.
+    #   (Gemini 무료 quota 429 / 가끔 malformed JSON 으로 일부 글이 실패해도
+    #    나머지가 생성됐으면 워크플로를 '전체 실패'로 표시하지 않음.)
+    produced = result.get("drafts", 0) + result.get("published", 0)
+    errors = result.get("errors", 0)
+    if produced == 0 and errors > 0:
+        print(f"ERROR: 생성 0건 + 실패 {errors}건 — 전체 실패", file=sys.stderr)
         return 3
+    if errors > 0:
+        print(f"WARNING: {errors}건 실패했지만 {produced}건 생성됨 — 부분 성공(정상 종료)", file=sys.stderr)
     return 0
 
 
