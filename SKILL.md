@@ -3893,3 +3893,49 @@ CREATE TABLE applied_insights (
   - `generate_blog_post`: max_tokens 4096 → 8192, stop_reason 체크
   - `generate_faq`: max_tokens 2048 → 4096, stop_reason 체크
 
+---
+
+## Round 82 (2026-06-26) — geo-v2 빌드 복구 · with-partners 누적 버그 · 콘텐츠 품질/구조 다양화 · 전체 감사
+
+> 집/사무실 이어가기: `git pull` 후 "SKILL.md Round 82 읽고 이어서 작업".
+
+### 한 일 (코드는 푸시 대상 · DB 변경은 라이브 Supabase 반영 완료)
+
+**1. geo-v2(admin) Vercel 빌드 2일째 전부 실패 복구 (함정 CU)**
+- 원인: Round 81에서 추가한 `.db-html-content th { @apply bg-surface-soft ... }` — geo-v2 tailwind에 `surface-soft` 토큰 없음(surface는 base/subtle/muted뿐). className과 달리 `@apply` 미정의 토큰은 **빌드 자체를 깸**.
+- 수정: `medimap-blog-v2/src/app/globals.css` `bg-surface-soft`→`bg-surface-subtle`(1줄). 블로그(medimap-blog)는 별개 프로젝트라 정상이었음.
+
+**2. /with-partners 글이 안 쌓이던 구조적 버그 (함정 CV, CW)**
+- 진단: 페이지 8건만 노출. 발행은 매일 되는데(최근 3일 13건) with-partners엔 0건 누적.
+- 근본원인 ①: 파트너 `auto_content_settings.channels=null`+`daily_count=1` → scheduler `default_channels[0]="schema_org"`만 생성. schema_org=FAQ JSON-LD(slug·본문 없음)→**with-partners 페이지 원천 생성 불가**. blog_html(실제 기사)은 메디맵 self(t12)만 명시 생성.
+- 근본원인 ②: with-partners 필터는 `is_partner_content+partner_category+slug` 3필드 동시 요구인데 **어떤 발행경로도 셋을 동시에 안 채움**(cron=slug만, admin승인=태깅만). 운영자가 최근 승인한 건 전부 schema_org(slug 없음)→헛수고.
+- 수정: DB(라이브) 파트너 6곳(4·5·6·8·9·10) `channels=['blog_html']`+`auto_publish=true`(사용자 결정=자동발행, 의료법 린터가 warn/fail 차단 유지). scheduler `_map_partner_category()` + blog_html 발행 시 raw SQL로 slug/published_at(공통)+is_partner_content/partner_category(파트너) 보장. admin `[id]/route.ts` 승인 시 slug 자동생성.
+
+**3. 콘텐츠 품질 P1 — cron 글에 이미지가 아예 안 붙던 버그 (함정 CW)**
+- scheduler 이미지 블록 `obj.title` → `title` ORM 미매핑 → AttributeError → 바깥 `except: pass`에 삼켜져 **모든 글 cover/본문 이미지 생성이 통째로 죽어있었음**. raw SQL `SELECT title`로 복원.
+
+**4. 콘텐츠 구조 획일화 방지 (사용자 최우선)**
+- `src/content/generator.py`: 아키타입 3종(A/B/C)→**7종(A~G)** + **변주 레이어**(`_build_variation_block`: 랜덤 도입부·어조·반복방지 지침). 아키타입(결정적)×변주(랜덤)로 매 글이 다른 형태. 모든 구조가 표·목록·정의형 첫문장 유지→AEO/SEO 상위노출 유지.
+
+**5. medimap-blog 공개 블로그 P1 (함정 CX)**
+- `posts.ts` `getDbPostRowBySlug` SELECT가 `blog_category`·`cover_image_*` 누락 → 콜드 by-slug 로드 시 커버·크레딧·카테고리 유실. 리스트 `DB_SELECT`와 동일 컬럼으로 통일. + `tailwind.config.ts`에 `ink.soft` 토큰 추가(text-ink-soft 미정의 가독성 버그).
+
+### 전체 감사 (3 코드베이스 병렬 · 검증된 실버그만 수정)
+- medimap-blog: P1 by-slug 컬럼(수정)·P2 ink-soft(수정), 나머지 clean.
+- geo-v2: P0 빌드 1건(수정). 인증 fail-closed·.single·prose부재 양호. P2 dormant(funnel/cost NaN, NaN tenantId 가드, Fragment key) 보류.
+- Python: P1 2건(이미지·slug 수정). compliance 4채널 강제·가드레일·tenant격리·fallback 정상. P2(faq/naver/insta USD 토큰 미터링 0, run_ab_auto exit0, ab-auto MAX_* env) 보류.
+
+### 신규 함정 (CU~CX)
+- **CU** geo-v2 `@apply` 미정의 토큰→빌드 깸(className은 무음). geo-v2 typography 플러그인 없음·surface=base/subtle/muted뿐.
+- **CV** with-partners 누적 0: 파트너 channels=null→schema_org만(slug없음→페이지불가)+3필드 동시충족 경로 부재.
+- **CW** GeneratedContent ORM이 slug/is_partner_content/partner_category/title/published_at **미매핑** → `obj.title`=AttributeError(이미지 죽음), `hasattr(obj,"slug")`=항상False. 이 컬럼은 **raw SQL**로만 읽고 쓸 것.
+- **CX** posts.ts by-slug SELECT≠list SELECT → 콜드 로드 데이터 유실. 두 쿼리 동일 컬럼셋 유지.
+- (재확인 **CE**) bash 마운트가 Edit 결과 truncated로 읽어 py_compile phantom SyntaxError(`wc -l` 976 vs 실제 980+). 권위=Read+격리 /tmp 컴파일(편집 함수만 추출).
+
+### 푸시 대상 파일 (6)
+`medimap-blog-v2/src/app/globals.css` · `medimap-blog-v2/src/app/api/admin/content-queue/[id]/route.ts` · `src/collector/scheduler.py` · `src/content/generator.py` · `medimap-blog/src/lib/posts.ts` · `medimap-blog/tailwind.config.ts`
+(DB: auto_content_settings 파트너 6곳 — 라이브 반영 완료, 푸시 불필요)
+
+### 즉시 효과 가속 (선택)
+파트너는 회전(하루 1곳)이라 6일에 6곳 1편씩. 즉시 보고 싶으면 GitHub Actions `auto-publish` 수동 Run 여러 번(매 Run 1 파트너 기사, 회전).
+

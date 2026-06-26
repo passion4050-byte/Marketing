@@ -263,13 +263,19 @@ async function getDbPostRowBySlug(slug: string): Promise<DbPostRow | null> {
   const sql = getSql();
   if (!sql) return null;
   try {
+    // Round 82 (2026-06-26): 콜드 by-slug 로드 시 cover/카테고리/크레딧 유실 버그 수정.
+    //   기존 SELECT 가 blog_category·cover_image_* 를 빠뜨려, 리스트 캐시에 없던 글을
+    //   직접 URL 로 열면 히어로 이미지·Unsplash 크레딧·카테고리가 사라졌음.
+    //   리스트 쿼리(DB_SELECT)와 동일 컬럼으로 통일.
     const rows = await sql<DbPostRow[]>`
       SELECT
         gc.id, gc.tenant_id, t.name AS tenant_name,
         gc.channel, gc.keyword_text, gc.body,
         gc.compliance_status, gc.status,
-        gc.slug, gc.title, gc.excerpt, gc.published_at,
-        gc.created_at, gc.updated_at
+        gc.slug, gc.title, gc.excerpt, gc.blog_category,
+        gc.published_at,
+        gc.created_at, gc.updated_at,
+        gc.cover_image_url, gc.cover_image_alt, gc.cover_image_prompt
       FROM generated_contents gc
       LEFT JOIN tenants t ON t.id = gc.tenant_id
       WHERE gc.slug = ${slug}

@@ -405,9 +405,10 @@ def _post_has_md_table(post: BlogPost) -> bool:
     return False
 
 
-# Round 81 (2026-06-24) — A/B/C 리치 구조 로테이션.
-#   같은 키워드라도 시기별로, 다른 키워드끼리 구조가 달라 '중복감' 없이 다양한 리치 콘텐츠.
-#   3종 모두 표·목록·정의문·이미지를 포함(베이스 AEO 프롬프트가 강제) — SEO/AEO 상위노출 유리.
+# Round 81 (2026-06-24) → Round 82 (2026-06-26) — 리치 구조 로테이션 확장(3→7종).
+#   목적: 콘텐츠가 누적돼도 '획일화'되지 않게 — 반복적 구조는 AI 생성 티가 나고 SEO 에도 불리.
+#   모든 구조가 표·목록·정의문·이미지(베이스 AEO 프롬프트가 강제)를 포함 → SEO/AEO 상위노출 유지.
+#   7종 아키타입 × (도입부·어조·반복방지) 변주 레이어 → 사실상 매 발행물이 다른 형태.
 _STRUCTURE_DIRECTIVES = {
     "A": (
         "[글 구조 A — 질문답변형(Q&A) 가이드]\n"
@@ -429,17 +430,81 @@ _STRUCTURE_DIRECTIVES = {
         "- 각 단계에 소요 기간/주의사항을 함께. '회복·관리 타임라인' 마크다운 표 1개.\n"
         "- '준비물·체크리스트'(• 목록) 1개 이상 + 'N단계' 형태 소제목."
     ),
+    "D": (
+        "[글 구조 D — 오해·진실 교정형]\n"
+        "- 흔한 오해/잘못된 통념 3~5개를 짚고 각각 근거로 바로잡는 구성.\n"
+        "- '오해 vs 사실'을 대비하는 마크다운 표 1개(왼쪽 오해 / 오른쪽 사실).\n"
+        "- 각 항목 첫 문장은 사실을 단정적으로(과장 없이) 한 문장 정의형으로.\n"
+        "- 마지막에 '꼭 기억할 핵심'(• 목록) 요약."
+    ),
+    "E": (
+        "[글 구조 E — 사례·시나리오 중심]\n"
+        "- 대표적인 환자 상황/고민 시나리오 2~3개를 들고 각 상황별 접근을 설명(가상의 일반화, 특정인 단정 금지).\n"
+        "- 상황별 고려사항을 정리한 마크다운 표 1개 + 단계 체크리스트(• 목록).\n"
+        "- 각 섹션 도입부는 상황 묘사 → 한 문장 정의형 핵심으로 연결.\n"
+        "- 의료법상 효과 단정·치료 보장 표현 금지(객관적 정보 위주)."
+    ),
+    "F": (
+        "[글 구조 F — 비용·기간·고려사항 정보 정리형]\n"
+        "- '무엇을 따져봐야 하는가'를 정보 위주로 정리(표 중심).\n"
+        "- 항목별 비교/고려요소 마크다운 표 2개 이상(예: 고려사항 표, 기간·관리 표).\n"
+        "  ※ 구체적 가격·할인 단정 표기 금지 — '비용에 영향을 주는 요소' 식 일반 정보로.\n"
+        "- 핵심 요약(• 목록) 1개 + 정의형 첫 문장 H2 2개 이상."
+    ),
+    "G": (
+        "[글 구조 G — 초보자 핵심정리(한눈에)]\n"
+        "- 처음 접하는 독자 기준으로 핵심만 간결히. 짧은 정의형 H2 6개 내외.\n"
+        "- '한눈에 보기' 요약 마크다운 표 1개 + 용어 풀이(• 목록) 1개.\n"
+        "- 각 H2 첫 문장은 쉬운 한 문장 정의(전문용어는 괄호로 풀어서)."
+    ),
 }
 
 
 def _pick_structure_type(keyword: str) -> str:
-    """키워드 + 발행일 기준 결정적 A/B/C 픽 — 같은 키워드도 날마다 구조가 달라짐."""
+    """키워드 + 발행일 기준 결정적 구조 픽 — 같은 키워드도 날마다, 키워드끼리 구조가 달라짐.
+
+    아키타입 수가 늘어도 자동 반영(% len). 결정적이라 A/B 테스트·재현에 안정적.
+    """
     import datetime as _dt
     import hashlib
 
+    keys = list(_STRUCTURE_DIRECTIVES.keys())
     h = int(hashlib.md5((keyword or "").encode("utf-8")).hexdigest(), 16)
-    idx = (h + _dt.date.today().timetuple().tm_yday) % 3
-    return "ABC"[idx]
+    idx = (h + _dt.date.today().timetuple().tm_yday) % len(keys)
+    return keys[idx]
+
+
+# Round 82 — 변주 레이어. 같은 아키타입이라도 도입부·어조·표현이 매번 달라지도록.
+#   아키타입(결정적) × 변주(랜덤) → 누적 발행물의 '템플릿 느낌' 제거.
+_OPENING_STYLES = [
+    "핵심 결론을 한 문장으로 먼저 제시한 뒤 근거를 푸는 역피라미드식",
+    "독자가 흔히 하는 고민·질문을 던지며 공감으로 여는 방식",
+    "왜 지금 이 주제가 중요한지(최근 관심 맥락)로 시작하는 방식",
+    "흔한 오해를 먼저 짚고 바로잡으며 시작하는 방식",
+    "구체적인 상황·장면을 짧게 묘사한 뒤 본론으로 들어가는 방식",
+]
+_TONE_HINTS = [
+    "신뢰감 있는 전문가 톤(과장·단정 없이 근거 중심)",
+    "친근하고 쉬운 설명체(어려운 용어는 풀어서)",
+    "차분히 안내하는 상담 톤",
+    "데이터·근거를 앞세운 분석적 톤",
+]
+
+
+def _build_variation_block() -> str:
+    """이번 발행물만의 도입부·어조 + 반복 방지 지침. 매 호출 랜덤 → 획일화 차단."""
+    import random
+
+    opening = random.choice(_OPENING_STYLES)
+    tone = random.choice(_TONE_HINTS)
+    return (
+        "[이번 글의 변주 — 매 발행물을 다르게]\n"
+        f"- 도입부 방식: {opening}.\n"
+        f"- 어조: {tone}.\n"
+        "- 소제목(H2)은 'OOO이란?', 'OOO 장점' 같은 정형 틀 반복을 피하고 자연어로 다양하게.\n"
+        "- 문단 길이를 균일하게 하지 말 것(짧은 문단·긴 문단을 섞어 사람이 쓴 리듬으로).\n"
+        "- 섹션 순서·예시·표현을 이번 글만의 방식으로 구성(직전 글과 비슷해 보이지 않게)."
+    )
 
 
 def generate_blog_post(
@@ -535,15 +600,20 @@ def generate_blog_post(
         except Exception as e:  # noqa: BLE001
             logger.warning("blog.applied_insights_load_failed", error=str(e))
 
-    # Round 81 — A/B/C 리치 구조 로테이션. references_block 에 구조 디렉티브 주입
+    # Round 81→82 — 리치 구조(7종) + 변주 레이어 주입. references_block 에 디렉티브 주입
     #   (provider 스레딩 불필요). 베이스 AEO 프롬프트의 표/정의문/이미지 요건 위에 형태만 다르게.
+    #   아키타입(결정적) + 변주(랜덤 도입부·어조·반복방지) → 누적 발행물의 획일화 차단.
     _structure_type = _pick_structure_type(keyword)
     _structure_directive = _STRUCTURE_DIRECTIVES.get(_structure_type, "")
-    if _structure_directive:
+    _variation_block = _build_variation_block()
+    _combined_directive = "\n\n".join(
+        d for d in (_structure_directive, _variation_block) if d
+    )
+    if _combined_directive:
         references_block = (
-            f"{_structure_directive}\n\n{references_block}".strip()
+            f"{_combined_directive}\n\n{references_block}".strip()
             if references_block
-            else _structure_directive
+            else _combined_directive
         )
         logger.info("blog.structure_type", keyword=keyword, structure=_structure_type)
 

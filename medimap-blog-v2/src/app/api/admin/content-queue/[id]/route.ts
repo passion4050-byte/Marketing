@@ -38,6 +38,24 @@ function mapCategory(domainCategory: string | null | undefined): string | null {
   return CATEGORY_MAP[trimmed] ?? null;
 }
 
+/**
+ * Round 82 (2026-06-26): 승인 시 slug 자동 생성.
+ *   기존 버그 — approve 가 is_partner_content/partner_category 는 채우면서 slug 는
+ *   안 채워, 수동 승인된 파트너 blog_html 이 /with-partners 의 `slug IS NOT NULL` 필터에
+ *   걸려 안 보였음. cron(자동발행)은 scheduler 가 채우지만, 수동 승인 경로도 보강.
+ *   영문/숫자만 추출 + id suffix (충돌 0). 한글만 있으면 'post-{id}'.
+ */
+function makeSlug(keyword: string | null | undefined, id: number | string): string {
+  const base = (keyword || '')
+    .replace(/[^a-zA-Z0-9\s-]+/g, '')
+    .trim()
+    .replace(/[\s_]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase()
+    .slice(0, 40);
+  return `${base || 'post'}-${id}`;
+}
+
 interface RouteCtx {
   params: Promise<{ id: string }>;
 }
@@ -53,7 +71,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
   // 우선 row + tenant 정보 조회 — tenant_id 의 domain_category + partner_slug 를 보고 partner_category 결정
   const { data: row, error: fetchError } = await sb
     .from('generated_contents')
-    .select('id, tenant_id, partner_category, is_partner_content, slug, tenants:tenant_id ( partner_slug, domain_category )')
+    .select('id, tenant_id, keyword_text, channel, partner_category, is_partner_content, slug, tenants:tenant_id ( partner_slug, domain_category )')
     .eq('id', id)
     .single();
   if (fetchError || !row) {
@@ -88,6 +106,11 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
   if (isPartnerTenant) {
     update.is_partner_content = true;
     if (mappedCategory) update.partner_category = mappedCategory;
+    // slug 가 비어있으면 자동 생성 — /with-partners 노출 필수 (blog_html 만 페이지화)
+    const existingSlug = (row.slug ?? '').toString().trim();
+    if (!existingSlug && row.channel === 'blog_html') {
+      update.slug = makeSlug((row as { keyword_text?: string }).keyword_text, row.id);
+    }
   }
 
   const { data: updated, error } = await sb

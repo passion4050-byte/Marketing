@@ -344,6 +344,59 @@ def _generate_draft(
             obj.status = "draft"
         s.commit()
 
+        # Round 82 (2026-06-26) — 파트너 blog_html: /with-partners 노출 3필드 보장.
+        #   with-partners 필터는 is_partner_content + partner_category + slug 를 모두 요구.
+        #   ORM 모델(GeneratedContent)에 이 3컬럼이 미매핑이라 obj.slug 등 hasattr 가
+        #   False → 기존 ORM 경로가 조용히 스킵됐음. raw SQL UPDATE 로 직접 채운다.
+        #   자사 tenant(메디맵)는 제외 — /blog 전용이라 partner_category 불필요.
+        #   slug/partner_category 는 기존 값이 있으면 보존(운영자 수동 편집 비파괴).
+        if channel == "blog_html":
+            # (1) slug + published_at — self/partner 공통. /blog·/with-partners 모두 slug 필수.
+            #     ORM 미매핑이라 raw SQL. 기존 값 보존(운영자 수동 편집 비파괴).
+            #     Round 82: 기존 auto_publish 분기의 hasattr(obj,"slug") 가 항상 False 라
+            #     slug/published_at 이 한 번도 안 채워지던 버그를 여기서 일괄 해결.
+            try:
+                from sqlalchemy import text as _sql_slug
+                s.execute(
+                    _sql_slug(
+                        "UPDATE generated_contents SET "
+                        "slug = COALESCE(NULLIF(slug, ''), :slug), "
+                        "published_at = CASE WHEN status = 'published' AND published_at IS NULL "
+                        "                    THEN NOW() ELSE published_at END "
+                        "WHERE id = :id"
+                    ),
+                    {"slug": _make_slug(keyword, obj.id), "id": obj.id},
+                )
+                s.commit()
+            except Exception:
+                pass
+            # (2) 파트너 전용 — /with-partners 노출용 is_partner_content + partner_category.
+            #     자사 tenant(메디맵)는 제외(/blog 전용).
+            try:
+                from src.storage.models import Tenant as _TenantPC
+                _tpc = s.get(_TenantPC, tenant_id)
+                _pslug = (getattr(_tpc, "partner_slug", "") or "").strip().lower()
+                _is_self_pc = (
+                    (getattr(_tpc, "business_model", "") or "").strip().lower() == "self"
+                    or _pslug == "medimap-self"
+                )
+                if _tpc is not None and _pslug and not _is_self_pc:
+                    _cat = _map_partner_category(getattr(_tpc, "domain_category", None))
+                    from sqlalchemy import text as _sql_text_pc
+                    s.execute(
+                        _sql_text_pc(
+                            "UPDATE generated_contents SET "
+                            "is_partner_content = true, "
+                            "partner_category = COALESCE(NULLIF(partner_category, ''), :cat) "
+                            "WHERE id = :id"
+                        ),
+                        {"cat": _cat, "id": obj.id},
+                    )
+                    s.commit()
+            except Exception:
+                # 태깅 실패는 발행 차단 사유 아님 — 다음 cron 에서 재시도 가능
+                pass
+
         # 2026-05-24: blog_html 자동 발행 시 Pollinations.AI 일러스트 자동 첨부.
         # 2026-05-28 Round 22: cover 1장 + 본문 N장 (content_settings.image_count_total - 1).
         # IMAGE_GEN_ENABLED=true 일 때만. 실패해도 발행 자체는 진행 (graceful).
@@ -369,8 +422,21 @@ def _generate_draft(
                         )
                     except Exception:  # noqa: BLE001
                         pass
+                    # Round 82 fix: obj.title 은 ORM 미매핑 → AttributeError 가
+                    #   바깥 except 에 삼켜져 '모든 글의 이미지 생성'이 통째로 죽어있었음.
+                    #   title 을 raw SQL 로 안전하게 읽어 이미지 프롬프트 품질 복원.
+                    _title_for_img = ""
+                    try:
+                        from sqlalchemy import text as _sql_title
+                        _tr = s.execute(
+                            _sql_title("SELECT title FROM generated_contents WHERE id=:id"),
+                            {"id": obj.id},
+                        ).first()
+                        _title_for_img = (_tr[0] if _tr else "") or ""
+                    except Exception:
+                        _title_for_img = ""
                     img = generate_image_for_content(
-                        keyword, obj.title, is_self_tenant=_is_self_for_image
+                        keyword, _title_for_img, is_self_tenant=_is_self_for_image
                     )
                     if img:
                         from sqlalchemy import text as _sql_text
@@ -412,6 +478,26 @@ def _generate_draft(
                 pass
 
         return obj.status
+
+
+def _map_partner_category(domain_category: str | None) -> str | None:
+    """tenants.domain_category → /with-partners 카테고리 slug.
+
+    medimap-blog-v2 ``content-queue/[id]/route.ts`` 의 CATEGORY_MAP 과 동일하게 유지.
+    매핑에 없으면 None (카테고리 불명 → with-partners 미노출, 안전).
+    """
+    if not domain_category:
+        return None
+    _m = {
+        "안과": "eyeclinic", "피부과": "derma", "성형외과": "plastic",
+        "치과": "dental", "내과": "internal", "모발이식": "hair",
+        "한방의원": "oriental", "한방": "oriental",
+        # 영문 별칭도 허용
+        "eyeclinic": "eyeclinic", "derma": "derma", "plastic": "plastic",
+        "dental": "dental", "internal": "internal", "hair": "hair",
+        "oriental": "oriental",
+    }
+    return _m.get(domain_category.strip())
 
 
 def _map_blog_category(keyword: str, title: str = "") -> str:

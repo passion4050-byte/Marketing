@@ -39,6 +39,9 @@ const config: Config = {
         ink: {
           DEFAULT: "#0B1224",
           muted: "#364153",
+          // Round 82: 여러 페이지가 text-ink-soft 를 쓰는데 토큰이 없어 색이 안 먹던
+          //   가독성 버그 수정. muted 와 subtle 사이 중간 본문 보조색.
+          soft: "#475467",
           subtle: "#667085",
         },
         surface: {
