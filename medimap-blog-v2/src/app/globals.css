@@ -217,7 +217,7 @@ body {
   @apply border border-border px-3 py-2 text-left;
 }
 .db-html-content th {
-  @apply bg-surface-soft font-semibold text-ink;
+  @apply bg-surface-subtle font-semibold text-ink;
 }
 .db-html-content figure {
   @apply my-6;
