@@ -3939,3 +3939,23 @@ CREATE TABLE applied_insights (
 ### 즉시 효과 가속 (선택)
 파트너는 회전(하루 1곳)이라 6일에 6곳 1편씩. 즉시 보고 싶으면 GitHub Actions `auto-publish` 수동 Run 여러 번(매 Run 1 파트너 기사, 회전).
 
+### Round 82-b — 색인 자동화 (IndexNow) + GSC 진단
+**사실(중요):** Google은 **블로그 강제 자동색인 불가**. Indexing API는 JobPosting/BroadcastEvent 전용(블로그=ToS 위반), 사이트맵 핑은 2023.6 폐기. 새 글 색인 자동화의 정식 수단은 ① 사이트맵 자동 갱신(이미 됨) ② 내부링크(이미 충분: 글로벌 네비+breadcrumb+RelatedPosts+/blog 인덱스). Google 크롤은 Google이 결정.
+
+**GSC 현상태:** `/sitemap.xml` 제출됨(6/22)인데 **"가져올 수 없음" + 발견 0 + 마지막 읽은 날짜 없음**. 사이트맵 자체는 200·valid XML 서빙됨(robots.txt에 선언, Googlebot 허용). 원인=**vercel.app 무료 서브도메인 크롤 후순위/콜드 페치**. 해결: GSC에서 사이트맵 **제거 후 재제출**(재시도 강제) + 결정적으로 **커스텀 도메인**.
+
+**구축한 것 — IndexNow 자동 핑 (네이버·Bing·Yandex, Google 제외):**
+- `medimap-blog/public/8f3a2c1b9d7e4056a1c2f3b4e5d60718.txt` — 공개 키 파일(비밀 아님).
+- `src/collector/indexnow.py` — `submit_urls()` + `build_post_url()`(파트너→/with-partners/{cat}/{slug}/{post}, 자사→/blog/{post}).
+- `src/collector/scheduler.py` — published blog_html 발행 직후 자동 핑(graceful, 실패해도 발행 무관). 키는 하드코딩 공개값이라 **GitHub secret 불필요**.
+- 효과: 한국 의료 사이트라 **네이버** 즉시 통지가 핵심. Google엔 영향 없음(IndexNow 미지원).
+
+**사람이 1회 해야(자동화 불가):**
+- GSC → Sitemaps → `sitemap.xml` 제거 후 재제출(가져올 수 없음 재시도).
+- 네이버 서치어드바이저(searchadvisor.naver.com) 사이트 등록 + 사이트맵 제출(KR 검색 핵심).
+- (결정타) 커스텀 도메인 blog.medi-map.co.kr — vercel.app 색인 천장 우회. 코드 `NEXT_PUBLIC_SITE_URL` 지원(설정 시 IndexNow URL·사이트맵 모두 자동 전환).
+
+**Round 82 with-partners 후속:** id156(파트너 blog_html) cron이 코드 푸시 직전 구버전으로 돌아 태깅 누락 → SQL 백필로 즉시 노출(visible 8→9). 이후 cron은 푸시된 코드로 자동 태깅.
+
+**추가 푸시 파일(Round 82-b):** `src/collector/indexnow.py`(신규) · `src/collector/scheduler.py`(IndexNow 핑) · `medimap-blog/public/8f3a2c1b9d7e4056a1c2f3b4e5d60718.txt`(신규)
+

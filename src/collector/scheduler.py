@@ -477,6 +477,33 @@ def _generate_draft(
                 # 이미지 실패는 발행 차단 사유 아님 — silent log only
                 pass
 
+        # Round 82 — IndexNow 자동 핑(네이버·Bing·Yandex). published blog_html 만.
+        #   Google 은 IndexNow 미지원이나, KR 검색(네이버)에 발행 즉시 통지 가치.
+        #   실패는 발행과 무관(graceful) — 네트워크 미허용/오류 시 조용히 skip.
+        if obj.status == "published" and channel == "blog_html":
+            try:
+                from sqlalchemy import text as _sql_in
+                _r = s.execute(
+                    _sql_in(
+                        "SELECT gc.slug, gc.partner_category, gc.is_partner_content, "
+                        "       t.partner_slug "
+                        "FROM generated_contents gc LEFT JOIN tenants t ON t.id = gc.tenant_id "
+                        "WHERE gc.id = :id"
+                    ),
+                    {"id": obj.id},
+                ).first()
+                if _r and _r[0]:
+                    from src.collector.indexnow import build_post_url, submit_urls
+                    _url = build_post_url(
+                        slug=_r[0],
+                        partner_category=_r[1],
+                        is_partner=bool(_r[2]),
+                        partner_slug=_r[3],
+                    )
+                    submit_urls([_url])
+            except Exception:
+                pass
+
         return obj.status
 
 
