@@ -91,11 +91,13 @@ export function DashboardCharts({
   clientRanking,
   keywordGrounding = [],
   newDomains = [],
+  showTierAndRankingCharts = true,
 }: {
   tierTrend: TierTrendPoint[];
   clientRanking: ClientRankingItem[];
   keywordGrounding?: KeywordGroundingItem[];
   newDomains?: NewDomainItem[];
+  showTierAndRankingCharts?: boolean;  // Round 93 — false 면 신규도메인만 (탭 컴포넌트가 차트 담당)
 }) {
   const noData = tierTrend.length === 0;
   // Round 87 — 3차트 탭 활성화. 기본은 가장 임팩트 큰 클라이언트 ranking.
@@ -118,7 +120,7 @@ export function DashboardCharts({
           AI 시장 점유 진단 위젯이 같은 정보를 더 풍부하게 표시. */}
 
       {/* Round 87 — drill-down 권고 배너 (3차트 위 공통) */}
-      {(zeroGroundingKeywords.length > 0 || t5DominantClients.length > 0) && (
+      {showTierAndRankingCharts && (zeroGroundingKeywords.length > 0 || t5DominantClients.length > 0) && (
         <section className="card border-status-warning/30 bg-status-warning/5 px-4 py-3 text-[11px] text-ink-soft md:px-5">
           <div className="font-semibold text-status-warning">💡 차트 액션 권고</div>
           <div className="mt-1">
@@ -139,6 +141,7 @@ export function DashboardCharts({
       )}
 
       {/* 차트 2: 5-tier stacked area */}
+      {showTierAndRankingCharts && (
       <section className="card">
         <header className="border-b border-border px-4 py-3 md:px-5">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
@@ -211,8 +214,10 @@ export function DashboardCharts({
           )}
         </div>
       </section>
+      )}
 
       {/* 차트 3: 클라이언트별 인용 ranking — T1/외부 stacked */}
+      {showTierAndRankingCharts && (
       <section className="card">
         <header className="border-b border-border px-4 py-3 md:px-5">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
@@ -261,8 +266,10 @@ export function DashboardCharts({
           )}
         </div>
       </section>
+      )}
 
       {/* 차트 4: Top 키워드 grounding rate */}
+      {showTierAndRankingCharts && (
       <section className="card">
         <header className="border-b border-border px-4 py-3 md:px-5">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
@@ -330,6 +337,7 @@ export function DashboardCharts({
           )}
         </div>
       </section>
+      )}
 
       {/* 차트 5: 신규 등장 도메인 (Round 39 — 세부 URL + 키워드 + 클라이언트 컨텍스트) */}
       <section className="card">

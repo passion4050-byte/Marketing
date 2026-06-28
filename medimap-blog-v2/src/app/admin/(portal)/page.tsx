@@ -21,6 +21,7 @@ import { ActionRecommendations } from '@/components/admin/ActionRecommendations'
 import { ContentCompetitiveness } from '@/components/admin/ContentCompetitiveness';
 import { MarketShareDiagnosis } from '@/components/admin/MarketShareDiagnosis';
 import { ContentPatternStats } from '@/components/admin/ContentPatternStats';
+import { DashboardChartsTabbed } from '@/components/admin/DashboardChartsTabbed';
 import type {
   TierTrendPoint,
   ClientRankingItem,
@@ -1101,12 +1102,17 @@ export default async function AdminDashboardPage({
         </div>
       </div>
 
-      {/* === Tier 3: 운영 차트 (분석 차트 + 신규 도메인) === */}
+      {/* === Tier 3: 운영 차트 (탭 통합) === */}
       <div className="mt-8">
         <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-status-success" />
           운영 차트 — 측정 추이
         </div>
+        <DashboardChartsTabbed
+          tierTrend={d.tierTrend}
+          clientRanking={d.clientRanking}
+          keywordGrounding={d.keywordGrounding}
+        />
       </div>
 
       <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -1220,13 +1226,15 @@ export default async function AdminDashboardPage({
         currentTo={toDate}
       />
 
-      {/* Round 37 H + Round 38 B (2026-05-31) — KPI 차트 5개 */}
+      {/* Round 93 (2026-06-28) — 차트 3개는 Tier 3 의 DashboardChartsTabbed 로 이동.
+          여기서는 신규 등장 도메인만 표시. */}
       <section className="mt-3">
         <DashboardCharts
           tierTrend={d.tierTrend}
           clientRanking={d.clientRanking}
           keywordGrounding={d.keywordGrounding}
           newDomains={d.newDomains}
+          showTierAndRankingCharts={false}
         />
       </section>
 
