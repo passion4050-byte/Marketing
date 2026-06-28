@@ -20,6 +20,7 @@ import { cn } from '@/lib/cn';
 import { ActionRecommendations } from '@/components/admin/ActionRecommendations';
 import { ContentCompetitiveness } from '@/components/admin/ContentCompetitiveness';
 import { MarketShareDiagnosis } from '@/components/admin/MarketShareDiagnosis';
+import { ContentPatternStats } from '@/components/admin/ContentPatternStats';
 import type {
   TierTrendPoint,
   ClientRankingItem,
@@ -109,6 +110,13 @@ async function fetchDashboardData(opts: {
       domainDistribution: [] as Array<{ domain: string; citations: number; isOwn?: boolean; isCompetitor?: boolean }>,
       medimapDomainCitations: 0,
       totalDomainCitations: 0,
+      structureStats: {
+        totalCount: 0, avgBodyLen: 0, avgH2: 0, avgTable: 0, avgList: 0, avgImg: 0,
+        faqSchemaPct: 0, topPattern: null as null | {
+          avgH2: number; avgTable: number; avgList: number; avgImg: number;
+          avgBodyLen: number; faqSchemaPct: number;
+        },
+      },
       error: 'supabase not configured',
     };
   }
@@ -744,6 +752,117 @@ async function fetchDashboardData(opts: {
     /* graceful */
   }
 
+  // Round 89 (2026-06-28) — 콘텐츠 구조 자동 분석.
+  //   "어떤 구조가 AI 인용 잘 받는지" 패턴 발견.
+  //   body 의 HTML 파싱 (서버에서 regex 로 H2/표/목록/이미지 카운트) → 평균 vs Top 비교.
+  let structureStats: {
+    totalCount: number;
+    avgBodyLen: number;
+    avgH2: number;
+    avgTable: number;
+    avgList: number;
+    avgImg: number;
+    faqSchemaPct: number;
+    topPattern: {
+      avgH2: number; avgTable: number; avgList: number; avgImg: number;
+      avgBodyLen: number; faqSchemaPct: number;
+    } | null;
+  } = {
+    totalCount: 0, avgBodyLen: 0, avgH2: 0, avgTable: 0, avgList: 0, avgImg: 0,
+    faqSchemaPct: 0, topPattern: null,
+  };
+  try {
+    // 발행 콘텐츠 body 가져와서 구조 카운트 (server-side regex)
+    const { data: bodies } = await sb
+      .from('generated_contents')
+      .select('id, body, keyword_text')
+      .eq('status', 'published')
+      .eq('channel', 'blog_html')
+      .not('body', 'is', null)
+      .limit(200);
+    const list = (bodies ?? []) as Array<{ id: number; body: string; keyword_text: string }>;
+    if (list.length > 0) {
+      const countMatches = (text: string, re: RegExp) => (text.match(re) || []).length;
+      const metrics = list.map((c) => ({
+        id: c.id,
+        keyword: c.keyword_text,
+        bodyLen: (c.body || '').length,
+        h2: countMatches(c.body || '', /<h2[\s>]/g),
+        table: countMatches(c.body || '', /<table[\s>]/g),
+        list: countMatches(c.body || '', /<(ul|ol)[\s>]/g),
+        img: countMatches(c.body || '', /<img[\s>]/g),
+        hasFaq: (c.body || '').includes('FAQPage'),
+      }));
+      const avg = (arr: number[]) => arr.reduce((s, n) => s + n, 0) / Math.max(arr.length, 1);
+      const faqCount = metrics.filter((m) => m.hasFaq).length;
+
+      // Top 패턴 — keyword 별 mention 카운트 매핑해서 인용 많은 글 추출
+      const kwMap = new Map<string, number>(); // 위에서 만든 kwMentionMap 활용 (closure)
+      try {
+        const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const { data: kRows } = await sb.from('keywords').select('id, text');
+        const kwIdToText = new Map<number, string>(
+          ((kRows ?? []) as Array<{ id: number; text: string }>).map((k) => [k.id, k.text])
+        );
+        const { data: qR } = await sb
+          .from('queries')
+          .select('id, keyword_id')
+          .gte('requested_at', since30);
+        const qToKw = new Map<number, string>();
+        ((qR ?? []) as Array<{ id: number; keyword_id: number }>).forEach((q) => {
+          const t = kwIdToText.get(q.keyword_id);
+          if (t) qToKw.set(q.id, t);
+        });
+        if (qToKw.size > 0) {
+          const { data: rR } = await sb
+            .from('responses')
+            .select('id, query_id')
+            .in('query_id', Array.from(qToKw.keys()));
+          const rToKw = new Map<number, string>();
+          ((rR ?? []) as Array<{ id: number; query_id: number }>).forEach((r) => {
+            const k = qToKw.get(r.query_id);
+            if (k) rToKw.set(r.id, k);
+          });
+          if (rToKw.size > 0) {
+            const { data: mR } = await sb
+              .from('mentions')
+              .select('response_id, is_target')
+              .in('response_id', Array.from(rToKw.keys()))
+              .eq('is_target', true);
+            ((mR ?? []) as Array<{ response_id: number }>).forEach((m) => {
+              const k = rToKw.get(m.response_id);
+              if (k) kwMap.set(k, (kwMap.get(k) ?? 0) + 1);
+            });
+          }
+        }
+      } catch { /* graceful */ }
+
+      const withMentions = metrics
+        .map((m) => ({ ...m, mentions: kwMap.get(m.keyword) ?? 0 }))
+        .sort((a, b) => b.mentions - a.mentions);
+      const top10 = withMentions.slice(0, Math.max(5, Math.floor(withMentions.length * 0.2)));
+      const topFaq = top10.filter((m) => m.hasFaq).length;
+
+      structureStats = {
+        totalCount: metrics.length,
+        avgBodyLen: Math.round(avg(metrics.map((m) => m.bodyLen))),
+        avgH2: Math.round(avg(metrics.map((m) => m.h2)) * 10) / 10,
+        avgTable: Math.round(avg(metrics.map((m) => m.table)) * 10) / 10,
+        avgList: Math.round(avg(metrics.map((m) => m.list)) * 10) / 10,
+        avgImg: Math.round(avg(metrics.map((m) => m.img)) * 10) / 10,
+        faqSchemaPct: Math.round((faqCount / metrics.length) * 100),
+        topPattern: top10.length > 0 ? {
+          avgBodyLen: Math.round(avg(top10.map((m) => m.bodyLen))),
+          avgH2: Math.round(avg(top10.map((m) => m.h2)) * 10) / 10,
+          avgTable: Math.round(avg(top10.map((m) => m.table)) * 10) / 10,
+          avgList: Math.round(avg(top10.map((m) => m.list)) * 10) / 10,
+          avgImg: Math.round(avg(top10.map((m) => m.img)) * 10) / 10,
+          faqSchemaPct: Math.round((topFaq / top10.length) * 100),
+        } : null,
+      };
+    }
+  } catch { /* graceful */ }
+
   // Round 88 (2026-06-28) — AI 시장 점유 진단.
   //   비즈니스 본질: medimap-blog 가 AI source 에 실제 인용되는지.
   //   진단 결과 (2026-06-28): 30일간 medimap-blog = 0회 인용. 경쟁사(sueye/bnviit/bgneye) 200+.
@@ -809,6 +928,7 @@ async function fetchDashboardData(opts: {
     domainDistribution,
     medimapDomainCitations,
     totalDomainCitations,
+    structureStats,
     error: costError,
   };
 }
@@ -959,6 +1079,10 @@ export default async function AdminDashboardPage({
           비즈니스 핵심: "메디맵 콘텐츠가 AI 에 자주 인용되도록".
           Top 인용 콘텐츠 + 병원 필터 + 자동 패턴 분석. */}
       <ContentCompetitiveness contents={d.topContents ?? []} />
+
+      {/* Round 89 — 콘텐츠 구조 패턴 자동 분석.
+          전체 발행 평균 vs Top 인용 콘텐츠 구조 비교 → 학습 인사이트 자동 발견. */}
+      <ContentPatternStats stats={d.structureStats} />
 
       <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="card">
