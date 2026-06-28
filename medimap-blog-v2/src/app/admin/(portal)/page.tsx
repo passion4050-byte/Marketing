@@ -19,6 +19,7 @@ import { getServerClient } from '@/lib/supabase';
 import { cn } from '@/lib/cn';
 import { ActionRecommendations } from '@/components/admin/ActionRecommendations';
 import { ContentCompetitiveness } from '@/components/admin/ContentCompetitiveness';
+import { MarketShareDiagnosis } from '@/components/admin/MarketShareDiagnosis';
 import type {
   TierTrendPoint,
   ClientRankingItem,
@@ -95,6 +96,19 @@ async function fetchDashboardData(opts: {
       clientRanking: [] as ClientRankingItem[],
       keywordGrounding: [] as KeywordGroundingItem[],
       newDomains: [] as NewDomainItem[],
+      // Round 86/87/88 — null branch 누락 필드 보강 (Vercel TypeScript build fix)
+      citations30d: 0,
+      publishedThisMonth: 0,
+      lastCronAt: null as string | null,
+      topContents: [] as Array<{
+        id: number; title: string; slug: string;
+        tenantName: string; tenantId: number; publishedAt: string;
+        keyword: string; mentionsForKeyword: number;
+        isPartner: boolean; partnerCategory: string | null;
+      }>,
+      domainDistribution: [] as Array<{ domain: string; citations: number; isOwn?: boolean; isCompetitor?: boolean }>,
+      medimapDomainCitations: 0,
+      totalDomainCitations: 0,
       error: 'supabase not configured',
     };
   }
@@ -730,6 +744,53 @@ async function fetchDashboardData(opts: {
     /* graceful */
   }
 
+  // Round 88 (2026-06-28) — AI 시장 점유 진단.
+  //   비즈니스 본질: medimap-blog 가 AI source 에 실제 인용되는지.
+  //   진단 결과 (2026-06-28): 30일간 medimap-blog = 0회 인용. 경쟁사(sueye/bnviit/bgneye) 200+.
+  //   원인: vercel.app 무료 서브도메인 + 새 사이트 + AI 학습 cutoff.
+  let domainDistribution: Array<{ domain: string; citations: number; isOwn?: boolean; isCompetitor?: boolean }> = [];
+  let medimapDomainCitations = 0;
+  let totalDomainCitations = 0;
+  try {
+    const cutoff30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: respRows } = await sb
+      .from('responses')
+      .select('source_domains')
+      .gte('created_at', cutoff30)
+      .not('source_domains', 'is', null)
+      .limit(5000);
+    const domainCount = new Map<string, number>();
+    let totalCount = 0;
+    let medimapCount = 0;
+    ((respRows ?? []) as Array<{ source_domains: Array<{ domain: string }> | null }>).forEach((r) => {
+      (r.source_domains ?? []).forEach((sd) => {
+        const dom = (sd.domain || '').toLowerCase().replace(/^www\./, '');
+        if (!dom) return;
+        domainCount.set(dom, (domainCount.get(dom) ?? 0) + 1);
+        totalCount++;
+        if (dom.includes('medimap')) medimapCount++;
+      });
+    });
+
+    // 경쟁사 도메인 (수기 + 메디맵 클라이언트 도메인 제외 + 권위 제외)
+    const COMPETITOR_PATTERNS = ['eye', 'clinic', 'hospital', 'medic', '안과', 'derm', 'plastic', 'hair'];
+    const AUTHORITY = new Set(['namu.wiki', 'youtube.com', 'modoodoc.com', 'hidoc.co.kr', 'news.hidoc.co.kr', 'v.daum.net', 'edu.donga.com', 'news.naver.com']);
+    domainDistribution = Array.from(domainCount.entries())
+      .map(([domain, citations]) => {
+        const isOwn = domain.includes('medimap') || domain.includes('medi-map');
+        const isAuth = AUTHORITY.has(domain);
+        const isCompetitor =
+          !isOwn && !isAuth &&
+          COMPETITOR_PATTERNS.some((p) => domain.includes(p));
+        return { domain, citations, isOwn, isCompetitor };
+      })
+      .sort((a, b) => b.citations - a.citations);
+    medimapDomainCitations = medimapCount;
+    totalDomainCitations = totalCount;
+  } catch {
+    /* graceful */
+  }
+
   return {
     activeTenants: clientCount ?? 0,
     pendingQueue: pendingCount ?? 0,
@@ -745,6 +806,9 @@ async function fetchDashboardData(opts: {
     keywordGrounding,
     newDomains,
     topContents,
+    domainDistribution,
+    medimapDomainCitations,
+    totalDomainCitations,
     error: costError,
   };
 }
@@ -799,15 +863,15 @@ export default async function AdminDashboardPage({
     },
     {
       label: '30일 누적 인용',
-      value: d.citations30d.toLocaleString(),
+      value: (d.citations30d ?? 0).toLocaleString(),
       suffix: '건',
       href: '/admin/citations',
       icon: Zap,
-      hint: `24h ${d.citations24h}건`,
+      hint: `24h ${d.citations24h ?? 0}건`,
     },
     {
       label: '이번 달 발행',
-      value: d.publishedThisMonth,
+      value: d.publishedThisMonth ?? 0,
       suffix: '편',
       href: '/admin/content-queue',
       icon: FileText,
@@ -880,6 +944,15 @@ export default async function AdminDashboardPage({
         lastCronAt={d.lastCronAt}
         citations30d={d.citations30d}
         publishedThisMonth={d.publishedThisMonth}
+      />
+
+      {/* Round 88 — AI 시장 점유 진단 (비즈니스 본질 문제 직시).
+          medimap-blog 가 AI source 에 실제 인용되는지. 30일 도메인 분포 + 메디맵 위치 + 액션. */}
+      <MarketShareDiagnosis
+        domains={d.domainDistribution ?? []}
+        medimapCitations={d.medimapDomainCitations ?? 0}
+        totalCitations={d.totalDomainCitations ?? 0}
+        daysWindow={30}
       />
 
       {/* Round 87 — 콘텐츠 경쟁력 위젯.
