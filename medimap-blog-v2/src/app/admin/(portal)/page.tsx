@@ -1056,33 +1056,58 @@ export default async function AdminDashboardPage({
         })}
       </section>
 
-      {/* Round 87 (2026-06-28) — 액션 권고 워크플로 섹션.
-          사용자 요구: "차트만 보고 어떻게 대응할지 알수 없음" → 자동 진단 + 행동 가이드. */}
-      <ActionRecommendations
-        keywordGrounding={d.keywordGrounding}
-        pendingQueue={d.pendingQueue}
-        lastCronAt={d.lastCronAt}
-        citations30d={d.citations30d}
-        publishedThisMonth={d.publishedThisMonth}
-      />
+      {/* Round 92 (2026-06-28) — 정보 위계 재구성.
+          Tier 1: 즉시 행동 필요 (액션 권고 + 시장 점유 알림) — 2-column grid
+          Tier 2: 콘텐츠 분석 (Top 인용 + 구조 패턴)
+          Tier 3: 운영 차트 (5-tier / ranking / grounding)
+          Tier 4: 운영 리스트 (검수 대기 / AI 인용 / 신규 도메인) */}
 
-      {/* Round 88 — AI 시장 점유 진단 (비즈니스 본질 문제 직시).
-          medimap-blog 가 AI source 에 실제 인용되는지. 30일 도메인 분포 + 메디맵 위치 + 액션. */}
-      <MarketShareDiagnosis
-        domains={d.domainDistribution ?? []}
-        medimapCitations={d.medimapDomainCitations ?? 0}
-        totalCitations={d.totalDomainCitations ?? 0}
-        daysWindow={30}
-      />
+      {/* === Tier 1: 즉시 행동 필요 (좌: 액션 권고 / 우: 시장 진단) === */}
+      <div className="mt-6">
+        <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-status-danger" />
+          즉시 행동 필요
+        </div>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <div className="contents xl:block [&_section]:!mt-0">
+            <ActionRecommendations
+              keywordGrounding={d.keywordGrounding}
+              pendingQueue={d.pendingQueue}
+              lastCronAt={d.lastCronAt}
+              citations30d={d.citations30d}
+              publishedThisMonth={d.publishedThisMonth}
+            />
+          </div>
+          <div className="contents xl:block [&_section]:!mt-0">
+            <MarketShareDiagnosis
+              domains={d.domainDistribution ?? []}
+              medimapCitations={d.medimapDomainCitations ?? 0}
+              totalCitations={d.totalDomainCitations ?? 0}
+              daysWindow={30}
+            />
+          </div>
+        </div>
+      </div>
 
-      {/* Round 87 — 콘텐츠 경쟁력 위젯.
-          비즈니스 핵심: "메디맵 콘텐츠가 AI 에 자주 인용되도록".
-          Top 인용 콘텐츠 + 병원 필터 + 자동 패턴 분석. */}
-      <ContentCompetitiveness contents={d.topContents ?? []} />
+      {/* === Tier 2: 콘텐츠 분석 (메디맵 콘텐츠가 AI 에 자주 인용되도록) === */}
+      <div className="mt-8">
+        <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-brand" />
+          콘텐츠 경쟁력 분석
+        </div>
+        <div className="space-y-4 [&>section]:!mt-0">
+          <ContentCompetitiveness contents={d.topContents ?? []} />
+          <ContentPatternStats stats={d.structureStats} />
+        </div>
+      </div>
 
-      {/* Round 89 — 콘텐츠 구조 패턴 자동 분석.
-          전체 발행 평균 vs Top 인용 콘텐츠 구조 비교 → 학습 인사이트 자동 발견. */}
-      <ContentPatternStats stats={d.structureStats} />
+      {/* === Tier 3: 운영 차트 (분석 차트 + 신규 도메인) === */}
+      <div className="mt-8">
+        <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-status-success" />
+          운영 차트 — 측정 추이
+        </div>
+      </div>
 
       <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="card">

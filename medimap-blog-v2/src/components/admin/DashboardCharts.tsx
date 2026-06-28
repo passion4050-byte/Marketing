@@ -113,51 +113,9 @@ export function DashboardCharts({
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* 차트 1: 메디맵 T1 share 추이 */}
-      <section className="card">
-        <header className="border-b border-border px-4 py-3 md:px-5">
-          <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-            <TrendingUp className="h-4 w-4 text-brand" />
-            메디맵 AI 인용 점유율 추이 (30일)
-          </h2>
-          <div className="mt-1 text-[11px] text-ink-muted">
-            전체 인용 sources 중 메디맵 자체 도메인 비율 (T1 share) — SaaS 누적 효과 검증
-          </div>
-        </header>
-        <div className="p-2 md:p-4">
-          {noData ? (
-            <EmptyChart message="아직 측정 데이터 없음 — 매일 22:00 UTC cron 후 누적" />
-          ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={tierTrend} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
-                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                <YAxis
-                  tick={{ fontSize: 10 }}
-                  tickFormatter={(v) => `${Math.round(v * 100)}%`}
-                  domain={[0, 'auto']}
-                />
-                <Tooltip
-                  formatter={(v: number, name: string) => {
-                    if (name === '메디맵 share') return `${Math.round(v * 100)}%`;
-                    return v;
-                  }}
-                  labelFormatter={(d) => `${d}`}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="t1_share"
-                  name="메디맵 share"
-                  stroke={TIER_COLORS.t1}
-                  strokeWidth={2.5}
-                  dot={{ r: 3 }}
-                  activeDot={{ r: 5 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-      </section>
+      {/* Round 92 — 차트 1 (메디맵 share 추이) 제거.
+          medimap-blog 도메인 인용 0건 상태라 차트가 비어있어 화면 낭비.
+          AI 시장 점유 진단 위젯이 같은 정보를 더 풍부하게 표시. */}
 
       {/* Round 87 — drill-down 권고 배너 (3차트 위 공통) */}
       {(zeroGroundingKeywords.length > 0 || t5DominantClients.length > 0) && (
