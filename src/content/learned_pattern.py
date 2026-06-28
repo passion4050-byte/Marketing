@@ -187,48 +187,63 @@ def analyze_patterns(session_factory) -> dict:
 def upsert_auto_pattern_insight(
     session_factory, analysis: dict, *, domain_category: Optional[str] = None
 ) -> Optional[int]:
-    """분석 결과를 learned_insights 테이블에 자동 등록 (source='auto_pattern').
+    """분석 결과를 learned_insights 테이블에 자동 등록.
 
-    UPSERT — 같은 source+domain_category 면 갱신, 없으면 INSERT.
-    적용 토글은 default false (운영자가 검토 후 활성).
+    Round 96 hotfix — 실제 learned_insights 컬럼 정합:
+        id / source_url(NN) / source_domain / source_tier / domain_category / keyword /
+        tenant_id / patterns(jsonb NN) / notes / applied / applied_at / created_at
+    source_url = 'internal://auto_pattern' 으로 자동 패턴 임을 마킹.
+    patterns jsonb = metrics 전체 + insights 리스트 저장.
+    notes = 자연어 요약 (한국어 인사이트 줄바꿈).
     """
+    import json as _json
+    import traceback as _tb
+
     if not analysis.get("insights"):
+        logger.info("learned_pattern.no_insights — top vs rest 차이 미발견")
         return None
 
-    guidance = "\n".join(f"- {s}" for s in analysis["insights"])
-    title = f"자동 발견 패턴 — Top 인용 콘텐츠 ({analysis.get('top_count', 0)}편 분석)"
+    notes_text = "\n".join(f"- {s}" for s in analysis["insights"])
+    patterns_payload = {
+        "type": "auto_pattern",
+        "title": f"자동 발견 패턴 — Top 인용 콘텐츠 ({analysis.get('top_count', 0)}편 분석)",
+        "top_count": analysis.get("top_count", 0),
+        "rest_count": analysis.get("rest_count", 0),
+        "total_analyzed": analysis.get("total_analyzed", 0),
+        "metrics": analysis.get("metrics", {}),
+        "insights": analysis.get("insights", []),
+    }
 
     with session_factory() as s:
-        # learned_insights 테이블 컬럼: title / category / guidance / domain_category / applied / source(?)
-        # source 컬럼 없을 수 있으니 raw SQL 로 안전하게 INSERT (없으면 그냥 INSERT, 있으면 source 추가)
         try:
             row = s.execute(
                 text(
                     """
                     INSERT INTO learned_insights
-                        (title, category, guidance, domain_category, applied, source_url, created_at)
+                        (source_url, source_domain, source_tier, domain_category,
+                         patterns, notes, applied, created_at)
                     VALUES
-                        (:title, :category, :guidance, :dom, false, 'internal://auto_pattern', NOW())
+                        ('internal://auto_pattern', 'internal', 'AUTO', :dom,
+                         CAST(:patterns_json AS jsonb), :notes, false, NOW())
                     RETURNING id
                     """
                 ),
                 {
-                    "title": title,
-                    "category": "콘텐츠 구조 자동 학습",
-                    "guidance": guidance,
                     "dom": domain_category,
+                    "patterns_json": _json.dumps(patterns_payload, ensure_ascii=False),
+                    "notes": notes_text,
                 },
             ).fetchone()
             s.commit()
             insight_id = row[0] if row else None
             logger.info(
-                "learned_pattern.inserted",
-                insight_id=insight_id,
-                insights_count=len(analysis["insights"]),
+                "learned_pattern.inserted insight_id=%s insights=%d",
+                insight_id, len(analysis["insights"]),
             )
             return insight_id
         except Exception as e:  # noqa: BLE001
-            logger.warning("learned_pattern.insert_failed: %s", e)
+            # Round 96 hotfix — silent except 가 함정 흡수. traceback 명시 노출.
+            logger.error("learned_pattern.insert_failed: %s\n%s", e, _tb.format_exc())
             s.rollback()
             return None
 
