@@ -3872,104 +3872,159 @@ CREATE TABLE applied_insights (
 
 **(BY) Anthropic max_tokens — 한국어 콘텐츠는 영어 대비 2배 필요**
 - 증상: blog post 한국어 응답이 잘려 invalid JSON
-- 정답: 한국어 blog 8192, FAQ 4096 최소. Tool use API 도 별도 응답 길이 한도 있음.
-
-**(BZ) stop_reason 미체크 함정 — JSON 파싱 에러로 위장**
-- 증상: 응답 잘렸는데 단순 JSON 파싱 실패 메시지만 나옴 → 원인 진단 어려움
-- 정답: `msg.stop_reason == "max_tokens"` 명시 체크 → 즉시 잘림 진단.
-
-### 다음 단계 후보 (Round 59)
-
-**Anthropic Tool use API 전환** (가장 robust):
-- `tools=[{"name": "blog_post", "input_schema": {...}}]`
-- `tool_choice={"type": "tool", "name": "blog_post"}`
-- 100% valid JSON 보장 — schema 자체에 강제됨
-- prefill / lenient parser / fence strip 모두 불필요
-- 단점: 코드 변경 큼 (응답 구조 다름 — content[0].input 형식)
-
-### Round 58 fix 3 산출물
-
-- `src/content/llm.py`:
-  - `generate_blog_post`: max_tokens 4096 → 8192, stop_reason 체크
-  - `generate_faq`: max_tokens 2048 → 4096, stop_reason 체크
-
+- 정답:
 ---
 
-## Round 82 (2026-06-26) — geo-v2 빌드 복구 · with-partners 누적 버그 · 콘텐츠 품질/구조 다양화 · 전체 감사
+## Round 86~95 (2026-06-28) — Claude/OpenAI 측정 가시성 + wecircle 리브랜딩 + 대시보드 UIUX 전면 고도화 + 자동 학습
 
-> 집/사무실 이어가기: `git pull` 후 "SKILL.md Round 82 읽고 이어서 작업".
+> 6/28 일요일 마라톤 작업. AI 인용 측정 화면 함정 fix → 비즈니스 진단 → wecircle 새 회사 도메인 + 리브랜딩 → 대시보드 UIUX + 콘텐츠 학습 자동화 까지 완성.
 
-### 한 일 (코드는 푸시 대상 · DB 변경은 라이브 Supabase 반영 완료)
+### 한 일 (Round 86~95)
 
-**1. geo-v2(admin) Vercel 빌드 2일째 전부 실패 복구 (함정 CU)**
-- 원인: Round 81에서 추가한 `.db-html-content th { @apply bg-surface-soft ... }` — geo-v2 tailwind에 `surface-soft` 토큰 없음(surface는 base/subtle/muted뿐). className과 달리 `@apply` 미정의 토큰은 **빌드 자체를 깸**.
-- 수정: `medimap-blog-v2/src/app/globals.css` `bg-surface-soft`→`bg-surface-subtle`(1줄). 블로그(medimap-blog)는 별개 프로젝트라 정상이었음.
+**Round 86 — 멀티엔진 가시성 + Funnel 실데이터**
+- trends API `breakdown=engine` 모드 (Gemini/Claude/OpenAI 동시 라인)
+- ab-tests URL partner 분기 (자사 = `/blog/{slug}`, 파트너 = `/with-partners/{cat}/{partner}/{slug}`)
+- run_ab_test partner 자동 태깅 (CV/CW 재발 방지)
+- A/B variant 의료법 안전망 (compliance=fail → draft 강등)
+- citations 페이지 "Gemini 만 도메인 추적" 안내 (함정 DC UX)
+- Funnel·ROI 실데이터 재설계 (shortlinks.code → slug fix + 5단계 funnel + 빈상태 안내)
+- "매주 월·목" 문구 3곳 → "매일 KST 07:00" 정정
 
-**2. /with-partners 글이 안 쌓이던 구조적 버그 (함정 CV, CW)**
-- 진단: 페이지 8건만 노출. 발행은 매일 되는데(최근 3일 13건) with-partners엔 0건 누적.
-- 근본원인 ①: 파트너 `auto_content_settings.channels=null`+`daily_count=1` → scheduler `default_channels[0]="schema_org"`만 생성. schema_org=FAQ JSON-LD(slug·본문 없음)→**with-partners 페이지 원천 생성 불가**. blog_html(실제 기사)은 메디맵 self(t12)만 명시 생성.
-- 근본원인 ②: with-partners 필터는 `is_partner_content+partner_category+slug` 3필드 동시 요구인데 **어떤 발행경로도 셋을 동시에 안 채움**(cron=slug만, admin승인=태깅만). 운영자가 최근 승인한 건 전부 schema_org(slug 없음)→헛수고.
-- 수정: DB(라이브) 파트너 6곳(4·5·6·8·9·10) `channels=['blog_html']`+`auto_publish=true`(사용자 결정=자동발행, 의료법 린터가 warn/fail 차단 유지). scheduler `_map_partner_category()` + blog_html 발행 시 raw SQL로 slug/published_at(공통)+is_partner_content/partner_category(파트너) 보장. admin `[id]/route.ts` 승인 시 slug 자동생성.
+**Round 87 — 대시보드 KPI 6개 + ActionRecommendations + ContentCompetitiveness**
+- KPI 4→6: 활성/검수/30일인용/이번달발행/오늘비용/cron상태
+- ActionRecommendations 신규 (P0/P1/P2 자동 진단)
+- ContentCompetitiveness 신규 (Top 인용 콘텐츠 + 자동 패턴 분석)
+- run_ab_test 의료법 fail → draft 강등 안전망
 
-**3. 콘텐츠 품질 P1 — cron 글에 이미지가 아예 안 붙던 버그 (함정 CW)**
-- scheduler 이미지 블록 `obj.title` → `title` ORM 미매핑 → AttributeError → 바깥 `except: pass`에 삼켜져 **모든 글 cover/본문 이미지 생성이 통째로 죽어있었음**. raw SQL `SELECT title`로 복원.
+**Round 88 — 시장 점유 진단 (비즈니스 본질 직시)**
+- 진단 결과: medimap-blog 도메인 AI 인용 30일간 **0건** (경쟁사 sueye 95, bnviit 85, bgneye 69)
+- mention.content_id 백필 폐기 (데이터 자체 없음)
+- MarketShareDiagnosis 신규 위젯: 도메인 Top 10 + medimap 위치 명시 + 커스텀 도메인 액션 가이드
+- KPI 6개 hotfix (null branch 누락 필드)
 
-**4. 콘텐츠 구조 획일화 방지 (사용자 최우선)**
-- `src/content/generator.py`: 아키타입 3종(A/B/C)→**7종(A~G)** + **변주 레이어**(`_build_variation_block`: 랜덤 도입부·어조·반복방지 지침). 아키타입(결정적)×변주(랜덤)로 매 글이 다른 형태. 모든 구조가 표·목록·정의형 첫문장 유지→AEO/SEO 상위노출 유지.
+**Round 89 — 콘텐츠 구조 패턴 분석 (수동)**
+- fetchDashboardData 에 body regex 분석 (H2/표/목록/이미지/FAQ)
+- ContentPatternStats 위젯: 전체 평균 vs Top 20% 비교 + 자동 인사이트
+- ActionRecommendations 타입 hotfix (grounding_rate → rate, t1_count 제거)
 
-**5. medimap-blog 공개 블로그 P1 (함정 CX)**
-- `posts.ts` `getDbPostRowBySlug` SELECT가 `blog_category`·`cover_image_*` 누락 → 콜드 by-slug 로드 시 커버·크레딧·카테고리 유실. 리스트 `DB_SELECT`와 동일 컬럼으로 통일. + `tailwind.config.ts`에 `ink.soft` 토큰 추가(text-ink-soft 미정의 가독성 버그).
+**Round 90~91 — wecircle 리브랜딩 (옵션 C 하이브리드)**
+- 사용자 새 회사 `주식회사 위서클` (사업자 798-67-00527, 서초구 사임당로 8길 13)
+- 가비아 도메인 `wecircle.co.kr` 구매 → Vercel 연결 (A @ 216.198.79.1)
+- `NEXT_PUBLIC_SITE_URL=https://wecircle.co.kr` 환경변수 → sitemap/canonical 자동 전환
+- site.ts 통째: name/brand/description/legalName/tagline/사업자정보
+- wecircle-logo.svg 신규 (블루 원 + 텍스트)
+- Footer 에 사업자 정보 4줄 추가 (한국 전자상거래법 준수)
+- /about Hero + metadata → wecircle 톤 ("AI 검색 시대, 병원 마케팅을 다시 설계합니다")
+- contentBrand: "메디맵 인사이트" (콘텐츠 라벨 유지 — 하이브리드)
+- 카카오톡/네이버플레이스는 메디맵 채널 당분간 (새 채널은 추후)
 
-### 전체 감사 (3 코드베이스 병렬 · 검증된 실버그만 수정)
-- medimap-blog: P1 by-slug 컬럼(수정)·P2 ink-soft(수정), 나머지 clean.
-- geo-v2: P0 빌드 1건(수정). 인증 fail-closed·.single·prose부재 양호. P2 dormant(funnel/cost NaN, NaN tenantId 가드, Fragment key) 보류.
-- Python: P1 2건(이미지·slug 수정). compliance 4채널 강제·가드레일·tenant격리·fallback 정상. P2(faq/naver/insta USD 토큰 미터링 0, run_ab_auto exit0, ab-auto MAX_* env) 보류.
+**Round 92 — 대시보드 정보 위계 (Tier 1/2/3)**
+- 🔴 Tier 1 (즉시 행동): 액션 권고 + 시장 진단 2-column (XL 이상)
+- 🔵 Tier 2 (콘텐츠 분석): Top 인용 + 구조 패턴
+- 🟢 Tier 3 (운영 차트): 5-tier/ranking/grounding (탭 통합)
+- 빈 차트 (메디맵 share, 0건이라 비어있음) 제거 — 세로 250px 단축
 
-### 신규 함정 (CU~CX)
-- **CU** geo-v2 `@apply` 미정의 토큰→빌드 깸(className은 무음). geo-v2 typography 플러그인 없음·surface=base/subtle/muted뿐.
-- **CV** with-partners 누적 0: 파트너 channels=null→schema_org만(slug없음→페이지불가)+3필드 동시충족 경로 부재.
-- **CW** GeneratedContent ORM이 slug/is_partner_content/partner_category/title/published_at **미매핑** → `obj.title`=AttributeError(이미지 죽음), `hasattr(obj,"slug")`=항상False. 이 컬럼은 **raw SQL**로만 읽고 쓸 것.
-- **CX** posts.ts by-slug SELECT≠list SELECT → 콜드 로드 데이터 유실. 두 쿼리 동일 컬럼셋 유지.
-- (재확인 **CE**) bash 마운트가 Edit 결과 truncated로 읽어 py_compile phantom SyntaxError(`wc -l` 976 vs 실제 980+). 권위=Read+격리 /tmp 컴파일(편집 함수만 추출).
+**Round 93 — 차트 3개 탭 통합 (DashboardChartsTabbed 신규)**
+- 5-tier / 클라이언트 ranking / 키워드 grounding 한 컨테이너 3 탭
+- 색상 범례 (tab 별)
+- 기존 DashboardCharts 의 차트 2/3/4 중복 제거 (`showTierAndRankingCharts` prop)
+- 세로 길이 약 65% 단축
 
-### 푸시 대상 파일 (6)
-`medimap-blog-v2/src/app/globals.css` · `medimap-blog-v2/src/app/api/admin/content-queue/[id]/route.ts` · `src/collector/scheduler.py` · `src/content/generator.py` · `medimap-blog/src/lib/posts.ts` · `medimap-blog/tailwind.config.ts`
-(DB: auto_content_settings 파트너 6곳 — 라이브 반영 완료, 푸시 불필요)
+**Round 94 — 다중 필터 + Python 자동 학습 모듈**
+- ContentCompetitiveness 에 카테고리(전체/자사/파트너) + 기간(7/14/30일) + 병원 + 정렬 필터
+- `src/content/learned_pattern.py` 신규: top 인용 글 H2/표/목록/이미지/FAQ schema 자동 추출 → 자연어 인사이트 → learned_insights 자동 INSERT (source='auto_pattern', applied=false default)
 
-### 즉시 효과 가속 (선택)
-파트너는 회전(하루 1곳)이라 6일에 6곳 1편씩. 즉시 보고 싶으면 GitHub Actions `auto-publish` 수동 Run 여러 번(매 Run 1 파트너 기사, 회전).
+**Round 95 — 자동 학습 cron 통합**
+- `scripts/run_pattern_learning.py` 신규 (엔트리포인트)
+- `.github/workflows/auto-pattern-learning.yml` 신규 (주간 월요일 KST 08:00)
+- 운영자가 어드민 "적용중" 토글 ON → Round 71 apply_insights 인프라로 다음 cron 글 prompt 자동 주입 → 자동 학습 사이클 완성
 
-### Round 82-b — 색인 자동화 (IndexNow) + GSC 진단
-**사실(중요):** Google은 **블로그 강제 자동색인 불가**. Indexing API는 JobPosting/BroadcastEvent 전용(블로그=ToS 위반), 사이트맵 핑은 2023.6 폐기. 새 글 색인 자동화의 정식 수단은 ① 사이트맵 자동 갱신(이미 됨) ② 내부링크(이미 충분: 글로벌 네비+breadcrumb+RelatedPosts+/blog 인덱스). Google 크롤은 Google이 결정.
+### 신규 함정 (DC~DJ)
 
-**GSC 현상태:** `/sitemap.xml` 제출됨(6/22)인데 **"가져올 수 없음" + 발견 0 + 마지막 읽은 날짜 없음**. 사이트맵 자체는 200·valid XML 서빙됨(robots.txt에 선언, Googlebot 허용). 원인=**vercel.app 무료 서브도메인 크롤 후순위/콜드 페치**. 해결: GSC에서 사이트맵 **제거 후 재제출**(재시도 강제) + 결정적으로 **커스텀 도메인**.
+**(DC) Claude/OpenAI 응답에 source URL 없음**
+- 증상: 80 responses 중 source_domains 추출 0%
+- 정답: trends API mentions fallback + Claude web_search_20250305 tool 4패턴 추출 (text.citations / server_tool_use / web_search_tool_result / tool_result.content.source.url)
 
-**구축한 것 — IndexNow 자동 핑 (네이버·Bing·Yandex, Google 제외):**
-- `medimap-blog/public/8f3a2c1b9d7e4056a1c2f3b4e5d60718.txt` — 공개 키 파일(비밀 아님).
-- `src/collector/indexnow.py` — `submit_urls()` + `build_post_url()`(파트너→/with-partners/{cat}/{slug}/{post}, 자사→/blog/{post}).
-- `src/collector/scheduler.py` — published blog_html 발행 직후 자동 핑(graceful, 실패해도 발행 무관). 키는 하드코딩 공개값이라 **GitHub secret 불필요**.
-- 효과: 한국 의료 사이트라 **네이버** 즉시 통지가 핵심. Google엔 영향 없음(IndexNow 미지원).
+**(DD) 신규 tenant keywords.target_brand NULL**
+- 증상: 신규 tenant 추가 후 mention 추출 0건
+- 정답: `ensure_keyword_target_brand()` BEFORE INSERT/UPDATE trigger
 
-**사람이 1회 해야(자동화 불가):**
-- GSC → Sitemaps → `sitemap.xml` 제거 후 재제출(가져올 수 없음 재시도).
-- 네이버 서치어드바이저(searchadvisor.naver.com) 사이트 등록 + 사이트맵 제출(KR 검색 핵심).
-- (결정타) 커스텀 도메인 blog.medi-map.co.kr — vercel.app 색인 천장 우회. 코드 `NEXT_PUBLIC_SITE_URL` 지원(설정 시 IndexNow URL·사이트맵 모두 자동 전환).
+**(DE) Mock 페이지 = "라이브 SaaS" 인상**
+- 증상: /admin/cost /admin/funnel mock 데이터 노출
+- 정답: server component + 실데이터 query + 빈 상태 명시
 
-**Round 82 with-partners 후속:** id156(파트너 blog_html) cron이 코드 푸시 직전 구버전으로 돌아 태깅 누락 → SQL 백필로 즉시 노출(visible 8→9). 이후 cron은 푸시된 코드로 자동 태깅.
+**(DF) Anthropic web_search 4패턴 응답 구조**
+- 증상: 80 responses 추출 0%
+- 정답: server_tool_use + web_search_tool_result + text.citations[].url + tool_result.content.source.url
 
-**추가 푸시 파일(Round 82-b):** `src/collector/indexnow.py`(신규) · `src/collector/scheduler.py`(IndexNow 핑) · `medimap-blog/public/8f3a2c1b9d7e4056a1c2f3b4e5d60718.txt`(신규)
+**(DG) measure cron KEYWORD_LIMIT 글로벌 fairness 함정**
+- 증상: LIMIT 20 + ORDER BY last_measured_at NULLS FIRST → 신규 tenant 만 처리
+- 정답: LIMIT 60 (활성 47 × buffer)
 
----
+**(DH) medimap-blog 도메인 AI 인용 0건 (비즈니스 본질)**
+- 증상: 30일 source_domains 분포에 medimap 0회. 경쟁사 sueye 95, bnviit 85
+- 원인: vercel.app 무료 서브도메인 색인 후순위 + 새 사이트 권위 0 + AI 학습 cutoff
+- 정답: 커스텀 도메인 전환 (Round 90 의 wecircle.co.kr) + GSC 색인 가속 + IndexNow 핑
 
-## Round 83 (2026-06-28) — 결제 인프라 + 상품옵션 + DALL-E 3 + timeout
+**(DI) A/B variant 발행 경로가 의료법 안전망 우회**
+- 증상: compliance='fail' 글이 published 로 발행됨 (#162)
+- 정답: run_ab_test.py 에 `_comp.status='published' AND _comp.compliance='fail'` 자동 draft 강등
 
-> 6/28 일요일 집. cron #91 (8:57 KST) 이 **Gemini 429 quota + Anthropic credit balance too low** 양쪽 fail 로 완전 마비된 게 발화점. 결제 → 코드 변경 → 운영 정책 명문화 한 사이클.
+**(DJ) Footer 사업자 정보 미표시 — 한국 전자상거래법 준수 필요**
+- 증상: 회사 이름/주소/사업자번호 표시 없으면 영업 신뢰도↓
+- 정답: site.ts 의 contact.address/businessNumber → Footer 4줄 표시
 
-### 결제 정리 (사용자 직접)
-| 서비스 | 상태 | 메모 |
-|---|---|---|
-| Anthropic | $15 잔액 + auto-recharge 켜짐 | trigger threshold 너무 낮아 cron 죽은 후에야 충전됨. **threshold $5→$10 이상 권장** + monthly limit $200K→$100 으로 낮춰 가드 |
-| Gemini | AI Studio 선불 ₩20,000 충전 + paid tier 활성 | 중복결제 ₩20,000 발생 → Google Cloud Billing 환불 1건 요청 안내 |
+### Round 86~95 푸시 대상 파일 누적
+
+- `medimap-blog-v2/src/app/api/admin/competitors/trends/route.ts`
+- `medimap-blog-v2/src/app/api/admin/ab-tests/route.ts`
+- `medimap-blog-v2/src/components/admin/TrendAnalysisCard.tsx`
+- `medimap-blog-v2/src/components/admin/ActionRecommendations.tsx` (신규)
+- `medimap-blog-v2/src/components/admin/MarketShareDiagnosis.tsx` (신규)
+- `medimap-blog-v2/src/components/admin/ContentCompetitiveness.tsx` (신규)
+- `medimap-blog-v2/src/components/admin/ContentPatternStats.tsx` (신규)
+- `medimap-blog-v2/src/components/admin/DashboardChartsTabbed.tsx` (신규)
+- `medimap-blog-v2/src/components/admin/DashboardCharts.tsx`
+- `medimap-blog-v2/src/app/admin/(portal)/page.tsx`
+- `medimap-blog-v2/src/app/admin/(portal)/funnel/page.tsx`
+- `medimap-blog-v2/src/app/admin/(portal)/citations/page.tsx`
+- `medimap-blog-v2/src/app/admin/(portal)/competitors/page.tsx`
+- `medimap-blog/src/lib/site.ts` (wecircle)
+- `medimap-blog/src/components/Footer.tsx` (사업자정보)
+- `medimap-blog/src/app/about/page.tsx` (Hero + metadata)
+- `medimap-blog/src/app/client/login/page.tsx` (로고)
+- `medimap-blog/public/wecircle-logo.svg` (신규)
+- `src/engines/claude.py` (web_search 4패턴)
+- `src/content/learned_pattern.py` (신규)
+- `scripts/run_ab_test.py` (prefer + partner 태깅 + compliance 안전망)
+- `scripts/run_pattern_learning.py` (신규)
+- `.github/workflows/measure-ai-mentions.yml` (KEYWORD_LIMIT 60)
+- `.github/workflows/auto-pattern-learning.yml` (신규, 주간 cron)
+
+### 운영 메모 (Round 95 시점)
+
+- 비즈니스 본질: medimap-blog → **wecircle.co.kr** 커스텀 도메인 전환 완료. AI 색인 누적 시작 (수 주 ~ 수개월).
+- 사이트 브랜드: WECIRCLE (운영사) / 콘텐츠 라벨: "메디맵 인사이트" (하이브리드).
+- 결제 인프라: Anthropic $15 + Gemini paid + OpenAI $30 (실 $1.5/14일 운영 중).
+- LLM 라우팅 (b): 자사글=Claude / 파트너글=Gemini.
+- 이미지: DALL-E 3 한국 모델 강제 + Pollinations/Unsplash fallback.
+- 자동 학습 사이클: top 패턴 자동 발견 → learned_insights INSERT → 운영자 토글 → 다음 cron prompt 주입.
+
+### 남은 사용자 액션 (외부)
+- [ ] OpenAI 환불 1건 (중복결제 $33)
+- [ ] Gemini AI Studio 환불 1건 (인보이스 5607393216)
+- [ ] 카카오톡 채널 wecircle 신규 (추후, KakaoBiz 심사)
+- [ ] GSC sitemap 재제출 (wecircle.co.kr/sitemap.xml)
+- [ ] Vercel 의 GitHub Actions secret 확인 (DATABASE_URL, ENGINE_MODE=production)
+
+### 다음 라운드 후보 (Round 96+)
+- 디자인 폴리시 (카드 그림자/색상 토큰 일관성)
+- A/B 첫 trigger 수동 Run + 결과 검증
+- 콘텐츠 구조 자동 학습 첫 cron 실행 (월요일 자동 또는 수동 Run)
+- /admin/learned-insights 페이지에 "자동 발견 패턴" 라벨 구분 표시
+- /contact /guide 페이지 wecircle 톤 정렬
+
+d Billing 환불 1건 요청 안내 |
 | OpenAI | $30 prepaid + auto-recharge ($5↘️ → $10 복구) + Monthly limit $25→$50 권장 | Free trial $60 별도 보유 → 약 3개월 운영분. 사용자가 카드 결제 시도 중 **중복 $33 결제** 발생 — help.openai.com 환불 1건 요청 안내 |
 
 ### 비용 추산 (월간, 현실치)

@@ -1,0 +1,52 @@
+# Round 95 (2026-06-28) — Auto Pattern Learning (주간).
+#
+# 매주 월요일 KST 08:00 (UTC 일요일 23:00) Top 인용 콘텐츠 구조 분석 → learned_insights 자동 등록.
+# 운영자가 어드민에서 "적용중" 토글 ON → 다음 cron 발행 글 prompt 에 자동 주입.
+#
+# 비용: 무료 (LLM 호출 없음, DB query + Python regex 만).
+name: Auto Pattern Learning (weekly Mon 08:00 KST)
+
+on:
+  schedule:
+    - cron: '0 23 * * 0'   # 일요일 UTC 23:00 = 월요일 KST 08:00
+  workflow_dispatch:        # 어드민에서 수동 트리거 가능
+
+jobs:
+  learn:
+    name: Analyze top patterns + register learned_insights
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install sqlalchemy psycopg2-binary
+
+      - name: Verify required secrets
+        run: |
+          if [ -z "${{ secrets.DATABASE_URL }}" ]; then
+            echo "::error::DATABASE_URL 미설정"
+            exit 1
+          fi
+
+      - name: Run pattern learning
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/run_pattern_learning.py
+
+      - name: Job summary
+        if: always()
+        run: |
+          echo "## Auto Pattern Learning 완료" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 자세한 결과는 어드민 /admin/learned-insights 에서 확인" >> "$GITHUB_STEP_SUMMARY"
+          echo "- '자동 발견 패턴' 라벨 인사이트 → '적용중' 토글 ON 시 다음 cron 글 prompt 에 자동 주입" >> "$GITHUB_STEP_SUMMARY"
