@@ -13,10 +13,11 @@
  *   - 최근 AI 인용 = 미구현 → 빈 상태 메시지
  */
 import nextDynamic from 'next/dynamic';
-import { ArrowUpRight, ClipboardCheck, DollarSign, Users, Zap } from 'lucide-react';
+import { ArrowUpRight, ClipboardCheck, DollarSign, Users, Zap, FileText, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { getServerClient } from '@/lib/supabase';
 import { cn } from '@/lib/cn';
+import { ActionRecommendations } from '@/components/admin/ActionRecommendations';
 import type {
   TierTrendPoint,
   ClientRankingItem,
@@ -147,6 +148,42 @@ async function fetchDashboardData(opts: {
     citations24h = mentionCount ?? 0;
   } catch {
     // mentions 테이블 query 실패 시 0 표시 (graceful)
+  }
+
+  // Round 86 (2026-06-28) — KPI 확장: 30일 누적 멘션 + 이번 달 발행 + cron 헬스
+  let citations30d = 0;
+  let publishedThisMonth = 0;
+  let lastCronAt: string | null = null;
+  try {
+    const cutoff30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { count: c30 } = await sb
+      .from('mentions')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', cutoff30)
+      .eq('is_target', true);
+    citations30d = c30 ?? 0;
+
+    const startOfMonth = new Date();
+    startOfMonth.setUTCDate(1);
+    startOfMonth.setUTCHours(0, 0, 0, 0);
+    const { count: pubM } = await sb
+      .from('generated_contents')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'published')
+      .eq('channel', 'blog_html')
+      .gte('published_at', startOfMonth.toISOString());
+    publishedThisMonth = pubM ?? 0;
+
+    // 측정 cron 마지막 성공 시각 (운영자 헬스 체크)
+    const { data: lastQ } = await sb
+      .from('queries')
+      .select('requested_at')
+      .neq('engine', 'stub')
+      .order('requested_at', { ascending: false })
+      .limit(1);
+    lastCronAt = (lastQ?.[0] as { requested_at?: string })?.requested_at ?? null;
+  } catch {
+    // graceful
   }
 
   // 5. 최근 검수 대기 Top 3 — draft/pending top 3 + tenant 이름 (fix 12 패턴: 별도 fetch)
@@ -590,6 +627,9 @@ async function fetchDashboardData(opts: {
     pendingQueue: pendingCount ?? 0,
     todayCost,
     citations24h,
+    citations30d,
+    publishedThisMonth,
+    lastCronAt,
     recentDrafts,
     recentCitations,
     tierTrend,
@@ -628,6 +668,9 @@ export default async function AdminDashboardPage({
     tenantsList = data ?? [];
   }
 
+  // Round 86/87 — KPI 4 → 6 확장. 운영자가 매일 보는 핵심 메트릭 우선.
+  //   추가: 30일 누적 멘션 (성과) · 이번 달 발행 (생산성).
+  //   24h 인용은 작은 표본 부족 → 30일 누적이 더 의미 있음.
   const KPIS = [
     {
       label: '활성 클라이언트',
@@ -635,6 +678,7 @@ export default async function AdminDashboardPage({
       suffix: '개',
       href: '/admin/tenants',
       icon: Users,
+      hint: '월 청구 대상',
     },
     {
       label: '검수 대기',
@@ -642,6 +686,23 @@ export default async function AdminDashboardPage({
       suffix: '건',
       href: '/admin/content-queue',
       icon: ClipboardCheck,
+      hint: d.pendingQueue > 5 ? '⚠ 누적 — 검수 필요' : '정상',
+    },
+    {
+      label: '30일 누적 인용',
+      value: d.citations30d.toLocaleString(),
+      suffix: '건',
+      href: '/admin/citations',
+      icon: Zap,
+      hint: `24h ${d.citations24h}건`,
+    },
+    {
+      label: '이번 달 발행',
+      value: d.publishedThisMonth,
+      suffix: '편',
+      href: '/admin/content-queue',
+      icon: FileText,
+      hint: 'blog_html published',
     },
     {
       label: '오늘 LLM 비용',
@@ -649,13 +710,22 @@ export default async function AdminDashboardPage({
       suffix: '',
       href: '/admin/cost',
       icon: DollarSign,
+      hint: '한도 $5',
     },
     {
-      label: '24h AI 인용',
-      value: d.citations24h,
-      suffix: '건',
+      label: '측정 cron 상태',
+      value: d.lastCronAt
+        ? (() => {
+            const hoursAgo = (Date.now() - new Date(d.lastCronAt).getTime()) / 3600000;
+            return hoursAgo < 26 ? '정상' : '⚠ 지연';
+          })()
+        : '데이터 없음',
+      suffix: '',
       href: '/admin/citations',
-      icon: Zap,
+      icon: TrendingUp,
+      hint: d.lastCronAt
+        ? `최종: ${new Date(d.lastCronAt).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: 'numeric' })}`
+        : 'Run workflow 필요',
     },
   ];
 
@@ -668,7 +738,7 @@ export default async function AdminDashboardPage({
         </div>
       </header>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-6">
         {KPIS.map((k) => {
           const Icon = k.icon;
           return (
@@ -678,19 +748,30 @@ export default async function AdminDashboardPage({
               className="card card-pad transition hover:border-brand-200"
             >
               <div className="flex items-start justify-between">
-                <div className="kpi-label">{k.label}</div>
-                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-50 text-brand-700">
-                  <Icon className="h-3.5 w-3.5" />
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">{k.label}</div>
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-50 text-brand-700">
+                  <Icon className="h-3 w-3" />
                 </span>
               </div>
-              <div className="mt-3 flex items-baseline gap-1">
-                <div className="kpi-value">{k.value}</div>
-                <span className="text-sm text-ink-muted">{k.suffix}</span>
+              <div className="mt-2 flex items-baseline gap-1">
+                <div className="text-xl font-bold text-ink">{k.value}</div>
+                <span className="text-xs text-ink-muted">{k.suffix}</span>
               </div>
+              <div className="mt-1 text-[10px] text-ink-faint">{k.hint}</div>
             </Link>
           );
         })}
       </section>
+
+      {/* Round 87 (2026-06-28) — 액션 권고 워크플로 섹션.
+          사용자 요구: "차트만 보고 어떻게 대응할지 알수 없음" → 자동 진단 + 행동 가이드. */}
+      <ActionRecommendations
+        keywordGrounding={d.keywordGrounding}
+        pendingQueue={d.pendingQueue}
+        lastCronAt={d.lastCronAt}
+        citations30d={d.citations30d}
+        publishedThisMonth={d.publishedThisMonth}
+      />
 
       <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="card">
