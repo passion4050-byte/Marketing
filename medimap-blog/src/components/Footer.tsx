@@ -10,7 +10,7 @@ export function Footer() {
           <div className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/medimap-logo.svg"
+              src={siteConfig.publisher.logo}
               alt={siteConfig.brand}
               width={134}
               height={22}
@@ -20,6 +20,12 @@ export function Footer() {
           <p className="mt-3 max-w-md text-sm leading-relaxed text-white/70">
             {siteConfig.description}
           </p>
+          {/* Round 90 — 사업자 정보 (한국 전자상거래법 준수) */}
+          <div className="mt-4 space-y-0.5 text-[11px] leading-relaxed text-white/55">
+            <div>{siteConfig.publisher.legalName}</div>
+            <div>주소: {siteConfig.contact.address}</div>
+            <div>사업자등록번호: {siteConfig.contact.businessNumber}</div>
+          </div>
           <div className="mt-6 flex flex-wrap gap-2">
             <a
               href={siteConfig.contact.kakao}
