@@ -30,11 +30,59 @@ _DEFAULT_QUALITY = "standard"
 
 
 def is_dalle_enabled() -> bool:
-    """OPENAI_API_KEY 가 있고 IMAGE_PROVIDER 가 dalle 이거나 미설정이면 활성."""
+    """OPENAI_API_KEY 가 있고 IMAGE_PROVIDER 가 dalle 이거나 미설정이면 활성.
+
+    Round 86 (2026-06-28) — 진단 로그 강화. is_dalle_enabled() 가 False 인 정확한 이유 로깅.
+    """
     if not (os.getenv("OPENAI_API_KEY") or "").strip():
+        logger.warning("dalle.disabled: OPENAI_API_KEY 미설정 또는 빈 값")
         return False
-    provider = (os.getenv("IMAGE_PROVIDER", "dalle") or "dalle").strip().lower()
-    return provider in ("dalle", "openai", "auto")
+    provider_raw = os.getenv("IMAGE_PROVIDER", "dalle")
+    provider = (provider_raw or "dalle").strip().lower()
+    if provider not in ("dalle", "openai", "auto"):
+        logger.warning("dalle.disabled: IMAGE_PROVIDER='%s' (dalle|openai|auto 가 아님)", provider_raw)
+        return False
+    logger.info("dalle.enabled: provider='%s'", provider)
+    return True
+
+
+def _build_dalle_korean_prompt(keyword: str, title: str | None = None, *, is_self_tenant: bool = False) -> str:
+    """Round 86 — DALL-E 3 전용 한국 모델 사람 포함 프롬프트.
+
+    Pollinations(flux)는 사람 얼굴 망가뜨려서 'no people' 사용 (Round 81 CR).
+    DALL-E 3 는 사람 잘 그림 → 한국인 모델 명시.
+    사용자 요구: "퀄리티 높은 감도 높은 한국 모델, 외국인 느낌 지양".
+    """
+    from src.content.image_picker import keyword_to_english_context
+
+    en_ctx = keyword_to_english_context(keyword)
+    title_hint = f", concept: {title}" if title else ""
+
+    if is_self_tenant:
+        # 자사 인사이트 — 다큐멘터리/에디토리얼 톤
+        return (
+            f"Editorial photography for a Korean medical magazine. "
+            f"Korean (ethnically East Asian) medical professional and Korean patient "
+            f"in a modern Seoul medical clinic, theme: {en_ctx}{title_hint}. "
+            f"All subjects are clearly Korean (not Western, not Caucasian). "
+            f"Authentic Korean facial features. Natural Korean skin tones. "
+            f"Modern bright clinic interior, soft natural daylight, warm and trustworthy mood. "
+            f"Professional DSLR photography, shallow depth of field, sharp focus, "
+            f"realistic photo (not illustration, not anime). "
+            f"8k uhd, magazine editorial quality. "
+            f"No text, no logo, no watermark, no overlay."
+        )
+    # 파트너 클리닉 — 더 부드러운 톤
+    return (
+        f"Professional photograph of a Korean (ethnically East Asian) medical doctor "
+        f"consulting with a Korean patient, theme: {en_ctx}{title_hint}. "
+        f"Both subjects clearly Korean (East Asian features, NOT Western/Caucasian). "
+        f"Modern bright Korean medical clinic interior in Seoul. "
+        f"Warm natural lighting, friendly and trustworthy atmosphere. "
+        f"Photorealistic (not illustration), professional camera quality, "
+        f"shallow depth of field, sharp detail. "
+        f"No text, no logo, no watermark."
+    )
 
 
 def generate_dalle_image(
@@ -56,10 +104,11 @@ def generate_dalle_image(
     size = os.getenv("OPENAI_IMAGE_SIZE", _DEFAULT_SIZE)
     quality = os.getenv("OPENAI_IMAGE_QUALITY", _DEFAULT_QUALITY)
 
-    # build prompt — image_picker 와 같은 사람 제거 + 인테리어 정물 톤
-    from src.content.image_picker import build_prompt
-
-    prompt = build_prompt(keyword, title, realistic=is_self_tenant)
+    # Round 86 (2026-06-28) — 한국 모델 사람 포함 전용 프롬프트.
+    # 이전: image_picker.build_prompt 사용 → 'no people, empty room' (Round 81 Pollinations 정책)
+    # → DALL-E 가 사람 없는 빈 클리닉만 생성. 사용자 요구 = "퀄리티 높은 한국 모델, 외국인 지양".
+    prompt = _build_dalle_korean_prompt(keyword, title, is_self_tenant=is_self_tenant)
+    logger.info("dalle.prompt_built: %s", prompt[:120])
 
     try:
         from openai import OpenAI
@@ -69,6 +118,7 @@ def generate_dalle_image(
 
     try:
         client = OpenAI(api_key=api_key, timeout=60.0)
+        logger.info("dalle.api_call: model=%s size=%s quality=%s", model, size, quality)
         resp = client.images.generate(
             model=model,
             prompt=prompt,
@@ -78,12 +128,14 @@ def generate_dalle_image(
             response_format="url",
         )
         if not resp.data or not resp.data[0].url:
-            logger.warning("DALL-E 응답에 url 없음")
+            logger.error("dalle.no_url: 응답에 url 없음 (resp=%s)", str(resp)[:200])
             return None
         image_url = resp.data[0].url
         revised_prompt = getattr(resp.data[0], "revised_prompt", None) or prompt
+        logger.info("dalle.url_received: %s...", image_url[:80])
     except Exception as e:  # noqa: BLE001
-        logger.warning("DALL-E 호출 실패: %s", e)
+        # Round 86 — silent fail 진단. 에러 타입 + 메시지 명확히.
+        logger.error("dalle.api_failed: type=%s msg=%s", type(e).__name__, str(e)[:300])
         return None
 
     # DALL-E URL 은 일시적 (1시간 만료) → Supabase Storage 업로드 필수
