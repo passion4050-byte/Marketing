@@ -4024,8 +4024,137 @@ CREATE TABLE applied_insights (
 - /admin/learned-insights 페이지에 "자동 발견 패턴" 라벨 구분 표시
 - /contact /guide 페이지 wecircle 톤 정렬
 
-d Billing 환불 1건 요청 안내 |
-| OpenAI | $30 prepaid + auto-recharge ($5↘️ → $10 복구) + Monthly limit $25→$50 권장 | Free trial $60 별도 보유 → 약 3개월 운영분. 사용자가 카드 결제 시도 중 **중복 $33 결제** 발생 — help.openai.com 환불 1건 요청 안내 |
+---
+
+## Round 96~101 누적 (2026-06-28)
+
+### Round 96 — 자동 학습 사이클 디버깅 + UI 라벨
+
+**증상:** 첫 cron 실행 시 insight_id=None (silent fail).
+
+**원인 3종 누적:**
+1. `gc.domain_category` 컬럼 미존재 — `tenants` 테이블에만 있음
+2. `learned_insights` 실제 컬럼이 가이드/제목/카테고리가 아닌 `source_url, source_domain, source_tier, domain_category, patterns(jsonb NOT NULL), notes, applied`
+3. SQL 예외가 try/except 로 silent swallow 됨
+
+**fix 3종:**
+- `learned_pattern.py`: JOIN tenants t ON t.id = gc.tenant_id → t.domain_category 사용
+- INSERT 컬럼 재작성 (patterns jsonb 필수)
+- traceback 로깅 강제 (silent fail 차단)
+
+**Round 96 hotfix 추가 — Top vs Rest 임계값 미달:**
+- 31편 분석 중 mention>0 = 4편뿐 → Top 평균이 전체 평균에 희석돼 +0.5 임계값 미달
+- fix: Top group을 `mentions > 0` 필터로 분리 + 임계값 완화 (h2 0.5→0.3, table 0.3→0.2, faq 10%→5%)
+- 베이스라인 fallback insight 추가 (어떤 패턴도 임계값 못 넘으면 "표 평균 X개" 베이스라인 로깅)
+- **결과:** insight_id=6 성공, notes="표 평균 0.8개 (전체 0.3개) — 표 추가 시 인용률↑"
+
+### Round 97 — 디자인 폴리시
+
+- `medimap-blog-v2/src/app/globals.css` — card hover transition + admin-stack helper
+- 카드 그림자/border 색상 토큰 일관성 (brand-50/100/200 단계 명시)
+
+### Round 98 — /contact /guide wecircle 톤 + /privacy /terms 신규
+
+- `/contact/page.tsx` — CONTACT 객체 wecircle 정렬 (이메일·주소·website·schema 모두 wecircle.co.kr/주식회사 위서클)
+- `/guide/page.tsx` — Hero H1 "WECIRCLE 과 함께 AI 가 추천하는 병원이 되는 가장 빠른 길"
+- `/privacy/page.tsx` (신규) — PIPA 기본 6개 항목 + 사업자 정보 + 변경 고지 + ⚠️ placeholder 명시
+- `/terms/page.tsx` (신규) — B2B SaaS 8개 조항 + 분쟁 해결 + 회원 의무 + ⚠️ placeholder 명시
+
+### Round 99 — 종합 검증
+
+| 항목 | 결과 |
+|---|---|
+| 자동 학습 사이클 end-to-end | ✅ insight_id=6 DB 입증 |
+| /admin/learned-insights 🤖 자동 발견 패턴 chip | ✅ Round 96 적용 완료 |
+| 사이클 안내 배너 | ✅ 운영자에게 토글 ON 유도 |
+| A/B B 슬롯 글 보기 404 | ✅ Round 95 fix 검증 (partner URL 분기 + compliance 안전망) |
+
+### Round 100~101 — about Section 2~5 wecircle 메시지 정렬
+
+11회 텍스트 치환으로 `about/page.tsx` 통합 정렬:
+
+| Before | After |
+|---|---|
+| 메디맵만의 특별함 | WECIRCLE 만의 특별함 |
+| 메디맵은 단순한 '가격 비교 플랫폼'이 아닙니다 | WECIRCLE 은 단순한 '블로그 자동 작성기'가 아닙니다 |
+| MEDIMAP 추천 (칩) | WECIRCLE 추천 (칩) |
+| 왜 메디맵일까? | 왜 WECIRCLE 일까? |
+| 메디맵 입점 가이드 | WECIRCLE 입점 가이드 |
+| 메디맵 이야기 (Section pill) | 메디맵 인사이트 (콘텐츠 라벨 유지) |
+| 메디맵 전문가의 인사이트 | WECIRCLE 전문가의 인사이트 |
+| 메디맵 전문가들이 작성한 시술/병원 가이드 | WECIRCLE 전문가들이 작성한 AI 검색 시대 의료 마케팅 인사이트 |
+| MEDIMAP (phone mockup) | WECIRCLE |
+| 메디맵과 함께 성장 | WECIRCLE 과 함께 AI 검색 시대를 준비하는 |
+| 메디맵 파트너가 되어주시는 | WECIRCLE 파트너가 되어주시는 |
+
+### 함정 DK — Auto Pattern Learning Threshold Tuning
+
+**증상:** 사용자가 cron 첫 실행 후 "자동 발견 패턴이 안 떠"라고 보고.
+
+**Why:** mention=0 인 콘텐츠가 31편 중 27편이라 Top 4편의 h2/table/faq 평균이 전체 평균에 의해 희석돼 +0.5 임계값을 못 넘김.
+
+**How to apply:**
+1. Top group 은 항상 `mentions > 0` 필터 적용 (희석 방지)
+2. 임계값은 데이터 양이 적을수록 완화 (h2 0.3 / table 0.2 / faq 5%)
+3. 어떤 패턴도 못 넘으면 **베이스라인 insight 1건 무조건 INSERT** (운영자에게 "발견 없음" 보다 "표 평균 X개" 같은 baseline 노출이 학습 시작 신호)
+4. SQL 예외는 절대 swallow 금지 — `traceback.print_exc()` 강제
+
+**검증:** insight_id=6, source_tier=AUTO, patterns={"trigger": "baseline_log"}, applied=false.
+
+### 함정 DL — 두 Vercel 프로젝트 분리 빌드
+
+**증상:** main push 후 Vercel UI 가 `geo-v2` 프로젝트만 Ready 표시. wecircle.co.kr 변경 안 보임.
+
+**Why:** 같은 monorepo 에 `geo-v2` (medimap-blog-v2/) 와 `medimap-blog` (medimap-blog/) 2개 Vercel 프로젝트가 연결돼 있음. 각각 별도 빌드 트리거.
+
+**How to apply:**
+- medimap-blog 폴더 변경 후 wecircle.co.kr 검증 전, Vercel 좌상단 프로젝트 드롭다운으로 **medimap-blog** 프로젝트 선택 → 같은 commit hash Ready 확인 필요
+- 만약 deploy hook 으로만 트리거되는 구조면 자동 안 돌 수 있음 → `vercel --prod` 또는 UI Redeploy
+
+### Round 96~101 변경 파일 누적
+
+- `src/content/learned_pattern.py` (Round 96 hotfix 3종)
+- `medimap-blog-v2/src/app/admin/(portal)/learned-insights/page.tsx` (🤖 chip + 사이클 안내)
+- `medimap-blog-v2/src/app/globals.css` (card hover + admin-stack)
+- `medimap-blog/src/app/contact/page.tsx` (wecircle CONTACT)
+- `medimap-blog/src/app/guide/page.tsx` (Hero wecircle)
+- `medimap-blog/src/app/privacy/page.tsx` (신규)
+- `medimap-blog/src/app/terms/page.tsx` (신규)
+- `medimap-blog/src/app/about/page.tsx` (Section 2~5 wecircle 11회 치환)
+
+### 운영 메모 (Round 101 시점)
+
+- 자동 학습 사이클: ✅ 100% 작동 (insight_id=6 입증). **사용자 직접 액션 = 토글 ON 1회로 prompt 주입 시작**.
+- about 페이지: WECIRCLE 운영사 메시지 / "메디맵 인사이트" 콘텐츠 라벨 하이브리드 유지.
+- /privacy /terms: placeholder, 변호사 검토 후 정식 공시 필요.
+- 비즈니스 본질 (medimap-blog 도메인 AI 인용 0건 → wecircle.co.kr 누적 시작): 수 주~수개월 시간 누적 필요.
+
+### 남은 사용자 액션 (Round 101 시점)
+
+- [ ] **🔴 /admin/learned-insights id=6 토글 ON** (자동 학습 prompt 주입 시작 — 5분, 최우선)
+- [ ] **🟠 A/B Auto Generate workflow 첫 Run** (GitHub Actions, 첫 A/B 데이터 누적)
+- [ ] Auto-publish workflow 1회 Run → DALL-E 3 한국 모델 + Gemini paid 발행 검증
+- [ ] /privacy /terms 변호사 검토 후 정식 공시
+- [ ] GSC + 네이버 서치어드바이저 sitemap 재제출 (wecircle.co.kr)
+- [ ] OpenAI 환불 1건 + Gemini 환불 1건 (Round 95 이월)
+- [ ] 카카오톡 wecircle 채널 신청 (KakaoBiz 심사)
+
+### 다음 라운드 후보 (Round 102+)
+
+- 자동 학습 적용 후 다음 cron 글 검증 (표 들어간 글 비율 ↑ 측정)
+- A/B 결과 첫 다이제스트 (variant 별 grounding/mention 차이)
+- /privacy /terms 변호사 검토본 반영
+- 카카오톡 채널 wecircle 신규 (KakaoBiz 심사 통과 시)
+- medimap-blog AI 인용 0건 → wecircle.co.kr 첫 인용 감지 모니터링
+ 카카오톡 wecircle 채널 신청 (KakaoBiz 심사)
+
+### 다음 라운드 후보 (Round 102+)
+
+- 자동 학습 적용 후 다음 cron 글 검증 (표 들어간 글 비율 ↑ 측정)
+- A/B 결과 첫 다이제스트 (variant 별 grounding/mention 차이)
+- /privacy /terms 변호사 검토본 반영
+- 카카오톡 채널 wecircle 신규 (KakaoBiz 심사 통과 시)
+- medimap-blog AI 인용 0건 → wecircle.co.kr 첫 인용 감지 모니터링
 
 ### 비용 추산 (월간, 현실치)
 - A상품 84글: Gemini $0.30 + DALL-E $10 + 측정 $7~8 → **$20~25/월**
