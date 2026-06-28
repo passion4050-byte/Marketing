@@ -19,15 +19,16 @@ import { siteConfig } from "@/lib/site";
 
 export const revalidate = false;
 
+// Round 98 (2026-06-28) — wecircle 톤 정렬. Hero/본문은 점진적 (콘텐츠 사이클은 메디맵 인사이트 유지).
 export const metadata: Metadata = {
-  title: "병원 입점 가이드 | 메디맵",
+  title: "병원 입점 가이드 | WECIRCLE",
   description:
-    "메디맵 입점부터 환자 유치, 운영 관리까지 — 병원이 디지털 헬스케어 플랫폼에서 안정적으로 성장하기 위한 가이드. 검증된 DB, 병원 성장 지원, 지속적인 신규 환자 유입.",
+    "AI 검색 시대, 우리 병원이 ChatGPT · Gemini · Claude 에 추천되도록. WECIRCLE 입점부터 콘텐츠 자동 생성, AI 인용 측정까지 — 병원 마케팅의 새로운 표준.",
   alternates: { canonical: "/guide" },
   openGraph: {
-    title: "병원 입점 가이드 | 메디맵",
+    title: "병원 입점 가이드 | WECIRCLE",
     description:
-      "메디맵 입점부터 환자 유치, 운영 관리까지 — 병원이 디지털 헬스케어 플랫폼에서 안정적으로 성장하기 위한 가이드.",
+      "AI 검색 시대 병원 마케팅 — GEO/AEO 자동 최적화 SaaS. WECIRCLE 와 함께 시작하세요.",
     type: "website",
   },
 };
@@ -68,16 +69,16 @@ function PageHeader() {
           Hospital Onboarding Guide
         </div>
         <h1 className="mt-3 max-w-3xl text-[36px] font-extrabold leading-[1.15] tracking-[-0.025em] text-ink md:text-[46px]">
-          메디맵에 입점하고
+          WECIRCLE 과 함께
           <br className="hidden md:block" />{" "}
           <span className="bg-gradient-to-br from-brand to-accent bg-clip-text text-transparent">
-            함께 성장하는
+            AI 가 추천하는
           </span>{" "}
-          가장 빠른 길
+          병원이 되는 가장 빠른 길
         </h1>
         <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-ink-muted">
-          입점 절차부터 환자 유치, 운영 관리까지 — 병원이 메디맵에서 안정적으로
-          성장하기 위해 알아야 할 모든 것.
+          ChatGPT · Gemini · Claude 가 우리 병원을 추천하도록 — 도입부터 콘텐츠
+          자동 생성, AI 인용 측정까지 WECIRCLE 가 끝까지 함께합니다.
         </p>
         <div
           className="mt-8 h-[2px] w-full max-w-[120px] rounded-full bg-gradient-to-r from-brand to-accent"

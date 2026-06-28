@@ -17,27 +17,28 @@ import { absoluteUrl, siteConfig } from "@/lib/site";
 export const revalidate = false;
 
 const CONTACT = {
+  // Round 98 (2026-06-28) — wecircle 새 회사 정보. 카카오톡은 메디맵 채널 당분간 활용.
   phone: "010-9024-8500",
   phoneTel: "01090248500",
-  email: "sales@medimap.team",
-  website: "www.medi-map.co.kr",
-  websiteUrl: "https://www.medi-map.co.kr",
-  office: "서울시 강남구 봉은사로 215, 11층",
-  officeShort: "서울시 강남구 봉은사로215, 11층",
-  subway: "9호선 언주역 4번 출구",
+  email: "contact@wecircle.co.kr",
+  website: "wecircle.co.kr",
+  websiteUrl: "https://wecircle.co.kr",
+  office: "서울특별시 서초구 사임당로 8길 13",
+  officeShort: "서울 서초구 사임당로 8길 13",
+  subway: "강남역 인근",
   hours: ["평일 09:00 - 18:00", "주말·공휴일 휴무"],
-  mapQuery: "서울특별시 강남구 봉은사로 215 KTS빌딩",
+  mapQuery: "서울특별시 서초구 사임당로 8길 13",
 } as const;
 
 export const metadata: Metadata = {
-  title: "문의하기 | 메디맵",
+  title: "문의하기 | WECIRCLE",
   description:
-    "광고 문의, 파트너십 제안 등 어떤 내용이든 편하게 연락주세요. 메디맵 본사: 서울시 강남구 봉은사로 215, 11층 · 9호선 언주역 4번 출구.",
+    "AI 검색 시대의 의료 마케팅 자동화 SaaS · WECIRCLE. 도입 상담, 파트너십 제안 등 어떤 내용이든 편하게 연락주세요. 본사: 서울 서초구 사임당로 8길 13.",
   alternates: { canonical: "/contact" },
   openGraph: {
-    title: "문의하기 | 메디맵",
+    title: "문의하기 | WECIRCLE",
     description:
-      "함께 성장할 파트너를 찾고 있습니다. 광고 문의, 파트너십 제안 등 어떤 내용이든 편하게 연락주세요.",
+      "AI 가 우리 병원을 추천하도록 — WECIRCLE 와 함께 시작하세요. 도입 상담은 카카오톡 또는 이메일로.",
     type: "website",
   },
 };
@@ -45,7 +46,7 @@ export const metadata: Metadata = {
 const contactPageLd = {
   "@context": "https://schema.org",
   "@type": "ContactPage",
-  name: "메디맵 문의하기",
+  name: "WECIRCLE 문의하기",
   url: absoluteUrl("/contact"),
   inLanguage: "ko-KR",
   about: {
@@ -55,8 +56,8 @@ const contactPageLd = {
     url: siteConfig.url,
     address: {
       "@type": "PostalAddress",
-      streetAddress: "봉은사로 215, 11층",
-      addressLocality: "강남구",
+      streetAddress: "사임당로 8길 13",
+      addressLocality: "서초구",
       addressRegion: "서울특별시",
       addressCountry: "KR",
     },
@@ -251,7 +252,7 @@ function LocationSection() {
             <div className="aspect-[4/3] w-full md:aspect-[5/4]">
               <iframe
                 src={mapSrc}
-                title="메디맵 본사 위치 — 서울시 강남구 봉은사로 215 KTS빌딩"
+                title="WECIRCLE 본사 위치 — 서울특별시 서초구 사임당로 8길 13"
                 className="h-full w-full border-0"
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
