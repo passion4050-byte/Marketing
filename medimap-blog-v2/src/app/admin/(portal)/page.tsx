@@ -18,6 +18,7 @@ import Link from 'next/link';
 import { getServerClient } from '@/lib/supabase';
 import { cn } from '@/lib/cn';
 import { ActionRecommendations } from '@/components/admin/ActionRecommendations';
+import { ContentCompetitiveness } from '@/components/admin/ContentCompetitiveness';
 import type {
   TierTrendPoint,
   ClientRankingItem,
@@ -622,6 +623,113 @@ async function fetchDashboardData(opts: {
     /* 신규 차트 실패 시 빈 array */
   }
 
+  // Round 87 (2026-06-28) — 콘텐츠 경쟁력 분석.
+  //   비즈니스 핵심: "메디맵 콘텐츠가 AI 에 자주 인용되도록".
+  //   각 발행 글의 키워드 → 그 키워드의 mention 카운트 = 콘텐츠 "노출 영향력" proxy
+  //   (정확한 content_id↔mention 매핑은 Round 88 스키마 변경에서. 지금은 keyword 기반.)
+  let topContents: Array<{
+    id: number;
+    title: string;
+    slug: string;
+    tenantName: string;
+    tenantId: number;
+    publishedAt: string;
+    keyword: string;
+    mentionsForKeyword: number;
+    isPartner: boolean;
+    partnerCategory: string | null;
+  }> = [];
+  try {
+    const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: pubContents } = await sb
+      .from('generated_contents')
+      .select('id, title, slug, tenant_id, published_at, keyword_text, is_partner_content, partner_category')
+      .eq('status', 'published')
+      .eq('channel', 'blog_html')
+      .gte('published_at', since30)
+      .order('published_at', { ascending: false })
+      .limit(50);
+    const pubList = (pubContents ?? []) as Array<{
+      id: number; title: string; slug: string; tenant_id: number;
+      published_at: string; keyword_text: string;
+      is_partner_content: boolean; partner_category: string | null;
+    }>;
+
+    // 키워드별 mention 카운트 (30일)
+    const keywordSet = Array.from(new Set(pubList.map((p) => p.keyword_text).filter(Boolean)));
+    const kwMentionMap = new Map<string, number>();
+    if (keywordSet.length > 0) {
+      // queries(keyword) ← responses ← mentions(is_target=true) 체인
+      const { data: kwRows } = await sb
+        .from('keywords')
+        .select('id, text')
+        .in('text', keywordSet);
+      const kwIdToText = new Map<number, string>(
+        ((kwRows ?? []) as Array<{ id: number; text: string }>).map((k) => [k.id, k.text])
+      );
+      const kwIds = Array.from(kwIdToText.keys());
+      if (kwIds.length > 0) {
+        const { data: qRows } = await sb
+          .from('queries')
+          .select('id, keyword_id')
+          .in('keyword_id', kwIds)
+          .gte('requested_at', since30);
+        const qIdToKw = new Map<number, number>();
+        ((qRows ?? []) as Array<{ id: number; keyword_id: number }>).forEach((q) => qIdToKw.set(q.id, q.keyword_id));
+        if (qIdToKw.size > 0) {
+          // responses 거쳐서 mentions 카운트 — 큰 query 라 page 단위
+          const { data: rRows } = await sb
+            .from('responses')
+            .select('id, query_id')
+            .in('query_id', Array.from(qIdToKw.keys()));
+          const rIdToKw = new Map<number, string>();
+          ((rRows ?? []) as Array<{ id: number; query_id: number }>).forEach((r) => {
+            const kid = qIdToKw.get(r.query_id);
+            const ktext = kid ? kwIdToText.get(kid) : undefined;
+            if (ktext) rIdToKw.set(r.id, ktext);
+          });
+          if (rIdToKw.size > 0) {
+            const { data: mRows } = await sb
+              .from('mentions')
+              .select('response_id, is_target')
+              .in('response_id', Array.from(rIdToKw.keys()))
+              .eq('is_target', true);
+            ((mRows ?? []) as Array<{ response_id: number }>).forEach((m) => {
+              const kw = rIdToKw.get(m.response_id);
+              if (kw) kwMentionMap.set(kw, (kwMentionMap.get(kw) ?? 0) + 1);
+            });
+          }
+        }
+      }
+    }
+
+    const tenantNameMapLocal = new Map<number, string>();
+    if (pubList.length > 0) {
+      const tIds = Array.from(new Set(pubList.map((p) => p.tenant_id)));
+      const { data: tRows } = await sb.from('tenants').select('id, name').in('id', tIds);
+      ((tRows ?? []) as Array<{ id: number; name: string }>).forEach((t) =>
+        tenantNameMapLocal.set(t.id, t.name)
+      );
+    }
+
+    topContents = pubList
+      .map((p) => ({
+        id: p.id,
+        title: p.title || p.keyword_text || '(제목 없음)',
+        slug: p.slug,
+        tenantName: tenantNameMapLocal.get(p.tenant_id) ?? `#${p.tenant_id}`,
+        tenantId: p.tenant_id,
+        publishedAt: p.published_at,
+        keyword: p.keyword_text,
+        mentionsForKeyword: kwMentionMap.get(p.keyword_text) ?? 0,
+        isPartner: p.is_partner_content,
+        partnerCategory: p.partner_category,
+      }))
+      .sort((a, b) => b.mentionsForKeyword - a.mentionsForKeyword);
+  } catch {
+    /* graceful */
+  }
+
   return {
     activeTenants: clientCount ?? 0,
     pendingQueue: pendingCount ?? 0,
@@ -636,6 +744,7 @@ async function fetchDashboardData(opts: {
     clientRanking,
     keywordGrounding,
     newDomains,
+    topContents,
     error: costError,
   };
 }
@@ -772,6 +881,11 @@ export default async function AdminDashboardPage({
         citations30d={d.citations30d}
         publishedThisMonth={d.publishedThisMonth}
       />
+
+      {/* Round 87 — 콘텐츠 경쟁력 위젯.
+          비즈니스 핵심: "메디맵 콘텐츠가 AI 에 자주 인용되도록".
+          Top 인용 콘텐츠 + 병원 필터 + 자동 패턴 분석. */}
+      <ContentCompetitiveness contents={d.topContents ?? []} />
 
       <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="card">

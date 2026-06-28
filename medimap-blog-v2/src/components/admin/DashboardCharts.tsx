@@ -13,6 +13,7 @@
  */
 'use client';
 
+import { useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -30,6 +31,16 @@ import {
 } from 'recharts';
 import { TrendingUp, BarChart3, Users, Target, AlertCircle } from 'lucide-react';
 import { AutoClassifyButton } from './AutoClassifyButton';
+import { cn } from '@/lib/cn';
+
+// Round 87 (2026-06-28) — 차트 3개 탭 통합.
+// 사용자 요구: "탭 형태로 한 컨테이너에서 보는게 관리하는게 좋을 것 같고"
+type AnalysisTab = 'tier' | 'ranking' | 'grounding';
+const TAB_META: Record<AnalysisTab, { label: string; icon: React.ComponentType<{ className?: string }>; desc: string }> = {
+  tier: { label: '5-tier 점유율 추이', icon: BarChart3, desc: '시장 점유율 변화 (T1↑ T5↓ 가 가치 증명)' },
+  ranking: { label: '클라이언트별 ranking', icon: Users, desc: '클라이언트 키워드별 메디맵 vs 외부 비중' },
+  grounding: { label: '키워드 grounding rate', icon: Target, desc: '어느 키워드가 AI 출처로 인식되는지' },
+};
 
 export type TierTrendPoint = {
   date: string;       // 'MM-DD'
@@ -87,6 +98,18 @@ export function DashboardCharts({
   newDomains?: NewDomainItem[];
 }) {
   const noData = tierTrend.length === 0;
+  // Round 87 — 3차트 탭 활성화. 기본은 가장 임팩트 큰 클라이언트 ranking.
+  const [tab, setTab] = useState<AnalysisTab>('ranking');
+
+  // 인용 0 키워드 자동 highlight (drill-down)
+  const zeroGroundingKeywords = keywordGrounding.filter(
+    (k) => k.rate === 0 || (k.queries > 0 && k.grounded === 0)
+  );
+  const lowGroundingKeywords = keywordGrounding.filter(
+    (k) => k.rate > 0 && k.rate < 0.2
+  );
+  // T5 (경쟁사) 우세 클라이언트 — 영업 보강 우선순위
+  const t5DominantClients = clientRanking.filter((c) => c.total > 0 && c.t5 > c.t1);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -135,6 +158,27 @@ export function DashboardCharts({
           )}
         </div>
       </section>
+
+      {/* Round 87 — drill-down 권고 배너 (3차트 위 공통) */}
+      {(zeroGroundingKeywords.length > 0 || t5DominantClients.length > 0) && (
+        <section className="card border-status-warning/30 bg-status-warning/5 px-4 py-3 text-[11px] text-ink-soft md:px-5">
+          <div className="font-semibold text-status-warning">💡 차트 액션 권고</div>
+          <div className="mt-1">
+            {zeroGroundingKeywords.length > 0 && (
+              <span>
+                메디맵 인용 0인 키워드 <strong>{zeroGroundingKeywords.length}개</strong>
+                {zeroGroundingKeywords.length > 0 && ` (${zeroGroundingKeywords.slice(0, 2).map((k) => k.keyword).join(', ')}${zeroGroundingKeywords.length > 2 ? ' 외' : ''})`}
+                — 콘텐츠 추가 발행 권장.
+              </span>
+            )}
+            {t5DominantClients.length > 0 && (
+              <span className="ml-2">
+                외부 우세 클라이언트 <strong>{t5DominantClients.length}곳</strong> — 영업 보강 필요.
+              </span>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* 차트 2: 5-tier stacked area */}
       <section className="card">
