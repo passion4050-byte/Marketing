@@ -87,9 +87,10 @@ export function ActionRecommendations({
     });
   }
 
-  // P1: 인용률 낮은 키워드 (grounding < 20%)
+  // P1: 인용률 낮은 키워드 (grounding < 20% + 측정은 됐는데 grounded 0)
+  // Round 89 hotfix — KeywordGroundingItem 실제 type: { keyword, tenant_name, queries, grounded, rate }
   const lowGrounding = keywordGrounding.filter(
-    (k) => k.grounding_rate != null && k.grounding_rate < 0.2 && k.t1_count === 0
+    (k) => k.queries > 0 && k.rate < 0.2 && k.grounded === 0
   );
   if (lowGrounding.length >= 3) {
     const sample = lowGrounding.slice(0, 3).map((k) => k.keyword).join(', ');
