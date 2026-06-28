@@ -113,10 +113,25 @@ def analyze_patterns(session_factory) -> dict:
     ]
     enriched.sort(key=lambda x: x["mentions"], reverse=True)
 
-    # Top 20% (최소 5개)
-    top_n = max(5, len(enriched) // 5)
-    top = enriched[:top_n]
-    rest = enriched[top_n:]
+    # Round 96 hotfix 3 — mention > 0 인 글만 Top 후보 (mention 0 글이 평균 희석 방지).
+    candidates = [e for e in enriched if e["mentions"] > 0]
+    if len(candidates) >= 3:
+        # Top = mention 받은 글 전부 / Rest = mention 0 인 나머지
+        top = candidates
+        rest = [e for e in enriched if e["mentions"] == 0]
+        logger.info(
+            "learned_pattern.split: top=%d (mention>0), rest=%d (mention=0)",
+            len(top), len(rest),
+        )
+    else:
+        # mention 받은 글 < 3개 → 전체 정렬 후 상위 20%
+        top_n = max(3, len(enriched) // 5)
+        top = enriched[:top_n]
+        rest = enriched[top_n:]
+        logger.info(
+            "learned_pattern.fallback_split: top_n=%d (mention 부족)", top_n,
+        )
+
     if not rest:
         return {"total_analyzed": len(enriched), "insights": []}
 
@@ -146,33 +161,57 @@ def analyze_patterns(session_factory) -> dict:
         },
     }
 
-    # 의미 있는 차이만 인사이트로 (≥ 15% 또는 절대값 차이)
+    # Round 96 hotfix 3 — 평균 값 로그 (다음 진단 쉽게)
+    logger.info(
+        "learned_pattern.metrics: TOP h2=%s table=%s list=%s img=%s faq=%s body=%s | REST h2=%s table=%s list=%s img=%s faq=%s body=%s",
+        metrics_summary["top"]["avg_h2"], metrics_summary["top"]["avg_table"],
+        metrics_summary["top"]["avg_list"], metrics_summary["top"]["avg_img"],
+        metrics_summary["top"]["faq_pct"], metrics_summary["top"]["avg_body_len"],
+        metrics_summary["rest"]["avg_h2"], metrics_summary["rest"]["avg_table"],
+        metrics_summary["rest"]["avg_list"], metrics_summary["rest"]["avg_img"],
+        metrics_summary["rest"]["faq_pct"], metrics_summary["rest"]["avg_body_len"],
+    )
+
+    # 의미 있는 차이만 인사이트로 (임계값 완화 — 작은 표본 대응)
     insights: list[str] = []
     t = metrics_summary["top"]
     r = metrics_summary["rest"]
-    if t["avg_h2"] > r["avg_h2"] + 0.5:
+    if t["avg_h2"] > r["avg_h2"] + 0.3:
         insights.append(
-            f"H2 섹션 평균 {t['avg_h2']}개 (전체 평균 {r['avg_h2']}개) — 더 잘게 나눈 글이 인용 잘 받음"
+            f"H2 섹션 평균 {t['avg_h2']}개 (전체 {r['avg_h2']}개) — 더 잘게 나눈 글이 인용 잘 받음"
         )
-    if t["avg_table"] > r["avg_table"] + 0.3:
+    elif t["avg_h2"] < r["avg_h2"] - 0.3:
+        insights.append(
+            f"H2 섹션 평균 {t['avg_h2']}개 (전체 {r['avg_h2']}개) — 짧은 구조가 우세, H2 줄이기 권장"
+        )
+    if t["avg_table"] > r["avg_table"] + 0.2:
         insights.append(
             f"표 평균 {t['avg_table']}개 (전체 {r['avg_table']}개) — 표 추가 시 인용률↑"
         )
-    if t["avg_list"] > r["avg_list"] + 0.5:
+    if t["avg_list"] > r["avg_list"] + 0.3:
         insights.append(
             f"목록(ul/ol) 평균 {t['avg_list']}개 (전체 {r['avg_list']}개) — 체크리스트형 구조 권장"
         )
-    if t["faq_pct"] > r["faq_pct"] + 10:
+    if t["faq_pct"] > r["faq_pct"] + 5:
         insights.append(
             f"FAQPage schema {t['faq_pct']}% (전체 {r['faq_pct']}%) — FAQ 섹션 추가 시 인용률↑"
         )
-    if t["avg_body_len"] > r["avg_body_len"] * 1.15:
+    if t["avg_body_len"] > r["avg_body_len"] * 1.10:
         insights.append(
             f"본문 평균 {t['avg_body_len']}자 (전체 {r['avg_body_len']}자) — 더 긴 글이 우세"
         )
-    if t["avg_img"] > r["avg_img"] + 0.5:
+    elif t["avg_body_len"] < r["avg_body_len"] * 0.90:
+        insights.append(
+            f"본문 평균 {t['avg_body_len']}자 (전체 {r['avg_body_len']}자) — 짧은 글이 더 인용됨"
+        )
+    if t["avg_img"] > r["avg_img"] + 0.3:
         insights.append(
             f"이미지 평균 {t['avg_img']}개 (전체 {r['avg_img']}개) — 시각 자료 추가 권장"
+        )
+    # 임계값 미달 시에도 기본 베이스라인 인사이트 등록 (분석은 됐다는 증거)
+    if not insights:
+        insights.append(
+            f"Top {len(top)}편 평균 구조 — H2 {t['avg_h2']}/표 {t['avg_table']}/목록 {t['avg_list']}/이미지 {t['avg_img']}/FAQ {t['faq_pct']}%/본문 {t['avg_body_len']}자. 전체 평균과 차이 미미 — 더 많은 데이터 누적 후 재분석"
         )
 
     return {
