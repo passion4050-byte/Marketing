@@ -65,12 +65,14 @@ def analyze_patterns(session_factory) -> dict:
         }
     """
     with session_factory() as s:
-        # 발행 콘텐츠 (30일)
+        # 발행 콘텐츠 (30일) — Round 96 hotfix:
+        #   domain_category 는 tenants 테이블에 있음. JOIN 으로 가져와야.
         rows = s.execute(
             text(
                 """
-                SELECT gc.id, gc.body, gc.keyword_text, gc.domain_category
+                SELECT gc.id, gc.body, gc.keyword_text, t.domain_category
                 FROM generated_contents gc
+                LEFT JOIN tenants t ON t.id = gc.tenant_id
                 WHERE gc.status = 'published'
                   AND gc.channel = 'blog_html'
                   AND gc.published_at > NOW() - INTERVAL '30 days'
