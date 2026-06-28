@@ -181,6 +181,20 @@ def generate_image_for_content(
         logger.info("IMAGE_GEN_ENABLED != true — 이미지 생성 skip")
         return None
 
+    # Round 83 (2026-06-28) — DALL-E 3 우선 (사용자 OpenAI 결제 완료).
+    #   사람 얼굴/손 왜곡 함정 CR + Pollinations 5xx 함정 CJ 양쪽을 한 번에 해소.
+    #   실패(429/네트워크/Storage) 시 기존 Unsplash → Pollinations chain 으로 폴백 (graceful).
+    try:
+        from src.content.dalle_client import is_dalle_enabled, generate_dalle_image
+        if is_dalle_enabled():
+            dalle = generate_dalle_image(keyword, title, is_self_tenant=is_self_tenant)
+            if dalle and dalle.get("url"):
+                logger.info("DALL-E 3 cover 생성 성공: %s", dalle["url"][:80])
+                return dalle
+            logger.info("DALL-E skip/실패 — Unsplash/Pollinations fallback")
+    except Exception as e:  # noqa: BLE001
+        logger.warning("DALL-E 분기 실패 — fallback: %s", e)
+
     # Round 29 자사 인사이트 — Unsplash 우선
     if is_self_tenant:
         try:

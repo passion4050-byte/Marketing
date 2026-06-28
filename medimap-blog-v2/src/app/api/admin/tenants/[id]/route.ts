@@ -11,7 +11,9 @@ const NOT_NULL_PROTECT = new Set(['name', 'domain_category', 'region', 'business
 const ALLOWED_PATCH = new Set([
   'name', 'domain_category', 'region', 'business_model', 'address',
   'naver_place_url', 'phone', 'homepage', 'email',
-  'partner_slug', 'status', 'publish_count', 'monthly_cost', 'joined_at'
+  'partner_slug', 'status', 'publish_count', 'monthly_cost', 'joined_at',
+  'report_send_day',  // 누락 보완 (POST 에는 있는데 PATCH 만 빠져있었음)
+  'publish_plan',     // Round 83 (2026-06-28) — A: 주3회, B: 매일
 ]);
 
 interface RouteCtx { params: Promise<{ id: string }>; }

@@ -25,6 +25,7 @@ interface SbTenant {
   monthly_cost: number | null;
   joined_at: string | null;
   report_send_day: number | null; // Round 53 — 1~28일
+  publish_plan: 'A' | 'B' | null; // Round 83 — A: 주3회(월/수/금), B: 매일
 }
 
 const STATUS_CHIP: Record<TenantStatus, { label: string; cls: string }> = {
@@ -58,7 +59,7 @@ export default function TenantsPage() {
 
   const openNew = () => {
     setEditing({} as SbTenant);
-    setDraft({ status: 'trial', publish_count: 0, monthly_cost: 0, domain_category: '안과' });
+    setDraft({ status: 'trial', publish_count: 0, monthly_cost: 0, domain_category: '안과', publish_plan: 'A' });
   };
   const openEdit = (t: SbTenant) => { setEditing(t); setDraft({ ...t }); };
   const close = () => { setEditing(null); setDraft({}); };
@@ -346,6 +347,17 @@ export default function TenantsPage() {
                   ))}
                 </select>
                 <p className="mt-1 text-[10px] text-ink-muted">매월 이 날 18시 KST 에 보고서 이메일 자동 발송</p>
+              </div>
+
+              {/* Round 83 (2026-06-28) — 상품 옵션 (콘텐츠 발행 빈도) */}
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink">상품 옵션 (발행 빈도)</label>
+                <select className="input-base" value={(draft.publish_plan ?? 'A') as string}
+                  onChange={(e) => setDraft((p) => ({ ...p, publish_plan: e.target.value as 'A' | 'B' }))}>
+                  <option value="A">A상품 — 주 3회 (월/수/금)</option>
+                  <option value="B">B상품 — 매일 1편 (프리미엄)</option>
+                </select>
+                <p className="mt-1 text-[10px] text-ink-muted">A: 기본형 · B: 발행량 2.5배. 변경 시 다음 cron 부터 적용</p>
               </div>
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-border px-6 py-4">

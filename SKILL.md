@@ -3959,3 +3959,107 @@ CREATE TABLE applied_insights (
 
 **추가 푸시 파일(Round 82-b):** `src/collector/indexnow.py`(신규) · `src/collector/scheduler.py`(IndexNow 핑) · `medimap-blog/public/8f3a2c1b9d7e4056a1c2f3b4e5d60718.txt`(신규)
 
+---
+
+## Round 83 (2026-06-28) — 결제 인프라 + 상품옵션 + DALL-E 3 + timeout
+
+> 6/28 일요일 집. cron #91 (8:57 KST) 이 **Gemini 429 quota + Anthropic credit balance too low** 양쪽 fail 로 완전 마비된 게 발화점. 결제 → 코드 변경 → 운영 정책 명문화 한 사이클.
+
+### 결제 정리 (사용자 직접)
+| 서비스 | 상태 | 메모 |
+|---|---|---|
+| Anthropic | $15 잔액 + auto-recharge 켜짐 | trigger threshold 너무 낮아 cron 죽은 후에야 충전됨. **threshold $5→$10 이상 권장** + monthly limit $200K→$100 으로 낮춰 가드 |
+| Gemini | AI Studio 선불 ₩20,000 충전 + paid tier 활성 | 중복결제 ₩20,000 발생 → Google Cloud Billing 환불 1건 요청 안내 |
+| OpenAI | $30 prepaid + auto-recharge ($5↘️ → $10 복구) + Monthly limit $25→$50 권장 | Free trial $60 별도 보유 → 약 3개월 운영분. 사용자가 카드 결제 시도 중 **중복 $33 결제** 발생 — help.openai.com 환불 1건 요청 안내 |
+
+### 비용 추산 (월간, 현실치)
+- A상품 84글: Gemini $0.30 + DALL-E $10 + 측정 $7~8 → **$20~25/월**
+- B상품 옵션 1 tenant 추가: +$4/월
+- 자사+6 클라이언트 전부 A상품 = **$25 안팎**
+- 6/27 카드 끊긴 게 운영 P0 리스크 입증 → auto-recharge 절대 필수
+
+### 코드 변경 (Round 83 푸시 대상)
+
+**P0-1: auto-publish workflow timeout 8m → 20m**
+- `.github/workflows/auto-publish.yml` line 24
+- 사유: cron #92 가 정확히 8m 0s 에 cancelled. 8 tenant × retry 3번 + 이미지 + Vercel 훅 시간 고려 시 20m 안전
+
+**P0-2: DALL-E 3 이미지 엔진 신규**
+- `src/content/dalle_client.py` (신규, ~150줄)
+- 메인 콘텐츠 cover 1792×1024 standard ($0.04/장), Supabase Storage 업로드, 실패 시 None 반환 → 호출측 폴백 유도
+- `OPENAI_API_KEY` 필수, `IMAGE_PROVIDER=dalle` (기본) / `pollinations` 로 토글
+- `OPENAI_IMAGE_MODEL`/`SIZE`/`QUALITY` env override 가능
+
+**P0-3: image_picker.py 에 DALL-E 우선 분기**
+- `src/content/image_picker.py` `generate_image_for_content()` 진입부에 DALL-E 시도 → 실패 시 기존 Unsplash → Pollinations chain
+- 사람 얼굴 왜곡 (함정 CR) + Pollinations 5xx (함정 CJ) 둘 다 한 번에 해소 (DALL-E 가 사람 그릴 때도 훨씬 안정)
+
+**P0-4: tenants.publish_plan 마이그레이션 + scheduler 분기 (상품옵션)**
+- Supabase migration `tenants_publish_plan_round83`: `ALTER TABLE tenants ADD COLUMN publish_plan TEXT NOT NULL DEFAULT 'A' CHECK (publish_plan IN ('A','B'))`. 라이브 반영 완료.
+- `src/storage/models.py` Tenant 에 `publish_plan: Mapped[str] = mapped_column(String(2), default="A")` 추가 (함정 CW 회피 — 한쪽만 추가하면 scheduler 가 못 읽음)
+- `src/collector/scheduler.py` rotation 직전: **plan='A' tenant 는 KST weekday in {0,2,4} (월/수/금) 만 후보 진입**. plan='B' tenant 는 매일. 함정 CW 가이드대로 raw SQL 로 publish_plan 읽음.
+- A상품 (기본, 주3회 = 월 12회 발행) · B상품 (프리미엄, 매일 = 월 30회)
+
+**P0-5: admin UI dropdown**
+- `medimap-blog-v2/src/app/admin/(portal)/tenants/page.tsx`: 인터페이스 `publish_plan: 'A'|'B'|null` + 모달에 select dropdown ("A상품 — 주 3회 (월/수/금)" / "B상품 — 매일 1편 (프리미엄)")
+- `/api/admin/tenants/route.ts` `ALLOWED_INSERT` 에 `publish_plan` 추가
+- `/api/admin/tenants/[id]/route.ts` `ALLOWED_PATCH` 에 `publish_plan` + `report_send_day` (PATCH 에 빠져있던 것 보완) 추가
+
+### OpenAI 측정 엔진 활성화 (코드 변경 0, Secret만)
+- `src/engines/openai_engine.py` 는 **이미 완성** (Phase 6-T1.1, 2026-05-25)
+- `get_engine("openai")` 분기 등록됨
+- `.github/workflows/measure-ai-mentions.yml` 에 `OPENAI_API_KEY` 시크릿 전달 이미 됨
+- 사용자가 **`ENGINE_MODE=production`** secret만 등록하면 ChatGPT 인용 측정 자동 합류 (perplexity + claude + gemini + openai 4엔진 동시 측정)
+
+### 신규 함정 (CY, CZ, DA, DB)
+
+**(CY) auto-publish timeout 8분 = 운영 한계**
+- 증상: 8 tenant × retry 3 + 이미지 + Vercel 훅 → 평균 5~10분 소요. 8분 cap 자주 도달.
+- 정답: `timeout-minutes: 20`. Github Actions 무료 분량 충분 (월 2,000분).
+
+**(CZ) Anthropic auto-recharge trigger threshold 너무 낮으면 cron 죽은 후에 충전**
+- 증상: 잔액 0 → cron 실패 → 결제 시점에야 auto-recharge 트리거
+- 정답: trigger threshold ≥ 잔액 부족 알람 도달 전 (예: $5~$10). 월별 hard cap 도 별도 ($100 권장).
+
+**(DA) Gemini AI Studio 선불 결제 시스템 존재 (paid tier 와 별개)**
+- 증상: Gemini paid tier 는 카드 등록 (후불) 이라고 추측했으나 실제로는 AI Studio 에 **선불(Prepaid Balance)** 시스템 별도 존재. 충전 가능, 환불 절차도 Google Cloud Billing 통함.
+- 정답: Gemini 결제 형태 = `AI Studio 선불 충전` (₩20,000 단위) + Google Cloud Billing 후불 청구 둘 다 가능. 사용자 입장에서 "충전했어" 는 정확한 표현.
+
+**(DB) GitHub Actions 가 LLM_PROVIDER secret 값을 `***` 로 마스킹 → 코드의 == 비교 함정**
+- 증상: 로그에 `알 수 없는 LLM_PROVIDER='***' → fallback 체인으로 대체 (유효값: fallback|stub|gemini|anthropic|openai)`. 실제 secret 값이 무엇이든 stdout 에선 항상 `***`.
+- 영향: Round 81 (4) 의 안전폴백이 작동해 진행은 됨. 다만 secret 값이 valid 인지 cron 로그로는 확인 불가.
+- 정답: Secret 값 변경 후 한 번은 로컬 테스트 또는 Streamlit secrets 와 동기화로 검증. 또는 `if not val: val = "fallback"` 같은 명시 fallback 코드에 의존.
+
+### Round 83 푸시 대상 파일 (8)
+- `.github/workflows/auto-publish.yml` (timeout 8→20m)
+- `src/content/dalle_client.py` (신규)
+- `src/content/image_picker.py` (DALL-E 우선 분기)
+- `src/storage/models.py` (Tenant.publish_plan 추가)
+- `src/collector/scheduler.py` (plan='A' weekday gating)
+- `medimap-blog-v2/src/app/admin/(portal)/tenants/page.tsx` (publish_plan dropdown)
+- `medimap-blog-v2/src/app/api/admin/tenants/route.ts` (ALLOWED_INSERT 에 publish_plan)
+- `medimap-blog-v2/src/app/api/admin/tenants/[id]/route.ts` (ALLOWED_PATCH 에 publish_plan, report_send_day)
+- `SKILL.md` (Round 83 누적)
+
+### Round 83 검증 데이터 (6/28 13:00 KST 시점)
+- ✅ `ab_tests` 첫 row 생성: id=1 running tenant=4 kw='스마일' (Gemini paid 결제 효과 입증)
+- ✅ generated_contents 최근 1시간 4편 published (이전 cron #91 = 0편 실패, #93 부터 정상화 예상)
+- ⚠️ cover_image_url NULL — 이번 라운드 DALL-E 분기로 다음 cron 부터 해소
+- ✅ 컴플라이언스 63룰, 활성 tenant 7개 정상
+
+### 사용자 액션 대기 (push 직후)
+
+1. **GitHub Secret 등록 — `ENGINE_MODE=production`** → ChatGPT 인용 측정 자동 합류 (코드 0 변경)
+2. **Anthropic console: auto-recharge threshold $5→$10**, **월 한도 $200K→$100**, **이메일 알림 $20·$50**
+3. **OpenAI Monthly recharge limit $25→$50** (현재 운영 추산 한계 빠듯)
+4. **Gemini 환불 1건 요청** — Google Cloud Billing 지원에 인보이스 5607393216 환불
+5. **OpenAI 환불 1건 요청** — help.openai.com 채팅으로 인보이스 ID 두 개 명시
+6. **Vercel 빌드 확인** — geo-v2 + medimap-blog 둘 다 🟢 (admin tenants page TypeScript 변경 + python scheduler 변경)
+7. **테스트** — `Auto-publish content (cron)` 수동 Run → drafts/published 누적 확인 + 로그에 `DALL-E 3 cover 생성 성공` 보이는지
+
+### 운영 정책 명문화 (Round 83 결정)
+- **A상품 (기본)**: 모든 tenant × 주 3회 (월/수/금) → 콘텐츠 quality 우선, 비용 ~$20/월
+- **B상품 (프리미엄, 옵션)**: tenant × 매일 1편 → 발행량 2.5배, 추가 비용 ~$4/월/tenant
+- 옵션 전환은 /admin/tenants 모달에서 즉시 적용 (다음 cron 부터 발효)
+- 모든 자사 tenant + 기존 6 클라이언트 = **A상품 기본** (publish_plan='A' default)
+

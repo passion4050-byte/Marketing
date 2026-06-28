@@ -21,7 +21,9 @@ jobs:
   generate:
     name: Generate + publish 1 cycle
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    # Round 83 (2026-06-28) — 8m → 20m. 8개 tenant × retry 3번 + 이미지 생성 시간 고려.
+    # auto-publish #92 가 8m 도달해 cancelled. 2 tenant 만 처리됐었음.
+    timeout-minutes: 20
 
     steps:
       - name: Checkout

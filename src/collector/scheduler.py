@@ -149,6 +149,14 @@ def daily_auto_content_job(session_factory) -> dict:
     #   - 매일 자사 1편 + 파트너 1편 (총 2편) 만 발행 → Pollinations 부담·운영 검수량 절감
     #   - 각 set 에서 last_run_at 가장 오래된 tenant 1개 선택 → 자연 로테이션
     #   - last_run_at NULL 인 신규 tenant 가 가장 먼저 발행됨
+    # Round 83 (2026-06-28): 상품 옵션별 발행 정책 추가.
+    #   - tenants.publish_plan='A' (기본, 주3회 월/수/금): 오늘이 월/수/금 아니면 후보 제외
+    #   - tenants.publish_plan='B' (프리미엄, 매일): 항상 후보
+    #   (KST 기준 weekday — cron 이 UTC 시간 기록이지만 콘텐츠 운영 정책은 KST)
+    import datetime as _dt_mod
+    _kst_now = _dt.now(_tz.utc) + _dt_mod.timedelta(hours=9)
+    today_kst_dow = _kst_now.weekday()  # 0=Mon, 2=Wed, 4=Fri
+    PLAN_A_DOW = {0, 2, 4}
     with session_factory() as s:
         active_settings = (
             s.query(AutoContentSetting)
@@ -159,11 +167,24 @@ def daily_auto_content_job(session_factory) -> dict:
             )
             .all()
         )
+        # Round 83 — publish_plan 은 raw SQL 로 읽기 (함정 CW: ORM 미매핑 가능성 회피).
+        from sqlalchemy import text as _sql_text
+        _plan_rows = s.execute(
+            _sql_text("SELECT id, publish_plan FROM tenants")
+        ).fetchall()
+        _tenant_plan = {row[0]: (row[1] or "A").upper() for row in _plan_rows}
+
         self_settings = []
         partner_settings = []
+        plan_skipped: list[int] = []
         for st in active_settings:
             tenant = s.get(_Tenant, st.tenant_id)
             if tenant is None:
+                continue
+            # Round 83 — plan='A' 인데 오늘이 월/수/금 아니면 skip
+            plan = _tenant_plan.get(st.tenant_id, "A")
+            if plan == "A" and today_kst_dow not in PLAN_A_DOW:
+                plan_skipped.append(st.tenant_id)
                 continue
             bm = (getattr(tenant, "business_model", "") or "").strip().lower()
             ps = (getattr(tenant, "partner_slug", "") or "").strip().lower()
@@ -172,6 +193,12 @@ def daily_auto_content_job(session_factory) -> dict:
                 self_settings.append(st)
             else:
                 partner_settings.append(st)
+        if plan_skipped:
+            logger.info(
+                "scheduler.plan_a_skipped_today",
+                kst_weekday=today_kst_dow,
+                skipped_tenants=plan_skipped,
+            )
 
         # 각 set 에서 1개씩만 선택 (last_run_at ASC 이미 정렬됨 → [0] 이 가장 오래된 것)
         rotated = []

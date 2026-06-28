@@ -40,6 +40,10 @@ class Tenant(Base):
     password_hash: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     password_set_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    # Round 83 (2026-06-28) — 상품 옵션별 발행 정책.
+    # A: 주 3회 (월/수/금) 기본 · B: 매일 1편 프리미엄.
+    # CHECK 제약은 Supabase 마이그레이션에서 ('A','B') 만 허용.
+    publish_plan: Mapped[str] = mapped_column(String(2), default="A")
 
     keywords: Mapped[list["Keyword"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
     compliance_rules: Mapped[list["ComplianceRule"]] = relationship(
