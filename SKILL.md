@@ -1,3 +1,8 @@
+---
+name: geo-aeo-saas
+description: 메디맵 GEO/AEO SaaS — Done For You 모델 풀스택. (1) 클라이언트 SaaS 콘솔 medimap-blog-v2 (geo-v2-beta.vercel.app, 딥 티얼 #0E5A6B, /admin 13개 페이지, /admin/login 세일즈 랜딩, ADMIN_PASSWORD 가드, middleware 가드, noindex). (2) 콘텐츠 채널 medimap-blog (medimap-blog-phi.vercel.app, 메디맵 블루 #1B68FF, /with-partners 6 카테고리 hub, AI 크롤러 13종 노출). (3) 같은 Supabase DB (gifopyowyankfsfghhdi), 같은 GH Actions cron. (4) Round 90~101 — wecircle.co.kr 커스텀 도메인 + WECIRCLE 운영사 리브랜딩 (사업자 798-67-00527 주식회사 위서클) + 자동 학습 사이클 (learned_insights AUTO tier). 사용자가 '메디맵 GEO SaaS', 'wecircle', 'geo-v2-beta', 'with-partners', 'medimap-blog-phi', 'tenants CRUD', '카카오 채널 pf.kakao.com/_xnWQkG', 'BGN/TETE/모우림 파트너', 'Resend 보고서', 'Pollinations 일러스트', '안과/피부과/성형외과/치과/내과/모발이식 카테고리', '자동 학습 사이클', 'learned_insights' 같은 표현 쓰면 반드시 이 스킬을 사용한다. 같은 GitHub 레포 passion4050-byte/Marketing 의 medimap-blog/ + medimap-blog-v2/ 모노레포 통합 운영.
+---
+
 # 🔴 Claude 가 무조건 지킬 규칙 (2026-06-20 사용자 명시)
 
 **"스킬 저장" / "스킬 업데이트" / "스킬 누적" 요청 시 반드시 두 가지 동시 진행**:
@@ -7,11 +12,6 @@
 
 하나만 하면 **사용자 신뢰 손상**. 둘 다 무조건.
 
----
-
----
-name: geo-aeo-saas
-description: 메디맵 GEO/AEO SaaS — Done For You 모델 풀스택. (1) 클라이언트 SaaS 콘솔 medimap-blog-v2 (geo-v2-beta.vercel.app, 딥 티얼 #0E5A6B, /admin 13개 페이지, /admin/login 세일즈 랜딩, ADMIN_PASSWORD 가드, middleware 가드, noindex). (2) 콘텐츠 채널 medimap-blog (medimap-blog-phi.vercel.app, 메디맵 블루 #1B68FF, /with-partners 6 카테고리 hub, AI 크롤러 13종 노출). (3) 같은 Supabase DB (gifopyowyankfsfghhdi), 같은 GH Actions cron. 사용자가 '메디맵 GEO SaaS', 'geo-v2-beta', 'with-partners', 'medimap-blog-phi', 'tenants CRUD', '카카오 채널 pf.kakao.com/_xnWQkG', 'BGN/TETE/모우림 파트너', 'Resend 보고서', 'Pollinations 일러스트', '안과/피부과/성형외과/치과/내과/모발이식 카테고리' 같은 표현 쓰면 반드시 이 스킬을 사용한다. 같은 GitHub 레포 passion4050-byte/Marketing 의 medimap-blog/ + medimap-blog-v2/ 모노레포 통합 운영.
 ---
 
 # 메디맵 GEO/AEO SaaS — 풀스택 통합 (2026-05-25)
