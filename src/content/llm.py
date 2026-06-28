@@ -1611,41 +1611,68 @@ class FallbackProvider:
         return self._try_all("generate_instagram", *args, **kwargs)
 
 
-def _build_provider_chain() -> list:
+def _build_provider_chain(prefer: str = "gemini") -> list:
     """환경변수로 가능한 provider 만 활성.
-    우선순위: Gemini > Anthropic > OpenAI > Stub.
-    Round 63 (2026-06-22) — 비즈니스 정책 변경: Gemini(무료)를 주력으로,
-      Gemini 가 quota/503 으로 막히면 Anthropic(유료)이 자동 대체.
-      (이전 Round 38: Anthropic 우선 → Round 63 에서 Gemini 우선으로 뒤집음.)
+
+    기본 우선순위: Gemini > Anthropic > OpenAI > Stub.
+    Round 63 (2026-06-22) — Gemini(무료) 주력 + Anthropic 폴백.
+
+    Round 84 (2026-06-28) — `prefer` 인자 추가. 자사글은 깊이/문장력 우선
+    (prefer="anthropic"), 파트너글은 속도/비용 우선 (prefer="gemini").
+    OpenAI 는 항상 최후 폴백 (이미지 전용 + 측정용으로 결제, 글 생성 외주).
+
+    Args:
+        prefer: 'gemini' (기본, 파트너) | 'anthropic' (자사 깊이)
     """
-    chain = []
+    # provider 후보 빌드
+    _gemini = _anthropic = _openai = None
     if (k := os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")):
         try:
-            chain.append(GeminiProvider(api_key=k))
+            _gemini = GeminiProvider(api_key=k)
         except Exception as e:  # noqa: BLE001
             logger.warning("GeminiProvider init 실패: %s", e)
     if (k := os.getenv("ANTHROPIC_API_KEY")):
         try:
-            # Round 58 (2026-06-01) — ANTHROPIC_MODEL 환경변수 적용
             model = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
-            chain.append(AnthropicProvider(api_key=k, model=model))
+            _anthropic = AnthropicProvider(api_key=k, model=model)
         except Exception as e:  # noqa: BLE001
             logger.warning("AnthropicProvider init 실패: %s", e)
     if (k := os.getenv("OPENAI_API_KEY")):
         try:
-            chain.append(OpenAIProvider(api_key=k))
+            _openai = OpenAIProvider(api_key=k)
         except Exception as e:  # noqa: BLE001
             logger.warning("OpenAIProvider init 실패: %s", e)
+
+    chain: list = []
+    p = (prefer or "gemini").lower().strip()
+    if p == "anthropic":
+        # 자사글 — Claude 우선 (깊이/문장 윤기) → Gemini → OpenAI
+        for prov in (_anthropic, _gemini, _openai):
+            if prov is not None:
+                chain.append(prov)
+        logger.info("llm.chain_built", prefer="anthropic", order=[type(p).__name__ for p in chain])
+    else:
+        # 파트너글 (기본) — Gemini 우선 (속도/비용) → Anthropic → OpenAI
+        for prov in (_gemini, _anthropic, _openai):
+            if prov is not None:
+                chain.append(prov)
+        logger.info("llm.chain_built", prefer="gemini", order=[type(p).__name__ for p in chain])
+
     if not chain:
         chain.append(StubProvider())
     return chain
 
 
-def get_provider(provider_name: str | None = None) -> LLMProvider:
+def get_provider(provider_name: str | None = None, *, prefer: str = "gemini") -> LLMProvider:
     """환경변수 또는 인자로 프로바이더 선택.
 
     Round 40 — 'fallback' 추가. Gemini quota exhaust 등에서 자동 다음 provider.
     LLM_PROVIDER=fallback 으로 설정 시 활성 provider 중 우선순위대로 시도.
+
+    Round 84 (2026-06-28) — `prefer` 인자로 자사/파트너 분기 지원.
+      자사글 → prefer="anthropic" (Claude 우선, 깊이/문장력)
+      파트너글 → prefer="gemini" (기본, 속도/비용)
+      generator.py 가 tenant 정보 보고 결정.
     """
     name = (provider_name or os.getenv("LLM_PROVIDER", "stub")).lower().strip()
 
@@ -1665,7 +1692,7 @@ def get_provider(provider_name: str | None = None) -> LLMProvider:
     name = _PROVIDER_ALIASES.get(name, name)
 
     if name == "fallback":
-        return FallbackProvider(_build_provider_chain())
+        return FallbackProvider(_build_provider_chain(prefer=prefer))
 
     if name == "stub":
         return StubProvider()

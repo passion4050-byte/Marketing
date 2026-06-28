@@ -4063,3 +4063,102 @@ CREATE TABLE applied_insights (
 - 옵션 전환은 /admin/tenants 모달에서 즉시 적용 (다음 cron 부터 발효)
 - 모든 자사 tenant + 기존 6 클라이언트 = **A상품 기본** (publish_plan='A' default)
 
+---
+
+## Round 84 (2026-06-28) — 측정 가시성 P0 + LLM 라우팅 + 사이드바 IA + Mock 제거
+
+> 6/28 일요일 집. Round 83 결제/이미지 인프라 완성 후 **측정 데이터 활용도 + 콘텐츠 품질 라우팅 + 운영자 인지부하 감소** 고도화 사이클. 사용자 외출 중 자동 진행.
+
+### 진단 발견 (Phase A)
+- queries 806 (Gemini 508 + Claude 267 + stub 15 + OpenAI 0). OpenAI 측정은 ENGINE_MODE secret 등록 후 자동 합류.
+- mentions 24h = 4건만 → 100% target share = 가짜 양성. cron sample 너무 작음.
+- admin 19 페이지 인지부하 폭발. 운영자 일상 핵심 4개 가려짐.
+- Mock 페이지 2개 잔존: /admin/cost (admin-mock.ts), /admin/funnel (admin-mock.ts).
+- LLM 라우팅 분기 없음 — 자사/파트너 동일 chain.
+- 신규 tenant (id=13 클리어서울안과, id=14 힐링안과) `target_brand=NULL` → 측정 mention 추출 0건 (parser 가 브랜드 모름).
+
+### 사용자 결정
+- LLM 라우팅 옵션 **(b) 자사글=Claude(깊이) / 파트너글=Gemini(속도)**.
+- Perplexity 사용 안 함 (당분간).
+- Mock 데이터 절대 만들지 말 것 (할루시네이션 방지).
+- 자동 진행 — 사용자 외출.
+
+### 코드 변경 (Round 84 푸시 대상)
+
+**P0-1: LLM 라우팅 (b) — `src/content/llm.py` + `src/content/generator.py`**
+- `_build_provider_chain(prefer="gemini"|"anthropic")` 인자 추가. prefer='anthropic' 이면 Claude 우선.
+- `get_provider(prefer=...)` 인자 전달.
+- generator.py 의 `if provider is None:` 분기에서 tenant.business_model='self' 또는 partner_slug='medimap-self' 판단 → prefer='anthropic' 자동.
+- 효과: 자사글 = Claude(haiku/sonnet) 1차 → Gemini → OpenAI. 파트너글 = Gemini 1차 → Claude → OpenAI.
+- 로그: `blog.llm_routing tenant_id=N is_self=T/F prefer=anthropic|gemini`.
+
+**P0-2: Sidebar IA 재설계 — `medimap-blog-v2/src/components/admin/AdminShell.tsx`**
+- 이전 구조: 운영(7) + 인사이트(7) + 시스템(3) → 운영 그룹 비대.
+- 새 구조 4그룹:
+  - 일상 운영(4): 대시보드 / 콘텐츠 관리 / 학습 인사이트 / A/B 테스트
+  - 측정·분석(5): AI 인용 추적 / SaaS 시장 노출도 / Funnel·ROI / 월간 보고서 / 비용 모니터
+  - 설정(5): 클라이언트 / 키워드 풀 / 콘텐츠 설정 / 콘텐츠 캘린더 / 도메인 분류 사전
+  - 시스템(3): 사용자 관리 / 연동 / 감사 로그
+
+**P0-3: target_brand backfill + DB trigger 보강 — Supabase migration `backfill_target_brand_new_tenants_round84`**
+- 클리어서울안과(13) 6 키워드, 힐링안과(14) 4 키워드의 `target_brand` NULL → tenant.name 으로 backfill.
+- `ensure_keyword_target_brand()` 함수 + BEFORE INSERT OR UPDATE trigger 추가. 미래 신규 tenant 자동 sync.
+- 효과: 다음 measure cron 부터 신규 tenant 도 mention 0 아닌 실측치.
+
+**P0-4: Mock 페이지 → 실데이터 server component**
+- `/admin/cost/page.tsx` 통째로 재작성 → llm_call_logs 실데이터 query (일별 / provider 별 / tenant 별). 데이터 없으면 "측정 데이터 누적 중" 빈 상태. Mock 코드 + MockBanner 제거.
+- `/admin/funnel/page.tsx` 통째로 재작성 → shortlinks + shortlink_clicks query. 데이터 0이면 "ShortLink 추적 데이터 없음" 명시 + 설정 안내. Mock 코드 + MockBanner 제거.
+
+**P0-5: 함정 DC fix — Claude/OpenAI 측정 데이터 화면 표시**
+- 진단: BGN(t4) Claude 80 responses 중 source_domains 추출 **0%**. Gemini 는 grounding metadata 로 78.5% 자동 첨부.
+- trends API 가 `.not('source_domains','is',null)` 로 필터링 → Claude/OpenAI 데이터 화면에서 사라짐 (DB 에는 mentions 30+ 있음).
+- fix: `medimap-blog-v2/src/app/api/admin/competitors/trends/route.ts` 에 mentions 테이블 fallback 추가. source_domains 가 NULL 이면 mentions.brand + is_target/is_competitor 로 시계열 카운트.
+
+### 신규 함정 (DC, DD, DE)
+
+**(DC) Claude/OpenAI 응답에 source URL 없음 — Gemini grounding 만 자동 첨부**
+- 증상: BGN tenant=4 Claude 80 responses 중 source_domains 추출 0%. Gemini 144 responses 중 113건 (78.5%).
+- 원인: Claude API 기본 모드 / OpenAI chat/completions 는 응답에 URL 안 줌. Gemini 만 grounding tool 로 자동 첨부.
+- 영향: competitors page trends 차트가 source_domains 만 보면 Claude/OpenAI 전부 0 으로 표시.
+- fix: trends API 에 mentions 테이블 fallback. 향후 (선택) Anthropic Web Search Tool 활성화로 Claude 도 URL 인용 데이터 확보 가능.
+
+**(DD) 신규 tenant 의 keywords.target_brand NULL 함정**
+- 증상: 신규 tenant 추가 후 활성 키워드 매핑은 됐는데 target_brand 가 NULL → mention parser 가 브랜드 매칭 못 함 → 모든 measure 결과 0 mentions.
+- 원인: 기존 Round 17 trigger 가 INSERT 시 한 번만 작동 / 명시적 NULL 입력 케이스 미커버.
+- fix: `ensure_keyword_target_brand()` BEFORE INSERT OR UPDATE trigger. NULL/'' 이면 tenant.name 자동 채움.
+
+**(DE) Mock 페이지가 "라이브 SaaS 데모" 라는 인상 주는 함정**
+- 증상: /admin/cost 와 /admin/funnel 이 admin-mock.ts 의 가짜 KPI 표시. MockBanner 가 있지만 운영자가 무시.
+- 영향: 사용자가 영업/투자자 시연 시 가짜 숫자 노출 위험. 할루시네이션 누적.
+- 정답: server component + 실데이터 query + 데이터 없으면 빈 상태 명시. 사용자 지시: "mock-up 데이터는 만들지마".
+
+### 검증 데이터 (Round 84 fix 직전)
+- claude tenant=4 mentions=34 (1개월 누적, 6/16~6/25 사이 일별 1~7건)
+- claude tenant=4 source_domains 추출 0% (80 responses 중 0)
+- gemini tenant=4 source_domains 추출 78.5% (144 중 113)
+- llm_call_logs 14일 818 호출 $1.49
+
+### Round 84 푸시 대상 파일 (10)
+- `src/content/llm.py` (provider chain prefer 인자)
+- `src/content/generator.py` (tenant 자사 판단 + prefer 전달)
+- `medimap-blog-v2/src/components/admin/AdminShell.tsx` (4그룹 IA)
+- `medimap-blog-v2/src/app/admin/(portal)/cost/page.tsx` (server component, 실데이터)
+- `medimap-blog-v2/src/app/admin/(portal)/funnel/page.tsx` (server component, 실데이터)
+- `medimap-blog-v2/src/app/api/admin/competitors/trends/route.ts` (mentions fallback)
+- (DB: backfill_target_brand_new_tenants_round84 — 라이브 반영 완료, 푸시 불필요)
+
+### 사용자 액션 대기 (push 직후)
+1. **Vercel 빌드 확인** — geo-v2 + medimap-blog 둘 다 🟢
+2. **/admin/competitors?tenantId=4 → Claude 선택** — 이전 0건 → 실제 일별 mention 시계열 표시 검증
+3. **/admin/cost** — 실 LLM 비용 표시 (~$1.49 / 14d)
+4. **/admin/funnel** — "ShortLink 데이터 없음" 빈 상태 (정상, 향후 인프라 통합 시 자동 데이터)
+5. **/admin (대시보드)** — 사이드바 새 IA 확인 (일상운영 4개가 맨 위)
+6. **다음 cron 발행 1편** — 자사글이면 로그에 `blog.llm_routing prefer=anthropic` 확인. 파트너글이면 `prefer=gemini`.
+7. **신규 tenant 13,14 측정 cron** — 다음 Run 부터 mention >= 1 나와야 정상
+
+### 남은 고도화 (Round 85+ 후보)
+- Anthropic Web Search Tool 활성화 — Claude source URL 자동 확보 (DC 근본 해결)
+- 콘텐츠 품질 자동채점 강화 — Round 81 (15) 의 A~D 점수에 readability/AEO 가중치 재조정
+- SEO 라이브 실측 — Bright Data MCP 로 medimap-blog 상위 5편 schema/H 구조/내부링크 audit
+- A/B variant 별 LLM 분기 (옵션 c) — 데이터 누적 후 결정
+

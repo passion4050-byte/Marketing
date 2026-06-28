@@ -538,7 +538,15 @@ def generate_blog_post(
     _check_daily_usd_budget(session, tenant_id)
 
     if provider is None:
-        provider = get_provider()
+        # Round 84 (2026-06-28) — LLM 라우팅 옵션 (b):
+        #   자사글 → Claude 우선 (깊이/문장력), 파트너글 → Gemini 우선 (속도/비용)
+        #   tenant.business_model='self' 또는 partner_slug='medimap-self' = 자사
+        _bm = (getattr(tenant, "business_model", "") or "").strip().lower()
+        _ps = (getattr(tenant, "partner_slug", "") or "").strip().lower()
+        _is_self = _bm == "self" or _ps == "medimap-self"
+        _prefer = "anthropic" if _is_self else "gemini"
+        logger.info("blog.llm_routing", tenant_id=tenant_id, is_self=_is_self, prefer=_prefer)
+        provider = get_provider(prefer=_prefer)
 
     # 1. References fetch
     references: list[Reference] = []

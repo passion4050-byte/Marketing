@@ -122,13 +122,34 @@ export async function GET(req: Request) {
   });
   const validQ = new Set(qMeta.keys());
 
-  // responses
+  // responses — Round 84 (2026-06-28) 함정 DC fix:
+  //   기존: source_domains IS NOT NULL 인 response 만 가져옴 → Claude 의 모든 response 가
+  //   source_domains=NULL 이라 차트에서 사라짐. Gemini 만 grounding metadata 로 URL 노출,
+  //   Claude/OpenAI 는 응답 텍스트에 URL 안 줌. 결과: 화면에서 Claude/OpenAI = 0 표시.
+  //   fix: NULL 도 포함해 가져온 후, NULL 인 경우 mentions 테이블의 brand 기반으로 fallback.
   const { data: respRows } = await sb
     .from('responses')
-    .select('query_id, source_domains, created_at')
-    .gte('created_at', cutoff)
-    .not('source_domains', 'is', null);
+    .select('id, query_id, source_domains, created_at')
+    .gte('created_at', cutoff);
   const filtered = (respRows ?? []).filter((r: { query_id: number }) => validQ.has(r.query_id));
+
+  // 함정 DC fix — source_domains 가 없는 response 는 mentions 테이블로 fallback
+  const responseIds = filtered.map((r: { id: number }) => r.id);
+  const mentionMap = new Map<number, Array<{ brand: string; is_target: boolean; is_competitor: boolean }>>();
+  if (responseIds.length > 0) {
+    const { data: mRows } = await sb
+      .from('mentions')
+      .select('response_id, brand, is_target, is_competitor')
+      .in('response_id', responseIds);
+    (mRows ?? []).forEach((m: { response_id: number; brand: string; is_target: boolean; is_competitor: boolean }) => {
+      if (!mentionMap.has(m.response_id)) mentionMap.set(m.response_id, []);
+      mentionMap.get(m.response_id)!.push({
+        brand: m.brand,
+        is_target: m.is_target,
+        is_competitor: m.is_competitor,
+      });
+    });
+  }
 
   // 누적기
   const medimapSeries = zeros();
@@ -141,6 +162,7 @@ export async function GET(req: Request) {
 
   filtered.forEach(
     (r: {
+      id: number;
       query_id: number;
       source_domains: Array<{ domain: string; final_url: string | null }> | null;
       created_at: string;
@@ -153,30 +175,53 @@ export async function GET(req: Request) {
       const clientDomains =
         selectedClientDomains ?? (meta.tenant ? tenantDomainsMap.get(meta.tenant) ?? null : null);
 
-      (r.source_domains ?? []).forEach((sd) => {
-        const tier: Tier = classifyDomain(sd.domain, sd.final_url ?? null, clientDomains, classifierSets);
-        if (tier === 'NOISE') return;
-        engineTotals.set(meta.engine, (engineTotals.get(meta.engine) ?? 0) + 1);
+      // Round 84 함정 DC fix — source_domains 있으면 도메인 분류, 없으면 mentions fallback
+      const hasSourceDomains = Array.isArray(r.source_domains) && r.source_domains.length > 0;
 
-        if (tier === 'T1') {
-          medimapSeries[di]++;
-          medimapTotal++;
-          return;
-        }
-        if (tier === 'T2') {
-          clientSeries[di]++;
-          clientTotal++;
-          return;
-        }
-        // 경쟁사 T3/T4/T5
-        competitorTotal++;
-        if (sd.domain) {
-          if (!byDomain.has(sd.domain)) byDomain.set(sd.domain, { total: 0, series: zeros() });
-          const d = byDomain.get(sd.domain)!;
-          d.total++;
-          d.series[di]++;
-        }
-      });
+      if (hasSourceDomains) {
+        (r.source_domains ?? []).forEach((sd) => {
+          const tier: Tier = classifyDomain(sd.domain, sd.final_url ?? null, clientDomains, classifierSets);
+          if (tier === 'NOISE') return;
+          engineTotals.set(meta.engine, (engineTotals.get(meta.engine) ?? 0) + 1);
+
+          if (tier === 'T1') {
+            medimapSeries[di]++;
+            medimapTotal++;
+            return;
+          }
+          if (tier === 'T2') {
+            clientSeries[di]++;
+            clientTotal++;
+            return;
+          }
+          // 경쟁사 T3/T4/T5
+          competitorTotal++;
+          if (sd.domain) {
+            if (!byDomain.has(sd.domain)) byDomain.set(sd.domain, { total: 0, series: zeros() });
+            const d = byDomain.get(sd.domain)!;
+            d.total++;
+            d.series[di]++;
+          }
+        });
+      } else {
+        // 함정 DC fallback — Claude/OpenAI 처럼 응답에 URL 없는 엔진은 mentions 로 카운트
+        const ms = mentionMap.get(r.id) ?? [];
+        ms.forEach((m) => {
+          engineTotals.set(meta.engine, (engineTotals.get(meta.engine) ?? 0) + 1);
+          if (m.is_target) {
+            // is_target=true 는 BGN 같은 클라이언트(자기 자신) 기준이라 T2 클라이언트 시리즈로
+            clientSeries[di]++;
+            clientTotal++;
+          } else if (m.is_competitor) {
+            competitorTotal++;
+            const domKey = m.brand.toLowerCase().replace(/\s+/g, '-');
+            if (!byDomain.has(domKey)) byDomain.set(domKey, { total: 0, series: zeros() });
+            const d = byDomain.get(domKey)!;
+            d.total++;
+            d.series[di]++;
+          }
+        });
+      }
     }
   );
 
