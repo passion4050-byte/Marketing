@@ -68,8 +68,10 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           ENGINE_MODE: ${{ inputs.engine_mode || secrets.ENGINE_MODE || 'stub' }}
-          KEYWORD_LIMIT: ${{ inputs.keyword_limit || '20' }}
-          MAX_DAILY_USD: ${{ secrets.MAX_DAILY_USD || '1.0' }}
+          # Round 85 (2026-06-28) — 20 → 60 (활성 9 tenant × 평균 5 키워드 × 1 round 충분 커버)
+          KEYWORD_LIMIT: ${{ inputs.keyword_limit || '60' }}
+          # Round 85 — $1 → $5 (3엔진 활성, OpenAI/Anthropic paid 활용)
+          MAX_DAILY_USD: ${{ secrets.MAX_DAILY_USD || '5.0' }}
           # Round 35 (2026-05-31): 자사 own 키워드만 측정 (기본).
           # 'all' 선택 시 own + competitor 섞임 → ORDER BY k.id + LIMIT 20 로 competitor 누락 위험.
           # competitor_landscape 측정은 measure-competitor-mentions.yml 분리 운영.

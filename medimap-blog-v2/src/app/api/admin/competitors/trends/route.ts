@@ -250,7 +250,13 @@ export async function GET(req: Request) {
     }),
   };
 
-  const engineOrder = ['claude', 'gemini', 'perplexity', 'openai'];
+  // Round 85 (2026-06-28) — dropdown 에 항상 운영 3엔진 표시 (claude / gemini / openai).
+  //   이전: enginesAvailable Set 기반 → 측정 데이터 없는 엔진은 dropdown 에 안 나옴 → 운영자가
+  //   "OpenAI 측정 자체가 안 되나?" 오인. 사용자 요구: 3엔진 항상 선택 가능.
+  //   Perplexity 는 사용자 정책상 제외 (Round 84 가이드).
+  const REQUIRED_ENGINES = ['claude', 'gemini', 'openai'];
+  const enginesUnion = new Set([...enginesAvailable, ...REQUIRED_ENGINES]);
+  const engineOrder = ['claude', 'gemini', 'openai', 'perplexity'];
   const topEngine =
     engineTotals.size > 0
       ? Array.from(engineTotals.entries()).reduce((a, b) => (a[1] >= b[1] ? a : b))[0]
@@ -259,7 +265,7 @@ export async function GET(req: Request) {
   return NextResponse.json({
     ok: true,
     keywords: Array.from(allKeywordSet).sort(),
-    engines: Array.from(enginesAvailable).sort(
+    engines: Array.from(enginesUnion).sort(
       (a, b) => (engineOrder.indexOf(a) + 1 || 99) - (engineOrder.indexOf(b) + 1 || 99)
     ),
     dates: labels,

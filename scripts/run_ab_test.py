@@ -46,23 +46,39 @@ def _applied_insight_ids(session, tenant_id: int) -> list[int]:
     return [r[0] for r in rows]
 
 
-def _gen_variant(session_factory, tenant_id: int, keyword: str, apply_insights: bool) -> int | None:
-    """변형 1개 생성 → saved content id 반환 (실패 시 None)."""
+def _gen_variant(
+    session_factory, tenant_id: int, keyword: str, apply_insights: bool,
+    *, prefer: str | None = None,
+) -> int | None:
+    """변형 1개 생성 → saved content id 반환 (실패 시 None).
+
+    Round 85 (2026-06-28) — `prefer` 인자 추가. None 이면 generator.py 가 tenant 기반
+    자동 결정 (자사=anthropic / 파트너=gemini). 명시 시 그 provider 우선.
+    """
+    from src.content.llm import get_provider
     with session_factory() as s:
+        provider = get_provider(prefer=prefer) if prefer else None
         r = generate_blog_post(
             s,
             tenant_id=tenant_id,
             keyword=keyword,
             save=True,
             apply_insights=apply_insights,
+            provider=provider,
         )
         return getattr(r, "saved_id", None)
 
 
 def run_ab_test(session_factory, tenant_id: int, keyword: str, hypothesis: str = "") -> dict:
-    """A/B 변형 2개 생성 + ab_tests 레코드 생성. 결과 dict 반환."""
-    a_id = _gen_variant(session_factory, tenant_id, keyword, apply_insights=False)
-    b_id = _gen_variant(session_factory, tenant_id, keyword, apply_insights=True)
+    """A/B 변형 2개 생성 + ab_tests 레코드 생성. 결과 dict 반환.
+
+    Round 85 (2026-06-28) — A/B variant 별 LLM 분기 (옵션 c):
+      - 변형 A = apply_insights=False + prefer="gemini" (속도/비용 베이스라인)
+      - 변형 B = apply_insights=True  + prefer="anthropic" (Claude 깊이 + 인사이트)
+    가설: B(Claude+인사이트) 가 A(Gemini 베이스라인) 보다 AI 인용 더 받음.
+    """
+    a_id = _gen_variant(session_factory, tenant_id, keyword, apply_insights=False, prefer="gemini")
+    b_id = _gen_variant(session_factory, tenant_id, keyword, apply_insights=True, prefer="anthropic")
 
     with session_factory() as s:
         insight_ids = _applied_insight_ids(s, tenant_id)

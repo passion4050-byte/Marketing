@@ -64,24 +64,37 @@ class ClaudeEngine(BaseEngine):
 
         latency_ms = int((time.perf_counter() - start) * 1000)
 
+        # Round 85 (2026-06-28) — Anthropic web_search_20250305 응답 구조 보강.
+        #   진단: 함정 DC — 80 responses 중 source_domains 추출 0%.
+        #   원인: web_search tool 결과가 실제로는 ① server_tool_use 블록 (web search 실행)
+        #   ② web_search_tool_result 블록 (citations 배열 포함) 으로 분리되어 옴.
+        #   이전 코드는 tool_use(name=web_search) + tool_result 만 봤음 → 0% 매칭.
         text_parts: list[str] = []
         cited: list[str] = []
         for block in (resp.content or []):
-            btype = getattr(block, "type", None)
+            btype = getattr(block, "type", None) or ""
             if btype == "text":
                 text_parts.append(getattr(block, "text", "") or "")
-            elif btype == "tool_use" and getattr(block, "name", "") == "web_search":
+                # Round 85 — text 블록의 citations 배열 (Anthropic web search 의 새 형태)
+                for c in (getattr(block, "citations", None) or []):
+                    u = getattr(c, "url", None) or (c.get("url") if isinstance(c, dict) else None)
+                    if u:
+                        cited.append(u)
+            elif btype in ("tool_use", "server_tool_use") and getattr(block, "name", "") in ("web_search", "web_search_tool"):
                 tin = getattr(block, "input", {}) or {}
-                # 일부 응답은 tool result 가 별도 블록으로. 보수적으로 input 의 query/url 만 시도.
-                u = tin.get("url") if isinstance(tin, dict) else None
-                if u:
-                    cited.append(u)
-            elif btype == "tool_result":
-                # tool_result 의 content 는 list[dict] 인 경우 많음
+                if isinstance(tin, dict):
+                    u = tin.get("url")
+                    if u:
+                        cited.append(u)
+            elif btype in ("tool_result", "web_search_tool_result"):
                 tc = getattr(block, "content", None) or []
-                for item in tc if isinstance(tc, list) else []:
-                    if isinstance(item, dict):
-                        u = item.get("url")
+                if isinstance(tc, list):
+                    for item in tc:
+                        u = None
+                        if isinstance(item, dict):
+                            u = item.get("url") or (item.get("source") or {}).get("url")
+                        else:
+                            u = getattr(item, "url", None)
                         if u:
                             cited.append(u)
 

@@ -4162,3 +4162,87 @@ CREATE TABLE applied_insights (
 - SEO 라이브 실측 — Bright Data MCP 로 medimap-blog 상위 5편 schema/H 구조/내부링크 audit
 - A/B variant 별 LLM 분기 (옵션 c) — 데이터 누적 후 결정
 
+---
+
+## Round 85 (2026-06-28) — 3엔진 가시성 + Anthropic Web Search + A/B variant LLM + SEO audit
+
+> 6/28 일요일 집. Round 84 push 후 사용자 검증 결과 발견 — cost 페이지 정상이지만 trends 차트 여전히 0 + dropdown 에 OpenAI 없음. 함정 DC fix 부족. 사용자 외출 중 추가 자동 진행.
+
+### 진단 발견
+- 전체 tenant × engine 매트릭스: 신규 tenant 13(클리어서울)/14(힐링) 만 OpenAI 측정 6/6건. 기존 7 tenant (4·5·6·8·9·10·12) OpenAI=0.
+- 원인: `KEYWORD_LIMIT=20` 글로벌 한계 + `ORDER BY last_measured_at NULLS FIRST` → 신규 tenant 만 처리. 활성 47 키워드 × 3 엔진 처리하려면 LIMIT 부족.
+- trends dropdown: `enginesAvailable` Set 기반이라 BGN 의 OpenAI 데이터 0 → 메뉴에 OpenAI 안 나옴.
+- `src/engines/claude.py` 가 `web_search_20250305` tool 호출은 하지만 결과 추출 코드가 옛 구조 (tool_use + tool_result) 만 봄. 2025 Anthropic 의 최신 응답 구조 = text 블록의 citations 배열 + server_tool_use + web_search_tool_result. 0% 매칭 원인.
+- A/B variant 가 같은 LLM (둘 다 fallback chain default) 사용 → variant 차이 = apply_insights 만. LLM 자체 능력 차이 측정 불가.
+
+### 코드 변경 (Round 85 푸시 대상)
+
+**P0-1: trends dropdown 3엔진 강제 표시 — `medimap-blog-v2/src/app/api/admin/competitors/trends/route.ts`**
+- `REQUIRED_ENGINES = ['claude', 'gemini', 'openai']` 항상 union 으로 포함.
+- 측정 데이터 없는 엔진도 dropdown 에 표시. 운영자가 "OpenAI 측정 자체가 안 되나?" 오인 방지.
+
+**P0-2: measure cron 한계 확장 — `.github/workflows/measure-ai-mentions.yml`**
+- `KEYWORD_LIMIT 20 → 60` (활성 9 tenant × 평균 5 키워드 커버)
+- `MAX_DAILY_USD 1.0 → 5.0` (3엔진 paid 활용)
+
+**P0-3: Claude Web Search Tool 결과 추출 강화 — `src/engines/claude.py`**
+- 추가 블록 타입 처리: `server_tool_use`, `web_search_tool_result`, text 블록의 `citations` 배열.
+- 응답 파싱이 누락됐던 `tool_result.content[].source.url` 패턴 추가.
+- 함정 DC 의 80 responses × 0% source_domains → push 후 Claude 다음 측정 cycle 부터 URL 추출 정상화 기대.
+
+**P0-4: A/B variant LLM 분기 (옵션 c) — `scripts/run_ab_test.py`**
+- 변형 A: `apply_insights=False` + `prefer="gemini"` (속도/비용 베이스라인)
+- 변형 B: `apply_insights=True`  + `prefer="anthropic"` (Claude 깊이 + 인사이트)
+- `_gen_variant()` 에 `prefer` 인자 추가 + `get_provider(prefer=...)` 전달.
+- 가설: B(Claude+인사이트) 가 A(Gemini 베이스라인) 보다 AI 인용 더 받음. variant 차이 = LLM 능력 + 인사이트 결합 효과.
+
+### SEO Audit (코드 검증)
+WebFetch 가 라이브 페이지 빈 응답 (캐시/CDN 이슈) → 코드 audit 으로 대체.
+
+**medimap-blog SEO 인프라 (이미 잘 구축됨):**
+- `[slug]/page.tsx`: Article + MedicalWebPage + FAQPage + Breadcrumb **4종 JSON-LD** 모두 렌더 ✅
+- `sitemap.ts`: 자사 글 + 파트너 글 + with-partners 카테고리 모두 포함 + lastmod/priority 명시 ✅
+- `robots.ts`: GPTBot · ChatGPT-User · OAI-SearchBot · ClaudeBot · Claude-Web · anthropic-ai · Google-Extended · Googlebot · PerplexityBot · Bingbot · CCBot **13종 AI 크롤러 명시적 allow** ✅
+- IndexNow (Round 82-b): 네이버·Bing 자동 핑 ✅
+
+**추가 코드 변경 없음** — 이미 AEO/GEO 친화적 구조. 라이브 검증은 Vercel 배포 후 GSC 색인 진행 + Bright Data CLI 로 가능 (다음 라운드 후보).
+
+### 신규 함정 (DF, DG)
+
+**(DF) Anthropic web_search_20250305 응답 구조 변경 — text.citations 패턴**
+- 증상: claude.py 가 `tool_use(name='web_search')` + `tool_result` 만 보던 옛 코드 → Claude responses 80 중 source_domains 추출 0%.
+- 원인: 2025 Anthropic 의 web search 응답이 ① server_tool_use (검색 실행) ② web_search_tool_result (citations 배열) ③ text 블록의 `citations` 속성 으로 분리.
+- 정답: 4가지 패턴 모두 보강 — `server_tool_use`, `web_search_tool_result`, `text.citations[].url`, `tool_result.content[].source.url`.
+
+**(DG) measure cron KEYWORD_LIMIT 글로벌 — fairness 함정**
+- 증상: LIMIT 20 글로벌 + `ORDER BY last_measured_at NULLS FIRST` → 신규 tenant 만 처리. 기존 tenant 의 신규 키워드 (OpenAI 첫 합류) 영원히 미측정.
+- 정답: LIMIT 60 으로 확장 (활성 47 × buffer). 향후 tenant 별 rotation 라운드로 재설계 가능.
+
+### Round 85 푸시 대상 파일 (4)
+- `medimap-blog-v2/src/app/api/admin/competitors/trends/route.ts` (dropdown 3엔진 강제)
+- `.github/workflows/measure-ai-mentions.yml` (KEYWORD_LIMIT 60, MAX_DAILY_USD 5)
+- `src/engines/claude.py` (web_search 결과 추출 4패턴)
+- `scripts/run_ab_test.py` (A/B variant prefer 분기)
+- `SKILL.md` (Round 85 누적)
+
+### 사용자 액션 대기 (push 직후)
+1. **Vercel 빌드 확인** — geo-v2 🟢
+2. **/admin/competitors?tenantId=4** — dropdown 에 Claude / Gemini / **OpenAI 3개 표시 검증**
+3. **Measure AI mentions Run workflow** 수동 트리거 → KEYWORD_LIMIT=60 효과 + Claude web_search 결과 검증
+4. **다음 Run 후 SQL 확인**:
+   ```sql
+   SELECT engine, COUNT(*) AS responses, COUNT(*) FILTER (WHERE source_domains IS NOT NULL) AS with_domains
+   FROM queries q JOIN responses r ON r.query_id=q.id
+   WHERE q.requested_at > NOW() - INTERVAL '1 hour' GROUP BY engine;
+   ```
+   - claude `with_domains > 0` 이면 함정 DF fix 입증
+   - openai 행 보이면 모든 tenant 측정 cycle 합류 입증
+
+5. **A/B 다음 트리거** — `ab_tests` 새 row 의 variant A/B 본문에 LLM 차이 (Gemini 대 Claude 톤) 검증
+
+### 남은 고도화 (Round 86+ 후보)
+- SEO 라이브 실측 — Bright Data CLI 또는 별도 fetcher (Vercel WebFetch 빈 응답 우회)
+- Anthropic Web Search 가 여전히 0% 면 Sonnet 4.6 모델로 시도 (haiku 가 web_search 권한 미지원 가능성)
+- Funnel ROI — shortlinks 발급 인프라 본격 연결 (CTA URL → /r/code 자동 변환)
+- 콘텐츠 품질 자동채점 강화 — readability/AEO 가중치 재조정
+
