@@ -54,8 +54,13 @@ def _gen_variant(
 
     Round 85 (2026-06-28) — `prefer` 인자 추가. None 이면 generator.py 가 tenant 기반
     자동 결정 (자사=anthropic / 파트너=gemini). 명시 시 그 provider 우선.
+
+    Round 86 (2026-06-28) — 함정 CV/CW 재발 방지: variant 생성 직후 partner tenant 면
+    is_partner_content + partner_category 자동 태깅. 안 그러면 /blog 와 /with-partners
+    둘 다 매칭 안 돼서 글 보기 404 (스마일-162 함정).
     """
     from src.content.llm import get_provider
+    from src.collector.scheduler import _map_partner_category
     with session_factory() as s:
         provider = get_provider(prefer=prefer) if prefer else None
         r = generate_blog_post(
@@ -66,7 +71,29 @@ def _gen_variant(
             apply_insights=apply_insights,
             provider=provider,
         )
-        return getattr(r, "saved_id", None)
+        saved_id = getattr(r, "saved_id", None)
+        if saved_id is None:
+            return None
+        # partner tenant 면 자동 태깅 (raw SQL — 함정 CW: ORM 미매핑 컬럼들)
+        from src.storage.models import Tenant as _Tenant
+        tenant = s.get(_Tenant, tenant_id)
+        if tenant is not None:
+            _ps = (getattr(tenant, "partner_slug", "") or "").strip().lower()
+            _is_partner = bool(_ps) and _ps != "medimap-self"
+            if _is_partner:
+                _cat = _map_partner_category(getattr(tenant, "domain_category", None))
+                if _cat:
+                    s.execute(
+                        text(
+                            "UPDATE generated_contents SET "
+                            "is_partner_content = true, "
+                            "partner_category = COALESCE(NULLIF(partner_category, ''), :cat) "
+                            "WHERE id = :id"
+                        ),
+                        {"cat": _cat, "id": saved_id},
+                    )
+                    s.commit()
+        return saved_id
 
 
 def run_ab_test(session_factory, tenant_id: int, keyword: str, hypothesis: str = "") -> dict:

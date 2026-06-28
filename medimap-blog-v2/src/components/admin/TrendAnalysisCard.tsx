@@ -183,7 +183,7 @@ export function TrendAnalysisCard({ tenantId, days = 30 }: { tenantId: number | 
         <div className="flex h-56 flex-col items-center justify-center text-sm text-ink-muted">
           <div>아직 추이 데이터가 부족합니다</div>
           <div className="mt-1 text-[11px] text-ink-faint">
-            production 측정이 누적되면 채워집니다 (매주 월·목 06:00)
+            production 측정이 누적되면 채워집니다 (매일 KST 07:00 자동 cron)
           </div>
         </div>
       ) : (

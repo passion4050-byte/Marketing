@@ -28,7 +28,15 @@ type AbTestRow = {
   started_at: string;
 };
 
-type ContentRow = { id: number; title: string | null; slug: string | null; status: string | null };
+type ContentRow = {
+  id: number;
+  title: string | null;
+  slug: string | null;
+  status: string | null;
+  tenant_id: number | null;
+  is_partner_content: boolean | null;
+  partner_category: string | null;
+};
 
 const SITE = 'https://medimap-blog-phi.vercel.app';
 
@@ -51,25 +59,44 @@ export async function GET() {
   );
   const contentMap = new Map<number, ContentRow>();
   if (contentIds.length > 0) {
+    // Round 86 (2026-06-28) — partner 글이면 /with-partners 라우트 필요 (함정 CV 재발).
+    // is_partner_content + partner_category 추가 SELECT.
     const { data: contents } = await sb
       .from('generated_contents')
-      .select('id, title, slug, status')
+      .select('id, title, slug, status, tenant_id, is_partner_content, partner_category')
       .in('id', contentIds);
     ((contents ?? []) as ContentRow[]).forEach((c) => contentMap.set(c.id, c));
   }
 
-  const { data: tenantsRaw } = await sb.from('tenants').select('id, name');
-  const tenantMap = new Map<number, string>(
-    ((tenantsRaw ?? []) as Array<{ id: number; name: string }>).map((t) => [t.id, t.name])
-  );
+  // Round 86 — tenant 의 partner_slug 도 같이 (URL 생성용)
+  const { data: tenantsRaw } = await sb.from('tenants').select('id, name, partner_slug');
+  const tenantMap = new Map<number, string>();
+  const tenantSlugMap = new Map<number, string | null>();
+  ((tenantsRaw ?? []) as Array<{ id: number; name: string; partner_slug: string | null }>).forEach((t) => {
+    tenantMap.set(t.id, t.name);
+    tenantSlugMap.set(t.id, t.partner_slug);
+  });
 
   const variant = (cid: number | null, citations: number, mentions: number) => {
     const c = cid != null ? contentMap.get(cid) : undefined;
+    // Round 86 — URL 분기: partner 글이면 /with-partners/{cat}/{partner_slug}/{slug}, 아니면 /blog/{slug}
+    let url: string | null = null;
+    if (c?.slug) {
+      const isPartner =
+        c.is_partner_content === true && !!c.partner_category &&
+        c.tenant_id != null && !!tenantSlugMap.get(c.tenant_id);
+      if (isPartner) {
+        const pslug = tenantSlugMap.get(c.tenant_id!)!;
+        url = `${SITE}/with-partners/${c.partner_category}/${pslug}/${c.slug}`;
+      } else {
+        url = `${SITE}/blog/${c.slug}`;
+      }
+    }
     return {
       content_id: cid,
       title: c?.title ?? null,
       slug: c?.slug ?? null,
-      url: c?.slug ? `${SITE}/blog/${c.slug}` : null,
+      url,
       content_status: c?.status ?? null,
       citations,
       mentions,

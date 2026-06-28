@@ -282,7 +282,7 @@ export default function CompetitorsPage() {
             <span className="font-semibold text-brand-700">비즈니스 모델:</span>{' '}
             <span className="text-ink-soft">{businessModel}</span>
             <div className="mt-1 text-[10px] text-ink-muted">
-              ℹ️ 경쟁사 측정 — 매주 월·목 06:00 자동 측정
+              ℹ️ 경쟁사 측정 — 매일 KST 07:00 자동 측정
             </div>
           </div>
         )}
@@ -389,7 +389,7 @@ export default function CompetitorsPage() {
                     <li className="text-ink-muted">측정 데이터 부족 — 키워드 활성화 확인 필요</li>
                   )}
                 </ul>
-                <div className="mt-2 text-[10px] text-ink-muted">매주 월·목 06:00 자동 측정 기준</div>
+                <div className="mt-2 text-[10px] text-ink-muted">매일 KST 07:00 자동 측정 기준</div>
               </div>
             </section>
           )}
