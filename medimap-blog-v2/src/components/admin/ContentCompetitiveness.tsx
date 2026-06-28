@@ -47,6 +47,8 @@ function buildUrl(c: Content): string {
 
 export function ContentCompetitiveness({ contents }: { contents: Content[] }) {
   const [tenantFilter, setTenantFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'self' | 'partner'>('all');
+  const [daysFilter, setDaysFilter] = useState<7 | 14 | 30>(30);
   const [sortBy, setSortBy] = useState<'mentions' | 'date'>('mentions');
 
   const tenants = useMemo(
@@ -55,14 +57,29 @@ export function ContentCompetitiveness({ contents }: { contents: Content[] }) {
   );
 
   const filtered = useMemo(() => {
-    let arr = tenantFilter === 'all' ? contents : contents.filter((c) => c.tenantName === tenantFilter);
+    // Round 94 — 다중 필터: 카테고리(자사/파트너) + 병원 + 기간(7/14/30일) + 정렬
+    const now = Date.now();
+    const cutoff = now - daysFilter * 24 * 60 * 60 * 1000;
+    let arr = contents.filter((c) => {
+      // 카테고리 필터
+      if (categoryFilter === 'self' && c.isPartner) return false;
+      if (categoryFilter === 'partner' && !c.isPartner) return false;
+      // 병원 필터
+      if (tenantFilter !== 'all' && c.tenantName !== tenantFilter) return false;
+      // 기간 필터
+      if (c.publishedAt) {
+        const t = new Date(c.publishedAt).getTime();
+        if (t < cutoff) return false;
+      }
+      return true;
+    });
     if (sortBy === 'mentions') {
       arr = [...arr].sort((a, b) => b.mentionsForKeyword - a.mentionsForKeyword);
     } else {
       arr = [...arr].sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''));
     }
     return arr;
-  }, [contents, tenantFilter, sortBy]);
+  }, [contents, tenantFilter, categoryFilter, daysFilter, sortBy]);
 
   // 자동 패턴 분석 — 인용 많은 top 10 vs 평균
   const insights = useMemo(() => {
@@ -110,7 +127,47 @@ export function ContentCompetitiveness({ contents }: { contents: Content[] }) {
               30일 발행 글 × 해당 키워드의 AI 인용 mention 수 — 어떤 콘텐츠가 시장에 영향력 있는지
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Round 94 — 카테고리 토글 (자사/파트너/전체) */}
+            <div className="flex rounded-md border border-border bg-white p-0.5">
+              {([
+                { v: 'all', label: '전체' },
+                { v: 'self', label: '자사' },
+                { v: 'partner', label: '파트너' },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.v}
+                  type="button"
+                  onClick={() => setCategoryFilter(opt.v)}
+                  className={cn(
+                    'rounded px-2 py-1 text-[11px] font-semibold transition',
+                    categoryFilter === opt.v
+                      ? 'bg-brand text-white'
+                      : 'text-ink-soft hover:bg-surface-subtle'
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {/* Round 94 — 기간 토글 */}
+            <div className="flex rounded-md border border-border bg-white p-0.5">
+              {([7, 14, 30] as const).map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setDaysFilter(d)}
+                  className={cn(
+                    'rounded px-2 py-1 text-[11px] font-semibold transition',
+                    daysFilter === d
+                      ? 'bg-brand text-white'
+                      : 'text-ink-soft hover:bg-surface-subtle'
+                  )}
+                >
+                  {d}일
+                </button>
+              ))}
+            </div>
             <select
               value={tenantFilter}
               onChange={(e) => setTenantFilter(e.target.value)}
