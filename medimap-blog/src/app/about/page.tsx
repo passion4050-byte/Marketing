@@ -20,15 +20,16 @@ import { siteConfig } from "@/lib/site";
 
 export const revalidate = false;
 
+// Round 91 (2026-06-28) — wecircle 리브랜딩.
 export const metadata: Metadata = {
-  title: "회사소개 | 메디맵",
+  title: "회사소개 | WECIRCLE",
   description:
-    "메디맵은 Medical과 Map의 합성어로, 헬스케어의 미래를 함께 만들어가는 디지털 헬스케어 플랫폼입니다. 신뢰할 수 있는 데이터와 보안된 광고로 환자와 병·의원을 연결합니다.",
+    "WECIRCLE 은 AI 검색 시대의 의료 마케팅 자동화 SaaS 입니다. ChatGPT · Gemini · Claude · Perplexity 가 우리 클라이언트 병원을 추천하도록 GEO/AEO 최적화 콘텐츠를 자동 생성합니다.",
   alternates: { canonical: "/about" },
   openGraph: {
-    title: "회사소개 | 메디맵",
+    title: "회사소개 | WECIRCLE",
     description:
-      "헬스케어의 미래를 함께 만들어갑니다 — 디지털 헬스케어 플랫폼 메디맵.",
+      "AI 검색 시대, 병원 마케팅을 다시 설계합니다 — WECIRCLE.",
     type: "website",
   },
 };
@@ -74,21 +75,21 @@ function Hero() {
         <div className="animate-fade-in-up">
           <span className="inline-flex items-center gap-2 rounded-pill border border-brand-100 bg-white/80 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-brand-700 backdrop-blur">
             <Sparkles size={13} className="text-accent" />
-            About MEDIMAP
+            About WECIRCLE
           </span>
           <h1 className="mt-6 text-[40px] font-extrabold leading-[1.12] tracking-[-0.025em] balance-text md:text-[52px]">
-            헬스케어의{" "}
+            AI 검색 시대,{" "}
             <span className="bg-gradient-to-br from-brand to-accent bg-clip-text text-transparent">
-              미래
+              병원 마케팅
             </span>
-            를
+            을
             <br className="hidden md:block" />
-            <span className="md:inline"> </span>함께 만들어갑니다
+            <span className="md:inline"> </span>다시 설계합니다
           </h1>
           <p className="mt-6 max-w-xl text-[16px] leading-[1.7] text-ink-muted pretty-text">
-            MEDIMAP은 Medical과 Map의 합성어로 &ldquo;건강을 찾을 수 있는
-            지도&rdquo;라는 의미를 담고 있습니다. 병원 찾기부터 진료까지, 메디맵
-            한 곳에서 안심하세요.
+            WECIRCLE 은 의료기관을 위한 AI 검색 최적화 SaaS 입니다. ChatGPT ·
+            Gemini · Claude · Perplexity 가 우리 클라이언트 병원을 추천하도록,
+            GEO/AEO 최적화된 콘텐츠를 자동 생성하고 실측 데이터로 검증합니다.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
@@ -97,11 +98,11 @@ function Hero() {
               rel="noopener noreferrer"
               className="btn-primary"
             >
-              메디맵 바로가기
+              상담 신청하기
               <ArrowRight size={18} />
             </Link>
             <Link href="#inquiry" className="btn-secondary">
-              제휴 문의하기
+              파트너 문의
             </Link>
           </div>
         </div>

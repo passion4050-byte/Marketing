@@ -43,7 +43,7 @@ export default function ClientLoginPage() {
       <div className="w-full max-w-md">
         <Link href="/" className="flex items-center justify-center gap-2 mb-6">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/medimap-logo.svg" alt="MEDIMAP" width={134} height={22} className="h-7 w-auto" />
+          <img src="/wecircle-logo.svg" alt="WECIRCLE" width={134} height={22} className="h-7 w-auto" />
         </Link>
         <div className="rounded-card border border-line bg-white p-8 shadow-card">
           <div className="text-center">
