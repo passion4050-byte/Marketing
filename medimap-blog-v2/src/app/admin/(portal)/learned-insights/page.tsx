@@ -277,6 +277,24 @@ export default function LearnedInsightsPage() {
         </div>
       </section>
 
+      {/* Round 96 — 자동 학습 안내 배너 */}
+      <section className="mb-4 rounded-lg border border-brand-200 bg-gradient-to-r from-brand-50/60 to-accent-50/40 px-4 py-3">
+        <div className="flex items-start gap-2 text-[12px] text-ink-soft">
+          <span className="text-base">🤖</span>
+          <div className="flex-1">
+            <div className="font-semibold text-brand-700">자동 학습 패턴 사이클</div>
+            <div className="mt-0.5">
+              매주 <strong>월요일 KST 08:00</strong>, 발행 콘텐츠 중 AI 인용 잘 받은 Top 20% 의 구조 패턴(H2/표/이미지/길이/FAQ)을 자동 분석 → 이 페이지에
+              <span className="mx-1 inline-flex items-center gap-0.5 rounded bg-gradient-to-r from-brand-50 to-accent-50 px-1.5 py-0.5 text-[10px] font-bold text-brand-700 ring-1 ring-brand-200">🤖 자동 발견 패턴</span>
+              라벨로 등록. <strong>[적용중]</strong> 토글 시 다음 cron 글 prompt 에 자동 주입.
+            </div>
+            <div className="mt-1 text-[10px] text-ink-muted">
+              수동 트리거: GitHub Actions → "Auto Pattern Learning" → Run workflow
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* 인사이트 목록 */}
       <section className="card">
         <header className="border-b border-border px-5 py-3">
@@ -321,7 +339,13 @@ export default function LearnedInsightsPage() {
                       <ChevronRight className="h-4 w-4 text-ink-muted" />
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Round 96 — 자동 발견 패턴 chip (source_url 'internal://auto_pattern') */}
+                        {it.source_url?.startsWith('internal://auto_pattern') && (
+                          <span className="inline-flex items-center gap-0.5 rounded bg-gradient-to-r from-brand-50 to-accent-50 px-2 py-0.5 text-[10px] font-bold text-brand-700 ring-1 ring-brand-200">
+                            🤖 자동 발견 패턴
+                          </span>
+                        )}
                         <strong className="text-sm text-ink">
                           {it.source_domain ?? it.source_url}
                         </strong>
