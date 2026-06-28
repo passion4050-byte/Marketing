@@ -93,6 +93,23 @@ def _gen_variant(
                         {"cat": _cat, "id": saved_id},
                     )
                     s.commit()
+        # Round 87 (2026-06-28) — 의료법 안전망 (compliance_status='fail' → status='draft' 강등).
+        #   함정: A/B variant 발행 경로가 의료법 안전망 우회 → fail 글이 published 로 나감 → 라이브 노출.
+        #   #162 (compliance='fail') 가 published 로 만들어진 사례 확인.
+        _comp = s.execute(
+            text("SELECT compliance_status, status FROM generated_contents WHERE id = :id"),
+            {"id": saved_id},
+        ).fetchone()
+        if _comp and _comp[0] == "fail" and _comp[1] == "published":
+            s.execute(
+                text("UPDATE generated_contents SET status = 'draft' WHERE id = :id"),
+                {"id": saved_id},
+            )
+            s.commit()
+            logger.warning(
+                "ab_test.compliance_fail_demoted",
+                tenant_id=tenant_id, content_id=saved_id, keyword=keyword,
+            )
         return saved_id
 
 
