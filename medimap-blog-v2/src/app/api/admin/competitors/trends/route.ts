@@ -37,6 +37,10 @@ export async function GET(req: Request) {
   const tenantIdFilter = tenantIdParam ? Number(tenantIdParam) : null;
   const keywordFilter = url.searchParams.get('keyword')?.trim() || null;
   const engineFilter = url.searchParams.get('engine')?.trim().toLowerCase() || null;
+  // Round 86 (2026-06-28) — multi-engine breakdown 모드.
+  //   breakdown=engine 면 메디맵·클라이언트 시리즈를 엔진별 (Gemini/Claude/OpenAI) 로 분리.
+  //   사용자 요구: "한눈에 보고 싶어, 엔진별 비교" — 한 차트에 동시 표시.
+  const breakdownEngine = url.searchParams.get('breakdown') === 'engine';
 
   // Round 75 — 기간 필터 (일수). 기본 30, 1~365 클램프.
   const daysParam = url.searchParams.get('days');
@@ -160,6 +164,18 @@ export async function GET(req: Request) {
   let clientTotal = 0;
   let competitorTotal = 0;
 
+  // Round 86 — 엔진별 메디맵/클라이언트 시리즈 (breakdownEngine 모드)
+  const REQUIRED_ENGINES_LIST = ['gemini', 'claude', 'openai'];
+  const medimapByEngine = new Map<string, number[]>(
+    REQUIRED_ENGINES_LIST.map((e) => [e, zeros()])
+  );
+  const clientByEngine = new Map<string, number[]>(
+    REQUIRED_ENGINES_LIST.map((e) => [e, zeros()])
+  );
+  const competitorByEngine = new Map<string, number[]>(
+    REQUIRED_ENGINES_LIST.map((e) => [e, zeros()])
+  );
+
   filtered.forEach(
     (r: {
       id: number;
@@ -187,15 +203,22 @@ export async function GET(req: Request) {
           if (tier === 'T1') {
             medimapSeries[di]++;
             medimapTotal++;
+            // Round 86 — 엔진별 누적
+            const arr = medimapByEngine.get(meta.engine);
+            if (arr) arr[di]++;
             return;
           }
           if (tier === 'T2') {
             clientSeries[di]++;
             clientTotal++;
+            const arr = clientByEngine.get(meta.engine);
+            if (arr) arr[di]++;
             return;
           }
           // 경쟁사 T3/T4/T5
           competitorTotal++;
+          const cArr = competitorByEngine.get(meta.engine);
+          if (cArr) cArr[di]++;
           if (sd.domain) {
             if (!byDomain.has(sd.domain)) byDomain.set(sd.domain, { total: 0, series: zeros() });
             const d = byDomain.get(sd.domain)!;
@@ -209,11 +232,14 @@ export async function GET(req: Request) {
         ms.forEach((m) => {
           engineTotals.set(meta.engine, (engineTotals.get(meta.engine) ?? 0) + 1);
           if (m.is_target) {
-            // is_target=true 는 BGN 같은 클라이언트(자기 자신) 기준이라 T2 클라이언트 시리즈로
             clientSeries[di]++;
             clientTotal++;
+            const arr = clientByEngine.get(meta.engine);
+            if (arr) arr[di]++;
           } else if (m.is_competitor) {
             competitorTotal++;
+            const cArr = competitorByEngine.get(meta.engine);
+            if (cArr) cArr[di]++;
             const domKey = m.brand.toLowerCase().replace(/\s+/g, '-');
             if (!byDomain.has(domKey)) byDomain.set(domKey, { total: 0, series: zeros() });
             const d = byDomain.get(domKey)!;
@@ -224,6 +250,71 @@ export async function GET(req: Request) {
       }
     }
   );
+
+  // Round 86 — breakdownEngine 모드: 엔진별 라인으로 series 빌드 (도메인 라인 생략).
+  if (breakdownEngine) {
+    const engineLabel: Record<string, string> = {
+      gemini: 'Gemini', claude: 'Claude', openai: 'ChatGPT',
+    };
+    const breakdownLabels: string[] = [];
+    const breakdownData: number[][] = [];
+    REQUIRED_ENGINES_LIST.forEach((eng) => {
+      const mArr = medimapByEngine.get(eng);
+      if (mArr && mArr.some((v) => v > 0)) {
+        breakdownLabels.push(`메디맵 · ${engineLabel[eng]}`);
+        breakdownData.push(mArr);
+      }
+    });
+    REQUIRED_ENGINES_LIST.forEach((eng) => {
+      const cArr = clientByEngine.get(eng);
+      if (cArr && cArr.some((v) => v > 0) && tenantIdFilter) {
+        breakdownLabels.push(`${clientLabel} · ${engineLabel[eng]}`);
+        breakdownData.push(cArr);
+      }
+    });
+    REQUIRED_ENGINES_LIST.forEach((eng) => {
+      const cArr = competitorByEngine.get(eng);
+      if (cArr && cArr.some((v) => v > 0)) {
+        breakdownLabels.push(`경쟁사 합산 · ${engineLabel[eng]}`);
+        breakdownData.push(cArr);
+      }
+    });
+    // 데이터 없어도 최소 메디맵 3엔진 라인은 표시 (0 라인이라도 dropdown 가시화)
+    if (breakdownLabels.length === 0) {
+      REQUIRED_ENGINES_LIST.forEach((eng) => {
+        breakdownLabels.push(`메디맵 · ${engineLabel[eng]}`);
+        breakdownData.push(zeros());
+      });
+    }
+    const breakdownSeriesDim: Dim = {
+      series: breakdownLabels,
+      data: labels.map((d, i) => {
+        const row: Record<string, number | string> = { date: d };
+        breakdownData.forEach((s, si) => { row[`v${si}`] = s[i]; });
+        return row;
+      }),
+    };
+    const enginesUnion = new Set([...enginesAvailable, ...REQUIRED_ENGINES_LIST]);
+    return NextResponse.json({
+      ok: true,
+      keywords: Array.from(allKeywordSet).sort(),
+      engines: Array.from(enginesUnion).sort(),
+      dates: labels,
+      series: breakdownSeriesDim,
+      summary: {
+        medimap_total: medimapTotal,
+        client_total: clientTotal,
+        competitor_total: competitorTotal,
+        top_engine:
+          engineTotals.size > 0
+            ? Array.from(engineTotals.entries()).reduce((a, b) => (a[1] >= b[1] ? a : b))[0]
+            : null,
+        top_competitor: null,
+        client_label: clientLabel,
+        breakdown: 'engine',
+      },
+    });
+  }
 
   // series 빌드 — 메디맵 + (클라이언트) + 경쟁사 top6
   const topDomains = Array.from(byDomain.entries())

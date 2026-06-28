@@ -51,7 +51,26 @@ const ENGINE_LABELS: Record<string, string> = {
   openai: 'ChatGPT',
 };
 
+// Round 86 (2026-06-28) — 엔진별 색상 일관성: Gemini=blue / Claude=orange / ChatGPT=green
+const ENGINE_COLOR: Record<string, string> = {
+  Gemini: '#1B68FF',   // 메디맵 brand blue
+  Claude: '#F97316',   // orange (Anthropic 아이덴티티)
+  ChatGPT: '#10A37F',  // green (OpenAI 아이덴티티)
+};
+
 function lineStyleFor(name: string, i: number, clientLabel: string): { stroke: string; strokeWidth: number } {
+  // Round 86 — multi-engine breakdown ("메디맵 · Gemini" 같은 라벨) 색상.
+  //   같은 엔진 = 같은 색. 메디맵/클라이언트/경쟁사는 굵기로 구분.
+  const dotIdx = name.indexOf(' · ');
+  if (dotIdx > 0) {
+    const subject = name.slice(0, dotIdx);
+    const engineName = name.slice(dotIdx + 3);
+    const stroke = ENGINE_COLOR[engineName] ?? PALETTE[i % PALETTE.length];
+    if (subject === '메디맵') return { stroke, strokeWidth: 3 };
+    if (subject.includes('경쟁사')) return { stroke, strokeWidth: 1.5 };
+    return { stroke, strokeWidth: 2.25 };  // 클라이언트
+  }
+  // 기존 (single engine 모드)
   if (name === '메디맵 인용 현황') return { stroke: '#1B68FF', strokeWidth: 3 };
   if (name === clientLabel) return { stroke: '#15B8A6', strokeWidth: 2.5 };
   return { stroke: PALETTE[i % PALETTE.length], strokeWidth: 2 };
@@ -70,7 +89,14 @@ export function TrendAnalysisCard({ tenantId, days = 30 }: { tenantId: number | 
     const params = new URLSearchParams();
     if (tenantId) params.set('tenantId', String(tenantId));
     if (keyword) params.set('keyword', keyword);
-    if (mode === 'engine' && engine) params.set('engine', engine);
+    // Round 86 — engine='__compare__' 면 multi-engine breakdown 모드
+    if (mode === 'engine') {
+      if (engine === '__compare__') {
+        params.set('breakdown', 'engine');
+      } else if (engine) {
+        params.set('engine', engine);
+      }
+    }
     params.set('days', String(days));
     fetch(`/api/admin/competitors/trends${params.toString() ? '?' + params.toString() : ''}`, {
       cache: 'no-store',
@@ -117,14 +143,16 @@ export function TrendAnalysisCard({ tenantId, days = 30 }: { tenantId: number | 
               </option>
             ))}
           </select>
-          {/* AI 엔진별 모드일 때만 엔진 드롭다운 */}
+          {/* AI 엔진별 모드일 때만 엔진 드롭다운.
+              Round 86 (2026-06-28) — '엔진별 비교' 옵션 추가: 한 차트에 3엔진 동시 표시. */}
           {mode === 'engine' && (
             <select
               value={engine}
               onChange={(e) => setEngine(e.target.value)}
               className="rounded-lg border border-brand-200 bg-brand-50/50 px-2.5 py-1.5 text-xs font-semibold text-brand-700 focus:border-brand focus:outline-none"
             >
-              <option value="">전체 엔진</option>
+              <option value="__compare__">엔진별 비교 (3엔진 동시)</option>
+              <option value="">전체 엔진 (합산)</option>
               {(data?.engines ?? []).map((e) => (
                 <option key={e} value={e}>
                   {ENGINE_LABELS[e] ?? e}
