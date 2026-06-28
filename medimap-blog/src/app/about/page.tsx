@@ -195,7 +195,7 @@ function PhoneMockup() {
   );
 }
 
-/* ────────────────── Section 2 — 메디맵만의 특별함 ────────────────── */
+/* ────────────────── Section 2 — WECIRCLE 만의 특별함 ────────────────── */
 
 function FeatureSpotlight() {
   return (
@@ -203,10 +203,10 @@ function FeatureSpotlight() {
       <header className="mx-auto max-w-2xl text-center">
         <span className="pill-label">핵심 가치</span>
         <h2 className="mt-3 text-[28px] font-bold tracking-tight balance-text md:text-[34px]">
-          메디맵만의 특별함
+          WECIRCLE 만의 특별함
         </h2>
         <p className="mt-3 text-ink-muted pretty-text">
-          메디맵은 단순한 &lsquo;가격 비교 플랫폼&rsquo;이 아닙니다. 국내
+          WECIRCLE 은 단순한 &lsquo;블로그 자동 작성기&rsquo;가 아닙니다. ChatGPT · Gemini · Claude
           병·의원 정보를 원하는 방식으로 탐색하고, 올바른 선택을 돕는 가이드
           역할을 합니다.
         </p>
@@ -265,7 +265,7 @@ function SmallPhoneMockup() {
             🔍 강남 라식 잘하는 곳
           </div>
           {[
-            { name: "MEDIMAP 추천", tag: "AI 픽", on: true },
+            { name: "WECIRCLE 추천", tag: "AI 픽", on: true },
             { name: "근거리 병원", tag: "1.2km", on: false },
             { name: "이벤트 진행 중", tag: "3건", on: false },
           ].map((row) => (
@@ -330,7 +330,7 @@ function WhyMedimap() {
         <header className="mx-auto max-w-2xl text-center">
           <span className="pill-label">차별점</span>
           <h2 className="mt-3 text-[28px] font-bold tracking-tight balance-text md:text-[34px]">
-            왜 <span className="text-brand">메디맵</span>일까?
+            왜 <span className="text-brand">WECIRCLE</span> 일까?
           </h2>
           <p className="mt-3 text-ink-muted pretty-text">
             혁신적인 디지털 헬스케어 플랫폼으로 더 많은 사람들에게 더 나은 의료
@@ -390,7 +390,7 @@ function HowToStart() {
           </div>
           <FormPreviewMock />
           <p className="mt-5 text-[14px] leading-relaxed text-ink-muted">
-            병원 정보를 등록하고 메디맵 입점 가이드의 권장 순서를 따라 가시면
+            병원 정보를 등록하고 WECIRCLE 입점 가이드의 권장 순서를 따라 가시면
             됩니다.
           </p>
         </div>
@@ -488,12 +488,12 @@ function BlogStories({
     <section className="bg-surface-alt/60 py-20">
       <div className="container-content">
         <header className="mx-auto max-w-2xl text-center">
-          <span className="pill-label">메디맵 이야기</span>
+          <span className="pill-label">메디맵 인사이트</span>
           <h2 className="mt-3 text-[28px] font-bold tracking-tight balance-text md:text-[34px]">
-            메디맵 전문가의 인사이트
+            WECIRCLE 전문가의 인사이트
           </h2>
           <p className="mt-3 text-ink-muted pretty-text">
-            메디맵 전문가들이 작성한 유용한 콘텐츠를 만나보세요.
+            WECIRCLE 전문가들이 작성한 AI 검색 시대 의료 마케팅 인사이트를 만나보세요.
           </p>
         </header>
 
@@ -511,7 +511,7 @@ function BlogStories({
                 <div className="relative aspect-[16/9] bg-gradient-to-br from-brand-100 via-accent-50 to-brand-50 md:aspect-auto">
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-[44px] font-extrabold tracking-tight text-white/90 drop-shadow-[0_4px_24px_rgba(27,104,255,0.45)]">
-                      MEDIMAP
+                      WECIRCLE
                     </div>
                   </div>
                   <div className="absolute inset-0 bg-grid-dots opacity-40" />
@@ -571,7 +571,7 @@ function PartnerReviews() {
     {
       stars: 5,
       quote:
-        "메디맵을 통해 환자분들과 자연스럽게 연결되고 있어요. 운영자 패널이 직관적이라 별도 교육 없이 바로 적응했습니다.",
+        "WECIRCLE 를 통해 AI 검색에 우리 병원이 자연스럽게 노출되기 시작했습니다. 콘텐츠 자동 생성 + 인용 측정 대시보드가 직관적이라 운영 부담 0.",
       name: "강남 OOO 성형외과",
       role: "원장",
     },
@@ -599,7 +599,7 @@ function PartnerReviews() {
           실제 파트너의 생생한 후기
         </h2>
         <p className="mt-3 text-ink-muted pretty-text">
-          메디맵과 함께 성장하고 있는 파트너 병원들의 이야기를 들어보세요.
+          WECIRCLE 과 함께 AI 검색 시대를 준비하는 파트너 병원들의 이야기를 들어보세요.
         </p>
       </header>
 
@@ -670,7 +670,7 @@ function InquiryCta() {
             함께 만들어가세요
           </h2>
           <p className="mt-5 max-w-md text-[15px] leading-relaxed text-white/85">
-            메디맵 파트너가 되어주시는 모든 의료기관에 최선의 지원을
+            WECIRCLE 파트너가 되어주시는 모든 의료기관에 최선의 지원을
             약속드립니다.
           </p>
           <div className="mt-8 grid max-w-md gap-3 text-sm">
