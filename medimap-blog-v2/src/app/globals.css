@@ -45,10 +45,18 @@ body {
 /* 공용 컴포넌트 클래스 — 시안 100% 싱크로 */
 @layer components {
   .card {
-    @apply rounded-xl border border-border bg-surface-base shadow-card;
+    /* Round 97 — 부드러운 hover transition (위계 강조, 인터랙티브 느낌) */
+    @apply rounded-xl border border-border bg-surface-base shadow-card transition-shadow duration-200;
+  }
+  .card:hover {
+    @apply shadow-cardHover;
   }
   .card-pad {
     @apply p-6;
+  }
+  /* Round 97 — section 간격 통일 helper (admin 페이지 정보 위계) */
+  .admin-stack {
+    @apply space-y-4 md:space-y-6;
   }
   .kpi-card {
     @apply card card-pad flex flex-col gap-2;
