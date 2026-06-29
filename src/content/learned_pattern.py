@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import logging
 import re
+from collections import Counter
 from dataclasses import dataclass
 from typing import Optional
+from urllib.parse import urlparse
 
 from sqlalchemy import text
 
@@ -287,23 +289,185 @@ def upsert_auto_pattern_insight(
             return None
 
 
+def _url_path(u: str) -> str:
+    """final_url 에서 path(+query) 만 추출 — 어떤 '콘텐츠'가 인용됐는지 표시용."""
+    try:
+        pr = urlparse(u)
+        q = f"?{pr.query}" if pr.query else ""
+        return ((pr.path or "/") + q)[:100]
+    except Exception:  # noqa: BLE001
+        return (u or "")[:100]
+
+
+def analyze_competitor_citations(session_factory) -> dict:
+    """Round 104 ①-c — 경쟁사(비자사) 인용 final_url 경로를 진료과별 집계.
+
+    "AI 가 이 진료과에서 자주 인용하는 경쟁사 콘텐츠(주제·URL)" 를 도출 →
+    learned_insights.patterns.recommendations 로 등록 → 적용 시 생성 prompt 주입.
+
+    Returns: { domain_category: {total_cites, recommendations[], top_keywords[], top_urls[]} }
+    """
+    with session_factory() as s:
+        rows = s.execute(
+            text(
+                """
+                SELECT t.domain_category AS category,
+                       kw.text AS keyword,
+                       sd->>'domain' AS domain,
+                       sd->>'final_url' AS url,
+                       COUNT(*) AS cites
+                FROM responses r
+                JOIN queries q ON q.id = r.query_id
+                JOIN keywords kw ON kw.id = q.keyword_id
+                JOIN tenants t ON t.id = kw.tenant_id
+                CROSS JOIN LATERAL jsonb_array_elements(r.source_domains::jsonb) sd
+                WHERE q.engine <> 'stub'
+                  AND r.created_at > NOW() - INTERVAL '30 days'
+                  AND r.source_domains IS NOT NULL
+                  AND COALESCE(sd->>'is_self', 'false') = 'false'
+                  AND sd->>'final_url' IS NOT NULL
+                  AND sd->>'domain' IS NOT NULL
+                  AND t.domain_category IS NOT NULL
+                GROUP BY t.domain_category, kw.text, sd->>'domain', sd->>'final_url'
+                """
+            )
+        ).mappings().all()
+
+    by_cat: dict[str, dict] = {}
+    for r in rows:
+        cat = r["category"]
+        c = by_cat.setdefault(cat, {"kw": Counter(), "urls": [], "total": 0})
+        cites = int(r["cites"])
+        c["kw"][r["keyword"]] += cites
+        c["total"] += cites
+        c["urls"].append(
+            {
+                "domain": r["domain"],
+                "path": _url_path(r["url"]),
+                "url": r["url"],
+                "keyword": r["keyword"],
+                "cites": cites,
+            }
+        )
+
+    result: dict[str, dict] = {}
+    for cat, c in by_cat.items():
+        if c["total"] < 3:  # 표본 너무 적으면 스킵
+            continue
+        top_urls = sorted(c["urls"], key=lambda x: x["cites"], reverse=True)[:8]
+        top_kw = c["kw"].most_common(6)
+        kw_str = ", ".join(f"'{k}'({n}회)" for k, n in top_kw)
+        recs = [
+            f"AI 가 {cat} 진료과에서 자주 인용하는 세부 주제(경쟁사 콘텐츠): {kw_str} "
+            f"— 각 주제에 깊이 있는 전용 글을 작성하면 같은 키워드 인용 확률↑",
+        ]
+        for u in top_urls[:2]:
+            recs.append(
+                f"경쟁사 인용 콘텐츠 예시 — {u['domain']}{u['path']} "
+                f"({u['cites']}회·'{u['keyword']}'): 유사 주제·깊이의 글로 대응"
+            )
+        result[cat] = {
+            "total_cites": c["total"],
+            "recommendations": recs,
+            "top_keywords": [{"keyword": k, "cites": n} for k, n in top_kw],
+            "top_urls": top_urls,
+        }
+    return result
+
+
+def upsert_competitor_citation_insights(session_factory, by_cat: dict) -> list[int]:
+    """경쟁사 인용 경로 분석을 learned_insights 에 진료과별 등록(applied=false).
+
+    파일업 방지 — 직전 미적용(applied=false) 경쟁사-인용 AUTO 행은 갱신 전 삭제.
+    운영자가 [적용중] 토글한 행(applied=true)은 보존.
+    """
+    import json as _json
+    import traceback as _tb
+
+    ids: list[int] = []
+    if not by_cat:
+        return ids
+    with session_factory() as s:
+        try:
+            s.execute(
+                text(
+                    "DELETE FROM learned_insights "
+                    "WHERE source_url = 'internal://competitor_citations' AND applied = false"
+                )
+            )
+            for cat, data in by_cat.items():
+                payload = {
+                    "type": "competitor_citations",
+                    "title": f"경쟁사 인용 경로 학습 — {cat} ({data['total_cites']}건 인용 분석)",
+                    "recommendations": data["recommendations"],
+                    "top_keywords": data["top_keywords"],
+                    "top_urls": data["top_urls"],
+                }
+                notes = "\n".join(f"- {r}" for r in data["recommendations"])
+                row = s.execute(
+                    text(
+                        """
+                        INSERT INTO learned_insights
+                            (source_url, source_domain, source_tier, domain_category,
+                             patterns, notes, applied, created_at)
+                        VALUES
+                            ('internal://competitor_citations', 'internal', 'AUTO', :dom,
+                             CAST(:patterns_json AS jsonb), :notes, false, NOW())
+                        RETURNING id
+                        """
+                    ),
+                    {
+                        "dom": cat,
+                        "patterns_json": _json.dumps(payload, ensure_ascii=False),
+                        "notes": notes,
+                    },
+                ).fetchone()
+                if row:
+                    ids.append(row[0])
+            s.commit()
+            logger.info("competitor_citations.inserted categories=%d ids=%s", len(ids), ids)
+        except Exception as e:  # noqa: BLE001
+            logger.error("competitor_citations.insert_failed: %s\n%s", e, _tb.format_exc())
+            s.rollback()
+    return ids
+
+
 def run_auto_learning(session_factory) -> dict:
     """엔트리포인트 — 분석 + 자동 등록.
 
     cron 또는 admin 페이지에서 호출:
         from src.content.learned_pattern import run_auto_learning
         result = run_auto_learning(SessionLocal)
+
+    Round 104 ①-c — 경쟁사 인용 경로 학습도 함께 실행(자사 콘텐츠 양과 무관).
     """
+    import traceback as _tb
+
+    # ①-c 경쟁사 인용 경로 학습 — self-content 부족해도 항상 실행
+    competitor: dict = {}
+    competitor_ids: list[int] = []
+    try:
+        competitor = analyze_competitor_citations(session_factory)
+        competitor_ids = upsert_competitor_citation_insights(session_factory, competitor)
+    except Exception as e:  # noqa: BLE001
+        logger.error("competitor_citations.run_failed: %s\n%s", e, _tb.format_exc())
+
+    base = {
+        "competitor_insight_ids": competitor_ids,
+        "competitor_categories": list(competitor.keys()),
+    }
+
     analysis = analyze_patterns(session_factory)
     if analysis.get("total_analyzed", 0) < 10:
         logger.info(
-            "learned_pattern.skip_too_few_data",
-            total=analysis.get("total_analyzed", 0),
+            "learned_pattern.skip_too_few_data total=%d",
+            analysis.get("total_analyzed", 0),
         )
-        return {"skipped": True, "reason": "총 분석 글 10편 미만", **analysis}
+        return {"skipped": True, "reason": "총 분석 글 10편 미만", **base, **analysis}
     insight_id = upsert_auto_pattern_insight(session_factory, analysis)
     return {
         "skipped": False,
         "insight_id": insight_id,
+        **base,
         **analysis,
     }

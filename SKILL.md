@@ -4243,6 +4243,15 @@ admin citations/competitors 에서 Claude·ChatGPT 의 도메인별 인용·AI�
 - `medimap-blog-v2/src/components/admin/MarketShareDiagnosis.tsx` — `'use client'` 전환 + 도메인 행 클릭 → 그 도메인이 AI 에 인용된 **실제 콘텐츠 경로(path) + 인용수 + 엔진뱃지 + 키워드** 펼침(도메인별 1회 fetch 캐시). 엔진 색은 engine-* 토큰. (citations 페이지는 이미 키워드별 드릴다운 보유 — 중복 안 함)
 - 빌드 검증: TS 라 로컬 불가 → Vercel 빌드로 확인. 토큰(engine-*, surface-muted 등) 전부 config 존재 확인.
 
-### 푸시 대상(Round 104 ①a+①b)
-`medimap-blog-v2/src/app/api/admin/citation-paths/route.ts` (신규) · `medimap-blog-v2/src/components/admin/MarketShareDiagnosis.tsx` (드릴다운)
-다음: ①-c 자동학습(learned_pattern 확장) → ② Top콘텐츠 탭 → ③ 차트 드릴다운 → ④ 레이아웃/톤.
+### ①(c) 완료 — 경쟁사 인용 경로 자동학습
+`src/content/learned_pattern.py` 확장:
+- `analyze_competitor_citations()` — 비자사 source_domains[].final_url 을 진료과별 집계(LATERAL jsonb, is_self=false). 키워드별 인용수 + 대표 경쟁사 URL.
+- `upsert_competitor_citation_insights()` — 진료과별 learned_insights INSERT(source_url=`internal://competitor_citations`, source_tier=AUTO, **patterns.recommendations** = 경쟁사 인용 주제 가이드, applied=false). 직전 미적용 행은 갱신 전 DELETE(파일업 방지, 적용중은 보존).
+- `run_auto_learning()` 이 self-pattern + competitor-citation 둘 다 실행(자사 콘텐츠 양 무관).
+- 주입: 기존 `learned_insights_loader.build_guidance_by_category` 가 `patterns.recommendations` 를 prompt 에 주입 → 운영자가 [적용중] 토글 시 생성 글에 "이 진료과에서 AI 가 인용하는 경쟁사 주제를 깊이 다뤄라" 반영.
+- 검증: 격리 실행으로 추천문 생성 확인. DB 쿼리로 진료과별 경쟁사 인용 정상(피부과 jiwooclinic 32·안과 sueye 30·모발이식 newhairps 21…).
+- **활성화 절차(사용자)**: GitHub Actions "Auto Pattern Learning" Run → /admin/learned-insights 에 "경쟁사 인용 경로 학습 — {진료과}" AUTO 인사이트 생성 → [적용중] 토글 → 다음 cron 글에 주입.
+
+### 푸시 대상(Round 104 ①a~①c)
+`medimap-blog-v2/src/app/api/admin/citation-paths/route.ts`(신규) · `medimap-blog-v2/src/components/admin/MarketShareDiagnosis.tsx`(드릴다운) · `src/content/learned_pattern.py`(경쟁사 인용 자동학습)
+남은: ② Top콘텐츠 탭 압축 → ③ 차트 드릴다운 → ④ 레이아웃/빈영역/톤앤매너.
