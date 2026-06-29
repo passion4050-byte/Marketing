@@ -499,13 +499,13 @@ export default function CitationsPage() {
                 <div className="mt-1 text-[11px] text-ink-muted">
                   AI 가 정보 출처로 사용한 사이트 — <strong>행 클릭</strong>으로 실제 인용 URL 펼치기
                 </div>
-                {/* Round 85 (2026-06-28) — 함정 DC 안내: Gemini 만 grounding URL 자동 첨부.
-                    Claude/OpenAI 는 응답에 URL 없어서 도메인별 집계 불가능 (멘션 카운트는 별도). */}
+                {/* Round 103 (2026-06-29) — 3엔진 웹검색 활성화: Gemini(grounding) +
+                    Claude(web_search_20250305 강제) + OpenAI(search-preview) 모두 source URL 수집.
+                    엔진별 검색률 차이로 도메인 채움률은 Gemini>Claude>OpenAI 순. 누적 진행 중. */}
                 <div className="mt-2 rounded-md border border-status-warning/30 bg-status-warning/5 px-3 py-2 text-[11px] text-ink-soft">
-                  ⓘ <strong>도메인별 인용 집계는 Gemini 만 가능</strong> — Gemini API 는 grounding 으로
-                  source URL 을 자동 첨부합니다. Claude / OpenAI 는 응답에 URL 을 포함하지 않아 도메인 카운트
-                  불가 (멘션 카운트는 위 "키워드별 인용 분석" 표 참조). 향후 Anthropic Web Search Tool
-                  활성화로 Claude 도메인 추적 가능 예정.
+                  ⓘ <strong>3개 엔진 모두 도메인 인용 집계</strong> — Gemini(grounding) · Claude(웹검색 도구) ·
+                  OpenAI(search-preview)에서 source URL 을 수집합니다. 엔진별 웹검색 빈도 차이로 도메인
+                  채움률은 다를 수 있으며(Gemini 가 가장 높음), 매일 KST 07:00 cron 으로 누적됩니다.
                 </div>
               </header>
               {data.competitor_breakdown.length === 0 ? (

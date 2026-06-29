@@ -4180,3 +4180,35 @@ Round 90 wecircle 리브랜딩 + 커스텀 도메인 wecircle.co.kr 전환 시 `
 - 자동학습 적용 후 cron 글 표 비율↑ 검증 (토글 ON 이후)
 - wecircle.co.kr 첫 AI 인용 감지 모니터링 (이제 detector 준비됨)
 - /privacy /terms 변호사 검토 · 카카오톡 wecircle 채널 심사
+
+---
+
+## Round 103 (2026-06-29) — Claude·ChatGPT 도메인 인용 측정 활성화 (3엔진 웹검색)
+
+> 집/사무실 이어가기: `git pull` 후 "SKILL.md Round 103 읽고 이어서 작업".
+
+### 문제
+admin citations/competitors 에서 Claude·ChatGPT 의 도메인별 인용·AI엔진별 인용이 0. 사용자 반복 요청.
+
+### 진단 (DB responses 922건, 엔진별 인용 채움률)
+- gemini 552건: cited 96% · domains 78% ✅ (grounding 으로 source URL 자동)
+- claude 311건: cited **10%** · domains 5% — web_search 가 auto 라 모델이 거의 검색 안 함
+- openai 44건: **0%** — 엔진이 일반 chat.completions(웹검색 X) → 응답에 URL 없음
+- 핵심: `responses.source_domains` 는 `run_measurement_batch._resolve_recent_source_domains` 가 **엔진 무관하게** cited_urls→도메인 resolve. 즉 **엔진이 cited_urls 만 뱉으면 도메인은 자동으로 채워짐.** → 수정 포인트 = 엔진 2개뿐.
+
+### 수정
+- `src/engines/openai_engine.py` — 기본 모델 `gpt-4o-mini` → **`gpt-4o-mini-search-preview`** + `web_search_options={}`. `message.annotations[].url_citation.url` 추출. search-preview 는 temperature 미지원 → 검색호출엔 temperature 제거(폴백 일반모델엔 유지). 실패 시 `OPENAI_FALLBACK_MODEL` 로 graceful 폴백.
+- `src/engines/claude.py` — web_search 를 **tool_choice={"type":"any"} 로 강제** + 시스템 프롬프트로 검색 권장. 강제 미지원 시 auto→plain 3단 안전 폴백(기존 10% 경로 보존). (URL 추출은 Round 85 구조 유지)
+- `medimap-blog-v2/.../citations/page.tsx` — "Gemini 만 가능" 안내문 → "3엔진 모두 집계(채움률 차이)" 로 갱신.
+
+### 현실(사용자 고지 필수)
+- **비용**: Claude 웹검색(~$10/1000검색)·OpenAI search-preview 모두 검색당 과금. 측정은 키워드×n_samples(30)×일일이라 누적 큼 → `MAX_DAILY_USD` 가드가 측정을 중간에 끊을 수 있음. 필요시 가드값 상향 또는 paid 엔진 n_samples 축소.
+- **반영 시점**: 다음 cron(매일 KST 07:00)부터. **과거 응답 소급 없음** → Claude/OpenAI 도메인은 내일 측정부터 누적.
+- **커버리지**: 100% 아님. Gemini > Claude > OpenAI 순. OpenAI search-preview 모델 계정 미지원이면 폴백(0 유지)되니 첫 cron 후 DB로 채움률 확인 필요.
+- **검증 쿼리**: `select q.engine, count(*), count(*) filter (where r.source_domains::text not in ('[]','null')) from responses r join queries q on q.id=r.query_id where r.created_at>now()-interval '1 day' group by 1;`
+
+### 함정 DN — AI 인용 측정은 "웹검색 모드"라야 의미
+일반 chat(OpenAI)·auto tool(Claude)은 학습지식으로 답해 source URL 0. AEO 인용 측정은 엔진이 **실제 웹검색**을 해야 성립(Gemini grounding 처럼). OpenAI=search-preview, Claude=web_search 강제 필수.
+
+### 추가 푸시 파일 (Round 103)
+`src/engines/openai_engine.py` · `src/engines/claude.py` · `medimap-blog-v2/src/app/admin/(portal)/citations/page.tsx`

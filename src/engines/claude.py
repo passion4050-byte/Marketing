@@ -37,28 +37,45 @@ class ClaudeEngine(BaseEngine):
         self._model = model
 
     async def query(self, prompt: str) -> EngineResponse:
+        # Round 103 (2026-06-29): 검색 유도 강화. 기존엔 web_search 가 auto 라 모델이
+        #   거의 검색을 안 해 cited 추출률 10% → source URL 확보율 저조. 시스템 프롬프트로
+        #   검색을 권장하고, tool_choice 로 검색을 강제(미지원 시 auto→plain 으로 안전 폴백).
         system = (
             "당신은 한국어로 의료/안과 정보를 정리하는 도우미입니다. "
-            "사실 기반으로 답변하고 알려진 의료기관 이름이 있다면 자연스럽게 언급하세요."
+            "최신 정보와 실제 의료기관·출처를 확인하기 위해 가능하면 웹 검색을 사용하고, "
+            "사실 기반으로 답변하며 알려진 의료기관 이름이 있다면 자연스럽게 언급하세요."
         )
+        web_tool = [{"type": "web_search_20250305", "name": "web_search"}]
         start = time.perf_counter()
         try:
             try:
+                # 1) 웹검색 강제(tool_choice=any) — source URL 확보율 최대화
                 resp = await self._client.messages.create(
                     model=self._model,
                     max_tokens=1024,
                     system=system,
-                    tools=[{"type": "web_search_20250305", "name": "web_search"}],
+                    tools=web_tool,
+                    tool_choice={"type": "any"},
                     messages=[{"role": "user", "content": prompt}],
                 )
             except Exception:
-                # tool 미지원 / 권한 없음 → 일반 호출
-                resp = await self._client.messages.create(
-                    model=self._model,
-                    max_tokens=1024,
-                    system=system,
-                    messages=[{"role": "user", "content": prompt}],
-                )
+                try:
+                    # 2) 강제 미지원 시 — 검색 도구 auto (기존 동작)
+                    resp = await self._client.messages.create(
+                        model=self._model,
+                        max_tokens=1024,
+                        system=system,
+                        tools=web_tool,
+                        messages=[{"role": "user", "content": prompt}],
+                    )
+                except Exception:
+                    # 3) tool 자체 미지원/권한 없음 → 일반 호출
+                    resp = await self._client.messages.create(
+                        model=self._model,
+                        max_tokens=1024,
+                        system=system,
+                        messages=[{"role": "user", "content": prompt}],
+                    )
         except Exception as e:
             raise EngineError(f"Claude 호출 실패: {e}") from e
 
