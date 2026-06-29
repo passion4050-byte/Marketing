@@ -4212,3 +4212,37 @@ admin citations/competitors 에서 Claude·ChatGPT 의 도메인별 인용·AI�
 
 ### 추가 푸시 파일 (Round 103)
 `src/engines/openai_engine.py` · `src/engines/claude.py` · `medimap-blog-v2/src/app/admin/(portal)/citations/page.tsx`
+
+---
+
+## Round 104 (2026-06-29, 진행중) — 대시보드 전면 고도화 (4단계, ①착수)
+
+> 사용자 요청: admin 대시보드 UI/UX 전면 개선 + 인용 세부경로 추적·자동학습. 4개 다 선택(①②③④ 순).
+
+### 핵심 발견 (데이터 준비 완료)
+`responses.source_domains[]` 에 `{domain, redirect, final_url, is_self}` — **AI 가 인용한 정확한 URL 경로(final_url)** 가 다 있음. query 조인으로 키워드·엔진까지. 즉 "도메인 점유"를 넘어 **"어떤 콘텐츠(경로)가 어떤 키워드·엔진으로 인용됐는지"** 세부 추적이 새 측정 없이 가능. 검증 예(newhairps.com/모발이식): `/nblog2/m-shaped-hairline-treatment-guide`(10회·M자 헤어라인), `/nblog2/hair-transplant-aftercare-timeline`(8회·claude+gemini·강남 모발이식 회복) … → 경쟁사가 인용받는 콘텐츠 토픽/구조가 키워드별로 드러남(자동학습 재료).
+
+### 4단계 계획
+- **① 인용 세부경로 추적+자동학습** — (a) API ✅완료 (b) 도메인 드릴다운 UI (c) 경쟁사 인용경로→learned_pattern 자동학습
+- **② Top 인용 콘텐츠 리스트 압축** — 병원/키워드 탭 + 상위 N + 펼치기(세로 길이↓)
+- **③ 측정 추이 차트 드릴다운** — 막대/숫자 클릭→세부 경로·응답
+- **④ 레이아웃·빈영역·톤앤매너 일관화** — 빈영역 채우기·디자인 토큰 통일·"0건" 패널 wecircle 기준 갱신
+
+### ①(a) 완료 — 신규 API
+`medimap-blog-v2/src/app/api/admin/citation-paths/route.ts` (신규)
+- `GET ?tenantId=&domain=&days=30` → `{ total_cites, paths:[{url, path, cites, engines[], keywords[]}] }`
+- domain-context 와 동일 supabase-js 패턴(키워드→queries→responses 집계, chunked IN). source_domains[].final_url 를 도메인 필터 후 final_url 별 집계. 검증 쿼리(LATERAL jsonb)로 결과 일치 확인.
+
+### 다음(이어서 작업)
+- 36: 도메인 테이블(citations 페이지 + 홈 도메인 Top10) 행 클릭→`CitationPathDrilldown` 컴포넌트로 경로 펼침(citation-paths API).
+- 37: `src/content/learned_pattern.py` 확장 — 경쟁사 인용 final_url 의 URL 구조/토픽을 키워드별 집계→learned_insights(AUTO)로 "이 키워드는 이런 콘텐츠가 인용받음" 등록→생성 prompt 주입.
+- 38~40: ②③④.
+
+### ①(b) 완료 — 도메인 경로 드릴다운 UI (홈 대시보드)
+- citation-paths API: **tenantId 옵션화**(없으면 전사 글로벌 집계) — 홈 "도메인 Top10"용.
+- `medimap-blog-v2/src/components/admin/MarketShareDiagnosis.tsx` — `'use client'` 전환 + 도메인 행 클릭 → 그 도메인이 AI 에 인용된 **실제 콘텐츠 경로(path) + 인용수 + 엔진뱃지 + 키워드** 펼침(도메인별 1회 fetch 캐시). 엔진 색은 engine-* 토큰. (citations 페이지는 이미 키워드별 드릴다운 보유 — 중복 안 함)
+- 빌드 검증: TS 라 로컬 불가 → Vercel 빌드로 확인. 토큰(engine-*, surface-muted 등) 전부 config 존재 확인.
+
+### 푸시 대상(Round 104 ①a+①b)
+`medimap-blog-v2/src/app/api/admin/citation-paths/route.ts` (신규) · `medimap-blog-v2/src/components/admin/MarketShareDiagnosis.tsx` (드릴다운)
+다음: ①-c 자동학습(learned_pattern 확장) → ② Top콘텐츠 탭 → ③ 차트 드릴다운 → ④ 레이아웃/톤.

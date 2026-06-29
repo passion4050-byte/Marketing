@@ -18,7 +18,10 @@
  *   2. 권위 도메인 backlink (modoodoc/hidoc 게재)
  *   3. GSC 색인 가속 (사용자 직접)
  */
-import { AlertTriangle, Globe, TrendingDown, Sparkles, ArrowRight, ExternalLink } from 'lucide-react';
+'use client';
+
+import { useState, Fragment } from 'react';
+import { AlertTriangle, Globe, Sparkles, ArrowRight, ExternalLink, ChevronRight, ChevronDown, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 interface DomainRow {
@@ -27,6 +30,29 @@ interface DomainRow {
   isOwn?: boolean;
   isCompetitor?: boolean;
 }
+
+interface PathRow {
+  url: string;
+  path: string;
+  cites: number;
+  engines: string[];
+  keywords: string[];
+}
+interface PathState {
+  loading: boolean;
+  error: string | null;
+  paths: PathRow[] | null;
+}
+
+const ENGINE_BADGE: Record<string, string> = {
+  gemini: 'bg-engine-gemini/10 text-engine-gemini',
+  claude: 'bg-engine-claude/10 text-engine-claude',
+  openai: 'bg-engine-chatgpt/10 text-engine-chatgpt',
+  perplexity: 'bg-engine-perplexity/10 text-engine-perplexity',
+};
+const ENGINE_LABEL: Record<string, string> = {
+  gemini: 'Gemini', claude: 'Claude', openai: 'ChatGPT', perplexity: 'Perplexity',
+};
 
 interface Props {
   domains: DomainRow[];
@@ -43,6 +69,33 @@ export function MarketShareDiagnosis({
 }: Props) {
   const medimapShare = totalCitations > 0 ? (medimapCitations / totalCitations) * 100 : 0;
   const isCritical = medimapCitations === 0;
+
+  // Round 104 ①-b — 도메인 행 클릭 → 그 도메인이 AI 에 인용된 "실제 콘텐츠 경로" 펼침.
+  //   citation-paths API (tenantId 없이 전사 집계). 도메인별 1회 fetch 후 캐시.
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [pathCache, setPathCache] = useState<Record<string, PathState>>({});
+
+  async function togglePaths(domain: string) {
+    if (!domain) return;
+    const next = expanded === domain ? null : domain;
+    setExpanded(next);
+    if (next && !pathCache[domain]) {
+      setPathCache((p) => ({ ...p, [domain]: { loading: true, error: null, paths: null } }));
+      try {
+        const r = await fetch(
+          `/api/admin/citation-paths?domain=${encodeURIComponent(domain)}&days=${daysWindow}`,
+        );
+        const j = await r.json();
+        if (!r.ok || !j.ok) throw new Error(j.error || '불러오기 실패');
+        setPathCache((p) => ({ ...p, [domain]: { loading: false, error: null, paths: j.paths ?? [] } }));
+      } catch (e) {
+        setPathCache((p) => ({
+          ...p,
+          [domain]: { loading: false, error: e instanceof Error ? e.message : '오류', paths: null },
+        }));
+      }
+    }
+  }
 
   return (
     <section className="card mt-6">
@@ -109,38 +162,115 @@ export function MarketShareDiagnosis({
           <tbody>
             {domains.slice(0, 10).map((d, i) => {
               const share = totalCitations > 0 ? (d.citations / totalCitations) * 100 : 0;
+              const isOpen = expanded === d.domain;
+              const ps = d.domain ? pathCache[d.domain] : undefined;
               return (
-                <tr key={d.domain || `null-${i}`} className="border-t border-border">
-                  <td className="px-3 py-2 font-mono text-[10px] text-ink-muted">{i + 1}</td>
-                  <td className="px-3 py-2">
-                    <a
-                      href={d.domain ? `https://${d.domain}` : '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-sm font-semibold text-ink hover:text-brand-700"
-                    >
-                      {d.domain || '(URL 파싱 실패)'}
-                      {d.domain && <ExternalLink className="h-2.5 w-2.5 opacity-50" />}
-                    </a>
-                  </td>
-                  <td className="px-3 py-2">
-                    {d.isOwn ? (
-                      <span className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">
-                        ⭐ 자사
+                <Fragment key={d.domain || `null-${i}`}>
+                  <tr
+                    className={`border-t border-border ${d.domain ? 'cursor-pointer hover:bg-surface-subtle' : ''}`}
+                    onClick={() => d.domain && togglePaths(d.domain)}
+                  >
+                    <td className="px-3 py-2 font-mono text-[10px] text-ink-muted">
+                      <span className="inline-flex items-center gap-1">
+                        {d.domain ? (
+                          isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />
+                        ) : (
+                          <span className="inline-block w-3" />
+                        )}
+                        {i + 1}
                       </span>
-                    ) : d.isCompetitor ? (
-                      <span className="rounded bg-status-warningSoft px-1.5 py-0.5 text-[10px] font-bold text-status-warning">
-                        경쟁사
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-ink-muted">권위/플랫폼</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono text-sm font-bold text-ink">
-                    {d.citations.toLocaleString()}
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono text-xs">{share.toFixed(1)}%</td>
-                </tr>
+                    </td>
+                    <td className="px-3 py-2">
+                      <a
+                        href={d.domain ? `https://${d.domain}` : '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 text-sm font-semibold text-ink hover:text-brand-700"
+                      >
+                        {d.domain || '(URL 파싱 실패)'}
+                        {d.domain && <ExternalLink className="h-2.5 w-2.5 opacity-50" />}
+                      </a>
+                    </td>
+                    <td className="px-3 py-2">
+                      {d.isOwn ? (
+                        <span className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">
+                          ⭐ 자사
+                        </span>
+                      ) : d.isCompetitor ? (
+                        <span className="rounded bg-status-warningSoft px-1.5 py-0.5 text-[10px] font-bold text-status-warning">
+                          경쟁사
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-ink-muted">권위/플랫폼</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono text-sm font-bold text-ink">
+                      {d.citations.toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono text-xs">{share.toFixed(1)}%</td>
+                  </tr>
+                  {isOpen && (
+                    <tr className="bg-brand-50/30">
+                      <td colSpan={5} className="px-4 py-3">
+                        {!ps || ps.loading ? (
+                          <div className="flex items-center gap-2 text-[11px] text-ink-muted">
+                            <Loader2 className="h-3 w-3 animate-spin" /> 인용된 콘텐츠 경로 로드 중…
+                          </div>
+                        ) : ps.error ? (
+                          <div className="text-[11px] text-status-danger">불러오기 실패: {ps.error}</div>
+                        ) : !ps.paths || ps.paths.length === 0 ? (
+                          <div className="text-[11px] text-ink-muted">
+                            세부 인용 URL이 아직 없습니다. (Gemini grounding 위주로 채워지며, Claude/OpenAI 는 다음 측정부터 누적)
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="mb-2 text-[11px] font-semibold text-ink-muted">
+                              AI 가 인용한 실제 콘텐츠 경로 — 어떤 글이 · 몇 번 · 어느 AI · 어떤 키워드로 ({ps.paths.length}개)
+                            </div>
+                            <ul className="space-y-1.5">
+                              {ps.paths.slice(0, 12).map((p) => (
+                                <li key={p.url} className="rounded-md border border-border bg-white px-2.5 py-1.5">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <a
+                                      href={p.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="truncate font-mono text-[11px] text-brand-700 hover:underline"
+                                      title={p.url}
+                                    >
+                                      {p.path}
+                                    </a>
+                                    <span className="shrink-0 font-mono text-[11px] font-bold text-ink">{p.cites}회</span>
+                                  </div>
+                                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                                    {p.engines.map((e) => (
+                                      <span
+                                        key={e}
+                                        className={`rounded px-1 py-0.5 text-[9px] font-bold ${ENGINE_BADGE[e] ?? 'bg-surface-muted text-ink-muted'}`}
+                                      >
+                                        {ENGINE_LABEL[e] ?? e}
+                                      </span>
+                                    ))}
+                                    {p.keywords.slice(0, 4).map((k) => (
+                                      <span key={k} className="rounded bg-surface-subtle px-1 py-0.5 text-[9px] text-ink-soft">
+                                        {k}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                            <div className="mt-2 text-[10px] text-ink-muted">
+                              💡 <strong>학습 포인트</strong> — 위 경로 글의 주제·구조를 우리 콘텐츠에 반영하면 같은 키워드에서 인용 확률↑ (①-c 자동학습 연결 예정)
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               );
             })}
             {/* 메디맵 위치 명시 (rank 11 ~ 가상 row) */}
