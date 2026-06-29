@@ -1023,6 +1023,13 @@ export default async function AdminDashboardPage({
     },
   ];
 
+  // Round 104 ④ — 좌측 빈 영역 채움용 측정 상태 요약값.
+  const cronStatusText = d.lastCronAt
+    ? (Date.now() - new Date(d.lastCronAt).getTime()) / 3600000 < 26
+      ? '정상'
+      : '⚠ 지연'
+    : '데이터 없음';
+
   return (
     <div className="px-8 py-6">
       <header className="admin-page-header">
@@ -1078,6 +1085,43 @@ export default async function AdminDashboardPage({
               citations30d={d.citations30d}
               publishedThisMonth={d.publishedThisMonth}
             />
+            {/* Round 104 ④ — 좌측 빈 영역 채움: 측정·엔진 현황 (xl 2단에서만 노출) */}
+            <div className="mt-4 hidden xl:block">
+              <section className="card">
+                <header className="border-b border-border px-4 py-3">
+                  <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+                    <TrendingUp className="h-4 w-4 text-brand" />
+                    측정·엔진 현황
+                  </h2>
+                  <div className="mt-0.5 text-[11px] text-ink-muted">AI 인용 측정 파이프라인 상태</div>
+                </header>
+                <div className="grid grid-cols-3 divide-x divide-border border-b border-border">
+                  <div className="px-3 py-3 text-center">
+                    <div className="text-[10px] uppercase tracking-wider text-ink-muted">측정 cron</div>
+                    <div className="mt-1 text-sm font-bold text-ink">{cronStatusText}</div>
+                  </div>
+                  <div className="px-3 py-3 text-center">
+                    <div className="text-[10px] uppercase tracking-wider text-ink-muted">30일 인용</div>
+                    <div className="mt-1 text-sm font-bold text-ink">{(d.citations30d ?? 0).toLocaleString()}</div>
+                  </div>
+                  <div className="px-3 py-3 text-center">
+                    <div className="text-[10px] uppercase tracking-wider text-ink-muted">오늘 비용</div>
+                    <div className="mt-1 text-sm font-bold text-ink">${d.todayCost.toFixed(2)}</div>
+                  </div>
+                </div>
+                <div className="px-4 py-3">
+                  <div className="mb-1.5 text-[10px] uppercase tracking-wider text-ink-muted">웹검색 측정 엔진</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="rounded px-2 py-0.5 text-[11px] font-bold bg-engine-gemini/10 text-engine-gemini">Gemini ✓</span>
+                    <span className="rounded px-2 py-0.5 text-[11px] font-bold bg-engine-claude/10 text-engine-claude">Claude ✓</span>
+                    <span className="rounded px-2 py-0.5 text-[11px] font-bold bg-engine-chatgpt/10 text-engine-chatgpt">ChatGPT ✓</span>
+                  </div>
+                  <div className="mt-2 text-[10px] text-ink-muted">
+                    3엔진 모두 웹검색으로 source URL 수집 — 도메인 인용 누적 중 (다음 cron부터 Claude/ChatGPT 경로 채워짐)
+                  </div>
+                </div>
+              </section>
+            </div>
           </div>
           <div className="contents xl:block [&_section]:!mt-0">
             <MarketShareDiagnosis

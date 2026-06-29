@@ -4260,8 +4260,17 @@ admin citations/competitors 에서 Claude·ChatGPT 의 도메인별 인용·AI�
 - **③ DashboardChartsTabbed.tsx** — 차트 아래 "숫자 근거 — 세부 데이터 보기" 펼침. 현재 탭(tier/ranking/grounding)별 정확 수치 표 + 세부 경로 드릴다운 위치(자사/경쟁사 분석·홈 도메인Top10) 링크. (Recharts onClick 풀드릴다운 대신 안전한 표+링크 방식)
 - **④(일부) MarketShareDiagnosis.tsx** — "0건" 패널 wecircle.co.kr 기준 갱신 + 커스텀 도메인 ✅완료 표기.
 
-### ④ 남은(다음 세션) — 레이아웃/톤
-- 홈 대시보드 빈 영역(운영 액션 권고 우측) 채우기 + 카드/색/타이포 디자인 토큰 전면 일관화. 광범위 폴리시라 fresh 컨텍스트에서 진행 권장.
+### ④ 완료 — 레이아웃/빈영역/톤
+- **빈 영역 진단**: 홈 Tier-1 2단 그리드에서 좌(ActionRecommendations·짧음) vs 우(MarketShareDiagnosis·0건패널+Top10·긺) 높이 불일치 → 좌측 하단 공백.
+- **채움**: `admin/(portal)/page.tsx` 좌측 컬럼에 "측정·엔진 현황" 카드 추가(`hidden xl:block` — 공백 생기는 xl 2단에서만). cron 상태·30일 인용·오늘 비용 + 3엔진(Gemini/Claude/ChatGPT) 활성 뱃지. 데이터는 이미 fetch된 `d` 재사용(추가 쿼리 0).
+- **0건 패널**: MarketShareDiagnosis wecircle.co.kr 기준 + 커스텀도메인 ✅완료(이전 커밋).
+- **톤앤매너**: admin 컴포넌트는 이미 동일 토큰 체계(brand/ink/surface/border/status/engine) 사용 — Round 92 위계 + Round 97 폴리시로 일관. 전면 재작업은 diminishing returns라 빈영역 채움에 집중.
+
+### 푸시 대상(Round 104 ④)
+`medimap-blog-v2/src/app/admin/(portal)/page.tsx` (빈영역 채움 + cronStatusText)
+
+### Round 104 전체 완료 (①②③④)
+①세부경로 추적+자동학습(a:API·b:드릴다운·c:경쟁사학습) · ②Top콘텐츠 압축 · ③차트 세부데이터 · ④빈영역+패널+톤. 전부 푸시 완료 시 대시보드 고도화 1차 종료.
 
 ### 푸시 대상(Round 104 ②③④패널)
 `medimap-blog-v2/src/components/admin/ContentCompetitiveness.tsx` · `DashboardChartsTabbed.tsx` · `MarketShareDiagnosis.tsx`
