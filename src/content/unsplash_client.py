@@ -72,8 +72,24 @@ def search_unsplash_photo(
     if not results:
         return None
 
-    # 가장 첫 결과 사용 (relevant order)
-    photo = results[0]
+    # Round 104 (2026-06-29) — 썸네일 다양성 + 인물 회피.
+    #   기존: results[0] 고정 → 비슷한 쿼리에 같은 인기 사진 반복(중복) + 외국인 인물 노출.
+    #   개선: ① alt_description 에 인물 단어 있는 사진은 후순위(없으면 전체)
+    #         ② 상위 후보 중 랜덤 선택 → 같은 글 주제라도 매번 다른 컷.
+    import random as _random
+
+    _PEOPLE_WORDS = (
+        "man", "woman", "men", "women", "people", "person", "girl", "boy",
+        "face", "portrait", "doctor", "patient", "smiling", "selfie", "model",
+    )
+
+    def _has_people(p: dict) -> bool:
+        alt = (p.get("alt_description") or "").lower()
+        return any(w in alt for w in _PEOPLE_WORDS)
+
+    no_people = [p for p in results if not _has_people(p)]
+    pool = no_people if no_people else results
+    photo = _random.choice(pool[:8])
     user = photo.get("user") or {}
     author_link = ((user.get("links") or {}).get("html") or "https://unsplash.com")
     return {

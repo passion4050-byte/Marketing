@@ -151,7 +151,7 @@ export async function GET(req: Request) {
       keywords: Set<string>;
       urls: Set<string>;
       // Round 64 — 키워드별 인용 상세 (드릴다운): 키워드 → {인용수, 엔진, 콘텐츠 URL}
-      byKw: Map<string, { count: number; engines: Set<string>; urls: Set<string> }>;
+      byKw: Map<string, { count: number; engines: Set<string>; urls: Set<string>; urlsByEngine: Map<string, Set<string>> }>;
     }
   >();
   // keyword → competitor 별 카운트 (+ Round 66 엔진별 카운트)
@@ -216,12 +216,19 @@ export async function GET(req: Request) {
 
           // Round 64 — 키워드별 인용 상세 누적 (드릴다운)
           if (!dom.byKw.has(kw)) {
-            dom.byKw.set(kw, { count: 0, engines: new Set(), urls: new Set() });
+            dom.byKw.set(kw, { count: 0, engines: new Set(), urls: new Set(), urlsByEngine: new Map() });
           }
           const kwDetail = dom.byKw.get(kw)!;
           kwDetail.count++;
           if (engine && engine !== '?') kwDetail.engines.add(engine);
-          if (sd.final_url) kwDetail.urls.add(sd.final_url);
+          if (sd.final_url) {
+            kwDetail.urls.add(sd.final_url);
+            // Round 104-c — url 을 엔진별로도 묶음(엔진 칩 클릭 → 그 엔진 URL 만 필터)
+            if (engine && engine !== '?') {
+              if (!kwDetail.urlsByEngine.has(engine)) kwDetail.urlsByEngine.set(engine, new Set());
+              kwDetail.urlsByEngine.get(engine)!.add(sd.final_url);
+            }
+          }
 
           // 키워드 매트릭스
           if (!kwBucket.competitors.has(sd.domain)) {
@@ -264,6 +271,10 @@ export async function GET(req: Request) {
           count: v.count,
           engines: Array.from(v.engines).sort(),
           urls: Array.from(v.urls).slice(0, 8),
+          // Round 104-c — 엔진별 URL (엔진 칩 클릭 필터용)
+          urlsByEngine: Object.fromEntries(
+            Array.from(v.urlsByEngine.entries()).map(([e, s]) => [e, Array.from(s).slice(0, 8)])
+          ),
         }))
         .sort((a, b) => b.count - a.count),
       label: labelMap.get(domain.toLowerCase())?.label ?? null,

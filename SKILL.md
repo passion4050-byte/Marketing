@@ -4272,5 +4272,44 @@ admin citations/competitors 에서 Claude·ChatGPT 의 도메인별 인용·AI�
 ### Round 104 전체 완료 (①②③④)
 ①세부경로 추적+자동학습(a:API·b:드릴다운·c:경쟁사학습) · ②Top콘텐츠 압축 · ③차트 세부데이터 · ④빈영역+패널+톤. 전부 푸시 완료 시 대시보드 고도화 1차 종료.
 
+### Round 104-b — ①-c 자동학습 루프 활성화+검증 (DB 직접, 코드 푸시 불필요)
+- cron 안 기다리고 `run_auto_learning` 의 경쟁사-인용 학습과 **동일 로직을 Supabase SQL 로 직접 실행** → `learned_insights` 에 진료과별 5건 등록(id 8~12: 안과1287·자사인사이트970·피부과796·모발이식779·한방의원317 인용 분석, source_url=`internal://competitor_citations`, **applied=false**).
+- 검증: 각 행 `patterns.recommendations` = 길이3 array(주제가이드1 + 경쟁사URL예시2). 로더 `build_guidance_by_category` 의 `patterns.recommendations` 계약과 일치 → applied=true 시 자동 주입.
+- 발견된 인텔(예): 안과=스마일·잠실 라식…, 피부과=강남 리쥬란 힐러·여드름 흉터…, 모발이식=강남 모발이식·FUT·M자 헤어라인… 각 진료과에서 AI가 인용하는 경쟁사 주제 = 우리가 전용 심화글 써야 할 타깃.
+- **남은 1스텝(사용자 결정)**: `/admin/learned-insights` 에서 "경쟁사 인용 경로 학습 — {진료과}" 항목 **[적용중] 토글** → 다음 콘텐츠 cron 글에 "이 주제로 깊이 있는 글 써라" 주입. (적용은 운영자 선택이라 자동 토글 안 함)
+- 주간 Auto Pattern Learning cron 이 돌면 미적용 행은 같은 로직으로 갱신(applied=true 는 보존).
+
+### Round 104-c (2026-06-29 EOD) — 토글 적용 + 썸네일 수정 + 잔여 큐
+
+**①-c [적용중] 적용 완료(사용자 요청)**: `learned_insights` source_url=`internal://competitor_citations` 5건 전부 `applied=true` (SQL). → 다음 콘텐츠 cron 글부터 진료과별 "AI 인용 경쟁사 주제" 가 생성 prompt 에 주입됨. (검증: 로더 `build_guidance_by_category` 의 patterns.recommendations 계약 일치)
+
+**#1 썸네일 외국인·중복 수정** (푸시 대상): `src/content/unsplash_client.py search_unsplash_photo`
+- 원인: `results[0]` 고정 → 비슷한 쿼리에 같은 인기 사진 반복 + 인물 컷. (DB 상 정확 URL 중복은 0 — 같은 사진 재다운로드라 시각만 동일)
+- 수정: ① alt_description 인물단어(man/woman/doctor/portrait/smiling/model…) 있는 사진 후순위(없으면 전체) ② 상위 8 후보 중 **랜덤 선택** → 매번 다른 컷. 격리 테스트로 분산 확인.
+- 적용 범위: 신규 생성 글부터. (기존 draft id163 등은 재생성 또는 검수 시 교체 — 운영자 선택)
+
+**#2 의료법 FAIL — 운영자 책임 승인**: content-queue `[id]/route.ts` approve 는 승인 시 `compliance_status='pass'` 강제 → **운영자가 [발행 승인] 누르면 FAIL 글도 그대로 발행됨(설계상 오버라이드 존재).** 즉 "내가 책임진다" = 승인 버튼으로 처리 가능. 단 의료법은 법적 리스크라 FAIL 사유 표현은 확인 권장(코드 변경 안 함 — 오버라이드 이미 있음).
+
+**#3 측정·엔진 현황 카드 고도화 — 다음 세션 큐(미착수)**:
+- 요구: 엔진 뱃지(Gemini/Claude/ChatGPT) 클릭 → 그 엔진 인용 수치 / 인용 숫자 클릭 → 어떤 콘텐츠(경로)로 인용됐는지.
+- 계획: (a) `fetchDashboardData` 에 per-engine 인용 카운트 추가 OR 신규 API `citation-paths` 에 `engine` 필터 파라미터 추가. (b) 측정·엔진 현황 카드를 client 컴포넌트로 분리 → 엔진 클릭 시 per-engine 수치 + citation-paths(engine 필터) 드릴다운 모달. ①-b 드릴다운 패턴 재사용.
+- EOD 라 미착수 — fresh 컨텍스트에서 진행 권장(차트/카드 깨짐 방지).
+
+**Part A — 경쟁사 도메인 드릴다운 엔진 클릭 필터** (푸시 대상): 키워드별 인용 상세에서 엔진 칩(GEMINI/CLAUDE/ChatGPT)을 **클릭하면 그 엔진이 인용한 URL 만** 표시.
+- 백엔드 `competitors/route.ts`: byKw 에 `urlsByEngine: Map<engine, Set<url>>` 추가 → citation 출력에 `urlsByEngine` 포함. (citations API 는 미생산 → 컴포넌트가 optional 로 graceful)
+- 프론트 `CitationBreakdown.tsx`: `CitationRow` 분리 + 엔진 칩 = 클릭 버튼(active ring). 선택 시 `urlsByEngine[engine]` 만, 없으면 "이 엔진은 URL 미수집". 칩에 URL 개수(×n) 표시. "전체 보기" 리셋.
+- 현실: Claude/ChatGPT 는 도메인 데이터 희박(오늘 R103 웹검색 켬) → 대부분 "미수집" 표시(정직). 다음 cron부터 채워짐.
+
+**Part B — 추이 "AI엔진별 인용" ChatGPT/Claude 데이터 부족 = 버그 아님 (진단 완료)**: tenant4 엔진별 도메인보유 응답 — Gemini 115(23일)·Claude 2(1일)·OpenAI 0. trends 라우트는 정상 설계(엔진필터+mentions 폴백). **원인=Claude/OpenAI 가 오늘(R103)에야 웹검색 활성 → 도메인 인용 아직 0근접.** 다음 cron 누적 시 채워짐. 즉시 보려면 measure-ai-mentions 워크플로 수동 Run.
+
+### 푸시 대상(Round 104-c)
+`src/content/unsplash_client.py`(썸네일) · `medimap-blog-v2/src/app/api/admin/competitors/route.ts`(urlsByEngine) · `medimap-blog-v2/src/components/admin/CitationBreakdown.tsx`(엔진 클릭 필터) · `SKILL.md`
+(①-c [적용중] 토글은 DB 직접 반영 — 푸시 불필요)
+
+### 다음 세션 큐 (오늘 미착수 — fresh 컨텍스트)
+- **#3 측정·엔진 현황 카드 고도화**: 홈 카드의 엔진 클릭→per-engine 수치 + 인용 숫자 클릭→콘텐츠 드릴다운. (citation-paths 에 engine 파라미터 추가 + 카드 client 분리)
+- Claude/ChatGPT 도메인 인용 채움 확인(measure 워크플로 Run 후 며칠).
+- 자동학습 적용된 cron 글에 경쟁사 주제 반영됐는지 검증.
+
 ### 푸시 대상(Round 104 ②③④패널)
 `medimap-blog-v2/src/components/admin/ContentCompetitiveness.tsx` · `DashboardChartsTabbed.tsx` · `MarketShareDiagnosis.tsx`
