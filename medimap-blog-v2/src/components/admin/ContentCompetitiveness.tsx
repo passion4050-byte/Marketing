@@ -50,6 +50,9 @@ export function ContentCompetitiveness({ contents }: { contents: Content[] }) {
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'self' | 'partner'>('all');
   const [daysFilter, setDaysFilter] = useState<7 | 14 | 30>(30);
   const [sortBy, setSortBy] = useState<'mentions' | 'date'>('mentions');
+  // Round 104 ② — 기본 상위 8행만 노출(세로 길이 축소). "전체 보기"로 펼침.
+  const [showAll, setShowAll] = useState(false);
+  const COLLAPSED = 8;
 
   const tenants = useMemo(
     () => Array.from(new Set(contents.map((c) => c.tenantName))).sort(),
@@ -238,7 +241,7 @@ export function ContentCompetitiveness({ contents }: { contents: Content[] }) {
               </tr>
             </thead>
             <tbody>
-              {filtered.slice(0, 30).map((c, i) => {
+              {(showAll ? filtered.slice(0, 50) : filtered.slice(0, COLLAPSED)).map((c, i) => {
                 const isStar = c.mentionsForKeyword >= 10;
                 return (
                   <tr key={c.id} className="border-t border-border hover:bg-surface-subtle">
@@ -278,6 +281,21 @@ export function ContentCompetitiveness({ contents }: { contents: Content[] }) {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Round 104 ② — 전체 보기/접기 (세로 길이 축소) */}
+      {filtered.length > COLLAPSED && (
+        <div className="border-t border-border px-4 py-2 text-center md:px-5">
+          <button
+            type="button"
+            onClick={() => setShowAll((v) => !v)}
+            className="inline-flex items-center gap-1 rounded-md px-3 py-1 text-[11px] font-semibold text-brand-700 hover:bg-brand-50"
+          >
+            {showAll
+              ? '접기'
+              : `전체 ${filtered.length}개 보기 (+${filtered.length - COLLAPSED})`}
+          </button>
         </div>
       )}
 

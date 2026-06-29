@@ -11,11 +11,12 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
-import { BarChart3, Users, Target } from 'lucide-react';
+import { BarChart3, Users, Target, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import type { TierTrendPoint, ClientRankingItem, KeywordGroundingItem } from './DashboardCharts';
 
@@ -44,6 +45,8 @@ function EmptyChart({ message }: { message: string }) {
 
 export function DashboardChartsTabbed({ tierTrend, clientRanking, keywordGrounding }: Props) {
   const [tab, setTab] = useState<Tab>('ranking');
+  // Round 104 ③ — 차트 숫자 뒤 "세부 데이터" 펼침(정확 수치 + 경로 드릴다운 위치 안내).
+  const [showDetail, setShowDetail] = useState(false);
   const noData = tierTrend.length === 0 && clientRanking.length === 0 && keywordGrounding.length === 0;
 
   if (noData) {
@@ -161,6 +164,99 @@ export function DashboardChartsTabbed({ tierTrend, clientRanking, keywordGroundi
               </BarChart>
             </ResponsiveContainer>
           )
+        )}
+      </div>
+
+      {/* Round 104 ③ — 숫자 근거(세부 데이터) 펼침 */}
+      <div className="border-t border-border">
+        <button
+          type="button"
+          onClick={() => setShowDetail((v) => !v)}
+          className="flex w-full items-center gap-1 px-4 py-2 text-[11px] font-semibold text-ink-soft hover:bg-surface-subtle md:px-5"
+        >
+          {showDetail ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          숫자 근거 — 세부 데이터 보기
+        </button>
+        {showDetail && (
+          <div className="overflow-x-auto px-4 pb-3 md:px-5">
+            {tab === 'tier' && (
+              <table className="w-full min-w-[420px] text-[11px]">
+                <thead className="text-[10px] uppercase text-ink-muted">
+                  <tr>
+                    <th className="py-1 text-left">날짜</th>
+                    <th className="text-right">메디맵 T1</th>
+                    <th className="text-right">권위 T3</th>
+                    <th className="text-right">플랫폼 T4</th>
+                    <th className="text-right">외부 T5</th>
+                    <th className="text-right">NOISE</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tierTrend.slice(-10).map((d) => (
+                    <tr key={d.date} className="border-t border-border">
+                      <td className="py-1 font-mono">{d.date}</td>
+                      <td className="text-right font-mono">{d.t1}</td>
+                      <td className="text-right font-mono">{d.t3}</td>
+                      <td className="text-right font-mono">{d.t4}</td>
+                      <td className="text-right font-mono">{d.t5}</td>
+                      <td className="text-right font-mono">{d.noise}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {tab === 'ranking' && (
+              <table className="w-full min-w-[420px] text-[11px]">
+                <thead className="text-[10px] uppercase text-ink-muted">
+                  <tr>
+                    <th className="py-1 text-left">병원</th>
+                    <th className="text-right">메디맵 T1</th>
+                    <th className="text-right">외부/경쟁 T5</th>
+                    <th className="text-right">전체</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clientRanking.map((c) => (
+                    <tr key={c.tenant_name} className="border-t border-border">
+                      <td className="py-1">{c.tenant_name}</td>
+                      <td className="text-right font-mono text-brand-700">{c.t1}</td>
+                      <td className="text-right font-mono text-status-warning">{c.t5}</td>
+                      <td className="text-right font-mono">{c.total}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {tab === 'grounding' && (
+              <table className="w-full min-w-[360px] text-[11px]">
+                <thead className="text-[10px] uppercase text-ink-muted">
+                  <tr>
+                    <th className="py-1 text-left">키워드</th>
+                    <th className="text-left">병원</th>
+                    <th className="text-right">grounding</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {keywordGrounding.map((k) => (
+                    <tr key={`${k.keyword}-${k.tenant_name}`} className="border-t border-border">
+                      <td className="py-1">{k.keyword}</td>
+                      <td className="text-ink-soft">{k.tenant_name}</td>
+                      <td className="text-right font-mono">{Math.round(k.rate * 100)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <div className="mt-2 text-[10px] text-ink-muted">
+              🔎 인용 <strong>세부 경로(어떤 URL 이 인용됐는지)</strong>는{' '}
+              <Link href="/admin/citations" className="font-semibold text-brand-700 hover:underline">
+                자사 인용 분석 <ExternalLink className="inline h-2 w-2" />
+              </Link>{' '}·{' '}
+              <Link href="/admin/competitors" className="font-semibold text-brand-700 hover:underline">
+                경쟁사 분석 <ExternalLink className="inline h-2 w-2" />
+              </Link>{' '}및 홈 도메인 Top10 의 행을 클릭해 확인.
+            </div>
+          </div>
         )}
       </div>
 

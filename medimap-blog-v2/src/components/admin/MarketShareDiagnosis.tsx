@@ -119,16 +119,16 @@ export function MarketShareDiagnosis({
                 🚨 메디맵 도메인 AI 인용 = 0건 (30일)
               </div>
               <p className="mt-1 text-[12px] text-ink-soft">
-                medimap-blog 의 콘텐츠가 단 한 번도 AI source URL 로 인용되지 않았습니다.
+                <strong>wecircle.co.kr</strong> 의 콘텐츠가 아직 AI source URL 로 인용된 적이 없습니다.
                 위 도메인별 분포는 <strong>경쟁사가 우리 시장을 점유</strong>하고 있음을 보여줍니다.
-                현재 measure mentions 카운트는 <em>"메디맵" 텍스트 매칭</em> proxy일 뿐 실제 도메인 인용은 아닙니다.
+                현재 measure mentions 카운트는 <em>브랜드 텍스트 매칭</em> proxy일 뿐 실제 도메인 인용은 아닙니다.
+                (커스텀 도메인 전환은 완료 — 색인·인용 누적은 수 주~수개월 소요)
               </p>
               <div className="mt-3 rounded-md border border-status-danger/20 bg-white px-3 py-2 text-[11px]">
                 <div className="font-semibold text-ink">🎯 근본 해결 (우선순위 순)</div>
                 <ol className="ml-4 mt-1 list-decimal space-y-1 text-ink-soft">
-                  <li>
-                    <strong>커스텀 도메인 전환</strong> — <code className="rounded bg-surface-subtle px-1">blog.medi-map.co.kr</code> 으로 (vercel.app 색인 천장 우회).
-                    코드 <code className="rounded bg-surface-subtle px-1">NEXT_PUBLIC_SITE_URL</code> 이미 지원.
+                  <li className="text-status-success">
+                    ✅ <strong>커스텀 도메인 전환 — 완료</strong> (<code className="rounded bg-surface-subtle px-1">wecircle.co.kr</code>). 색인·인용 누적 대기 중.
                   </li>
                   <li>
                     <strong>GSC 색인 가속</strong> — Search Console 에서 sitemap 재제출 +

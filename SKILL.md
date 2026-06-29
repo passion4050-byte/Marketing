@@ -4254,4 +4254,14 @@ admin citations/competitors 에서 Claude·ChatGPT 의 도메인별 인용·AI�
 
 ### 푸시 대상(Round 104 ①a~①c)
 `medimap-blog-v2/src/app/api/admin/citation-paths/route.ts`(신규) · `medimap-blog-v2/src/components/admin/MarketShareDiagnosis.tsx`(드릴다운) · `src/content/learned_pattern.py`(경쟁사 인용 자동학습)
-남은: ② Top콘텐츠 탭 압축 → ③ 차트 드릴다운 → ④ 레이아웃/빈영역/톤앤매너.
+
+### ②③ + ④(일부) 완료
+- **② ContentCompetitiveness.tsx** — Top 인용 콘텐츠 리스트 기본 상위 8행만(`COLLAPSED=8`) + "전체 N개 보기/접기" 토글. 세로 길이 ~30행→8행. (탭 대신: 이미 병원·기간·자사/파트너 필터 존재 → 중복 회피하고 펼침 방식 채택)
+- **③ DashboardChartsTabbed.tsx** — 차트 아래 "숫자 근거 — 세부 데이터 보기" 펼침. 현재 탭(tier/ranking/grounding)별 정확 수치 표 + 세부 경로 드릴다운 위치(자사/경쟁사 분석·홈 도메인Top10) 링크. (Recharts onClick 풀드릴다운 대신 안전한 표+링크 방식)
+- **④(일부) MarketShareDiagnosis.tsx** — "0건" 패널 wecircle.co.kr 기준 갱신 + 커스텀 도메인 ✅완료 표기.
+
+### ④ 남은(다음 세션) — 레이아웃/톤
+- 홈 대시보드 빈 영역(운영 액션 권고 우측) 채우기 + 카드/색/타이포 디자인 토큰 전면 일관화. 광범위 폴리시라 fresh 컨텍스트에서 진행 권장.
+
+### 푸시 대상(Round 104 ②③④패널)
+`medimap-blog-v2/src/components/admin/ContentCompetitiveness.tsx` · `DashboardChartsTabbed.tsx` · `MarketShareDiagnosis.tsx`
