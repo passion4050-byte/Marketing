@@ -545,7 +545,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
                       )}
                       {c.slug && (
                         <a
-                          href={`https://medimap-blog-phi.vercel.app/blog/${c.slug}`}
+                          href={`https://wecircle.co.kr/blog/${c.slug}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-mono text-brand-700 underline decoration-dotted hover:text-brand"

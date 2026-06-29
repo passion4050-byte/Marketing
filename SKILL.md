@@ -4146,3 +4146,37 @@ CREATE TABLE applied_insights (
 - /privacy /terms 변호사 검토본 반영
 - 카카오톡 채널 wecircle 신규 (KakaoBiz 심사 통과 시)
 - medimap-blog AI 인용 0건 → wecircle.co.kr 첫 인용 감지 모니터링
+
+---
+
+## Round 102 (2026-06-29) — wecircle.co.kr 도메인 마이그레이션 완결 (불완전 마이그레이션 정리)
+
+> 집/사무실 이어가기: `git pull` 후 "SKILL.md Round 102 읽고 이어서 작업".
+
+### 배경
+Round 90 wecircle 리브랜딩 + 커스텀 도메인 wecircle.co.kr 전환 시 `site.ts` 만 바뀌고 **코드 곳곳이 옛 도메인 `medimap-blog-phi.vercel.app` 를 그대로 가리키던 누락**을 전수 정리.
+
+### 🔴 핵심 버그 (측정 무결성) — 함정 DM
+- `src/parser/source_resolver.py` `SELF_DOMAINS` 에 **wecircle.co.kr 누락** → AI 가 wecircle.co.kr 를 인용해도 `is_self_domain()`=False → **영업 보고서 "자사 source share %" 가 0 으로 새던 버그.** wecircle.co.kr + www 추가(검증: is_self_domain('wecircle.co.kr')=True). medimap-blog-phi 는 Vercel alias 가능성 있어 함께 유지.
+- DB 확인: responses 922건(측정 활발, ~6/28)인데 wecircle/medimap-blog-phi/medi-map 인용 **전부 0건** → 신규 도메인이라 아직 AI 인용 없음. 이 수정은 **예방적**(첫 인용 시 누락 방지). Round 102 "첫 인용 모니터링"의 실제 enabler.
+
+### 마이그레이션 정리 파일 (옛 도메인 → wecircle.co.kr)
+- `src/parser/source_resolver.py` — SELF_DOMAINS 에 wecircle 추가 (측정 핵심)
+- `src/collector/indexnow.py` — 기본 SITE_URL → wecircle.co.kr (cron 에 NEXT_PUBLIC_SITE_URL 안 들어와 기본값이 실사용 → IndexNow 핑 호스트 교정)
+- `scripts/run_production_collection.py` — 자사 인용 판별에 wecircle OR 추가
+- `scripts/sync_production_sitemap.py` · `src/admin/sync_tab.py` — sitemap URL → wecircle.co.kr
+- geo-v2 admin (옛 도메인 view/preview 링크): `api/admin/ab-tests/route.ts` · `api/admin/calendar/route.ts` · `api/admin/content-queue/route.ts` · `components/admin/ContentCompetitiveness.tsx` · `admin/(portal)/reports/[tenantId]/page.tsx` · `components/admin/MarketShareDiagnosis.tsx` 모두 `process.env.NEXT_PUBLIC_PUBLIC_BLOG_URL ?? 'https://wecircle.co.kr'` 패턴 / 표시 도메인 교정
+- 남긴 것(의도적): 주석/docstring(r·revalidate·debug-partners), tests/·verify_stub fixture, shortlinks.json(기존 데이터, alias), source_resolver·run_production_collection 의 medimap-blog-phi(alias 안전망)
+
+### 함정 DM — 도메인 리브랜딩 시 코드 전수 검사 필수
+도메인 바꿀 때 `site.ts`/canonical 만 고치면 끝이 아님. 전 repo `grep -rn "<옛도메인>"` 로 ① 측정 자사판별(source_resolver SELF_DOMAINS) ② IndexNow/sitemap 스크립트 기본값(cron 은 NEXT_PUBLIC_* 안 받음) ③ admin view 링크 기본값 까지 점검. 특히 ①은 **자사 점유율 지표가 조용히 0 으로 새므로 최우선.**
+
+### 추가 푸시 파일 (Round 102)
+`src/parser/source_resolver.py` · `src/collector/indexnow.py` · `scripts/run_production_collection.py` · `scripts/sync_production_sitemap.py` · `src/admin/sync_tab.py` · `medimap-blog-v2/src/app/api/admin/{ab-tests,calendar,content-queue}/route.ts` · `medimap-blog-v2/src/app/admin/(portal)/reports/[tenantId]/page.tsx` · `medimap-blog-v2/src/components/admin/{ContentCompetitiveness,MarketShareDiagnosis}.tsx`
+
+### 남은 Round 102+ (대부분 사용자/데이터 대기)
+- 🔴 /admin/learned-insights id=6 토글 ON (자동학습 prompt 주입 시작)
+- A/B Auto Generate workflow Run → 첫 데이터 → 다이제스트
+- 자동학습 적용 후 cron 글 표 비율↑ 검증 (토글 ON 이후)
+- wecircle.co.kr 첫 AI 인용 감지 모니터링 (이제 detector 준비됨)
+- /privacy /terms 변호사 검토 · 카카오톡 wecircle 채널 심사

@@ -14,7 +14,7 @@ import httpx
 import streamlit as st
 
 
-DEFAULT_SITEMAP = "https://medimap-blog-phi.vercel.app/sitemap.xml"
+DEFAULT_SITEMAP = "https://wecircle.co.kr/sitemap.xml"
 
 
 def render_sync_tab(SessionLocal) -> None:

@@ -35,7 +35,7 @@ type Content = {
   partnerCategory: string | null;
 };
 
-const SITE = 'https://medimap-blog-phi.vercel.app';
+const SITE = process.env.NEXT_PUBLIC_PUBLIC_BLOG_URL ?? 'https://wecircle.co.kr';
 
 function buildUrl(c: Content): string {
   if (c.isPartner && c.partnerCategory) {

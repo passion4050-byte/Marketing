@@ -38,7 +38,8 @@ type ContentRow = {
   partner_category: string | null;
 };
 
-const SITE = 'https://medimap-blog-phi.vercel.app';
+// Round 102: wecircle.co.kr 커스텀 도메인 (이전 medimap-blog-phi.vercel.app)
+const SITE = process.env.NEXT_PUBLIC_PUBLIC_BLOG_URL ?? 'https://wecircle.co.kr';
 
 export async function GET() {
   const sb = getServerClient();

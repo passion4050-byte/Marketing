@@ -29,7 +29,7 @@ from sqlalchemy.orm import sessionmaker
 from src.storage.models import ReferenceDocument, Tenant
 
 
-SITEMAP_URL = "https://medimap-blog-phi.vercel.app/sitemap.xml"
+SITEMAP_URL = "https://wecircle.co.kr/sitemap.xml"
 TARGET_TENANT_NAME = "TETE"
 
 

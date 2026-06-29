@@ -15,7 +15,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const PUBLIC_BLOG_BASE =
-  process.env.NEXT_PUBLIC_PUBLIC_BLOG_URL ?? 'https://medimap-blog-phi.vercel.app';
+  process.env.NEXT_PUBLIC_PUBLIC_BLOG_URL ?? 'https://wecircle.co.kr';
 
 export async function GET(req: NextRequest) {
   const sb = getServerClient();

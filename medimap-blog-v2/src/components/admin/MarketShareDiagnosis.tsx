@@ -147,7 +147,7 @@ export function MarketShareDiagnosis({
             <tr className={isCritical ? 'border-t-2 border-status-danger/30 bg-status-danger/5' : 'border-t border-border bg-brand-50/30'}>
               <td className="px-3 py-2 font-mono text-[10px]">⭐</td>
               <td className="px-3 py-2">
-                <span className="text-sm font-bold text-ink">medimap-blog-phi.vercel.app</span>
+                <span className="text-sm font-bold text-ink">wecircle.co.kr</span>
                 <span className="ml-2 text-[10px] text-ink-muted">(자사 블로그)</span>
               </td>
               <td className="px-3 py-2">
