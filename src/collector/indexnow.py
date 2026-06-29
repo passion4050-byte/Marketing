@@ -21,7 +21,10 @@ logger = structlog.get_logger(__name__)
 # 공개 키 (비밀 아님). public/{KEY}.txt 와 반드시 동일해야 함.
 INDEXNOW_KEY = os.getenv("INDEXNOW_KEY", "8f3a2c1b9d7e4056a1c2f3b4e5d60718")
 SITE_URL = (
-    os.getenv("NEXT_PUBLIC_SITE_URL") or "https://medimap-blog-phi.vercel.app"
+    # Round 102: wecircle.co.kr 커스텀 도메인 기본값(site.ts 와 정합). cron 엔
+    # NEXT_PUBLIC_SITE_URL 가 안 들어오므로 기본값이 실제로 사용됨 → 옛 vercel 도메인이면
+    # IndexNow keyLocation/urlList 가 잘못된 호스트로 핑됨.
+    os.getenv("NEXT_PUBLIC_SITE_URL") or "https://wecircle.co.kr"
 ).rstrip("/")
 
 # 단일 엔드포인트가 참여 엔진 전체에 전파(IndexNow 사양). api.indexnow.org 권장.

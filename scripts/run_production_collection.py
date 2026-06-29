@@ -104,7 +104,7 @@ def main() -> int:
     print(f"\n=== 신규 {N_SAMPLES} 샘플의 cited_urls 분포 (총 {len(all_cites)} 인용) ===")
     medimap_count = 0
     for url, cnt in counts.most_common():
-        is_medimap = "medimap-blog-phi.vercel.app" in url
+        is_medimap = ("wecircle.co.kr" in url) or ("medimap-blog-phi.vercel.app" in url)
         marker = "📌 RAG  " if is_medimap else "  fixture"
         print(f"  {marker} {cnt:3d}회 — {url}")
         if is_medimap:

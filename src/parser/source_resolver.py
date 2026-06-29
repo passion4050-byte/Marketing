@@ -18,13 +18,18 @@ import httpx
 logger = logging.getLogger("source-resolver")
 
 # 자사 도메인 — 매월 영업 보고서의 "자사 source share %" 핵심
+# Round 102 (2026-06-29): wecircle 리브랜딩(Round 90) 후 커스텀 도메인 wecircle.co.kr
+#   누락 → AI 가 wecircle.co.kr 인용해도 자사로 안 잡혀 source share 가 0 으로 새던 버그.
+#   (medimap-blog-phi 는 Vercel alias 로 남아있을 수 있어 함께 유지)
 SELF_DOMAINS: set[str] = {
+    "wecircle.co.kr",
+    "www.wecircle.co.kr",
     "medi-map.co.kr",
     "www.medi-map.co.kr",
     "medimap-blog-phi.vercel.app",
     "geo-v2-beta.vercel.app",
     "geo-v2-git-main-medimaps-projects.vercel.app",
-    # 다른 메디맵 도메인 추가될 때 여기에 등록
+    # 다른 자사 도메인 추가될 때 여기에 등록
 }
 
 
