@@ -222,12 +222,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   // 5. audit log
-  await logAudit(req, {
-    action: 'regenerate-image',
-    resource_type: 'generated_content',
-    resource_id: String(contentId),
-    metadata: { targetIndex, source: 'dalle3', keyword: kw },
-  }).catch(() => {});
+  await logAudit(
+    req,
+    sb,
+    'regenerate-image',
+    `generated_content:${contentId}`,
+    { diff: { targetIndex, source: 'dalle3', keyword: kw } },
+  ).catch(() => {});
 
   return NextResponse.json({
     ok: true,
