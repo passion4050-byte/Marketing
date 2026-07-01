@@ -53,83 +53,112 @@ function buildKoreanPrompt(keyword: string, title: string | null, isSelfTenant: 
 }
 
 /**
- * OpenAI Image API 호출 → 이미지 URL (일시적, 1시간 만료).
+ * Round 106 (2026-07-02): 이미지 생성을 Gemini Imagen 3 로 전환.
+ * OpenAI tier 2 프로젝트는 dall-e-3/dall-e-2 접근 불가 (400 does not exist).
+ * Gemini paid tier 로 우회. 응답은 base64 → Buffer 로 반환 (URL 아님).
  *
- * Round 105-b hotfix 5 (2026-07-02): dall-e-3 모델 접근이 없는 프로젝트를 위해
- *   `OPENAI_IMAGE_MODEL` env 로 모델명 override 가능 (default: dall-e-3).
- *   3-단계 fallback 체인:
- *     1. env 지정 모델 (또는 dall-e-3)
- *     2. dall-e-2 (레거시 안정, 대부분 프로젝트 접근 가능)
- *     3. gpt-image-1 (최신, base64 응답이라 별도 처리 필요 — 여기선 skip)
+ * env:
+ *   GEMINI_API_KEY (필수, GH Actions + Vercel 등록 완료)
+ *   GEMINI_IMAGE_MODEL (선택, default: imagen-3.0-generate-002)
+ *
+ * OpenAI 로 회귀 옵션: env 에 `IMAGE_PROVIDER=openai` 설정 시.
  */
-async function callDalle(prompt: string): Promise<{ url: string; revised: string; model: string } | null> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    console.error('regenerate-image: OPENAI_API_KEY 미설정');
-    return null;
+async function generateImageBytes(prompt: string): Promise<{ bytes: Uint8Array; revised: string; provider: string } | null> {
+  const provider = (process.env.IMAGE_PROVIDER || 'gemini').trim().toLowerCase();
+
+  if (provider === 'openai' || provider === 'dalle') {
+    return callOpenAiImage(prompt);
   }
-
-  const primary = (process.env.OPENAI_IMAGE_MODEL || 'dall-e-3').trim();
-  // 모델별 파라미터
-  const paramsFor = (model: string) => {
-    if (model === 'dall-e-3') {
-      return { model, prompt, size: '1792x1024', quality: 'standard', n: 1 };
-    }
-    // dall-e-2: 최대 1024x1024, quality 미지원
-    return { model, prompt, size: '1024x1024', n: 1 };
-  };
-
-  const models = [primary, primary === 'dall-e-2' ? 'dall-e-3' : 'dall-e-2'];
-  let lastErr = '';
-
-  for (const model of models) {
-    try {
-      const resp = await fetch('https://api.openai.com/v1/images/generations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify(paramsFor(model)),
-      });
-      if (!resp.ok) {
-        const errText = await resp.text().catch(() => '');
-        console.error(`regenerate-image: ${model} 실패`, resp.status, errText.slice(0, 300));
-        lastErr = `${model}: ${resp.status} ${errText.slice(0, 200)}`;
-        continue; // 다음 모델 시도
-      }
-      const j = await resp.json();
-      const url = j?.data?.[0]?.url;
-      const revised = j?.data?.[0]?.revised_prompt || prompt;
-      if (!url) {
-        lastErr = `${model}: no url in response`;
-        continue;
-      }
-      console.log(`regenerate-image: ${model} 성공`);
-      return { url, revised, model };
-    } catch (e) {
-      console.error(`regenerate-image: ${model} fetch 예외`, e);
-      lastErr = `${model} exception: ${e instanceof Error ? e.message : String(e)}`;
-    }
-  }
-  console.error('regenerate-image: 모든 모델 실패 —', lastErr);
-  return null;
+  return callGeminiImagen(prompt);
 }
 
-/** DALL-E URL 다운로드 → Supabase Storage 업로드 → public URL */
-async function uploadToStorage(dalleUrl: string, keyword: string, contentId: string | number): Promise<string | null> {
+/** Gemini Imagen 3 — base64 응답 → bytes */
+async function callGeminiImagen(prompt: string): Promise<{ bytes: Uint8Array; revised: string; provider: string } | null> {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!apiKey) {
+    console.error('regenerate-image: GEMINI_API_KEY 미설정');
+    return null;
+  }
+  const model = (process.env.GEMINI_IMAGE_MODEL || 'imagen-3.0-generate-002').trim();
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict?key=${apiKey}`;
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        instances: [{ prompt }],
+        parameters: {
+          sampleCount: 1,
+          aspectRatio: '16:9',        // 블로그 커버 비율
+          personGeneration: 'allow_adult',
+        },
+      }),
+    });
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      console.error('regenerate-image: Imagen 실패', resp.status, errText.slice(0, 400));
+      return null;
+    }
+    const j = await resp.json();
+    const b64 = j?.predictions?.[0]?.bytesBase64Encoded;
+    if (!b64 || typeof b64 !== 'string') {
+      console.error('regenerate-image: Imagen 응답에 이미지 없음', JSON.stringify(j).slice(0, 300));
+      return null;
+    }
+    const bytes = Uint8Array.from(Buffer.from(b64, 'base64'));
+    console.log(`regenerate-image: Imagen 성공 (${bytes.byteLength} bytes)`);
+    return { bytes, revised: prompt, provider: `gemini:${model}` };
+  } catch (e) {
+    console.error('regenerate-image: Imagen fetch 예외', e);
+    return null;
+  }
+}
+
+/** OpenAI Image API 회귀용 — 사용자가 IMAGE_PROVIDER=openai 설정 시 (tier 3 upgrade 후) */
+async function callOpenAiImage(prompt: string): Promise<{ bytes: Uint8Array; revised: string; provider: string } | null> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+  const model = (process.env.OPENAI_IMAGE_MODEL || 'dall-e-3').trim();
+  try {
+    const resp = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model,
+        prompt,
+        size: model === 'dall-e-3' ? '1792x1024' : '1024x1024',
+        n: 1,
+      }),
+    });
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      console.error(`regenerate-image: OpenAI ${model} 실패`, resp.status, errText.slice(0, 300));
+      return null;
+    }
+    const j = await resp.json();
+    const imageUrl = j?.data?.[0]?.url;
+    if (!imageUrl) return null;
+    // URL 다운로드 → bytes 변환 (Storage 업로드 로직 통일)
+    const dl = await fetch(imageUrl);
+    if (!dl.ok) return null;
+    const bytes = new Uint8Array(await dl.arrayBuffer());
+    return { bytes, revised: j?.data?.[0]?.revised_prompt || prompt, provider: `openai:${model}` };
+  } catch (e) {
+    console.error('regenerate-image: OpenAI fetch 예외', e);
+    return null;
+  }
+}
+
+/** bytes → Supabase Storage 업로드 → public URL (Round 106 통일 시그니처) */
+async function uploadBytesToStorage(bytes: Uint8Array, keyword: string, contentId: string | number): Promise<string | null> {
   const supaUrl = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
   const svcKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
   if (!supaUrl || !svcKey) {
-    console.warn('regenerate-image: Supabase Storage env 미설정 — raw DALL-E URL 반환');
-    return dalleUrl;
+    console.error('regenerate-image: Supabase env 미설정');
+    return null;
   }
+  if (!bytes || bytes.byteLength < 1024) return null;
   try {
-    const imgResp = await fetch(dalleUrl);
-    if (!imgResp.ok) return null;
-    const bytes = new Uint8Array(await imgResp.arrayBuffer());
-    if (bytes.byteLength < 1024) return null;
-
     const bucket = process.env.SUPABASE_STORAGE_BUCKET || 'blog-images';
     const slug = keyword.replace(/[^a-zA-Z0-9가-힣]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'img';
     const ts = Date.now();
@@ -198,21 +227,21 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const title = row.title || null;
   const isSelfTenant = row.tenant_id === 12; // 메디맵/wecircle 자사 인사이트
 
-  // 2. DALL-E 호출
+  // 2. 이미지 생성 (Round 106: Gemini Imagen 3 기본, IMAGE_PROVIDER=openai 로 회귀 가능)
   const prompt = buildKoreanPrompt(kw, title, isSelfTenant);
-  const dalle = await callDalle(prompt);
-  if (!dalle) {
+  const img = await generateImageBytes(prompt);
+  if (!img) {
     return NextResponse.json(
       {
-        error: 'DALL-E 실패',
-        hint: 'OPENAI_API_KEY / quota / 네트워크 확인. 로그 참조.',
+        error: '이미지 생성 실패',
+        hint: 'GEMINI_API_KEY / quota / 네트워크 확인. Vercel Runtime Logs 참조.',
       },
       { status: 502 },
     );
   }
 
   // 3. Storage 업로드
-  const publicUrl = await uploadToStorage(dalle.url, kw, contentId);
+  const publicUrl = await uploadBytesToStorage(img.bytes, kw, contentId);
   if (!publicUrl) {
     return NextResponse.json({ error: 'Storage 업로드 실패' }, { status: 502 });
   }
@@ -251,13 +280,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     sb,
     'regenerate-image',
     `generated_content:${contentId}`,
-    { diff: { targetIndex, source: 'dalle3', keyword: kw } },
+    { diff: { targetIndex, provider: img.provider, keyword: kw } },
   ).catch(() => {});
 
   return NextResponse.json({
     ok: true,
     targetIndex,
     url: publicUrl,
-    revised_prompt: dalle.revised.slice(0, 300),
+    provider: img.provider,
+    revised_prompt: img.revised.slice(0, 300),
   });
 }
