@@ -73,51 +73,80 @@ async function generateImageBytes(prompt: string): Promise<{ bytes: Uint8Array; 
 }
 
 /**
- * Gemini 2.0 Flash Image Generation — base64 응답 → bytes.
- * imagen-3.0-generate-002 는 Vertex AI 전용이라 Gemini API 로 접근 불가 (404).
- * gemini-2.0-flash-exp-image-generation 은 v1beta 에서 접근 가능.
- * 응답: candidates[0].content.parts[].inlineData.data (base64)
+ * Gemini 이미지 생성 fallback 체인 — 모델명 자주 변경되므로 여러 개 순차 시도.
+ * generateContent(inlineData.data) 와 predict(bytesBase64Encoded) 두 endpoint 지원.
+ * env `GEMINI_IMAGE_MODEL` 지정 시 그것만 시도.
  */
+type GeminiImgSpec = { name: string; endpoint: 'generateContent' | 'predict' };
+const GEMINI_IMAGE_FALLBACKS: GeminiImgSpec[] = [
+  { name: 'gemini-2.5-flash-image-preview', endpoint: 'generateContent' },
+  { name: 'gemini-2.0-flash-preview-image-generation', endpoint: 'generateContent' },
+  { name: 'imagen-3.0-generate-001', endpoint: 'predict' },
+  { name: 'imagen-3.0-fast-generate-001', endpoint: 'predict' },
+];
+
+async function callGeminiOneModel(spec: GeminiImgSpec, prompt: string, apiKey: string): Promise<Uint8Array | null> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${spec.name}:${spec.endpoint}?key=${apiKey}`;
+  const body = spec.endpoint === 'generateContent'
+    ? {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseModalities: ['Text', 'Image'] },
+      }
+    : {
+        instances: [{ prompt }],
+        parameters: { sampleCount: 1, aspectRatio: '16:9', personGeneration: 'allow_adult' },
+      };
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      console.error(`regenerate-image: ${spec.name} 실패`, resp.status, errText.slice(0, 300));
+      return null;
+    }
+    const j = await resp.json();
+    let b64: string | undefined;
+    if (spec.endpoint === 'generateContent') {
+      const parts = j?.candidates?.[0]?.content?.parts || [];
+      const imgPart = parts.find((p: { inlineData?: { data?: string } }) => p?.inlineData?.data);
+      b64 = imgPart?.inlineData?.data;
+    } else {
+      b64 = j?.predictions?.[0]?.bytesBase64Encoded;
+    }
+    if (!b64 || typeof b64 !== 'string') {
+      console.error(`regenerate-image: ${spec.name} 응답에 이미지 없음`, JSON.stringify(j).slice(0, 300));
+      return null;
+    }
+    return Uint8Array.from(Buffer.from(b64, 'base64'));
+  } catch (e) {
+    console.error(`regenerate-image: ${spec.name} fetch 예외`, e);
+    return null;
+  }
+}
+
 async function callGeminiImagen(prompt: string): Promise<{ bytes: Uint8Array; revised: string; provider: string } | null> {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey) {
     console.error('regenerate-image: GEMINI_API_KEY 미설정');
     return null;
   }
-  const model = (process.env.GEMINI_IMAGE_MODEL || 'gemini-2.0-flash-exp-image-generation').trim();
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-  try {
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          responseModalities: ['Text', 'Image'],
-        },
-      }),
-    });
-    if (!resp.ok) {
-      const errText = await resp.text().catch(() => '');
-      console.error('regenerate-image: Gemini Image 실패', resp.status, errText.slice(0, 400));
-      return null;
+  const override = (process.env.GEMINI_IMAGE_MODEL || '').trim();
+  const chain: GeminiImgSpec[] = override
+    ? [{ name: override, endpoint: override.includes('imagen') ? 'predict' : 'generateContent' }]
+    : GEMINI_IMAGE_FALLBACKS;
+
+  for (const spec of chain) {
+    const bytes = await callGeminiOneModel(spec, prompt, apiKey);
+    if (bytes && bytes.byteLength > 1024) {
+      console.log(`regenerate-image: ${spec.name} 성공 (${bytes.byteLength} bytes)`);
+      return { bytes, revised: prompt, provider: `gemini:${spec.name}` };
     }
-    const j = await resp.json();
-    const parts = j?.candidates?.[0]?.content?.parts || [];
-    // inlineData.data (base64) 가 담긴 첫 번째 part 찾기
-    const imgPart = parts.find((p: { inlineData?: { data?: string } }) => p?.inlineData?.data);
-    const b64 = imgPart?.inlineData?.data;
-    if (!b64 || typeof b64 !== 'string') {
-      console.error('regenerate-image: Gemini 응답에 이미지 없음', JSON.stringify(j).slice(0, 400));
-      return null;
-    }
-    const bytes = Uint8Array.from(Buffer.from(b64, 'base64'));
-    console.log(`regenerate-image: Gemini Image 성공 (${bytes.byteLength} bytes)`);
-    return { bytes, revised: prompt, provider: `gemini:${model}` };
-  } catch (e) {
-    console.error('regenerate-image: Gemini Image fetch 예외', e);
-    return null;
   }
+  console.error('regenerate-image: 모든 Gemini 이미지 모델 실패');
+  return null;
 }
 
 /** OpenAI Image API 회귀용 — 사용자가 IMAGE_PROVIDER=openai 설정 시 (tier 3 upgrade 후) */
