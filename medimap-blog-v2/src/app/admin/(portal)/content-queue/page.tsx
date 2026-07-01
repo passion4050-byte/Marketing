@@ -153,7 +153,7 @@ function CoverHero({
   const [busy, setBusy] = useState(false);
   const regenerate = async () => {
     if (!contentId || busy) return;
-    if (!confirm('DALL-E 3 로 커버 이미지를 재생성할까요? (한국인 모델, 20~40초 소요)')) return;
+    if (!confirm('커버 이미지를 재생성할까요? (한국인 모델, 20~40초 소요)')) return;
     setBusy(true);
     try {
       const r = await fetch(`/api/admin/content-queue/${contentId}/regenerate-image`, {
