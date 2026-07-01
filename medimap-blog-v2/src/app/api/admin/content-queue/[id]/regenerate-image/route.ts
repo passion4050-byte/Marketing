@@ -72,7 +72,8 @@ async function callDalle(prompt: string): Promise<{ url: string; revised: string
         size: '1792x1024',
         quality: 'standard',
         n: 1,
-        response_format: 'url',
+        // Round 105-b hotfix (2026-07-02): OpenAI Image API 스펙 변경으로
+        //   response_format 파라미터 제거됨(unknown_parameter 400). default URL 반환.
       }),
       // 60초 타임아웃 (Vercel serverless 한도 내)
     });

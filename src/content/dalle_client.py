@@ -119,13 +119,14 @@ def generate_dalle_image(
     try:
         client = OpenAI(api_key=api_key, timeout=60.0)
         logger.info("dalle.api_call: model=%s size=%s quality=%s", model, size, quality)
+        # Round 105-b hotfix (2026-07-02): OpenAI Image API 스펙 변경으로
+        #   response_format 파라미터 제거됨. default URL 반환.
         resp = client.images.generate(
             model=model,
             prompt=prompt,
             size=size,
             quality=quality,
             n=1,
-            response_format="url",
         )
         if not resp.data or not resp.data[0].url:
             logger.error("dalle.no_url: 응답에 url 없음 (resp=%s)", str(resp)[:200])
