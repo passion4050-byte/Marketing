@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   AlertTriangle, Check, ClipboardCopy, Edit3, ExternalLink, Eye, FileText,
@@ -134,14 +134,182 @@ function CoverThumb({ src, alt, channel }: { src: string | null; alt: string; ch
   );
 }
 
-function CoverHero({ src, alt }: { src: string | null; alt: string }) {
+/**
+ * Round 105-b (2026-06-29) — CoverHero + 재생성 버튼 오버레이.
+ * 사용자 요구: "이미지별로 재생성 버튼 있으면 부분별로 재생성 가능".
+ */
+function CoverHero({
+  src,
+  alt,
+  contentId,
+  onRegenerated,
+}: {
+  src: string | null;
+  alt: string;
+  contentId?: number | string;
+  onRegenerated?: (newUrl: string) => void;
+}) {
   const [errored, setErrored] = useState(false);
-  if (!src || errored) return null;
-  // eslint-disable-next-line @next/next/no-img-element
+  const [busy, setBusy] = useState(false);
+  const regenerate = async () => {
+    if (!contentId || busy) return;
+    if (!confirm('DALL-E 3 로 커버 이미지를 재생성할까요? (한국인 모델, 20~40초 소요)')) return;
+    setBusy(true);
+    try {
+      const r = await fetch(`/api/admin/content-queue/${contentId}/regenerate-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetIndex: 0 }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j?.url) {
+        showToast(`✅ 커버 재생성 성공`, 'success');
+        onRegenerated?.(j.url);
+      } else {
+        showToast(`❌ 재생성 실패: ${j?.error || r.status} — ${j?.hint || ''}`, 'error');
+      }
+    } catch (e) {
+      showToast(`❌ 재생성 예외: ${e instanceof Error ? e.message : String(e)}`, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!src || errored) {
+    if (!contentId) return null;
+    return (
+      <div className="flex h-40 items-center justify-center border-b border-border bg-surface-subtle">
+        <button onClick={regenerate} disabled={busy} className="btn-primary text-xs">
+          {busy ? '재생성 중… (20~40초)' : '🎨 커버 이미지 DALL-E 생성'}
+        </button>
+      </div>
+    );
+  }
   return (
-    <img src={src} alt={alt}
-      className="h-auto w-full border-b border-border bg-surface-subtle object-cover"
-      onError={() => setErrored(true)} />
+    <div className="relative">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt}
+        className="h-auto w-full border-b border-border bg-surface-subtle object-cover"
+        onError={() => setErrored(true)}
+      />
+      {contentId && (
+        <button
+          onClick={regenerate}
+          disabled={busy}
+          className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/70 px-3 py-1.5 text-xs font-semibold text-white shadow-lg backdrop-blur hover:bg-black/90 disabled:opacity-60"
+          title="DALL-E 3 로 커버 재생성 (한국인 모델)"
+        >
+          {busy ? '⏳ 재생성 중…' : '🔄 커버 재생성'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Round 105-b — 본문 HTML 렌더 + 각 <img> 에 재생성 버튼 오버레이.
+ *
+ * dangerouslySetInnerHTML 로 렌더된 img 에 React 로 버튼 붙일 수 없어,
+ * useEffect 에서 DOM 스캔 → 각 img 를 relative wrapper 로 감싸고 버튼 append.
+ * 버튼 클릭 → API 호출 → 성공 시 img.src 즉시 갱신 + 부모 state sync.
+ */
+function BodyWithImageRegen({
+  html,
+  contentId,
+  onImgRegenerated,
+}: {
+  html: string;
+  contentId: number | string;
+  onImgRegenerated: (index: number, newUrl: string) => void;
+}) {
+  const ref = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const container = ref.current;
+    if (!container) return;
+    const imgs = Array.from(container.querySelectorAll('img')) as HTMLImageElement[];
+    const cleanup: Array<() => void> = [];
+
+    imgs.forEach((img, i) => {
+      const targetIndex = i + 1; // 1-based (0 은 cover 예약)
+      // 이미 wrapper 있으면 skip (재렌더링 케이스)
+      if (img.parentElement?.dataset?.imgRegenWrapper === '1') return;
+
+      const wrapper = document.createElement('div');
+      wrapper.dataset.imgRegenWrapper = '1';
+      wrapper.style.position = 'relative';
+      wrapper.style.display = 'block';
+      wrapper.style.margin = '1rem 0';
+      const parent = img.parentNode;
+      if (!parent) return;
+      parent.insertBefore(wrapper, img);
+      wrapper.appendChild(img);
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = `🔄 이미지 ${targetIndex} 재생성`;
+      btn.style.cssText =
+        'position:absolute;right:8px;top:8px;padding:6px 12px;font-size:11px;font-weight:600;' +
+        'color:white;background:rgba(0,0,0,0.72);border:none;border-radius:9999px;cursor:pointer;' +
+        'box-shadow:0 4px 12px rgba(0,0,0,0.25);backdrop-filter:blur(4px);z-index:10;';
+      btn.onmouseenter = () => (btn.style.background = 'rgba(0,0,0,0.92)');
+      btn.onmouseleave = () => (btn.style.background = 'rgba(0,0,0,0.72)');
+      btn.onclick = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!confirm(`본문 ${targetIndex}번째 이미지를 DALL-E 3 로 재생성할까요? (한국인 모델, 20~40초 소요)`)) return;
+        btn.disabled = true;
+        const orig = btn.textContent;
+        btn.textContent = '⏳ 재생성 중…';
+        try {
+          const r = await fetch(`/api/admin/content-queue/${contentId}/regenerate-image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targetIndex }),
+          });
+          const j = await r.json().catch(() => ({}));
+          if (r.ok && j?.url) {
+            img.src = j.url;
+            onImgRegenerated(targetIndex, j.url);
+            btn.textContent = '✅ 완료';
+            setTimeout(() => {
+              btn.textContent = orig;
+            }, 2500);
+          } else {
+            alert(`재생성 실패: ${j?.error || r.status} — ${j?.hint || ''}`);
+            btn.textContent = orig;
+          }
+        } catch (e) {
+          alert(`재생성 예외: ${e instanceof Error ? e.message : String(e)}`);
+          btn.textContent = orig;
+        } finally {
+          btn.disabled = false;
+        }
+      };
+      wrapper.appendChild(btn);
+
+      cleanup.push(() => {
+        try {
+          if (wrapper.parentNode && img.parentNode === wrapper) {
+            wrapper.parentNode.insertBefore(img, wrapper);
+          }
+          wrapper.remove();
+        } catch {}
+      });
+    });
+
+    return () => cleanup.forEach((fn) => fn());
+    // html 이 바뀌면 재실행 (dangerouslySetInnerHTML 이 DOM 을 재구성)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [html, contentId]);
+
+  return (
+    <article
+      ref={ref as React.RefObject<HTMLDivElement>}
+      className="db-html-content mx-auto max-w-[680px] text-[15px] leading-[1.85]"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   );
 }
 
@@ -441,7 +609,14 @@ export default function ContentManagementPage() {
             </div>
 
             {!editing && (
-              <CoverHero src={preview.cover_image_url} alt={preview.cover_image_alt || preview.title || 'cover'} />
+              <CoverHero
+                src={preview.cover_image_url}
+                alt={preview.cover_image_alt || preview.title || 'cover'}
+                contentId={preview.id}
+                onRegenerated={(newUrl) => {
+                  setPreview((cur) => (cur && cur.id === preview.id ? { ...cur, cover_image_url: newUrl } : cur));
+                }}
+              />
             )}
 
             {/* Round 59 fix 5 — 본문 가독성 강화: 더 큰 폰트, 좁은 max-width, 충분한 line-height */}
@@ -458,9 +633,24 @@ export default function ContentManagementPage() {
               ) : preview.body && (preview.body.includes('application/ld+json') || preview.body.trim().startsWith('{')) ? (
                 <FaqPreview body={preview.body} />
               ) : preview.body?.includes('<') ? (
-                <article
-                  className="db-html-content mx-auto max-w-[680px] text-[15px] leading-[1.85]"
-                  dangerouslySetInnerHTML={{ __html: preview.body }}
+                <BodyWithImageRegen
+                  html={preview.body}
+                  contentId={preview.id}
+                  onImgRegenerated={(index, newUrl) => {
+                    // body 내 N번째 img src 만 갱신 (DB 는 이미 API 가 갱신했으니 preview state 만 sync)
+                    setPreview((cur) => {
+                      if (!cur || cur.id !== preview.id) return cur;
+                      let i = 0;
+                      const updated = cur.body.replace(
+                        /(<img\b[^>]*\bsrc\s*=\s*")([^"]+)("[^>]*>)/gi,
+                        (m, pre, oldSrc, post) => {
+                          i += 1;
+                          return i === index ? `${pre}${newUrl}${post}` : m;
+                        },
+                      );
+                      return { ...cur, body: updated };
+                    });
+                  }}
                 />
               ) : preview.body ? (
                 <p className="mx-auto max-w-[680px] whitespace-pre-wrap text-[15px] leading-[1.85] text-ink-soft">{preview.body}</p>
