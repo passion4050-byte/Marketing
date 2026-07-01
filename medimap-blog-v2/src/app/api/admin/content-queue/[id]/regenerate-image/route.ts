@@ -164,6 +164,7 @@ async function uploadBytesToStorage(bytes: Uint8Array, keyword: string, contentI
     const ts = Date.now();
     const objectPath = `${slug}/regen-${contentId}-${ts}.png`;
 
+    // Round 106 hotfix: TS strict — Uint8Array 를 BodyInit 로 직접 못 넘김. Blob 으로 감쌈.
     const up = await fetch(`${supaUrl}/storage/v1/object/${bucket}/${objectPath}`, {
       method: 'POST',
       headers: {
@@ -171,7 +172,7 @@ async function uploadBytesToStorage(bytes: Uint8Array, keyword: string, contentI
         'Content-Type': 'image/png',
         'x-upsert': 'true',
       },
-      body: bytes,
+      body: new Blob([bytes as BlobPart], { type: 'image/png' }),
     });
     if (up.ok || up.status === 201 || up.status === 200) {
       return `${supaUrl}/storage/v1/object/public/${bucket}/${objectPath}`;
