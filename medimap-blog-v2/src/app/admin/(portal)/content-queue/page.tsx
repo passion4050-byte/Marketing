@@ -163,13 +163,13 @@ function CoverHero({
       });
       const j = await r.json().catch(() => ({}));
       if (r.ok && j?.url) {
-        showToast(`✅ 커버 재생성 성공`, 'success');
+        showToast(`✅ 커버 재생성 성공`, { kind: 'success' });
         onRegenerated?.(j.url);
       } else {
-        showToast(`❌ 재생성 실패: ${j?.error || r.status} — ${j?.hint || ''}`, 'error');
+        showToast(`❌ 재생성 실패: ${j?.error || r.status} — ${j?.hint || ''}`, { kind: 'error' });
       }
     } catch (e) {
-      showToast(`❌ 재생성 예외: ${e instanceof Error ? e.message : String(e)}`, 'error');
+      showToast(`❌ 재생성 예외: ${e instanceof Error ? e.message : String(e)}`, { kind: 'error' });
     } finally {
       setBusy(false);
     }
