@@ -72,44 +72,50 @@ async function generateImageBytes(prompt: string): Promise<{ bytes: Uint8Array; 
   return callGeminiImagen(prompt);
 }
 
-/** Gemini Imagen 3 — base64 응답 → bytes */
+/**
+ * Gemini 2.0 Flash Image Generation — base64 응답 → bytes.
+ * imagen-3.0-generate-002 는 Vertex AI 전용이라 Gemini API 로 접근 불가 (404).
+ * gemini-2.0-flash-exp-image-generation 은 v1beta 에서 접근 가능.
+ * 응답: candidates[0].content.parts[].inlineData.data (base64)
+ */
 async function callGeminiImagen(prompt: string): Promise<{ bytes: Uint8Array; revised: string; provider: string } | null> {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey) {
     console.error('regenerate-image: GEMINI_API_KEY 미설정');
     return null;
   }
-  const model = (process.env.GEMINI_IMAGE_MODEL || 'imagen-3.0-generate-002').trim();
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict?key=${apiKey}`;
+  const model = (process.env.GEMINI_IMAGE_MODEL || 'gemini-2.0-flash-exp-image-generation').trim();
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   try {
     const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        instances: [{ prompt }],
-        parameters: {
-          sampleCount: 1,
-          aspectRatio: '16:9',        // 블로그 커버 비율
-          personGeneration: 'allow_adult',
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseModalities: ['Text', 'Image'],
         },
       }),
     });
     if (!resp.ok) {
       const errText = await resp.text().catch(() => '');
-      console.error('regenerate-image: Imagen 실패', resp.status, errText.slice(0, 400));
+      console.error('regenerate-image: Gemini Image 실패', resp.status, errText.slice(0, 400));
       return null;
     }
     const j = await resp.json();
-    const b64 = j?.predictions?.[0]?.bytesBase64Encoded;
+    const parts = j?.candidates?.[0]?.content?.parts || [];
+    // inlineData.data (base64) 가 담긴 첫 번째 part 찾기
+    const imgPart = parts.find((p: { inlineData?: { data?: string } }) => p?.inlineData?.data);
+    const b64 = imgPart?.inlineData?.data;
     if (!b64 || typeof b64 !== 'string') {
-      console.error('regenerate-image: Imagen 응답에 이미지 없음', JSON.stringify(j).slice(0, 300));
+      console.error('regenerate-image: Gemini 응답에 이미지 없음', JSON.stringify(j).slice(0, 400));
       return null;
     }
     const bytes = Uint8Array.from(Buffer.from(b64, 'base64'));
-    console.log(`regenerate-image: Imagen 성공 (${bytes.byteLength} bytes)`);
+    console.log(`regenerate-image: Gemini Image 성공 (${bytes.byteLength} bytes)`);
     return { bytes, revised: prompt, provider: `gemini:${model}` };
   } catch (e) {
-    console.error('regenerate-image: Imagen fetch 예외', e);
+    console.error('regenerate-image: Gemini Image fetch 예외', e);
     return null;
   }
 }
