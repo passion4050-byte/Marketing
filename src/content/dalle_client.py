@@ -119,15 +119,31 @@ def generate_dalle_image(
     try:
         client = OpenAI(api_key=api_key, timeout=60.0)
         logger.info("dalle.api_call: model=%s size=%s quality=%s", model, size, quality)
-        # Round 105-b hotfix (2026-07-02): OpenAI Image API 스펙 변경으로
-        #   response_format 파라미터 제거됨. default URL 반환.
-        resp = client.images.generate(
-            model=model,
-            prompt=prompt,
-            size=size,
-            quality=quality,
-            n=1,
-        )
+        # Round 105-b hotfix (2026-07-02): OpenAI Image API 스펙 변경 대응.
+        #   1) response_format 파라미터 제거 (unknown_parameter).
+        #   2) dall-e-3 모델 접근 없는 프로젝트를 위해 dall-e-2 fallback (invalid_value).
+        try:
+            resp = client.images.generate(
+                model=model,
+                prompt=prompt,
+                size=size,
+                quality=quality,
+                n=1,
+            )
+        except Exception as e:  # noqa: BLE001
+            msg = str(e)
+            if "does not exist" in msg or "invalid_value" in msg:
+                logger.warning("dalle.model_fallback: %s → dall-e-2 (원본 오류: %s)", model, msg[:150])
+                # dall-e-2 는 max 1024x1024, quality 미지원
+                resp = client.images.generate(
+                    model="dall-e-2",
+                    prompt=prompt,
+                    size="1024x1024",
+                    n=1,
+                )
+                model = "dall-e-2"  # 로그용
+            else:
+                raise
         if not resp.data or not resp.data[0].url:
             logger.error("dalle.no_url: 응답에 url 없음 (resp=%s)", str(resp)[:200])
             return None

@@ -52,45 +52,68 @@ function buildKoreanPrompt(keyword: string, title: string | null, isSelfTenant: 
   );
 }
 
-/** DALL-E 3 호출 → 이미지 URL (일시적, 1시간 만료) */
-async function callDalle(prompt: string): Promise<{ url: string; revised: string } | null> {
+/**
+ * OpenAI Image API 호출 → 이미지 URL (일시적, 1시간 만료).
+ *
+ * Round 105-b hotfix 5 (2026-07-02): dall-e-3 모델 접근이 없는 프로젝트를 위해
+ *   `OPENAI_IMAGE_MODEL` env 로 모델명 override 가능 (default: dall-e-3).
+ *   3-단계 fallback 체인:
+ *     1. env 지정 모델 (또는 dall-e-3)
+ *     2. dall-e-2 (레거시 안정, 대부분 프로젝트 접근 가능)
+ *     3. gpt-image-1 (최신, base64 응답이라 별도 처리 필요 — 여기선 skip)
+ */
+async function callDalle(prompt: string): Promise<{ url: string; revised: string; model: string } | null> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     console.error('regenerate-image: OPENAI_API_KEY 미설정');
     return null;
   }
-  try {
-    const resp = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'dall-e-3',
-        prompt,
-        size: '1792x1024',
-        quality: 'standard',
-        n: 1,
-        // Round 105-b hotfix (2026-07-02): OpenAI Image API 스펙 변경으로
-        //   response_format 파라미터 제거됨(unknown_parameter 400). default URL 반환.
-      }),
-      // 60초 타임아웃 (Vercel serverless 한도 내)
-    });
-    if (!resp.ok) {
-      const errText = await resp.text().catch(() => '');
-      console.error('regenerate-image: DALL-E API 실패', resp.status, errText.slice(0, 300));
-      return null;
+
+  const primary = (process.env.OPENAI_IMAGE_MODEL || 'dall-e-3').trim();
+  // 모델별 파라미터
+  const paramsFor = (model: string) => {
+    if (model === 'dall-e-3') {
+      return { model, prompt, size: '1792x1024', quality: 'standard', n: 1 };
     }
-    const j = await resp.json();
-    const url = j?.data?.[0]?.url;
-    const revised = j?.data?.[0]?.revised_prompt || prompt;
-    if (!url) return null;
-    return { url, revised };
-  } catch (e) {
-    console.error('regenerate-image: DALL-E fetch 예외', e);
-    return null;
+    // dall-e-2: 최대 1024x1024, quality 미지원
+    return { model, prompt, size: '1024x1024', n: 1 };
+  };
+
+  const models = [primary, primary === 'dall-e-2' ? 'dall-e-3' : 'dall-e-2'];
+  let lastErr = '';
+
+  for (const model of models) {
+    try {
+      const resp = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(paramsFor(model)),
+      });
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => '');
+        console.error(`regenerate-image: ${model} 실패`, resp.status, errText.slice(0, 300));
+        lastErr = `${model}: ${resp.status} ${errText.slice(0, 200)}`;
+        continue; // 다음 모델 시도
+      }
+      const j = await resp.json();
+      const url = j?.data?.[0]?.url;
+      const revised = j?.data?.[0]?.revised_prompt || prompt;
+      if (!url) {
+        lastErr = `${model}: no url in response`;
+        continue;
+      }
+      console.log(`regenerate-image: ${model} 성공`);
+      return { url, revised, model };
+    } catch (e) {
+      console.error(`regenerate-image: ${model} fetch 예외`, e);
+      lastErr = `${model} exception: ${e instanceof Error ? e.message : String(e)}`;
+    }
   }
+  console.error('regenerate-image: 모든 모델 실패 —', lastErr);
+  return null;
 }
 
 /** DALL-E URL 다운로드 → Supabase Storage 업로드 → public URL */
