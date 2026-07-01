@@ -68,6 +68,9 @@ jobs:
           IMAGE_GEN_ENABLED: ${{ secrets.IMAGE_GEN_ENABLED || 'true' }}
           # Round 86 (2026-06-28) — DALL-E 3 명시 활성. 사용자 OpenAI 결제했는데 작동 안 함 진단 결과.
           IMAGE_PROVIDER: ${{ secrets.IMAGE_PROVIDER || 'dalle' }}
+          # Round 105 (2026-06-29) — 사용자 명시: "이미지는 꼭 OpenAI API 로만".
+          # true 이면 DALL-E 3회 시도 실패 시 fallback 안 함 → image None (검수 시 수동 재시도).
+          IMAGE_STRICT_DALLE: ${{ secrets.IMAGE_STRICT_DALLE || 'true' }}
         run: python scripts/run_auto_content_once.py
 
       # 2026-05-29 Round 24: 두 사이트(medimap-blog + medimap-blog-v2) 모두 redeploy.

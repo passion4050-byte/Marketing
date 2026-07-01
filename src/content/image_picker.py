@@ -99,28 +99,29 @@ def keyword_to_unsplash_query(keyword: str) -> str:
     Round 30 fix (2026-05-30): keyword_to_english_context 가 fallback 에서
     원본 한글 키워드 `{k}` 를 query 에 포함 → Unsplash 매칭 0개 → Pollinations fallback.
     Unsplash 전용 함수로 카테고리별 영문 query 만 반환.
+
+    Round 102 (2026-06-29): 사용자 요구 "외국인 지양". Unsplash 결과가 대부분 백인
+    인물 사진이라 인종 문제 회피 위해 **사람 없는 인테리어/장비/장소** query 로 통일.
+    "korean clinic" 검색해도 실제로는 백인 나오는 게 태반. clinic interior/equipment
+    쿼리면 사람 대신 공간·기기가 매칭돼 인종 무관 (DALL-E 실패 fallback 안전망).
     """
     k = keyword.strip()
-    # 1. KEYWORD_MAP 매칭 — 이미 영문 (단 fallback 의 영문도 한글 mix 가능, 정리 필요)
-    if k in KEYWORD_MAP:
-        return KEYWORD_MAP[k]
-    for ko, en in KEYWORD_MAP.items():
-        if ko in k or k in ko:
-            return en
-    # 2. 카테고리별 generic 영문 query
+    # 카테고리별 사람 없는 인테리어/장비 query (Round 102)
     if any(kw in k for kw in ["안과", "라식", "라섹", "스마일", "시력", "백내장", "노안"]):
-        return "korean ophthalmology clinic"
-    if any(kw in k for kw in ["피부", "여드름", "필러", "보톡스", "레이저"]):
-        return "korean dermatology clinic"
+        return "eye clinic interior equipment"
+    if any(kw in k for kw in ["피부", "여드름", "필러", "보톡스", "레이저", "스킨"]):
+        return "dermatology clinic modern interior"
     if any(kw in k for kw in ["성형", "안면", "양악", "쌍꺼풀"]):
-        return "korean plastic surgery clinic"
+        return "modern medical clinic interior minimal"
     if any(kw in k for kw in ["치과", "임플란트", "교정", "충치"]):
-        return "korean dental clinic"
+        return "dental clinic modern interior"
     if any(kw in k for kw in ["모발", "탈모", "헤어"]):
-        return "hair transplant clinic"
-    if any(kw in k for kw in ["GEO", "AEO", "마케팅", "광고", "콘텐츠", "의료법", "병원"]):
-        return "medical professional meeting discussion"
-    return "korean medical clinic professional"
+        return "medical clinic modern interior"
+    if any(kw in k for kw in ["한방", "한의원", "동안"]):
+        return "traditional medicine wooden interior"
+    if any(kw in k for kw in ["GEO", "AEO", "마케팅", "광고", "콘텐츠", "의료법", "병원", "SEO", "검색"]):
+        return "modern office desk laptop data"
+    return "modern medical clinic interior"
 
 
 def build_prompt(keyword: str, title: Optional[str] = None, *, realistic: bool = False) -> str:
@@ -182,21 +183,50 @@ def generate_image_for_content(
         return None
 
     # Round 83 (2026-06-28) — DALL-E 3 우선 (사용자 OpenAI 결제 완료).
-    #   사람 얼굴/손 왜곡 함정 CR + Pollinations 5xx 함정 CJ 양쪽을 한 번에 해소.
-    #   실패(429/네트워크/Storage) 시 기존 Unsplash → Pollinations chain 으로 폴백 (graceful).
+    # Round 105 (2026-06-29) — 사용자 명시 요구: "이미지는 꼭 OpenAI API 로만".
+    #   IMAGE_STRICT_DALLE=true (default) 시 DALL-E 실패해도 fallback 안 함 → image None.
+    #   검수 담당자가 UI 에서 재시도/수동 업로드. false 로 옵트아웃 시 기존 Unsplash/Pollinations 폴백.
+    _strict_dalle = (os.getenv("IMAGE_STRICT_DALLE", "true") or "true").strip().lower() == "true"
     try:
         from src.content.dalle_client import is_dalle_enabled, generate_dalle_image
         if is_dalle_enabled():
-            dalle = generate_dalle_image(keyword, title, is_self_tenant=is_self_tenant)
-            if dalle and dalle.get("url"):
-                logger.info("DALL-E 3 cover 생성 성공: %s", dalle["url"][:80])
-                return dalle
-            logger.info("DALL-E skip/실패 — Unsplash/Pollinations fallback")
+            # 429/quota 재시도 강화 — 3회 시도
+            for attempt in range(3):
+                dalle = generate_dalle_image(keyword, title, is_self_tenant=is_self_tenant)
+                if dalle and dalle.get("url"):
+                    logger.info("DALL-E 3 cover 생성 성공 (attempt=%d): %s", attempt, dalle["url"][:80])
+                    return dalle
+                if attempt < 2:
+                    logger.warning("DALL-E 실패(attempt=%d) — 5초 후 재시도", attempt)
+                    import time as _t
+                    _t.sleep(5)
+            # 3회 실패
+            if _strict_dalle:
+                logger.error(
+                    "DALL-E 3회 실패 — IMAGE_STRICT_DALLE=true 로 fallback 차단. "
+                    "image_url=None 반환. OPENAI_API_KEY GH Secret 확인 필요."
+                )
+                return None
+            logger.info("DALL-E skip/실패 — Unsplash/Pollinations fallback (STRICT=false)")
+        else:
+            if _strict_dalle:
+                logger.error(
+                    "DALL-E 비활성 (OPENAI_API_KEY 미설정 or IMAGE_PROVIDER 부적합) — "
+                    "IMAGE_STRICT_DALLE=true 이므로 image_url=None. GH Secret 확인 필요."
+                )
+                return None
     except Exception as e:  # noqa: BLE001
+        if _strict_dalle:
+            logger.error("DALL-E 분기 예외 — STRICT=true 이므로 image None: %s", e)
+            return None
         logger.warning("DALL-E 분기 실패 — fallback: %s", e)
 
-    # Round 29 자사 인사이트 — Unsplash 우선
-    if is_self_tenant:
+    # Round 102 (2026-06-29) — 자사 인사이트에서 Unsplash 제거.
+    # 사용자 명시 요구: "한국 모델 원함, 외국인 지양". Unsplash 는 대부분 백인 사진이라
+    # 근본적으로 요구와 상충. DALL-E 실패 시 Pollinations realistic (한국인 프롬프트) 로 바로.
+    # 옵트인: USE_UNSPLASH_FOR_SELF_CONTENT=true 시에만 자사에도 Unsplash 사용.
+    _allow_unsplash_self = (os.getenv("USE_UNSPLASH_FOR_SELF_CONTENT", "false") or "false").strip().lower() == "true"
+    if is_self_tenant and _allow_unsplash_self:
         try:
             from src.content.unsplash_client import fetch_unsplash_to_storage
             # Round 30 fix (2026-05-30): keyword_to_english_context 의 fallback 이

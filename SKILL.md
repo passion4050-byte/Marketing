@@ -4313,3 +4313,71 @@ admin citations/competitors 에서 Claude·ChatGPT 의 도메인별 인용·AI�
 
 ### 푸시 대상(Round 104 ②③④패널)
 `medimap-blog-v2/src/components/admin/ContentCompetitiveness.tsx` · `DashboardChartsTabbed.tsx` · `MarketShareDiagnosis.tsx`
+
+---
+
+## Round 105 (2026-06-29 밤 집 세션) — 이미지 이중 안전망 강화
+
+### 배경
+
+Round 104-c 사무실 세션에서 이미지 문제 조치됨 (`unsplash_client.py` 인물 후순위 + 랜덤). 그러나 사용자가 검수 화면(id 171)에서 여전히 백인 여성 의사 사진 발견 + "왜 안 고쳐지는거야?" 문의.
+
+### 진단
+
+- id 171은 Round 104-c push 이전 생성분 (재생성 시 교체 예정)
+- 하지만 근본 이슈: Unsplash 자체가 "clinic doctor" 검색해도 백인 결과가 태반. 인물 후순위만으론 배경/의사 여전히 등장 가능
+- 사용자 요구 = "한국 모델, 외국인 지양" — 정확도 100% 필요
+
+### 조치 (Round 105)
+
+- `src/content/image_picker.py`:
+  - `keyword_to_unsplash_query` 를 **사람 없는 "clinic interior equipment"** query 로 통일 (사람 대신 공간/장비 매칭 → 인종 무관)
+  - 자사 인사이트 Unsplash 을 **옵트인** (`USE_UNSPLASH_FOR_SELF_CONTENT=true` 시에만) → DALL-E 실패 시 Pollinations realistic ("no people") 로 바로
+
+### 함정 DO — Unsplash query 로 인종 문제 회피
+
+- **증상**: `unsplash_client` 인물 사진 후순위/랜덤 만으로도 여전히 백인 사진 노출
+- **Why**: Unsplash 태그가 "korean" 이어도 실제 결과는 백인 촬영자/모델이 태반. alt_description 만으론 100% 필터 못 함
+- **How to apply**:
+  1. `keyword_to_unsplash_query` 는 **사람 명사 완전 배제** ("clinic doctor" 대신 "clinic interior equipment")
+  2. 자사 인사이트에서도 Unsplash 을 optional 로 강등, DALL-E → Pollinations realistic 순
+  3. DALL-E 는 GH Actions Secret `OPENAI_API_KEY` 확인이 근본 해결책 (한국인 모델 프롬프트 이미 준비됨)
+
+### 변경 파일
+
+- `src/content/image_picker.py`
+- `handoff/round105-2026-06-29/HANDOFF.md` (신규)
+- `SKILL.md`
+
+### 사용자 액션 (SKILL 저장 규칙 강제 적용)
+
+### Round 105 후속 (사용자 즉시 지시)
+
+**"모든 클라이언트 Claude/ChatGPT 웹검색 활성화 + 이미지는 꼭 OpenAI API"**
+
+1. Claude/ChatGPT 웹검색 = 이미 Round 103 에서 engine 레벨 전체 활성. `src/engines/claude.py` `tool_choice=any` 강제. `src/engines/openai_engine.py` `gpt-4o-mini-search-preview` + `web_search_options={}`. **tenant 별 flag 없음** — 모든 tenant 에 자동 적용. 데이터 미쌓임은 시간 문제 (오늘부터 cron 이 누적).
+2. 이미지 DALL-E 강제 (Round 105 오늘 신규):
+   - `IMAGE_STRICT_DALLE=true` default (auto-publish + ab-auto-generate workflow env)
+   - `image_picker.py`: DALL-E 실패 시 3회 재시도 (5s 백오프), 그래도 실패면 image None (Unsplash/Pollinations fallback 차단)
+   - `image_url=NULL` 인 콘텐츠 = 검수 단계에서 담당자가 UI 재시도 or 수동 업로드
+   - **필수 사용자 액션**: GitHub Actions Secret `OPENAI_API_KEY` 등록 확인 (Vercel 은 별개)
+
+**변경 파일 (Round 105 최종)**:
+- `src/content/image_picker.py` (query 통일 + STRICT + 3회 재시도)
+- `.github/workflows/auto-publish.yml` (IMAGE_STRICT_DALLE)
+- `.github/workflows/ab-auto-generate.yml` (OPENAI_API_KEY + IMAGE_PROVIDER + IMAGE_STRICT_DALLE)
+- `handoff/round105-2026-06-29/HANDOFF.md`
+- `SKILL.md`
+
+### 함정 DP — DALL-E STRICT 모드 성공 조건
+
+- **증상**: STRICT 모드에서 DALL-E 실패 시 콘텐츠가 image_url NULL 로 저장됨 (검수 담당 수동 개입 필요)
+- **Why**: 사용자 요구 "OpenAI 로만" 강제 → fallback 차단 = 실패 시 이미지 없음이 정답
+- **How to apply**: GH Actions Secret `OPENAI_API_KEY` 반드시 등록. auto-publish workflow run 로그에서 `dalle.enabled` / `dalle.api_call` / `dalle.url_received` 라인 확인. `dalle.disabled` or `dalle.api_failed` 뜨면 Secret 이슈. 옵트아웃 = `IMAGE_STRICT_DALLE=false` secret 설정 (fallback 복원)
+
+### 사용자 즉시 액션
+
+1. **GH Actions Secret `OPENAI_API_KEY` 등록 확인**
+2. `git pull` (사무실 세션 Round 102~104-c 최신 반영 위해)
+3. git add + commit + push
+- `.skill` 패키지 + Save skill 버튼 (동시 진행)
