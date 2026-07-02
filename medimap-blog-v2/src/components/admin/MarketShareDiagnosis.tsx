@@ -6,7 +6,7 @@
  * 발견 (2026-06-28 DB 진단):
  *   - 30일간 AI source_domains 에 medimap-blog-phi.vercel.app = 0회 인용
  *   - 경쟁사 (sueye/bnviit/bgneye) 누적 200+ 인용
- *   - 메디맵 mentions 카운트는 brand 텍스트 매칭일 뿐 — 도메인 인용 아님
+ *   - 위서클 mentions 카운트는 brand 텍스트 매칭일 뿐 — 도메인 인용 아님
  *
  * 원인:
  *   1. vercel.app 무료 서브도메인 → 색인 후순위
@@ -14,7 +14,7 @@
  *   3. AI 학습 데이터에 없음 (2024 cutoff)
  *
  * 해결:
- *   1. 커스텀 도메인 전환 (blog.medi-map.co.kr) — 코드 NEXT_PUBLIC_SITE_URL 이미 지원
+ *   1. 커스텀 도메인 전환 (blog.wecircle.co.kr) — 코드 NEXT_PUBLIC_SITE_URL 이미 지원
  *   2. 권위 도메인 backlink (modoodoc/hidoc 게재)
  *   3. GSC 색인 가속 (사용자 직접)
  */
@@ -116,7 +116,7 @@ export function MarketShareDiagnosis({
             <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-status-danger" />
             <div className="flex-1">
               <div className="text-sm font-bold text-status-danger">
-                🚨 메디맵 도메인 AI 인용 = 0건 (30일)
+                🚨 위서클 도메인 AI 인용 = 0건 (30일)
               </div>
               <p className="mt-1 text-[12px] text-ink-soft">
                 <strong>wecircle.co.kr</strong> 의 콘텐츠가 아직 AI source URL 로 인용된 적이 없습니다.
@@ -135,7 +135,7 @@ export function MarketShareDiagnosis({
                     각 글 URL Inspect → 색인 요청.
                   </li>
                   <li>
-                    <strong>권위 도메인 backlink</strong> — modoodoc/hidoc 같은 의료 매체에 메디맵 콘텐츠 게재 협상.
+                    <strong>권위 도메인 backlink</strong> — modoodoc/hidoc 같은 의료 매체에 위서클 콘텐츠 게재 협상.
                   </li>
                   <li>
                     <strong>네이버 색인 강화</strong> — IndexNow 이미 핑하고 있지만 네이버 서치어드바이저 수동 제출 권장.
@@ -273,7 +273,7 @@ export function MarketShareDiagnosis({
                 </Fragment>
               );
             })}
-            {/* 메디맵 위치 명시 (rank 11 ~ 가상 row) */}
+            {/* 위서클 위치 명시 (rank 11 ~ 가상 row) */}
             <tr className={isCritical ? 'border-t-2 border-status-danger/30 bg-status-danger/5' : 'border-t border-border bg-brand-50/30'}>
               <td className="px-3 py-2 font-mono text-[10px]">⭐</td>
               <td className="px-3 py-2">

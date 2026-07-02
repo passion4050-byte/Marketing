@@ -5,7 +5,7 @@
  *   - 누적된 learned_insights 목록 (도메인 단위 / URL 단위 모두)
  *   - 진단 / 권장 변경 / 평균 지표 보기
  *   - 적용 toggle / 메모 편집 / 삭제
- *   - 메디맵 baseline 편집 (이 페이지 상단)
+ *   - 위서클 baseline 편집 (이 페이지 상단)
  *
  * 향후 Phase 2: generator.py 가 적용된 insights 의 권장사항을 prompt 로 주입.
  */
@@ -191,7 +191,7 @@ export default function LearnedInsightsPage() {
         <div>
           <h1 className="admin-page-title">학습 인사이트</h1>
           <div className="admin-page-desc">
-            경쟁사/플랫폼 도메인 분석 누적 + 메디맵 콘텐츠 baseline 관리
+            경쟁사/플랫폼 도메인 분석 누적 + 위서클 콘텐츠 baseline 관리
           </div>
         </div>
         <button
@@ -207,7 +207,7 @@ export default function LearnedInsightsPage() {
       <section className="card">
         <header className="flex items-center justify-between border-b border-border px-5 py-3">
           <div>
-            <h2 className="section-title">메디맵 콘텐츠 baseline</h2>
+            <h2 className="section-title">위서클 콘텐츠 baseline</h2>
             <div className="mt-1 text-[11px] text-ink-muted">
               learn-from-domain 진단의 비교 기준값 — 운영자가 수정 가능
             </div>

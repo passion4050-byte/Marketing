@@ -2,7 +2,7 @@
  * Round 56 (2026-05-31) — 17년차 디자이너 위계 개선.
  *
  * 변경:
- *   - 메디맵 행의 brand 그라데이션 아이콘 제거 (자사 라벨로 충분)
+ *   - 위서클 행의 brand 그라데이션 아이콘 제거 (자사 라벨로 충분)
  *   - 3개 그룹 (자사 / 발송 가능 / 이메일 미등록) 을 각 별도 card + 좌측 color stripe 로 분리
  *   - 각 그룹 헤더에 진료항목 필터 chip (전체/안과/모발이식/피부과/...)
  *   - 그룹 헤더 폰트/여백 강화, 그룹 간 간격 확대
@@ -104,7 +104,7 @@ export default function ReportsListPage() {
     }
   };
 
-  const isSelf = (t: SbTenant) => t.partner_slug === 'medimap' || t.partner_slug === 'medimap-self' || t.name.startsWith('메디맵');
+  const isSelf = (t: SbTenant) => t.partner_slug === 'medimap' || t.partner_slug === 'medimap-self' || t.name.startsWith('위서클');
 
   const selfTenant = tenants.find(isSelf);
   const clientTenants = tenants.filter((t) => !isSelf(t));
@@ -214,14 +214,14 @@ export default function ReportsListPage() {
 
       {!loading && tenants.length > 0 && (
         <div className="space-y-5">
-          {/* === 자사 (메디맵) === */}
+          {/* === 자사 (위서클) === */}
           {selfTenant && (
             <GroupCard
               stripe="bg-brand"
               header={
                 <>
                   <span className="rounded bg-brand/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand">자사</span>
-                  <h2 className="text-sm font-bold text-ink">메디맵 (외부 발송 대상 아님)</h2>
+                  <h2 className="text-sm font-bold text-ink">위서클 (외부 발송 대상 아님)</h2>
                 </>
               }
             >

@@ -26,7 +26,7 @@ const TIER_COLORS = {
 
 type Tab = 'tier' | 'ranking' | 'grounding';
 const TAB_META: Record<Tab, { label: string; icon: React.ComponentType<{ className?: string }>; desc: string }> = {
-  tier: { label: '5-tier 점유율 추이', icon: BarChart3, desc: '메디맵(T1) ↑ + 외부(T5) ↓ 가 가치 증명' },
+  tier: { label: '5-tier 점유율 추이', icon: BarChart3, desc: '위서클(T1) ↑ + 외부(T5) ↓ 가 가치 증명' },
   ranking: { label: '클라이언트 ranking', icon: Users, desc: 'T1 vs 외부 — 영업 성과 비중' },
   grounding: { label: '키워드 grounding', icon: Target, desc: 'AI 가 출처로 명시한 비율' },
 };
@@ -102,7 +102,7 @@ export function DashboardChartsTabbed({ tierTrend, clientRanking, keywordGroundi
                 <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Area type="monotone" dataKey="t1" name="메디맵 T1" stackId="a" stroke={TIER_COLORS.t1} fill={TIER_COLORS.t1} fillOpacity={0.7} />
+                <Area type="monotone" dataKey="t1" name="위서클 T1" stackId="a" stroke={TIER_COLORS.t1} fill={TIER_COLORS.t1} fillOpacity={0.7} />
                 <Area type="monotone" dataKey="t3" name="권위 T3" stackId="a" stroke={TIER_COLORS.t3} fill={TIER_COLORS.t3} fillOpacity={0.7} />
                 <Area type="monotone" dataKey="t4" name="플랫폼 T4" stackId="a" stroke={TIER_COLORS.t4} fill={TIER_COLORS.t4} fillOpacity={0.7} />
                 <Area type="monotone" dataKey="t5" name="외부/경쟁 T5" stackId="a" stroke={TIER_COLORS.t5} fill={TIER_COLORS.t5} fillOpacity={0.7} />
@@ -126,7 +126,7 @@ export function DashboardChartsTabbed({ tierTrend, clientRanking, keywordGroundi
                 <YAxis type="category" dataKey="tenant_name" tick={{ fontSize: 11 }} width={110} />
                 <Tooltip />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="t1" name="메디맵 T1" stackId="r" fill={TIER_COLORS.t1} />
+                <Bar dataKey="t1" name="위서클 T1" stackId="r" fill={TIER_COLORS.t1} />
                 <Bar dataKey="other" name="권위/플랫폼" stackId="r" fill={TIER_COLORS.t3} />
                 <Bar dataKey="t5" name="외부/경쟁 T5" stackId="r" fill={TIER_COLORS.t5} radius={[0, 4, 4, 0]} />
               </BarChart>
@@ -184,7 +184,7 @@ export function DashboardChartsTabbed({ tierTrend, clientRanking, keywordGroundi
                 <thead className="text-[10px] uppercase text-ink-muted">
                   <tr>
                     <th className="py-1 text-left">날짜</th>
-                    <th className="text-right">메디맵 T1</th>
+                    <th className="text-right">위서클 T1</th>
                     <th className="text-right">권위 T3</th>
                     <th className="text-right">플랫폼 T4</th>
                     <th className="text-right">외부 T5</th>
@@ -210,7 +210,7 @@ export function DashboardChartsTabbed({ tierTrend, clientRanking, keywordGroundi
                 <thead className="text-[10px] uppercase text-ink-muted">
                   <tr>
                     <th className="py-1 text-left">병원</th>
-                    <th className="text-right">메디맵 T1</th>
+                    <th className="text-right">위서클 T1</th>
                     <th className="text-right">외부/경쟁 T5</th>
                     <th className="text-right">전체</th>
                   </tr>
@@ -264,13 +264,13 @@ export function DashboardChartsTabbed({ tierTrend, clientRanking, keywordGroundi
       <div className="border-t border-border bg-surface-subtle/30 px-4 py-2 text-[10px] text-ink-muted md:px-5">
         {tab === 'tier' && (
           <span>
-            <span className="font-semibold" style={{ color: TIER_COLORS.t1 }}>메디맵</span> ↑ +{' '}
+            <span className="font-semibold" style={{ color: TIER_COLORS.t1 }}>위서클</span> ↑ +{' '}
             <span style={{ color: TIER_COLORS.t5 }}>외부</span> ↓ = 시장 점유 증가
           </span>
         )}
         {tab === 'ranking' && (
           <span>
-            <span className="font-semibold" style={{ color: TIER_COLORS.t1 }}>메디맵 T1</span> 비중이 영업 성과 ·{' '}
+            <span className="font-semibold" style={{ color: TIER_COLORS.t1 }}>위서클 T1</span> 비중이 영업 성과 ·{' '}
             <span style={{ color: TIER_COLORS.t5 }}>외부 T5</span> 우세 = 영업 보강 필요
           </span>
         )}

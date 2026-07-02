@@ -16,7 +16,7 @@ const TABS = [
     href: '/admin/citations',
     label: '자사 현황 보기',
     icon: Activity,
-    desc: '메디맵 + 클라이언트 자체 AI 인용 분석',
+    desc: '위서클 + 클라이언트 자체 AI 인용 분석',
   },
   {
     href: '/admin/competitors',

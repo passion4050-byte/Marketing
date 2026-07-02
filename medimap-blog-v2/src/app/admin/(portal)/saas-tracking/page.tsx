@@ -1,8 +1,8 @@
 /**
- * Round 38 (2026-05-31) — 메디맵 SaaS 자체 시장 노출도 페이지.
+ * Round 38 (2026-05-31) — 위서클 SaaS 자체 시장 노출도 페이지.
  *
  * "GEO 최적화", "AEO 컨설팅" 같은 SaaS 카테고리 키워드에서:
- *   - 메디맵 자체 도메인이 인용되는 정도 (T1 share)
+ *   - 위서클 자체 도메인이 인용되는 정도 (T1 share)
  *   - 경쟁 SaaS 도메인 자동 발견 ranking
  *   - 키워드별 grounding rate
  *
@@ -93,7 +93,7 @@ export default function SaasTrackingPage() {
             GEO 최적화 관리
           </h1>
           <div className="admin-page-desc">
-            잠재 고객이 AI 에 "GEO 최적화", "AEO 컨설팅" 등을 검색했을 때 메디맵이 얼마나 노출되는지 측정하고, 경쟁 SaaS 도메인을 자동으로 발견합니다.
+            잠재 고객이 AI 에 "GEO 최적화", "AEO 컨설팅" 등을 검색했을 때 위서클이 얼마나 노출되는지 측정하고, 경쟁 SaaS 도메인을 자동으로 발견합니다.
           </div>
         </div>
       </header>
@@ -117,11 +117,11 @@ export default function SaasTrackingPage() {
           label="최근 30일 AI 인용"
           value={`${data.mention_count}`}
           suffix="건"
-          subtext={data.t1_count > 0 ? `메디맵 인용 ${data.t1_count}건` : '메디맵 인용 0건'}
+          subtext={data.t1_count > 0 ? `위서클 인용 ${data.t1_count}건` : '위서클 인용 0건'}
           href="#share-trend"
         />
         <KpiCard
-          label="메디맵 점유율"
+          label="위서클 점유율"
           value={`${t1Share}%`}
           highlight={t1Share >= 5}
           subtext="목표 5% 이상"
@@ -135,15 +135,15 @@ export default function SaasTrackingPage() {
         />
       </div>
 
-      {/* 차트: 메디맵 점유율 추이 */}
+      {/* 차트: 위서클 점유율 추이 */}
       <section id="share-trend" className="card scroll-mt-20">
         <header className="border-b border-border px-4 py-3 md:px-5">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
             <TrendingUp className="h-4 w-4 text-brand" />
-            메디맵 점유율 추이 (최근 30일)
+            위서클 점유율 추이 (최근 30일)
           </h2>
           <div className="mt-1 text-[11px] text-ink-muted">
-            AI 가 "GEO/AEO" 카테고리 검색에서 메디맵을 인용한 비율 — 콘텐츠 누적 효과 확인
+            AI 가 "GEO/AEO" 카테고리 검색에서 위서클을 인용한 비율 — 콘텐츠 누적 효과 확인
           </div>
         </header>
         <div className="p-2 md:p-4">
@@ -164,7 +164,7 @@ export default function SaasTrackingPage() {
                 <Line
                   type="monotone"
                   dataKey="t1_share"
-                  name="메디맵 share"
+                  name="위서클 share"
                   stroke="#1B68FF"
                   strokeWidth={2.5}
                   dot={{ r: 3 }}
@@ -183,7 +183,7 @@ export default function SaasTrackingPage() {
             SaaS 키워드별 grounding rate
           </h2>
           <div className="mt-1 text-[11px] text-ink-muted">
-            각 키워드 측정 시 AI 가 출처 URL 명시하는 비율 + 메디맵 T1 카운트
+            각 키워드 측정 시 AI 가 출처 URL 명시하는 비율 + 위서클 T1 카운트
           </div>
         </header>
         <div className="overflow-x-auto">
@@ -194,7 +194,7 @@ export default function SaasTrackingPage() {
                 <th className="px-3 py-2 text-right">측정 수</th>
                 <th className="px-3 py-2 text-right">grounding</th>
                 <th className="px-3 py-2 text-right">grounding rate</th>
-                <th className="px-3 py-2 text-right">메디맵 T1</th>
+                <th className="px-3 py-2 text-right">위서클 T1</th>
               </tr>
             </thead>
             <tbody>
@@ -248,13 +248,13 @@ export default function SaasTrackingPage() {
             경쟁 SaaS 도메인 자동 발견
           </h2>
           <div className="mt-1 text-[11px] text-ink-muted">
-            메디맵 SaaS 와 같은 카테고리 키워드에서 AI 가 인용한 외부 도메인 — 잠재 경쟁자 / 인사이트 출처
+            위서클 SaaS 와 같은 카테고리 키워드에서 AI 가 인용한 외부 도메인 — 잠재 경쟁자 / 인사이트 출처
           </div>
         </header>
         <div className="p-2 md:p-4">
           {data.competitor_domains.length === 0 ? (
             <div className="flex h-24 items-center justify-center text-[12px] text-ink-muted">
-              경쟁 SaaS 도메인 발견 안 됨 — 메디맵이 시장 선점 중이거나 측정 데이터 부족
+              경쟁 SaaS 도메인 발견 안 됨 — 위서클이 시장 선점 중이거나 측정 데이터 부족
             </div>
           ) : (
             <ul className="space-y-1.5">

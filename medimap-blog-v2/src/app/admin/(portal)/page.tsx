@@ -163,7 +163,7 @@ async function fetchDashboardData(opts: {
 
   // Round 31 (2026-05-30): mentions 테이블에서 24h 인용 카운트.
   // measure-ai-mentions.yml cron 이 매일 07:00 KST 에 4 엔진 호출 → mentions INSERT.
-  // is_target=true 인 mention 만 카운트 (메디맵 또는 자사 tenant 가 직접 mentioned).
+  // is_target=true 인 mention 만 카운트 (위서클 또는 자사 tenant 가 직접 mentioned).
   let citations24h = 0;
   try {
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -650,7 +650,7 @@ async function fetchDashboardData(opts: {
   }
 
   // Round 87 (2026-06-28) — 콘텐츠 경쟁력 분석.
-  //   비즈니스 핵심: "메디맵 콘텐츠가 AI 에 자주 인용되도록".
+  //   비즈니스 핵심: "위서클 콘텐츠가 AI 에 자주 인용되도록".
   //   각 발행 글의 키워드 → 그 키워드의 mention 카운트 = 콘텐츠 "노출 영향력" proxy
   //   (정확한 content_id↔mention 매핑은 Round 88 스키마 변경에서. 지금은 keyword 기반.)
   let topContents: Array<{
@@ -895,7 +895,7 @@ async function fetchDashboardData(opts: {
       });
     });
 
-    // 경쟁사 도메인 (수기 + 메디맵 클라이언트 도메인 제외 + 권위 제외)
+    // 경쟁사 도메인 (수기 + 위서클 클라이언트 도메인 제외 + 권위 제외)
     const COMPETITOR_PATTERNS = ['eye', 'clinic', 'hospital', 'medic', '안과', 'derm', 'plastic', 'hair'];
     const AUTHORITY = new Set(['namu.wiki', 'youtube.com', 'modoodoc.com', 'hidoc.co.kr', 'news.hidoc.co.kr', 'v.daum.net', 'edu.donga.com', 'news.naver.com']);
     domainDistribution = Array.from(domainCount.entries())
@@ -1137,7 +1137,7 @@ export default async function AdminDashboardPage({
         </div>
       </div>
 
-      {/* === Tier 2: 콘텐츠 분석 (메디맵 콘텐츠가 AI 에 자주 인용되도록) === */}
+      {/* === Tier 2: 콘텐츠 분석 (위서클 콘텐츠가 AI 에 자주 인용되도록) === */}
       <div className="mt-8">
         <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-brand" />

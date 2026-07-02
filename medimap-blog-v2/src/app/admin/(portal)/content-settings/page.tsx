@@ -68,7 +68,7 @@ const GROUPS: GroupDef[] = [
         type: 'radio',
         hint: '본문 마지막 CTA 박스에 어느 채널을 노출할지.',
         options: [
-          { value: 'medimap_kakao', label: '메디맵 카카오 채널 ★' },
+          { value: 'medimap_kakao', label: '위서클 카카오 채널 ★' },
           { value: 'partner_direct', label: '병원(파트너) 직접 연락처' },
         ],
       },

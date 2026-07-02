@@ -801,8 +801,26 @@ function PendingTab({
 
   if (items.length === 0) {
     return (
-      <div className="card flex items-center justify-center px-6 py-12 text-sm text-ink-muted">
-        검수 대기 큐가 비어 있습니다. 자동발행 cron 다음 사이클까지 대기.
+      <div className="card flex flex-col items-center gap-4 px-6 py-14 text-center">
+        <div className="text-[36px] leading-none">📭</div>
+        <div>
+          <div className="text-sm font-bold text-ink">검수 대기 콘텐츠가 없습니다</div>
+          <div className="mt-1.5 text-xs text-ink-muted">
+            자동 발행 cron 이 매일 KST 08:00 에 다음 콘텐츠를 생성합니다.
+            <br />
+            지금 바로 특정 클라이언트의 콘텐츠를 만들고 싶다면 <span className="font-bold text-ink">&ldquo;즉시 발행&rdquo;</span> 을 눌러 주세요.
+          </div>
+        </div>
+        <a
+          href="/admin/calendar"
+          className="mt-2 inline-flex items-center gap-2 rounded-lg bg-ink px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-ink/90"
+        >
+          즉시 발행 → 클라이언트 선택
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path stroke="currentColor" d="M7 17L17 7" />
+            <path stroke="currentColor" d="M7 7h10v10" />
+          </svg>
+        </a>
       </div>
     );
   }

@@ -8,7 +8,7 @@
  *     1. 30일 Mention Trend (line)
  *     2. Source 분류 도넛 (T1~T5)
  *     3. Top 10 Source Domain (bar)
- *     4. 메디맵 Source Share Trend (line)
+ *     4. 위서클 Source Share Trend (line)
  *   세부 데이터:
  *     - 키워드별 인용 분석 (mention/source/T1/T2/T5 카운트)
  *     - 경쟁사/플랫폼 도메인 분석 (어떤 키워드에서 인용됐는지)
@@ -86,7 +86,7 @@ type CitationsData = {
 };
 
 const TIER_LABELS: Record<string, { label: string; color: string; short: string }> = {
-  T1: { label: '메디맵 자체 ⭐', color: '#1B68FF', short: '메디맵' },
+  T1: { label: '위서클 자체 ⭐', color: '#1B68FF', short: '위서클' },
   T2: { label: '클라이언트 자체', color: '#15B8A6', short: '클라이언트' },
   T3: { label: '권위/공식', color: '#F59E0B', short: '권위' },
   T4: { label: '의료 플랫폼', color: '#A855F7', short: '플랫폼' },
@@ -237,7 +237,7 @@ export default function CitationsPage() {
       <div className="hidden print:mb-6 print:block">
         <h1 className="text-2xl font-bold text-ink">AI 인용 추적 — {selectedName}</h1>
         <p className="mt-1 text-xs text-ink-muted">
-          MEDIMAP GEO · {new Date().toLocaleString('ko-KR')} · 최근 30일 기준
+          WECIRCLE GEO · {new Date().toLocaleString('ko-KR')} · 최근 30일 기준
         </p>
       </div>
 
@@ -339,10 +339,10 @@ export default function CitationsPage() {
               <div className="text-[11px] text-ink-muted">AI 가 정보 출처로 사용한 사이트 총합</div>
             </div>
             <div className="card card-pad border-brand/30">
-              <div className="kpi-label">메디맵 콘텐츠 인용률 ⭐</div>
+              <div className="kpi-label">위서클 콘텐츠 인용률 ⭐</div>
               <div className="mt-2 kpi-value text-brand">{medimapShare}%</div>
               <div className="text-[11px] text-ink-muted">
-                {data.source_tier.T1} / {totalSources} — 메디맵이 발행한 글이 AI 출처로 사용됨
+                {data.source_tier.T1} / {totalSources} — 위서클이 발행한 글이 AI 출처로 사용됨
               </div>
             </div>
             <div className="card card-pad">
@@ -421,10 +421,10 @@ export default function CitationsPage() {
               )}
             </ChartCard>
 
-            <ChartCard title="메디맵 Source Share Trend ⭐" subtitle="(SaaS 직접 ROI)" border="brand">
+            <ChartCard title="위서클 Source Share Trend ⭐" subtitle="(SaaS 직접 ROI)" border="brand">
               {data.medimap_share_trend.every((d) => d.share_pct === 0) ? (
                 <div className="flex h-60 flex-col items-center justify-center text-sm text-ink-muted">
-                  <div>현재 메디맵 콘텐츠 source share = 0%</div>
+                  <div>현재 위서클 콘텐츠 source share = 0%</div>
                   <div className="mt-1 text-[11px] text-ink-faint">3~6개월 콘텐츠 누적 후 점진 증가 예상</div>
                 </div>
               ) : (
@@ -434,7 +434,7 @@ export default function CitationsPage() {
                     <XAxis dataKey="date" fontSize={10} stroke="#64748B" />
                     <YAxis fontSize={10} stroke="#64748B" tickFormatter={(v: number) => `${v}%`} />
                     <Tooltip formatter={(v: number) => `${v}%`} />
-                    <Line type="monotone" dataKey="share_pct" name="메디맵 share" stroke="#1B68FF" strokeWidth={2} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="share_pct" name="위서클 share" stroke="#1B68FF" strokeWidth={2} dot={{ r: 3 }} />
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -463,7 +463,7 @@ export default function CitationsPage() {
                         <th className="px-3 py-2 text-left">키워드</th>
                         <th className="px-2 py-2 text-right">Mention</th>
                         <th className="px-2 py-2 text-right">Source</th>
-                        <th className="px-2 py-2 text-right text-brand">메디맵</th>
+                        <th className="px-2 py-2 text-right text-brand">위서클</th>
                         <th className="px-2 py-2 text-right text-accent">자체</th>
                         <th className="px-2 py-2 text-right text-ink-muted">경쟁</th>
                       </tr>
@@ -565,7 +565,7 @@ export default function CitationsPage() {
                                   <CitationBreakdown citations={c.citations} />
                                   <div className="mt-2 text-[10px] text-ink-muted">
                                     💡 <strong>학습 포인트</strong> — 위 URL 의 페이지 구조 (제목 패턴, FAQ schema,
-                                    글 길이) 를 분석해 메디맵 콘텐츠 가이드에 반영
+                                    글 길이) 를 분석해 위서클 콘텐츠 가이드에 반영
                                   </div>
                                 </td>
                               </tr>

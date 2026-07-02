@@ -229,7 +229,7 @@ export function LearnFromUrlButton({
                   <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="이 패턴을 메디맵 콘텐츠 가이드에 어떻게 반영할지... (예: H2 7개 이상 권장, FAQ schema 필수)"
+                    placeholder="이 패턴을 위서클 콘텐츠 가이드에 어떻게 반영할지... (예: H2 7개 이상 권장, FAQ schema 필수)"
                     className="w-full rounded border border-border bg-surface-base px-2 py-1.5 text-[11px]"
                     rows={2}
                   />

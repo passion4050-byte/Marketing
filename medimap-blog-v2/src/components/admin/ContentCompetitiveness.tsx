@@ -1,7 +1,7 @@
 /**
  * Round 87 (2026-06-28) — 콘텐츠 경쟁력 위젯.
  *
- * 비즈니스 핵심: "메디맵 콘텐츠가 AI 에 자주 인용되도록".
+ * 비즈니스 핵심: "위서클 콘텐츠가 AI 에 자주 인용되도록".
  * 사용자 요구: 인용 잘 되는 콘텐츠 구조 분석 + 카테고리(병원/날짜) 분류 + 자동 적용
  *
  * 현재 (Round 87 P0):
@@ -124,7 +124,7 @@ export function ContentCompetitiveness({ contents }: { contents: Content[] }) {
           <div>
             <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
               <Trophy className="h-4 w-4 text-brand" />
-              메디맵 콘텐츠 경쟁력 — Top 인용 콘텐츠
+              위서클 콘텐츠 경쟁력 — Top 인용 콘텐츠
             </h2>
             <div className="mt-0.5 text-[11px] text-ink-muted">
               30일 발행 글 × 해당 키워드의 AI 인용 mention 수 — 어떤 콘텐츠가 시장에 영향력 있는지

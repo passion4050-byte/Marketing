@@ -80,7 +80,7 @@ export default function IntegrationsPage() {
 
       <div className="card mb-4 border-l-4 border-brand bg-brand-50/40 p-4 text-xs text-brand-700">
         <strong>YouTube 연동 안내:</strong> 각 클라이언트(병원)가 자기 채널에 OAuth 인증해야 합니다.
-        access_token / refresh_token 은 Supabase 에 암호화 저장되며, 메디맵은 영상 업로드 권한만 보유합니다.
+        access_token / refresh_token 은 Supabase 에 암호화 저장되며, 위서클은 영상 업로드 권한만 보유합니다.
         Google Cloud Console 에서 OAuth Client ID 발급 + 콜백 URL <code className="rounded bg-surface-base px-1 py-0.5">/api/admin/youtube/oauth/callback</code> 등록 필요.
       </div>
 
@@ -135,7 +135,7 @@ export default function IntegrationsPage() {
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-xs text-ink-soft">
           <li>https://console.cloud.google.com → 프로젝트 생성 (예: medimap-geo-youtube)</li>
           <li>API & Services → Library → YouTube Data API v3 사용 설정</li>
-          <li>OAuth 동의 화면 구성 (앱 이름 = MEDIMAP GEO, 사용자 유형 = External)</li>
+          <li>OAuth 동의 화면 구성 (앱 이름 = WECIRCLE GEO, 사용자 유형 = External)</li>
           <li>사용자 인증 정보 → OAuth Client ID 생성 → Web application</li>
           <li>승인된 리디렉션 URI 에 추가:<br/><code className="rounded bg-surface-base px-1 py-0.5">https://geo-v2-beta.vercel.app/api/admin/youtube/oauth/callback</code></li>
           <li>발급된 Client ID / Secret 을 Vercel env 에 <code>YOUTUBE_CLIENT_ID</code>, <code>YOUTUBE_CLIENT_SECRET</code> 으로 추가</li>

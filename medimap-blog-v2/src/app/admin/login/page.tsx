@@ -42,7 +42,7 @@ export default function AdminLoginPage() {
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-base font-bold text-ink">MEDIMAP GEO</div>
+              <div className="text-base font-bold text-ink">WECIRCLE GEO</div>
               <div className="text-[10px] font-medium uppercase tracking-widest text-brand-700">
                 Hospital AI Optimization Platform
               </div>
@@ -103,7 +103,7 @@ export default function AdminLoginPage() {
               운영자 / 클라이언트
             </div>
             <h2 className="mt-1 text-lg font-bold text-ink">계정이 있으신가요?</h2>
-            <p className="mt-1 text-xs text-ink-muted">메디맵에서 발급한 비밀번호로 로그인하세요.</p>
+            <p className="mt-1 text-xs text-ink-muted">위서클에서 발급한 비밀번호로 로그인하세요.</p>
             <form onSubmit={onSubmit} className="mt-5 space-y-3">
               <div>
                 <label className="mb-1 block text-xs font-semibold text-ink">비밀번호</label>
@@ -128,7 +128,7 @@ export default function AdminLoginPage() {
               </button>
             </form>
             <p className="mt-3 text-[11px] text-ink-faint">
-              비밀번호 분실 시 메디맵 담당자에게 문의해주세요.
+              비밀번호 분실 시 위서클 담당자에게 문의해주세요.
             </p>
           </div>
 
@@ -147,7 +147,7 @@ export default function AdminLoginPage() {
                 노출되길 원하신다면?
               </h2>
               <p className="mt-3 text-sm leading-relaxed text-white/85">
-                메디맵 GEO 가 어떻게 작동하는지 1:1 로 보여드립니다.
+                위서클 GEO 가 어떻게 작동하는지 1:1 로 보여드립니다.
                 도입 부담 없이 우리 병원의 현재 AI 노출 수준을 진단해드려요.
               </p>
 
@@ -190,7 +190,7 @@ export default function AdminLoginPage() {
       {/* === Footer Trust Bar === */}
       <footer className="border-t border-border bg-surface-subtle/70 px-6 py-6 text-center text-[11px] text-ink-muted">
         <div className="mx-auto max-w-4xl">
-          MEDIMAP GEO · Hospital AI Platform · © 2026
+          WECIRCLE GEO · Hospital AI Platform · © 2026
           <span className="mx-2">·</span>
           <a href={KAKAO_CHANNEL} target="_blank" rel="noopener noreferrer" className="hover:text-brand-700">
             문의 채널

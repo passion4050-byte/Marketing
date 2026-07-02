@@ -96,7 +96,7 @@ function ClientContextSelector({
           {loading && <Loader2 className="h-3 w-3 animate-spin text-brand" />}
         </div>
         <div className="mt-1 text-[11px] text-ink-muted">
-          <strong>분류 목록의 본질</strong> — 클라이언트사의 경쟁사 현황 분석 → 학습 → 메디맵 콘텐츠 배포에 활용.
+          <strong>분류 목록의 본질</strong> — 클라이언트사의 경쟁사 현황 분석 → 학습 → 위서클 콘텐츠 배포에 활용.
           클라이언트 선택 시 표가 그 클라이언트와 관련된 도메인으로 자동 필터링됨.
         </div>
       </header>
@@ -191,7 +191,7 @@ type ApiResponse = {
 };
 
 const TIER_META: Record<Classification['tier'], { label: string; color: string; icon: typeof ShieldCheck; desc: string }> = {
-  T1: { label: 'T1 메디맵', color: 'bg-brand text-white', icon: ShieldCheck, desc: '메디맵 SaaS 자체 도메인' },
+  T1: { label: 'T1 위서클', color: 'bg-brand text-white', icon: ShieldCheck, desc: '위서클 SaaS 자체 도메인' },
   T3: { label: 'T3 권위', color: 'bg-status-warning text-white', icon: Building2, desc: '종합병원·학회·의료매체' },
   T4: { label: 'T4 플랫폼', color: 'bg-status-success text-white', icon: Globe, desc: '의료 플랫폼 (모두닥·강남언니 등)' },
   NOISE: { label: 'NOISE', color: 'bg-ink-muted text-white', icon: AlertTriangle, desc: '검색·위키·블로그 — 카운트 제외' },
@@ -423,7 +423,7 @@ export default function DomainClassificationsPage() {
       <div className="card bg-brand-50/30 p-3 text-[11px] text-ink-soft">
         <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-brand">왜 분류하는가?</div>
         <div className="leading-relaxed">
-          AI 가 메디맵 / 경쟁사 / 권위 사이트 중 어디를 인용하는지 자동 집계하려면 도메인을 5단계로 분류해야 합니다.
+          AI 가 위서클 / 경쟁사 / 권위 사이트 중 어디를 인용하는지 자동 집계하려면 도메인을 5단계로 분류해야 합니다.
           <strong className="text-brand-700"> T1</strong> 우리 자산 ·
           <strong className="text-status-warning"> T3</strong> 종합병원·학회 (콘텐츠 톤 학습 대상) ·
           <strong className="text-status-info"> T4</strong> 의료 플랫폼 (인용 점유율 경쟁) ·
@@ -492,7 +492,7 @@ export default function DomainClassificationsPage() {
             onChange={(e) => setNewTier(e.target.value as Classification['tier'])}
             className="rounded border border-border bg-surface-base px-2 py-1.5 text-[12px] md:col-span-2"
           >
-            <option value="T1">T1 메디맵</option>
+            <option value="T1">T1 위서클</option>
             <option value="T3">T3 권위</option>
             <option value="T4">T4 플랫폼</option>
             <option value="NOISE">NOISE</option>
@@ -531,7 +531,7 @@ export default function DomainClassificationsPage() {
             </h2>
             <div className="mt-1 text-[11px] text-ink-muted">
               이 클라이언트 키워드 측정에서 발견됐지만 글로벌 분류 사전에 없는 도메인 (T5 default).
-              <strong className="ml-1 text-brand">학습 분석</strong> 으로 메디맵 콘텐츠 가이드에 반영
+              <strong className="ml-1 text-brand">학습 분석</strong> 으로 위서클 콘텐츠 가이드에 반영
             </div>
           </header>
           <div className="admin-table-wrap">

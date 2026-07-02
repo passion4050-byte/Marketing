@@ -96,7 +96,7 @@ export function ActionRecommendations({
     const sample = lowGrounding.slice(0, 3).map((k) => k.keyword).join(', ');
     actions.push({
       severity: 'p1', icon: Target,
-      title: `메디맵 인용 0인 키워드 ${lowGrounding.length}개`,
+      title: `위서클 인용 0인 키워드 ${lowGrounding.length}개`,
       detail: `${sample}${lowGrounding.length > 3 ? ' 외' : ''} — 콘텐츠 추가 발행 또는 키워드 재검토 필요`,
       href: '/admin/keywords',
       cta: '키워드 풀 열기',

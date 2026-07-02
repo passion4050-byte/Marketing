@@ -1,12 +1,12 @@
 /**
  * Round 37 H (2026-05-31) — 운영 대시보드 차트 3개.
  *
- * 1. 메디맵 AI 인용 점유율(T1 share) 추이 — 라인 차트 (30일)
- *    "메디맵 자체 도메인이 AI 응답에 인용되는 비율" — SaaS 직접 효과 검증.
+ * 1. 위서클 AI 인용 점유율(T1 share) 추이 — 라인 차트 (30일)
+ *    "위서클 자체 도메인이 AI 응답에 인용되는 비율" — SaaS 직접 효과 검증.
  *
  * 2. 5-tier 점유율 추이 — stacked area (30일)
- *    T1(메디맵) / T3(권위) / T4(플랫폼) / T5(외부·경쟁) / NOISE.
- *    시장 점유율 변화 한눈에. 메디맵 T1 증가 + T5 감소가 가치 증명.
+ *    T1(위서클) / T3(권위) / T4(플랫폼) / T5(외부·경쟁) / NOISE.
+ *    시장 점유율 변화 한눈에. 위서클 T1 증가 + T5 감소가 가치 증명.
  *
  * 3. 클라이언트별 AI 인용 ranking — 가로 막대 (Top 5)
  *    어느 클라이언트의 키워드에서 가장 많이 인용되는지 — 영업 우선순위 결정.
@@ -38,7 +38,7 @@ import { cn } from '@/lib/cn';
 type AnalysisTab = 'tier' | 'ranking' | 'grounding';
 const TAB_META: Record<AnalysisTab, { label: string; icon: React.ComponentType<{ className?: string }>; desc: string }> = {
   tier: { label: '5-tier 점유율 추이', icon: BarChart3, desc: '시장 점유율 변화 (T1↑ T5↓ 가 가치 증명)' },
-  ranking: { label: '클라이언트별 ranking', icon: Users, desc: '클라이언트 키워드별 메디맵 vs 외부 비중' },
+  ranking: { label: '클라이언트별 ranking', icon: Users, desc: '클라이언트 키워드별 위서클 vs 외부 비중' },
   grounding: { label: '키워드 grounding rate', icon: Target, desc: '어느 키워드가 AI 출처로 인식되는지' },
 };
 
@@ -56,7 +56,7 @@ export type TierTrendPoint = {
 export type ClientRankingItem = {
   tenant_name: string;
   total: number;
-  t1: number;          // 메디맵 인용 (좋음)
+  t1: number;          // 위서클 인용 (좋음)
   t5: number;          // 경쟁사 인용 (나쁨)
 };
 
@@ -79,7 +79,7 @@ export type NewDomainItem = {
 };
 
 const TIER_COLORS = {
-  t1: '#1B68FF',      // 메디맵 블루
+  t1: '#1B68FF',      // 위서클 블루
   t3: '#15CBA8',      // 권위 — 민트
   t4: '#A855F7',      // 플랫폼 — 퍼플
   t5: '#F59E0B',      // 외부/경쟁 — 앰버
@@ -115,7 +115,7 @@ export function DashboardCharts({
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* Round 92 — 차트 1 (메디맵 share 추이) 제거.
+      {/* Round 92 — 차트 1 (위서클 share 추이) 제거.
           medimap-blog 도메인 인용 0건 상태라 차트가 비어있어 화면 낭비.
           AI 시장 점유 진단 위젯이 같은 정보를 더 풍부하게 표시. */}
 
@@ -126,7 +126,7 @@ export function DashboardCharts({
           <div className="mt-1">
             {zeroGroundingKeywords.length > 0 && (
               <span>
-                메디맵 인용 0인 키워드 <strong>{zeroGroundingKeywords.length}개</strong>
+                위서클 인용 0인 키워드 <strong>{zeroGroundingKeywords.length}개</strong>
                 {zeroGroundingKeywords.length > 0 && ` (${zeroGroundingKeywords.slice(0, 2).map((k) => k.keyword).join(', ')}${zeroGroundingKeywords.length > 2 ? ' 외' : ''})`}
                 — 콘텐츠 추가 발행 권장.
               </span>
@@ -149,7 +149,7 @@ export function DashboardCharts({
             5-tier 점유율 추이 (30일)
           </h2>
           <div className="mt-1 text-[11px] text-ink-muted">
-            메디맵(T1) · 권위(T3) · 플랫폼(T4) · 외부/경쟁(T5) · noise 일자별 stacked.
+            위서클(T1) · 권위(T3) · 플랫폼(T4) · 외부/경쟁(T5) · noise 일자별 stacked.
             <span className="ml-1 text-brand">T1 ↑ + T5 ↓</span> 가 가치 증명
           </div>
         </header>
@@ -167,7 +167,7 @@ export function DashboardCharts({
                 <Area
                   type="monotone"
                   dataKey="t1"
-                  name="메디맵 T1"
+                  name="위서클 T1"
                   stackId="a"
                   stroke={TIER_COLORS.t1}
                   fill={TIER_COLORS.t1}
@@ -225,7 +225,7 @@ export function DashboardCharts({
             클라이언트별 AI 인용 ranking (Top 5) — T1 vs 외부 stacked
           </h2>
           <div className="mt-1 text-[11px] text-ink-muted">
-            클라이언트 키워드 측정에서 발견된 인용 — <span style={{ color: TIER_COLORS.t1 }}>메디맵 T1</span> + <span style={{ color: TIER_COLORS.t5 }}>외부(T5)</span> 비율로 분리. T1 비중이 영업 성과
+            클라이언트 키워드 측정에서 발견된 인용 — <span style={{ color: TIER_COLORS.t1 }}>위서클 T1</span> + <span style={{ color: TIER_COLORS.t5 }}>외부(T5)</span> 비율로 분리. T1 비중이 영업 성과
           </div>
         </header>
         <div className="p-2 md:p-4">
@@ -251,7 +251,7 @@ export function DashboardCharts({
                 />
                 <Tooltip />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="t1" name="메디맵 T1" stackId="r" fill={TIER_COLORS.t1} />
+                <Bar dataKey="t1" name="위서클 T1" stackId="r" fill={TIER_COLORS.t1} />
                 <Bar dataKey="other" name="권위/플랫폼" stackId="r" fill={TIER_COLORS.t3} />
                 <Bar dataKey="t5" name="외부/경쟁 T5" stackId="r" fill={TIER_COLORS.t5} radius={[0, 4, 4, 0]} />
               </BarChart>
@@ -259,7 +259,7 @@ export function DashboardCharts({
           )}
           {clientRanking.length > 0 && (
             <div className="mt-2 text-[10px] text-ink-faint">
-              💡 막대 안 색상 비율: <span className="font-semibold" style={{ color: TIER_COLORS.t1 }}>메디맵 인용(좋음)</span> /
+              💡 막대 안 색상 비율: <span className="font-semibold" style={{ color: TIER_COLORS.t1 }}>위서클 인용(좋음)</span> /
               <span style={{ color: TIER_COLORS.t3 }}>권위·플랫폼(중립)</span> /
               <span style={{ color: TIER_COLORS.t5 }}>외부 경쟁(보강 기회)</span>
             </div>
@@ -284,7 +284,7 @@ export function DashboardCharts({
               <strong>해석</strong>: <span style={{ color: TIER_COLORS.t3 }}>50%+ (민트)</span> = 안정적 grounding, 콘텐츠 충분 / <span style={{ color: TIER_COLORS.t4 }}>20~50% (퍼플)</span> = 보강 가능 / <span style={{ color: TIER_COLORS.t5 }}>20% 미만 (앰버)</span> = <strong>콘텐츠 보강 시급</strong>
             </div>
             <div>
-              <strong>활용</strong>: 낮은 rate 키워드 → 메디맵 콘텐츠 가이드 (learned_insights 적용) 로 새 글 생성 우선순위
+              <strong>활용</strong>: 낮은 rate 키워드 → 위서클 콘텐츠 가이드 (learned_insights 적용) 로 새 글 생성 우선순위
             </div>
           </div>
         </header>

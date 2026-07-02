@@ -139,7 +139,7 @@ export function LearnFromDomainButton({
         onClick={run}
         disabled={loading || urls.length === 0}
         className="inline-flex items-center gap-1.5 rounded-md border border-brand/30 bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand transition hover:bg-brand-100 disabled:opacity-50"
-        title={`이 도메인의 ${urls.length}개 URL 일괄 분석 → 메디맵 가이드 비교 진단`}
+        title={`이 도메인의 ${urls.length}개 URL 일괄 분석 → 위서클 가이드 비교 진단`}
       >
         {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
         {loading ? '분석 중... (~10초)' : `전체 분석 & 반영 (${urls.length}개 URL)`}
@@ -161,7 +161,7 @@ export function LearnFromDomainButton({
                   <span className="font-mono">{domain}</span> 종합 분석
                 </h3>
                 <div className="mt-0.5 text-[11px] text-ink-muted">
-                  메디맵 가이드 v3 와 비교 진단
+                  위서클 가이드 v3 와 비교 진단
                 </div>
               </div>
               <button onClick={close} className="rounded p-1 hover:bg-surface-soft">
@@ -245,7 +245,7 @@ export function LearnFromDomainButton({
                   <div className="mb-3 rounded border border-brand/20 bg-brand-50/40 px-3 py-2.5 text-[11px]">
                     <div className="mb-1.5 flex items-center gap-1 font-semibold text-brand">
                       <Lightbulb className="h-3 w-3" />
-                      진단 — 메디맵 가이드 v3 비교
+                      진단 — 위서클 가이드 v3 비교
                     </div>
                     <ul className="space-y-1 pl-4 text-ink-soft">
                       {analysis.diagnosis.map((d, i) => (
@@ -259,7 +259,7 @@ export function LearnFromDomainButton({
                 {analysis.recommendations && analysis.recommendations.length > 0 && (
                   <div className="mb-3 rounded border border-status-warning/30 bg-status-warningSoft/30 px-3 py-2.5 text-[11px]">
                     <div className="mb-1.5 font-semibold text-status-warning">
-                      💡 메디맵 콘텐츠 가이드 v4 권장 변경
+                      💡 위서클 콘텐츠 가이드 v4 권장 변경
                     </div>
                     <ol className="space-y-1 pl-4 text-ink-soft">
                       {analysis.recommendations.map((r, i) => (
@@ -277,7 +277,7 @@ export function LearnFromDomainButton({
                   <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="이 도메인의 패턴 중 메디맵 가이드에 어떻게 반영할지... (예: FAQ schema 먼저 도입, H2 8개로 확장 등)"
+                    placeholder="이 도메인의 패턴 중 위서클 가이드에 어떻게 반영할지... (예: FAQ schema 먼저 도입, H2 8개로 확장 등)"
                     className="w-full rounded border border-border bg-surface-base px-2 py-1.5 text-[11px]"
                     rows={2}
                   />

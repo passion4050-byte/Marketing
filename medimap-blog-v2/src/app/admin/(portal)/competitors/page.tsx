@@ -207,7 +207,7 @@ export default function CompetitorsPage() {
       <div className="hidden print:mb-6 print:block">
         <h1 className="text-2xl font-bold text-ink">경쟁사 현황 — {selectedName}</h1>
         <p className="mt-1 text-xs text-ink-muted">
-          MEDIMAP GEO · {new Date().toLocaleString('ko-KR')} · 비즈니스 모델: {businessModel}
+          WECIRCLE GEO · {new Date().toLocaleString('ko-KR')} · 비즈니스 모델: {businessModel}
         </p>
       </div>
 
@@ -301,14 +301,14 @@ export default function CompetitorsPage() {
         </div>
       ) : (
         <>
-          {/* Round 67 — 경쟁사 측정 데이터 없을 때 안내 (메디맵/자사 혼동 방지) */}
+          {/* Round 67 — 경쟁사 측정 데이터 없을 때 안내 (위서클/자사 혼동 방지) */}
           {data.competitor_top.length === 0 && (
             <div className="mb-6 card card-pad border-l-4 border-l-status-warning">
               <div className="text-sm font-semibold text-ink">이 클라이언트는 아직 경쟁사 측정 데이터가 없습니다</div>
               <div className="mt-1 text-[12px] leading-relaxed text-ink-soft">
                 이 페이지는 <strong>경쟁사 추적용(competitor_landscape) 키워드</strong>만 집계합니다.{' '}
                 {data.selected_tenant?.business_model === 'self'
-                  ? '메디맵(자사)은 자사 키워드로 추적되므로, 상단 ‘자사 인용’ 탭에서 경쟁/점유 데이터를 확인하세요.'
+                  ? '위서클(자사)은 자사 키워드로 추적되므로, 상단 ‘자사 인용’ 탭에서 경쟁/점유 데이터를 확인하세요.'
                   : '이 병원에 competitor_landscape 키워드를 등록하면 채워집니다. 자사 키워드 기반 데이터는 ‘자사 인용’ 탭에 있습니다.'}
               </div>
             </div>
@@ -344,7 +344,7 @@ export default function CompetitorsPage() {
                 <div className="mt-2 text-[10px] text-ink-muted">AI 가 우리보다 자주 추천하는 경쟁사</div>
               </div>
 
-              {/* 2. 학습 후보 — 인용 횟수 많은데 메디맵 baseline 에 없는 도메인 (T3 = 권위) */}
+              {/* 2. 학습 후보 — 인용 횟수 많은데 위서클 baseline 에 없는 도메인 (T3 = 권위) */}
               <div className="card card-pad border-l-4 border-l-status-warning">
                 <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-status-warning">
                   <span>📚 학습 후보 Top 3</span>
@@ -465,7 +465,7 @@ export default function CompetitorsPage() {
           <aside className="card card-pad">
             <h3 className="section-title mb-1">내 점유 현황</h3>
             <p className="mb-3 text-[11px] text-ink-muted">
-              AI가 답변에 인용한 출처 중 <strong className="text-brand">우리 편</strong>(메디맵이 쓴 글 + 병원 사이트)이 차지하는 비율
+              AI가 답변에 인용한 출처 중 <strong className="text-brand">우리 편</strong>(위서클이 쓴 글 + 병원 사이트)이 차지하는 비율
             </p>
             {(() => {
               const cs = data.client_status;
@@ -492,11 +492,11 @@ export default function CompetitorsPage() {
                       <span className="text-ink-muted">경쟁사 {comp}회 · 전체 {total}회</span>
                     </div>
                   </div>
-                  {/* 분해: 메디맵 글 / 병원 사이트 */}
+                  {/* 분해: 위서클 글 / 병원 사이트 */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between rounded-lg bg-surface-subtle px-3 py-2">
                       <div className="min-w-0">
-                        <div className="text-xs font-semibold text-ink">메디맵 GEO 콘텐츠 ⭐</div>
+                        <div className="text-xs font-semibold text-ink">위서클 GEO 콘텐츠 ⭐</div>
                         <div className="text-[10px] text-ink-muted">우리가 발행한 글이 AI에 인용된 횟수</div>
                       </div>
                       <span className="shrink-0 text-xl font-bold text-brand">{medimap}</span>
@@ -694,7 +694,7 @@ export default function CompetitorsPage() {
                                   <div className="text-[11px] font-semibold text-ink-muted">
                                     키워드별 인용 상세 ({c.citations.length}개 키워드) — 어떤 키워드로 · 몇 번 · 어느 AI · 어떤 콘텐츠
                                   </div>
-                                  {/* Round 36 fix 3 — 도메인 일괄 분석 + 메디맵 가이드 비교 진단 */}
+                                  {/* Round 36 fix 3 — 도메인 일괄 분석 + 위서클 가이드 비교 진단 */}
                                   <LearnFromDomainButton
                                     domain={c.domain}
                                     urls={c.urls}
@@ -705,7 +705,7 @@ export default function CompetitorsPage() {
                                 </div>
                                 <CitationBreakdown citations={c.citations} />
                                 <div className="mt-2 text-[10px] text-ink-muted">
-                                  💡 <strong>학습 포인트</strong> — 위 버튼으로 URL 일괄 분석 → 메디맵 가이드 v3 와 자동 비교 → 권장 변경사항 진단
+                                  💡 <strong>학습 포인트</strong> — 위 버튼으로 URL 일괄 분석 → 위서클 가이드 v3 와 자동 비교 → 권장 변경사항 진단
                                 </div>
                               </td>
                             </tr>
