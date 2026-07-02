@@ -1,5 +1,5 @@
 import { siteConfig } from "@/lib/site";
-import { MessageCircle, MapPin, ExternalLink } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { TrackedLink } from "./TrackedLink";
 
 interface CTABlockProps {
@@ -22,20 +22,22 @@ function withUtm(url: string, source: string, campaign: string): string {
   }
 }
 
+/**
+ * Round 108-e (2026-07-03) — CTA 심플화.
+ * 이전: 카카오톡 + 네이버 플레이스 + 외부 medimap 링크 3개 (외부 이탈 유도)
+ * 개선: 카카오톡 오픈챗 CTA 하나만 크게 (wecircle.co.kr 내부 유도 정책).
+ */
 export function CTABlock({
-  title = "위서클에 상담하기",
-  description = "병원/시술 정보부터 가격 비교까지, 위서클 운영자가 직접 안내합니다.",
+  title = "지금 바로 위서클 상담받기",
+  description = "AI 검색 시대의 의료 마케팅, 위서클 운영자가 직접 안내합니다.",
   utmSource = "blog",
   utmCampaign = "blog_cta",
 }: CTABlockProps) {
   const kakao = withUtm(siteConfig.contact.kakao, utmSource, utmCampaign);
-  const naver = withUtm(siteConfig.contact.naverPlace, utmSource, utmCampaign);
   return (
     <aside
       className="relative my-12 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-700 p-8 text-white shadow-cta"
       data-cta-block="standard"
-      // Promote to its own GPU layer so the blurred glow siblings below don't
-      // re-paint on every scroll on low-end mobile devices.
       style={{ contain: "paint", willChange: "transform" }}
     >
       <div
@@ -48,46 +50,22 @@ export function CTABlock({
         aria-hidden
         style={{ transform: "translateZ(0)", willChange: "transform" }}
       />
-      <div className="relative">
+      <div className="relative text-center">
         <h3 className="text-[22px] font-bold tracking-tight md:text-2xl">
           {title}
         </h3>
-        <p className="mt-2 max-w-xl text-white/85">{description}</p>
-        <div className="mt-6 grid gap-3 sm:grid-cols-3">
-          <TrackedLink
-            href={kakao}
-            target="_blank"
-            rel="noopener noreferrer"
-            trackChannel="kakao"
-            trackSource={utmSource}
-            trackCampaign={utmCampaign}
-            className="group inline-flex items-center justify-center gap-2 rounded-pill bg-white/15 px-5 py-3 text-sm font-semibold backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/25"
-          >
-            <MessageCircle size={17} /> 카카오톡 상담
-          </TrackedLink>
-          <TrackedLink
-            href={naver}
-            target="_blank"
-            rel="noopener noreferrer"
-            trackChannel="naver_place"
-            trackSource={utmSource}
-            trackCampaign={utmCampaign}
-            className="group inline-flex items-center justify-center gap-2 rounded-pill bg-white/15 px-5 py-3 text-sm font-semibold backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/25"
-          >
-            <MapPin size={17} /> 네이버 플레이스
-          </TrackedLink>
-          <TrackedLink
-            href={siteConfig.contact.medimapMain}
-            target="_blank"
-            rel="noopener noreferrer"
-            trackChannel="medimap_main"
-            trackSource={utmSource}
-            trackCampaign={utmCampaign}
-            className="group inline-flex items-center justify-center gap-2 rounded-pill bg-white px-5 py-3 text-sm font-semibold text-brand transition hover:-translate-y-0.5 hover:bg-brand-50"
-          >
-            <ExternalLink size={17} /> 많은 의료정보 보기
-          </TrackedLink>
-        </div>
+        <p className="mx-auto mt-2 max-w-xl text-white/85">{description}</p>
+        <TrackedLink
+          href={kakao}
+          target="_blank"
+          rel="noopener noreferrer"
+          trackChannel="kakao"
+          trackSource={utmSource}
+          trackCampaign={utmCampaign}
+          className="mt-6 inline-flex items-center justify-center gap-2 rounded-full bg-[#FEE500] px-8 py-4 text-base font-extrabold text-[#3C1E1E] shadow-md transition hover:scale-105 hover:shadow-lg"
+        >
+          <MessageCircle size={20} /> 카카오톡으로 상담받기
+        </TrackedLink>
       </div>
     </aside>
   );

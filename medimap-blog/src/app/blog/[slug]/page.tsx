@@ -133,12 +133,29 @@ export default async function BlogPostPage({
     </figure>
   ) : null;
 
+  // Round 108-e (2026-07-03) — 본문 안 "참고 자료" (외부 URL) 제거 정책.
+  // sitewide 내부 유도: 사용자가 외부 사이트로 이탈하지 않도록 참고 자료 섹션 제거.
+  const stripReferenceSection = (html: string): string => {
+    if (!html) return html;
+    let out = html;
+    // "참고 자료" / "참고자료" / "References" H2 이후 전부 제거
+    out = out.replace(/<h2[^>]*>\s*참고\s*자료\s*<\/h2>[\s\S]*$/i, "");
+    out = out.replace(/<h2[^>]*>\s*References?\s*<\/h2>[\s\S]*$/i, "");
+    out = out.replace(/<h2[^>]*>\s*참고\s*문헌\s*<\/h2>[\s\S]*$/i, "");
+    // 홈페이지 / 네이버 지도 링크 문단 자동 제거
+    out = out.replace(
+      /<p[^>]*>\s*(?:홈페이지|네이버\s*지도|웹사이트|사이트)[^<]*<\/p>/gi,
+      "",
+    );
+    return out;
+  };
+
   let content: React.ReactNode;
   if (post.source_type === "html") {
     content = (
       <div
         className="db-html-content"
-        dangerouslySetInnerHTML={{ __html: post.source }}
+        dangerouslySetInnerHTML={{ __html: stripReferenceSection(post.source) }}
       />
     );
   } else {
