@@ -198,7 +198,9 @@ async function uploadBytesToStorage(bytes: Uint8Array, keyword: string, contentI
   }
   if (!bytes || bytes.byteLength < 1024) return null;
   try {
-    const bucket = process.env.SUPABASE_STORAGE_BUCKET || 'blog-images';
+    // Round 107 (2026-07-03) — 실제 버킷 이름 = post-images (기존 이미지 URL 로 확인).
+    // Nano Banana 는 성공했는데 blog-images 버킷 없어서 업로드 400 남.
+    const bucket = process.env.SUPABASE_STORAGE_BUCKET || 'post-images';
     const slug = keyword.replace(/[^a-zA-Z0-9가-힣]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'img';
     const ts = Date.now();
     const objectPath = `${slug}/regen-${contentId}-${ts}.png`;
