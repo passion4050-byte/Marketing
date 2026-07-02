@@ -1,0 +1,62 @@
+name: Backfill bodies (body_polish 재적용)
+
+# Round 108-c (2026-07-03) — 기존 콘텐츠 65편의 body HTML 을 무신사 매거진 감도로 재폴리셔.
+# body_polish 로직 (entity 복구, 표 병합, 인라인 스타일, Pretendard wrapper) 을 기존 콘텐츠에 일괄 적용.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tenant_id:
+        description: '특정 tenant 만 (빈값 = 전체)'
+        required: false
+        default: ''
+      content_id:
+        description: '특정 콘텐츠 id 만 (테스트용, 빈값 = 전체)'
+        required: false
+        default: ''
+      dry_run:
+        description: 'dry-run (실제 UPDATE 안 함, 대상만 나열)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backfill-bodies
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify DATABASE_URL
+        run: |
+          [ -n "${{ secrets.DATABASE_URL }}" ] || { echo "::error::DATABASE_URL 없음"; exit 1; }
+
+      - name: Run polish_existing_bodies.py
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          ARGS=""
+          [ -n "${{ inputs.tenant_id }}" ] && ARGS="$ARGS --tenant-id ${{ inputs.tenant_id }}"
+          [ -n "${{ inputs.content_id }}" ] && ARGS="$ARGS --id ${{ inputs.content_id }}"
+          [ "${{ inputs.dry_run }}" = "true" ] && ARGS="$ARGS --dry-run"
+          echo "Running: python scripts/polish_existing_bodies.py $ARGS"
+          python scripts/polish_existing_bodies.py $ARGS
