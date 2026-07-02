@@ -1,210 +1,206 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowUpRight, Sparkles, ShieldCheck, Stethoscope } from "lucide-react";
+import Image from "next/image";
+import { ArrowUpRight } from "lucide-react";
 import { PARTNER_CATEGORIES, getAllPartnerPosts } from "@/lib/partners";
-import { getPartnerVisual } from "@/lib/partner-visual";
 import { siteConfig, absoluteUrl } from "@/lib/site";
 
-// Round 12: force-dynamic으로 빌드 시점 prerender 회피, runtime에 모듈 캐시(60s)로 cost 절감
-export const dynamic = 'force-dynamic';
+// Round 111 v2 (2026-07-02) — editorial magazine index. 3-col grid 폐기, numbered directory,
+// hairline dividers, cover image preview on hover, warm off-white palette, controlled scale.
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "파트너 병원 콘텐츠 — 위서클",
   description:
-    "위서클과 함께하는 안과·피부과·성형외과·치과·내과·모발이식·한방 파트너 병원의 검증된 의료 콘텐츠.",
+    "안과·피부과·성형외과·치과·내과·모발이식·한방. 위서클과 함께하는 파트너 병원의 의료법을 통과한 콘텐츠.",
   alternates: { canonical: absoluteUrl("/with-partners") },
   openGraph: {
     title: "파트너 병원 콘텐츠 — 위서클",
-    description:
-      "위서클과 함께하는 7개 진료과 파트너 병원의 검증된 의료 콘텐츠 모음.",
     url: absoluteUrl("/with-partners"),
     siteName: siteConfig.name,
     type: "website",
   },
 };
 
+const CATEGORY_COPY: Record<string, { subtitle: string; overline: string }> = {
+  eyeclinic:  { overline: "Ophthalmology", subtitle: "라식·라섹·스마일라식·백내장" },
+  derma:      { overline: "Dermatology",   subtitle: "여드름·색소·레이저·필러·보톡스" },
+  plastic:    { overline: "Plastic Surgery", subtitle: "안면윤곽·가슴·코·양악·쌍꺼풀" },
+  dental:     { overline: "Dental",        subtitle: "임플란트·교정·미백·신경치료" },
+  internal:   { overline: "Internal Medicine", subtitle: "건강검진·내시경·갑상선·당뇨" },
+  hair:       { overline: "Hair Transplant", subtitle: "FUT 절개·FUE 비절개·헤어라인" },
+  oriental:   { overline: "Oriental Medicine", subtitle: "한약·체형교정·다이어트·통증" },
+};
+
 export default async function WithPartnersHubPage() {
   const all = await getAllPartnerPosts();
+
   const countByCategory = new Map<string, number>();
+  const coverByCategory = new Map<string, string | null>();
   for (const p of all) {
-    countByCategory.set(
-      p.partner_category,
-      (countByCategory.get(p.partner_category) ?? 0) + 1,
-    );
+    countByCategory.set(p.partner_category, (countByCategory.get(p.partner_category) ?? 0) + 1);
+    if (!coverByCategory.has(p.partner_category) && p.cover_image_url) {
+      coverByCategory.set(p.partner_category, p.cover_image_url);
+    }
   }
 
-  const totalPosts = all.length;
-  const activeCategories = Array.from(countByCategory.keys()).length;
+  const total = all.length;
+  const activeCategories = Array.from(countByCategory.entries()).filter(([, c]) => c > 0).length;
 
   return (
-    <main className="relative overflow-hidden">
-      {/* === Editorial Hero === */}
-      <section className="relative border-b border-slate-100">
-        {/* Ambient gradient wash */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(1200px 500px at 20% -10%, rgba(27,104,255,0.09), transparent 55%), radial-gradient(900px 400px at 100% 0%, rgba(26,210,164,0.09), transparent 55%)",
-          }}
-        />
-        <div className="absolute inset-x-0 top-0 h-[420px] bg-gradient-to-b from-brand-50/40 via-white/0 to-white" aria-hidden />
-
-        <div className="container-content relative pt-16 pb-14 md:pt-24 md:pb-20">
-          <div className="mx-auto max-w-4xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-brand-100 bg-white/80 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-brand backdrop-blur">
-              <Sparkles size={12} />
-              With Partners
+    <main className="bg-[#FAFAF7] text-stone-900">
+      {/* === Editorial masthead === */}
+      <section className="border-b border-stone-200/70">
+        <div className="mx-auto w-full max-w-[1280px] px-6 pt-16 pb-10 md:pt-24 md:pb-14 lg:px-10">
+          <div className="grid gap-10 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-end">
+            <div>
+              <div className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
+                <span className="inline-block h-px w-6 bg-stone-400" />
+                Partner Network · Issue 07
+              </div>
+              <h1 className="mt-6 text-[38px] font-black leading-[1.08] tracking-[-0.02em] text-stone-950 md:text-[52px]">
+                같이 걷는 병원들.
+                <br />
+                <span className="text-stone-400">한 자리에서 만나는</span>{" "}
+                검증된 의료 콘텐츠.
+              </h1>
             </div>
-            <h1 className="mt-5 text-[40px] font-black leading-[1.05] tracking-[-0.03em] text-ink md:text-[64px]">
-              같이 걷는 병원들.
-              <br />
-              <span className="bg-gradient-to-r from-brand via-accent to-brand-600 bg-clip-text text-transparent">
-                검증된 의료 콘텐츠
-              </span>
-              를 한곳에서.
-            </h1>
-            <p className="mt-6 max-w-2xl text-base leading-relaxed text-ink-soft md:text-lg">
-              안과·피부과·성형외과·치과·내과·모발이식·한방 <strong>7개 진료과</strong> 파트너 병원이 위서클과 함께 만드는 콘텐츠 — 의료법 가이드를 통과한 정직한 정보만 모았습니다.
-            </p>
 
-            {/* Stat strip */}
-            <div className="mt-10 grid max-w-2xl grid-cols-3 gap-4">
-              <StatCard
-                icon={<Stethoscope size={16} />}
-                label="진료과"
-                value={String(PARTNER_CATEGORIES.length)}
-                sub={`활성 ${activeCategories}개`}
-              />
-              <StatCard
-                icon={<Sparkles size={16} />}
-                label="발행 콘텐츠"
-                value={totalPosts.toLocaleString()}
-                sub="누적"
-              />
-              <StatCard
-                icon={<ShieldCheck size={16} />}
-                label="의료법 통과"
-                value="100%"
-                sub="컴플라이언스"
-              />
+            {/* Right column — sub-copy + minimal stats */}
+            <div className="lg:pb-2">
+              <p className="max-w-md text-[15px] leading-[1.75] text-stone-600">
+                안과·피부과·성형외과·치과·내과·모발이식·한방 — 위서클이 발행하는 파트너 병원 콘텐츠는 의료법 가이드를 통과한 정직한 정보만 다룹니다.
+              </p>
+              <dl className="mt-8 grid grid-cols-3 gap-6 border-t border-stone-200/80 pt-6">
+                <StatCell label="Categories" value={String(PARTNER_CATEGORIES.length)} />
+                <StatCell label="Active" value={`${activeCategories} / ${PARTNER_CATEGORIES.length}`} />
+                <StatCell label="Published" value={total.toLocaleString()} />
+              </dl>
             </div>
           </div>
         </div>
       </section>
 
-      {/* === Category grid === */}
-      <section className="container-content py-16 md:py-20">
-        <div className="mb-8 flex items-end justify-between">
-          <div>
-            <div className="text-[11px] font-bold uppercase tracking-[0.25em] text-brand-700">
-              Categories
-            </div>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-ink md:text-3xl">
-              진료과별로 골라보세요
-            </h2>
-          </div>
-          <div className="hidden text-sm text-ink-muted md:block">
-            각 진료과의 파트너 병원 콘텐츠로 이동
-          </div>
+      {/* === Directory (numbered magazine index) === */}
+      <section className="mx-auto w-full max-w-[1280px] px-6 py-16 md:py-24 lg:px-10">
+        <div className="mb-10 flex items-baseline justify-between border-b border-stone-300 pb-4">
+          <h2 className="text-xs font-bold uppercase tracking-[0.35em] text-stone-700">
+            Directory
+          </h2>
+          <span className="text-xs text-stone-500">진료과별 콘텐츠 아카이브</span>
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {PARTNER_CATEGORIES.map((cat, idx) => {
+        <ol className="divide-y divide-stone-200/70">
+          {PARTNER_CATEGORIES.map((cat, i) => {
             const count = countByCategory.get(cat.slug) ?? 0;
-            const v = getPartnerVisual(cat.slug);
-            const Icon = v.icon;
+            const cover = coverByCategory.get(cat.slug) ?? null;
             const isEmpty = count === 0;
+            const copy = CATEGORY_COPY[cat.slug] ?? {
+              overline: cat.slug,
+              subtitle: cat.description,
+            };
+            const num = String(i + 1).padStart(2, "0");
+
             return (
-              <Link
-                key={cat.slug}
-                href={`/with-partners/${cat.slug}`}
-                className={`group relative overflow-hidden rounded-3xl border ${v.border} ${v.softBg} p-6 shadow-sm transition-all duration-300 ${v.borderHover} hover:-translate-y-1.5 ${v.aura} hover:shadow-xl`}
-              >
-                {/* Rank stripe */}
-                <span
-                  aria-hidden
-                  className="absolute right-6 top-6 text-[64px] font-black leading-none tracking-tighter text-slate-900/[0.04]"
+              <li key={cat.slug} className="group relative">
+                <Link
+                  href={`/with-partners/${cat.slug}`}
+                  className="grid grid-cols-[64px_1fr_auto] items-center gap-6 py-8 transition md:grid-cols-[88px_minmax(0,1fr)_minmax(0,240px)_auto] md:gap-10 md:py-10"
                 >
-                  0{idx + 1}
-                </span>
+                  {/* Numeral */}
+                  <span className="font-serif text-4xl font-light tabular-nums leading-none text-stone-400 transition group-hover:text-stone-900 md:text-5xl">
+                    {num}
+                  </span>
 
-                {/* Icon block */}
-                <div className={`relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${v.gradient} text-white shadow-lg`}>
-                  <Icon size={26} strokeWidth={1.75} />
-                </div>
-
-                {/* Title + description */}
-                <h3 className={`relative mt-5 text-2xl font-black tracking-tight text-ink transition group-hover:${v.accent}`}>
-                  {cat.ko}
-                </h3>
-                <p className={`relative mt-1 text-[13px] font-bold uppercase tracking-widest ${v.accent}`}>
-                  {v.tagline}
-                </p>
-                <p className="relative mt-3 text-sm leading-relaxed text-ink-soft">
-                  {cat.description}
-                </p>
-
-                {/* Chip wall */}
-                <div className="relative mt-4 flex flex-wrap gap-1.5">
-                  {cat.exampleKeywords.slice(0, 4).map((k) => (
-                    <span
-                      key={k}
-                      className={`rounded-full ${v.chipBg} px-2.5 py-0.5 text-[11px] font-bold ${v.chipText}`}
-                    >
-                      #{k}
-                    </span>
-                  ))}
-                </div>
-
-                {/* Footer bar */}
-                <div className="relative mt-6 flex items-center justify-between border-t border-white/60 pt-4">
-                  <div>
-                    <div className="text-[10px] font-bold uppercase tracking-widest text-ink-subtle">
-                      Published
+                  {/* Title + subtitle */}
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-stone-500">
+                      {copy.overline}
                     </div>
-                    <div className={`text-2xl font-black leading-none tracking-tight ${isEmpty ? 'text-slate-400' : 'text-ink'} num`}>
-                      {count}
-                      <span className="ml-0.5 text-xs font-bold text-ink-muted">편</span>
+                    <div className="mt-1.5 flex items-baseline gap-3">
+                      <h3 className="text-2xl font-bold tracking-tight text-stone-950 transition group-hover:text-stone-900 md:text-[28px]">
+                        {cat.ko}
+                      </h3>
                     </div>
+                    <p className="mt-1.5 text-sm leading-relaxed text-stone-500">
+                      {copy.subtitle}
+                    </p>
                   </div>
-                  <div className={`inline-flex items-center gap-1 rounded-full ${v.chipBg} px-3 py-1.5 text-xs font-bold ${v.chipText} transition group-hover:translate-x-0.5`}>
-                    {isEmpty ? '준비 중' : '카테고리 열기'}
-                    <ArrowUpRight size={14} strokeWidth={2.5} />
+
+                  {/* Cover preview — desktop only */}
+                  <div className="hidden md:block">
+                    {cover ? (
+                      <div className="relative aspect-[3/2] w-full overflow-hidden rounded-sm bg-stone-100 transition duration-500 group-hover:scale-[1.02]">
+                        <Image
+                          src={cover}
+                          alt=""
+                          fill
+                          sizes="240px"
+                          className="object-cover grayscale transition duration-700 group-hover:grayscale-0"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex aspect-[3/2] w-full items-center justify-center rounded-sm border border-dashed border-stone-200 bg-stone-50 text-[10px] font-semibold uppercase tracking-widest text-stone-400">
+                        Coming soon
+                      </div>
+                    )}
                   </div>
-                </div>
-              </Link>
+
+                  {/* Count + arrow */}
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="flex items-baseline gap-1">
+                      <span className={`text-2xl font-black tabular-nums leading-none ${isEmpty ? "text-stone-300" : "text-stone-950"}`}>
+                        {count}
+                      </span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                        posts
+                      </span>
+                    </div>
+                    <ArrowUpRight
+                      size={22}
+                      strokeWidth={1.5}
+                      className="text-stone-300 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-stone-900"
+                    />
+                  </div>
+                </Link>
+              </li>
             );
           })}
-        </div>
+        </ol>
       </section>
 
-      {/* === Partner CTA === */}
-      <section className="border-t border-slate-100 bg-slate-50/60">
-        <div className="container-content py-14 md:py-16">
-          <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-white px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-brand">
-              <Sparkles size={12} />
-              Partner with Us
+      {/* === Editorial partner CTA === */}
+      <section className="border-t border-stone-200/70">
+        <div className="mx-auto w-full max-w-[1280px] px-6 py-20 md:py-28 lg:px-10">
+          <div className="grid gap-12 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-center">
+            <div>
+              <div className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
+                <span className="inline-block h-px w-6 bg-stone-400" />
+                Become a Partner
+              </div>
+              <h2 className="mt-5 text-[32px] font-black leading-[1.15] tracking-[-0.015em] text-stone-950 md:text-[44px]">
+                병원의 이야기를,
+                <br />
+                AI 검색 시대의 <span className="italic font-serif font-normal text-stone-600">자산</span>으로.
+              </h2>
+              <p className="mt-6 max-w-lg text-[15px] leading-[1.75] text-stone-600">
+                위서클은 병원의 진료 철학·시술 근거·환자 사례를 의료법을 통과한 콘텐츠 자산으로 재편집합니다. AI 검색엔진에 인용되는 데이터가 됩니다.
+              </p>
             </div>
-            <h3 className="text-3xl font-black tracking-tight text-ink md:text-4xl">
-              당신의 병원 이야기,
-              <br className="md:hidden" />{" "}
-              <span className="bg-gradient-to-r from-brand to-accent bg-clip-text text-transparent">AI 검색 시대의 자산</span>이 됩니다.
-            </h3>
-            <p className="max-w-xl text-sm leading-relaxed text-ink-soft md:text-base">
-              위서클은 병원의 진료 철학·시술 근거·환자 사례를 의료법을 통과한 콘텐츠 자산으로 재편집합니다. AI 검색엔진에 인용되는 진짜 데이터로 만들어 드립니다.
-            </p>
-            <a
-              href={siteConfig.contact.kakao}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group inline-flex items-center gap-2 rounded-2xl bg-[#FEE500] px-6 py-3 text-sm font-black text-[#3C1E1E] shadow-md transition hover:-translate-y-0.5 hover:shadow-lg"
-            >
-              카카오톡으로 상담받기
-              <ArrowUpRight size={16} className="transition group-hover:translate-x-0.5" />
-            </a>
+            <div className="lg:pl-6">
+              <a
+                href={siteConfig.contact.kakao}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group inline-flex w-full items-center justify-between gap-4 border border-stone-900 bg-stone-900 px-6 py-5 text-white transition hover:bg-stone-800"
+              >
+                <span className="text-sm font-bold tracking-tight">카카오톡으로 상담 신청</span>
+                <ArrowUpRight size={18} strokeWidth={2} className="transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              </a>
+              <p className="mt-3 text-xs text-stone-500">
+                평일 10:00–19:00 · 위서클 파트너십 팀 응답
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -212,27 +208,15 @@ export default async function WithPartnersHubPage() {
   );
 }
 
-function StatCard({
-  icon,
-  label,
-  value,
-  sub,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  sub: string;
-}) {
+function StatCell({ label, value }: { label: string; value: string }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white/80 p-4 backdrop-blur">
-      <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-ink-subtle">
-        {icon}
+    <div>
+      <dt className="text-[10px] font-semibold uppercase tracking-[0.25em] text-stone-500">
         {label}
-      </div>
-      <div className="mt-1.5 text-3xl font-black tracking-tight text-ink num">
+      </dt>
+      <dd className="mt-2 text-xl font-black tabular-nums text-stone-950">
         {value}
-      </div>
-      <div className="mt-0.5 text-[11px] font-bold text-ink-muted">{sub}</div>
+      </dd>
     </div>
   );
 }
