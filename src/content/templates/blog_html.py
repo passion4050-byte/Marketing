@@ -273,7 +273,17 @@ def render_body(post: BlogPost) -> str:
         )
         parts.append(f"<ul>\n{items}\n</ul>")
 
-    return "\n\n".join(p for p in parts if p)
+    body_html = "\n\n".join(p for p in parts if p)
+    # Round 108-b (2026-07-03) — id 83 스타일 폴리셔:
+    #   1) entity 이중 인코딩 복구 (&amp; → &)
+    #   2) 연속 <p>|...|</p> 마크다운 표 잔재 → <table> 병합
+    #   3) 인라인 스타일 자동 삽입 (h1/h2/h3 chip/p/table/figure)
+    try:
+        from src.content.body_polish import polish_body_html
+        body_html = polish_body_html(body_html)
+    except Exception:  # noqa: BLE001
+        pass  # 폴리셔 실패해도 원본 HTML 보존
+    return body_html
 
 
 def render_full_html(post: BlogPost, site_url: Optional[str] = None) -> str:
