@@ -4381,3 +4381,117 @@ Round 104-c 사무실 세션에서 이미지 문제 조치됨 (`unsplash_client.
 2. `git pull` (사무실 세션 Round 102~104-c 최신 반영 위해)
 3. git add + commit + push
 - `.skill` 패키지 + Save skill 버튼 (동시 진행)
+
+
+---
+
+## Round 108 시리즈 (2026-07-03) — Nano Banana + 무신사 매거진 감도 완성
+
+### Round 108-a — Python cron Nano Banana 전환
+- **원인**: OpenAI tier 2 프로젝트는 dall-e-3/dall-e-2 접근 불가 (400 `The model 'dall-e-3' does not exist`). Vercel API 로 Nano Banana(`gemini-2.5-flash-image`) 이미 성공. Python cron 도 동일 전환.
+- **신규**: `src/content/nano_banana_client.py` — 5개 모델 fallback 체인 (gemini-2.5-flash-image → gemini-3-pro-image → gemini-3.1-flash-image → imagen-4.0-generate-001 → imagen-4.0-fast-generate-001). ASCII slug 강제, `post-images` 버킷.
+- `image_picker.py`: `dalle_client` → `nano_banana_client` 스위치
+- workflow env: `IMAGE_PROVIDER=nano_banana`, `IMAGE_STRICT=true`
+
+### Round 108-b — body 폴리셔 (id 42 벤치마크)
+- **신규**: `src/content/body_polish.py` — 3단계 (entity 복구 → 마크다운 표 병합 → 인라인 스타일 삽입 + Pretendard wrapper)
+- `blog_html.render_body()` 마지막에 `polish_body_html()` 자동 호출
+- **신규**: `scripts/polish_existing_bodies.py` — 기존 콘텐츠 일괄 재폴리셔
+
+### Round 108-c — 무신사 매거진 감도 통합
+- `body_polish` 스타일 재조정: 미니멀 톤, letter-spacing 강함, H3 배지 폐지 → 하단 border-bottom 2px
+- `nano_banana_client._build_korean_prompt` + `regenerate-image/route.ts buildKoreanPrompt`: **동일 시네마틱 매거진 프롬프트** ("35mm film camera, 50mm lens, f/1.8 shallow depth, moody warm tone")
+- **신규 script**: `scripts/regenerate_all_images.py` (Nano Banana 일괄)
+- **신규 workflow**: `.github/workflows/backfill-images.yml` + `backfill-bodies.yml` (GH Actions 원격 실행)
+
+### Round 108-d — 메디맵 → 위서클 완전 정리
+- 30개 UI 파일 sed 일괄 (`메디맵` → `위서클`, `MEDIMAP` → `WECIRCLE`)
+- Header 로고, CTA 버튼, aria-label, sub-title 전부
+- DB body 65편 sed 일괄
+- 자사 tenant(12) 브랜드 라벨 = "위서클 인사이트"
+
+### Round 108-e — 카카오톡 오픈챗 + 참고자료 제거 + 관련 콘텐츠
+- 카카오톡 URL: `https://open.kakao.com/o/spyAz9Bi` (전체 통일, `site.ts contact.kakao`)
+- 파트너 상세 페이지 재구성:
+  - `stripReferenceSection()` — body 안 `<h2>참고 자료</h2>` 이후 자동 제거
+  - 카카오톡 CTA 큰 버튼 (그라디언트 + hover scale)
+  - 관련 콘텐츠 4편 카드 (같은 병원 다른 글)
+- `<p>홈페이지 ...</p>`, `<p>네이버 지도 ...</p>` 문단 자동 제거
+- 자사 콘텐츠 body 안 "메디맵 인사이트" → "위서클 인사이트" 34편
+
+### Round 108-f — 자사 blog 페이지도 동일 정책
+- `stripReferenceSection` 자사 blog 에도 적용
+- `CTABlock` 심플화: 카카오톡 하나만 강조 (네이버플레이스/외부 medimap-main 제거)
+
+### Round 108-g — 위치박스 근본 fix + 이메일
+- **핵심 발견**: `blog_html._location_block_html` 이 body 에 `<aside class="location-info">` 삽입 → 병원 주소/네이버지도/홈페이지 URL 노출
+- **fix**: `render_body` 에서 `_location_block_html` 및 참고자료 자동 렌더 → **`RENDER_LOCATION_BLOCK=true` env 있을 때만** (default false)
+- SQL 대청소:
+  - aside location-info 제거: 42 → 0
+  - h2 참고자료 이후 제거: 41 → 0
+  - medi-map.co.kr → wecircle.co.kr: 29 → 0
+  - title 안 메디맵: 9 → 0
+- tenants(12) 갱신: address = "서울특별시 서초구 사임당로 8길 13", homepage = "https://wecircle.co.kr"
+- 이메일 통일: `site.ts contact.email` = `passion4050@gmail.com` + Contact/Login 페이지 자동 반영
+
+### backfill 최종 실행 (2026-07-03)
+- **body backfill**: 66/66 편 무신사 감도 스타일 완료
+- **image backfill**: 66/66 편 Nano Banana 시네마틱 실사 한국인 이미지 완료
+- **DB 검증**: 옛 이미지 남음 0건, 이미지 없음 0건, 폴리셔 미완료 0건
+
+### 함정 누적 (Round 108)
+
+- **DP** OpenAI tier 2 는 모든 이미지 모델 접근 불가 → Gemini Nano Banana 사용 필수 (Round 105~107 우여곡절 후 확정)
+- **DQ** Gemini API 이미지 모델 이름 자주 변경 → **ListModels API 로 실측 확인 후 사용** (`gemini-2.5-flash-image` 정답, `-preview` 없음)
+- **DR** Supabase Storage object key ASCII 만 허용 → 한글 keyword 로 폴더 만들면 400 InvalidKey
+- **DS** Supabase 실제 버킷 이름 `post-images` (`blog-images` 아님) — 기존 콘텐츠 URL 로 확인
+- **DT** Nano Banana 는 이미지 안 텍스트 렌더링 좋아함 → 한국어 오탈자 방지 위해 강한 `ANTI_TEXT_DIRECTIVE` (한글+영문) 필수
+- **DU** `blog_html._location_block_html` 이 body 저장 시점부터 병원 위치 박스 삽입 → **stripReferenceSection 만으론 못 지움**. 렌더 코드 자체를 옵트인화 필수
+- **DV** body_polish 는 idempotent check (`class="wecircle-body"` 확인) 로 재실행 안전
+- **DW** Nano Banana 응답 base64 → Buffer.from(base64) → new Blob([bytes], {type: 'image/png'}) 로 감싸야 fetch body 로 넘김 (TS strict Uint8Array → BodyInit 캐스팅)
+
+### 변경 파일 총계 (Round 108 시리즈)
+- **신규 파일 7개**: `nano_banana_client.py`, `body_polish.py`, `polish_existing_bodies.py`, `regenerate_all_images.py`, `backfill-images.yml`, `backfill-bodies.yml`, `debug/gemini-models/route.ts`
+- **수정 파일 20+**: image_picker.py, blog_html.py, generator.py, 워크플로우 2개, Header/Footer/CTABlock/파트너페이지/blog페이지 등
+- **DB UPDATE**: 65편 body 대청소 + 이미지 재생성 + tenants(12) 갱신 + title 정리
+
+### Round 108-h — SEO 등록 완료 (2026-07-03)
+
+- **Google Search Console**: 도메인 소유 확인 (TXT 레코드) + 사이트맵 제출
+  - 발견된 페이지: **93개**
+  - 홈페이지 색인 완료 ✅ (URL 이 Google 에 등록되어 있음)
+  - 가비아 DNS TXT: `google-site-verification=Cc2G6lQIJFhvA-QVijyh7L08T_5MkaGVajWQumpfpVo`
+- **네이버 서치어드바이저**: HTML meta 태그 소유 확인 + 사이트맵 제출
+  - `<meta name="naver-site-verification" content="de48a01a6a44a45a2540c6b0a658b0b2251ce08f" />`
+  - `layout.tsx metadata.verification.other["naver-site-verification"]` 추가
+  - 사이트맵 등록: `https://wecircle.co.kr/sitemap.xml` (전체 URL 형식이어야 함)
+
+### 함정 DX — 네이버 서치어드바이저 사이트맵 형식
+
+- **증상**: `sitemap.xml` 또는 `/sitemap.xml` 입력 시 빨간 밑줄 (검증 실패)
+- **정답**: **전체 URL** 필수 → `https://wecircle.co.kr/sitemap.xml`
+- Google 은 파일명만 입력하면 되지만 네이버는 다름
+
+### 함정 DY — Vercel medimap-blog 프로젝트 module cache 60초 TTL
+
+- SQL backfill 즉시 반영 안 됨 (`partners.ts` `_allPostsCache` 60s)
+- 강제 새로고침 = Vercel medimap-blog 프로젝트 Redeploy (Cache 해제)
+
+### 남은 사용자 액션 (Round 108 시점)
+
+- [ ] GSC 주요 페이지 개별 색인 요청 (blog, with-partners, 카테고리 5개)
+- [ ] 네이버 웹페이지 수집 요청 (동일 페이지들, 하루 최대 50개)
+- [ ] 며칠 후 GSC 색인 페이지 수 확인 (`site:wecircle.co.kr`)
+- [ ] 네이버 노출/클릭 통계 (1~2주 후 누적)
+
+### 다음 라운드 후보 (Round 109+)
+
+**A. AI 검색 인용 측정 대시보드 강화** — 이제 wecircle.co.kr 이 검색엔진에 등록됐으니, ChatGPT/Claude/Gemini 가 wecircle 콘텐츠 인용하는지 주기적 측정. 인용 감지 시 알림. 실전 GEO 효과 측정.
+
+**B. 콘텐츠 생성 확대** — 현재 66편. 카테고리별 부족 확인 후 자동 발행 확대. 인기 주제 + 경쟁사 학습 인사이트 (Round 104-b applied) 활용.
+
+**C. 카카오 오픈챗 유입 트래킹** — Round 108-e 로 카카오톡 CTA 통일됨. UTM 파라미터로 어떤 콘텐츠에서 얼마나 유입되는지 트래킹 대시보드.
+
+**D. 자사 콘텐츠 CTA 개선** — 지금은 "위서클 상담"만. 파트너 병원 목록/카테고리 링크 카드 추가로 wecircle 내부 순환 극대화.
+
+**E. 콘텐츠 자동 A/B 테스트 활성** — Round 95 A/B 인프라 있음. 새 콘텐츠 발행 시 자동 variant 생성 → 인용률 측정 → 승자 학습.
