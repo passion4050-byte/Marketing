@@ -36,7 +36,7 @@ export default function TermsPage() {
           <span className="text-stone-900">Terms of Service</span>
         </div>
         <header className="my-12 max-w-3xl">
-          <h1 className="text-[36px] font-black tracking-[-0.025em] text-stone-950 md:text-[52px]">
+          <h1 className="text-[28px] font-black tracking-[-0.02em] text-stone-950 sm:text-[34px] md:text-[52px] md:tracking-[-0.025em]">
             이용약관
           </h1>
           <p className="mt-4 text-sm tabular-nums text-stone-500">최종 갱신 · 2026-06-28</p>

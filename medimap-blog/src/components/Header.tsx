@@ -52,12 +52,12 @@ export function Header() {
           ))}
           <span className="mx-3 h-4 w-px bg-stone-300" aria-hidden />
           <Link
-            href={siteConfig.contact.medimapMain}
+            href={siteConfig.contact.kakao}
             className="group inline-flex items-center gap-2 border border-stone-900 bg-stone-900 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-white transition hover:bg-stone-800"
             target="_blank"
             rel="noopener noreferrer"
           >
-            위서클 바로가기
+            카카오톡 상담
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden>
               <path stroke="currentColor" d="M7 17L17 7" />
               <path stroke="currentColor" d="M7 7h10v10" />
@@ -117,13 +117,13 @@ export function Header() {
             ))}
           </ul>
           <Link
-            href={siteConfig.contact.medimapMain}
+            href={siteConfig.contact.kakao}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setOpen(false)}
             className="mt-6 flex w-full items-center justify-between border border-stone-900 bg-stone-900 px-5 py-4 text-white"
           >
-            <span className="text-sm font-bold tracking-tight">위서클 바로가기</span>
+            <span className="text-sm font-bold tracking-tight">카카오톡 상담</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path stroke="currentColor" d="M7 17L17 7" />
               <path stroke="currentColor" d="M7 7h10v10" />

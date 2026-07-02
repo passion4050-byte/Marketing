@@ -63,7 +63,7 @@ export default async function CategoryPage({ params }: PageProps) {
     <main className="bg-[#FAFAF7] text-stone-900">
       {/* Masthead */}
       <section className="border-b border-stone-200/70">
-        <div className="mx-auto w-full max-w-[1280px] px-6 pt-16 pb-14 md:pt-20 md:pb-16 lg:px-10">
+        <div className="mx-auto w-full max-w-[1280px] px-5 sm:px-6 pt-16 pb-14 md:pt-20 md:pb-16 lg:px-10">
           <nav className="flex items-center gap-3 border-b border-stone-300 pb-4 text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
             <span className="inline-block h-px w-6 bg-stone-400" />
             <Link href="/with-partners" className="hover:text-stone-900">
@@ -78,7 +78,7 @@ export default async function CategoryPage({ params }: PageProps) {
               <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-stone-500">
                 {overline}
               </div>
-              <h1 className="mt-4 text-[42px] font-black leading-[1.05] tracking-[-0.025em] text-stone-950 md:text-[60px]">
+              <h1 className="mt-4 text-[32px] font-black leading-[1.1] tracking-[-0.02em] text-stone-950 sm:text-[38px] md:text-[52px] md:leading-[1.05] md:tracking-[-0.025em] xl:text-[60px]">
                 {meta.ko} 아카이브
               </h1>
             </div>
@@ -91,7 +91,7 @@ export default async function CategoryPage({ params }: PageProps) {
 
       {/* Category chips */}
       <section className="border-b border-stone-200/70">
-        <div className="mx-auto w-full max-w-[1280px] px-6 py-6 lg:px-10">
+        <div className="mx-auto w-full max-w-[1280px] px-5 sm:px-6 py-6 lg:px-10">
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-stone-500">
               Directory
@@ -125,7 +125,7 @@ export default async function CategoryPage({ params }: PageProps) {
 
       {/* Partners list */}
       <section className="border-b border-stone-200/70">
-        <div className="mx-auto w-full max-w-[1280px] px-6 py-16 md:py-20 lg:px-10">
+        <div className="mx-auto w-full max-w-[1280px] px-5 sm:px-6 py-16 md:py-20 lg:px-10">
           <div className="mb-8 flex items-baseline justify-between border-b border-stone-300 pb-4">
             <h2 className="text-xs font-bold uppercase tracking-[0.35em] text-stone-700">
               Partner Clinics
@@ -161,80 +161,4 @@ export default async function CategoryPage({ params }: PageProps) {
                         <span className="text-xl font-black tabular-nums leading-none text-stone-950">
                           {p.postCount}
                         </span>
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
-                          posts
-                        </span>
-                      </div>
-                      <ArrowUpRight
-                        size={18}
-                        strokeWidth={1.5}
-                        className="text-stone-300 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-stone-900"
-                      />
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ol>
-          )}
-        </div>
-      </section>
-
-      {/* Latest posts grid */}
-      <section className="mx-auto w-full max-w-[1280px] px-6 py-16 md:py-20 lg:px-10">
-        <div className="mb-8 flex items-baseline justify-between border-b border-stone-300 pb-4">
-          <h2 className="text-xs font-bold uppercase tracking-[0.35em] text-stone-700">
-            Latest
-          </h2>
-          <span className="text-xs tabular-nums text-stone-500">{posts.length} 편</span>
-        </div>
-
-        {posts.length === 0 ? (
-          <div className="border border-dashed border-stone-200 bg-white p-16 text-center text-sm text-stone-500">
-            아직 발행된 글이 없습니다.
-          </div>
-        ) : (
-          <div className="grid gap-12 md:grid-cols-2 md:gap-10 lg:grid-cols-3">
-            {posts.slice(0, 12).map((p) => (
-              <Link
-                key={p.id}
-                href={`/with-partners/${meta.slug}/${p.partner_slug}/${p.slug}`}
-                className="group flex flex-col gap-4"
-              >
-                <div className="relative aspect-[4/5] w-full overflow-hidden bg-stone-200">
-                  {p.cover_image_url ? (
-                    <Image
-                      src={p.cover_image_url}
-                      alt={p.cover_image_alt ?? p.title}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 33vw"
-                      className="object-cover grayscale transition duration-[900ms] ease-out group-hover:scale-[1.03] group-hover:grayscale-0"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center bg-gradient-to-br from-stone-100 to-stone-200 text-[10px] font-bold uppercase tracking-widest text-stone-400">
-                      No cover
-                    </div>
-                  )}
-                </div>
-                <div className="mt-1 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-stone-500">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-stone-900" />
-                  {p.tenant_name}
-                </div>
-                <h3 className="text-[19px] font-bold leading-snug tracking-tight text-stone-950 transition group-hover:text-stone-700 md:text-[21px]">
-                  {p.title}
-                </h3>
-                {p.excerpt && (
-                  <p className="line-clamp-2 text-[14px] leading-relaxed text-stone-600">
-                    {p.excerpt}
-                  </p>
-                )}
-                <div className="mt-1 flex items-center gap-3 border-t border-stone-200/70 pt-3 text-[11px] tabular-nums text-stone-500">
-                  <time>{p.published_at}</time>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
-    </main>
-  );
-}
+                        <span className="text-[10px] font-bold uppercase track

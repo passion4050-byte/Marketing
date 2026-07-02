@@ -51,7 +51,7 @@ export default function ContactPage() {
       <main className="bg-[#FAFAF7] text-stone-900">
         {/* Masthead */}
         <section className="border-b border-stone-200/70">
-          <div className="mx-auto w-full max-w-[1280px] px-6 pt-16 pb-14 md:pt-24 md:pb-20 lg:px-10">
+          <div className="mx-auto w-full max-w-[1280px] px-5 sm:px-6 pt-16 pb-14 md:pt-24 md:pb-20 lg:px-10">
             <div className="flex items-baseline justify-between border-b border-stone-300 pb-4 text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
               <div className="flex items-center gap-3">
                 <span className="inline-block h-px w-6 bg-stone-400" />
@@ -61,7 +61,7 @@ export default function ContactPage() {
             </div>
 
             <div className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end">
-              <h1 className="text-[38px] font-black leading-[1.08] tracking-[-0.025em] text-stone-950 md:text-[52px] xl:text-[58px]">
+              <h1 className="text-[30px] font-black leading-[1.12] tracking-[-0.02em] text-stone-950 sm:text-[38px] md:text-[52px] md:leading-[1.08] md:tracking-[-0.025em] xl:text-[58px]">
                 한 문장의 상담으로,
                 <br />
                 <span className="font-serif italic font-normal text-stone-500">시작할 수 있습니다.</span>
@@ -75,7 +75,7 @@ export default function ContactPage() {
 
         {/* Channels */}
         <section className="border-b border-stone-200/70">
-          <div className="mx-auto w-full max-w-[1280px] px-6 py-20 md:py-24 lg:px-10">
+          <div className="mx-auto w-full max-w-[1280px] px-5 sm:px-6 py-20 md:py-24 lg:px-10">
             <div className="mb-12 flex items-baseline justify-between border-b border-stone-300 pb-4">
               <h2 className="text-xs font-bold uppercase tracking-[0.35em] text-stone-700">Channels</h2>
               <span className="text-xs text-stone-500">두 가지 방법</span>
@@ -118,7 +118,7 @@ export default function ContactPage() {
 
         {/* Hours + Company */}
         <section className="border-b border-stone-200/70">
-          <div className="mx-auto w-full max-w-[1280px] px-6 py-20 md:py-24 lg:px-10">
+          <div className="mx-auto w-full max-w-[1280px] px-5 sm:px-6 py-20 md:py-24 lg:px-10">
             <div className="grid gap-12 md:grid-cols-2 md:gap-16">
               <div>
                 <div className="mb-4 flex items-baseline justify-between border-b border-stone-300 pb-3">
@@ -139,8 +139,8 @@ export default function ContactPage() {
 
               <div>
                 <div className="mb-4 flex items-baseline justify-between border-b border-stone-300 pb-3">
-                  <h2 className="text-xs font-bold uppercase tracking-[0.35em] text-stone-700">Company</h2>
-                  <span className="text-xs text-stone-500">Publisher</span>
+                  <h2 className="text-xs font-bold uppercase tracking-[0.32em] text-stone-700">Company</h2>
+                  <span className="hidden text-xs text-stone-500 sm:inline">사업자 정보</span>
                 </div>
                 <dl className="space-y-4">
                   <Row label="법인명" value={siteConfig.publisher.legalName} />
@@ -158,7 +158,7 @@ export default function ContactPage() {
 
         {/* Final CTA */}
         <section>
-          <div className="mx-auto w-full max-w-[1280px] px-6 py-24 lg:px-10">
+          <div className="mx-auto w-full max-w-[1280px] px-5 sm:px-6 py-24 lg:px-10">
             <div className="grid gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-center">
               <div>
                 <div className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
@@ -205,3 +205,4 @@ function Row({ label, value, icon, mono }: { label: string; value: string; icon?
     </div>
   );
 }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
