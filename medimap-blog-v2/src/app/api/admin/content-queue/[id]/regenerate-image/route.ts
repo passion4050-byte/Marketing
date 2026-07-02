@@ -23,7 +23,16 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-/** DALL-E 3 한국인 모델 프롬프트 (Python dalle_client._build_dalle_korean_prompt 미러) */
+/**
+ * Round 107 hotfix 3 (2026-07-03) — 이미지 안 텍스트 완전 금지 강화.
+ * Nano Banana 는 텍스트 렌더링을 좋아해서 한국어 오탈자 다수 발생. 강한 anti-text 지시 필수.
+ */
+const ANTI_TEXT_DIRECTIVE =
+  ' CRITICAL: Absolutely NO text, NO letters, NO words, NO writing, NO signs, ' +
+  'NO labels, NO captions, NO watermarks, NO logos, NO Korean or English characters ' +
+  'in the image. Pure visual photograph only, no typography of any kind. ' +
+  '이미지에 어떠한 텍스트, 글자, 문자, 로고, 표지판, 자막도 절대 넣지 마세요.';
+
 function buildKoreanPrompt(keyword: string, title: string | null, isSelfTenant: boolean): string {
   const titleHint = title ? `, concept: ${title}` : '';
   if (isSelfTenant) {
@@ -36,8 +45,8 @@ function buildKoreanPrompt(keyword: string, title: string | null, isSelfTenant: 
       `Modern bright clinic interior, soft natural daylight, warm and trustworthy mood. ` +
       `Professional DSLR photography, shallow depth of field, sharp focus, ` +
       `realistic photo (not illustration, not anime). ` +
-      `8k uhd, magazine editorial quality. ` +
-      `No text, no logo, no watermark, no overlay.`
+      `8k uhd, magazine editorial quality.` +
+      ANTI_TEXT_DIRECTIVE
     );
   }
   return (
@@ -47,8 +56,8 @@ function buildKoreanPrompt(keyword: string, title: string | null, isSelfTenant: 
     `Modern bright Korean medical clinic interior in Seoul. ` +
     `Warm natural lighting, friendly and trustworthy atmosphere. ` +
     `Photorealistic (not illustration), professional camera quality, ` +
-    `shallow depth of field, sharp detail. ` +
-    `No text, no logo, no watermark.`
+    `shallow depth of field, sharp detail.` +
+    ANTI_TEXT_DIRECTIVE
   );
 }
 
