@@ -259,13 +259,18 @@ def render_body(post: BlogPost) -> str:
         for p in post.conclusion_paragraphs:
             parts.append(_para_html(p))
 
-    # 위치/연락 안내 (자연 톤)
-    loc = _location_block_html(post)
-    if loc:
-        parts.append(loc)
+    # Round 108-g (2026-07-03) — 사용자 정책: wecircle.co.kr 내부 유도.
+    # 병원 위치 박스(외부 홈페이지/네이버 지도 URL) + 참고 자료 섹션 렌더링 중단.
+    # 대신 next.js 페이지에서 카카오톡 CTA + 관련 콘텐츠 카드로 대체.
+    # 위치/참고자료 코드는 필요 시 옵트인 env(RENDER_LOCATION_BLOCK=true)로 복원 가능.
+    import os as _os
+    if (_os.getenv("RENDER_LOCATION_BLOCK", "false") or "").strip().lower() == "true":
+        loc = _location_block_html(post)
+        if loc:
+            parts.append(loc)
 
-    # References
-    if post.references:
+    # References (옵트인)
+    if (_os.getenv("RENDER_REFERENCES_BLOCK", "false") or "").strip().lower() == "true" and post.references:
         parts.append("<h2>참고 자료</h2>")
         items = "\n".join(
             f'  <li><a href="{_e(u)}" rel="noopener" target="_blank">{_e(u)}</a></li>'

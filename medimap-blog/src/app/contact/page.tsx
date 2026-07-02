@@ -20,7 +20,7 @@ const CONTACT = {
   // Round 98 (2026-06-28) — wecircle 새 회사 정보. 카카오톡은 위서클 채널 당분간 활용.
   phone: "010-9024-8500",
   phoneTel: "01090248500",
-  email: "contact@wecircle.co.kr",
+  email: "passion4050@gmail.com",
   website: "wecircle.co.kr",
   websiteUrl: "https://wecircle.co.kr",
   office: "서울특별시 서초구 사임당로 8길 13",

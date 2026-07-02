@@ -21,7 +21,7 @@ export const siteConfig = {
     // Round 90 — wecircle 사업자 정보 (footer/about 표시)
     address: "서울특별시 서초구 사임당로 8길 13",
     businessNumber: "798-67-00527",
-    email: "contact@wecircle.co.kr",
+    email: "passion4050@gmail.com",
   },
   ga: process.env.NEXT_PUBLIC_GA_ID || "",
   gtm: process.env.NEXT_PUBLIC_GTM_ID || "",
