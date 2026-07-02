@@ -53,8 +53,9 @@ jobs:
           ANTHROPIC_MODEL: ${{ secrets.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001' }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           IMAGE_GEN_ENABLED: ${{ secrets.IMAGE_GEN_ENABLED || 'true' }}
-          # Round 105 (2026-06-29) — A/B variant 도 이미지 강제 DALL-E.
-          IMAGE_PROVIDER: ${{ secrets.IMAGE_PROVIDER || 'dalle' }}
+          # Round 108-a (2026-07-03) — A/B variant 도 Nano Banana 로 전환.
+          IMAGE_PROVIDER: ${{ secrets.IMAGE_PROVIDER || 'nano_banana' }}
+          IMAGE_STRICT: ${{ secrets.IMAGE_STRICT || 'true' }}
           IMAGE_STRICT_DALLE: ${{ secrets.IMAGE_STRICT_DALLE || 'true' }}
           AB_AUTO_MAX_NEW: ${{ inputs.max_new || '1' }}
         run: python scripts/run_ab_auto.py

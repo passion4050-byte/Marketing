@@ -182,44 +182,43 @@ def generate_image_for_content(
         logger.info("IMAGE_GEN_ENABLED != true — 이미지 생성 skip")
         return None
 
-    # Round 83 (2026-06-28) — DALL-E 3 우선 (사용자 OpenAI 결제 완료).
-    # Round 105 (2026-06-29) — 사용자 명시 요구: "이미지는 꼭 OpenAI API 로만".
-    #   IMAGE_STRICT_DALLE=true (default) 시 DALL-E 실패해도 fallback 안 함 → image None.
-    #   검수 담당자가 UI 에서 재시도/수동 업로드. false 로 옵트아웃 시 기존 Unsplash/Pollinations 폴백.
-    _strict_dalle = (os.getenv("IMAGE_STRICT_DALLE", "true") or "true").strip().lower() == "true"
+    # Round 108-a (2026-07-03) — Nano Banana (Gemini 2.5 Flash Image) 우선.
+    # OpenAI tier 2 는 dall-e-3/dall-e-2 접근 불가 (Round 107 진단).
+    # Gemini paid tier 는 Nano Banana 접근 가능 (ListModels 로 실측 확인).
+    # IMAGE_STRICT_DALLE=true (Round 105 잔재) 이면 fallback 안 함 → image None.
+    _strict = (os.getenv("IMAGE_STRICT_DALLE") or os.getenv("IMAGE_STRICT") or "true").strip().lower() == "true"
     try:
-        from src.content.dalle_client import is_dalle_enabled, generate_dalle_image
-        if is_dalle_enabled():
-            # 429/quota 재시도 강화 — 3회 시도
+        from src.content.nano_banana_client import is_nano_banana_enabled, generate_nano_banana_image
+        if is_nano_banana_enabled():
+            # 재시도 3회 (rate limit / 일시 실패 대응)
             for attempt in range(3):
-                dalle = generate_dalle_image(keyword, title, is_self_tenant=is_self_tenant)
-                if dalle and dalle.get("url"):
-                    logger.info("DALL-E 3 cover 생성 성공 (attempt=%d): %s", attempt, dalle["url"][:80])
-                    return dalle
+                nb = generate_nano_banana_image(keyword, title, is_self_tenant=is_self_tenant)
+                if nb and nb.get("url"):
+                    logger.info("Nano Banana cover 생성 성공 (attempt=%d): %s", attempt, nb["url"][:80])
+                    return nb
                 if attempt < 2:
-                    logger.warning("DALL-E 실패(attempt=%d) — 5초 후 재시도", attempt)
+                    logger.warning("Nano Banana 실패(attempt=%d) — 5초 후 재시도", attempt)
                     import time as _t
                     _t.sleep(5)
-            # 3회 실패
-            if _strict_dalle:
+            if _strict:
                 logger.error(
-                    "DALL-E 3회 실패 — IMAGE_STRICT_DALLE=true 로 fallback 차단. "
-                    "image_url=None 반환. OPENAI_API_KEY GH Secret 확인 필요."
+                    "Nano Banana 3회 실패 — IMAGE_STRICT=true 로 fallback 차단. "
+                    "image_url=None 반환. GEMINI_API_KEY GH Secret 확인 필요."
                 )
                 return None
-            logger.info("DALL-E skip/실패 — Unsplash/Pollinations fallback (STRICT=false)")
+            logger.info("Nano Banana skip/실패 — Unsplash/Pollinations fallback (STRICT=false)")
         else:
-            if _strict_dalle:
+            if _strict:
                 logger.error(
-                    "DALL-E 비활성 (OPENAI_API_KEY 미설정 or IMAGE_PROVIDER 부적합) — "
-                    "IMAGE_STRICT_DALLE=true 이므로 image_url=None. GH Secret 확인 필요."
+                    "Nano Banana 비활성 (GEMINI_API_KEY 미설정 or IMAGE_PROVIDER 부적합) — "
+                    "STRICT=true 이므로 image_url=None."
                 )
                 return None
     except Exception as e:  # noqa: BLE001
-        if _strict_dalle:
-            logger.error("DALL-E 분기 예외 — STRICT=true 이므로 image None: %s", e)
+        if _strict:
+            logger.error("Nano Banana 분기 예외 — STRICT=true 이므로 image None: %s", e)
             return None
-        logger.warning("DALL-E 분기 실패 — fallback: %s", e)
+        logger.warning("Nano Banana 분기 실패 — fallback: %s", e)
 
     # Round 102 (2026-06-29) — 자사 인사이트에서 Unsplash 제거.
     # 사용자 명시 요구: "한국 모델 원함, 외국인 지양". Unsplash 는 대부분 백인 사진이라

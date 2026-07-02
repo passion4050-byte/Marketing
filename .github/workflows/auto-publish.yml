@@ -66,10 +66,12 @@ jobs:
           #   현재 no-op 이므로, 일일 생성 건수 상한이 실질적 비용 제어 레버. secret 으로 조정.
           MAX_CONTENT_GEN_PER_DAY: ${{ secrets.MAX_CONTENT_GEN_PER_DAY || '50' }}
           IMAGE_GEN_ENABLED: ${{ secrets.IMAGE_GEN_ENABLED || 'true' }}
-          # Round 86 (2026-06-28) — DALL-E 3 명시 활성. 사용자 OpenAI 결제했는데 작동 안 함 진단 결과.
-          IMAGE_PROVIDER: ${{ secrets.IMAGE_PROVIDER || 'dalle' }}
-          # Round 105 (2026-06-29) — 사용자 명시: "이미지는 꼭 OpenAI API 로만".
-          # true 이면 DALL-E 3회 시도 실패 시 fallback 안 함 → image None (검수 시 수동 재시도).
+          # Round 108-a (2026-07-03) — Nano Banana (Gemini 2.5 Flash Image) 로 전환.
+          # OpenAI tier 2 는 이미지 모델 접근 불가 (dalle 400). Gemini paid = Nano Banana OK.
+          IMAGE_PROVIDER: ${{ secrets.IMAGE_PROVIDER || 'nano_banana' }}
+          # true 이면 Nano Banana 3회 시도 실패 시 fallback 안 함 (image None).
+          # Round 105 잔재 IMAGE_STRICT_DALLE 도 하위호환 인식.
+          IMAGE_STRICT: ${{ secrets.IMAGE_STRICT || 'true' }}
           IMAGE_STRICT_DALLE: ${{ secrets.IMAGE_STRICT_DALLE || 'true' }}
         run: python scripts/run_auto_content_once.py
 
