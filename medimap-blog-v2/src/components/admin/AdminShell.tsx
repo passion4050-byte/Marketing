@@ -91,14 +91,15 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   const sidebarContent = (
     <>
-      <div className="border-b border-border px-5 pb-3 pt-5">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-white">
+      {/* Round 116 (2026-07-02) — Editorial 톤. warm off-white + stone hairline + stone-900 로고. */}
+      <div className="border-b border-stone-200/70 px-5 pb-4 pt-5">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-stone-900 text-white">
             <ShieldCheck className="h-4 w-4" />
           </div>
           <div>
-            <div className="text-sm font-bold text-ink">WECIRCLE GEO</div>
-            <div className="text-[10px] font-medium uppercase tracking-wider text-brand-700">
+            <div className="text-[13px] font-black tracking-[-0.01em] text-stone-950">WECIRCLE GEO</div>
+            <div className="text-[9px] font-semibold uppercase tracking-[0.24em] text-stone-500">
               Admin Console
             </div>
           </div>
@@ -107,23 +108,22 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         {NAV.map((g) => (
           <div key={g.group} className="mb-5">
-            <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-ink-faint">
+            <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-stone-500">
               {g.group}
             </div>
             <ul className="space-y-0.5">
               {g.items.map((it) => {
-                const active = pathname === it.href || pathname?.startsWith(it.href + '/');
+                const active = pathname === it.href || (it.href !== '/admin' && pathname?.startsWith(it.href + '/')) || pathname === it.href;
                 const Icon = it.icon;
                 return (
                   <li key={it.href}>
                     <Link
                       href={it.href}
                       className={cn(
-                        // 모바일 친화: min-height 44px (애플 HIG tap target)
-                        'flex min-h-[44px] items-center gap-2 rounded-md px-3 py-2 text-sm transition',
+                        'flex min-h-[40px] items-center gap-2.5 rounded-md px-3 py-2 text-[13px] transition',
                         active
-                          ? 'bg-brand-50 font-semibold text-brand-700'
-                          : 'text-ink-soft hover:bg-surface-subtle active:bg-surface-subtle'
+                          ? 'bg-stone-900 font-bold text-white'
+                          : 'text-stone-700 hover:bg-stone-100'
                       )}
                     >
                       <Icon className="h-4 w-4" />
@@ -136,11 +136,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </div>
         ))}
       </nav>
-      <div className="border-t border-border px-3 py-3">
+      <div className="border-t border-stone-200/70 px-3 py-3">
         <button
           type="button"
           onClick={onLogout}
-          className="flex min-h-[44px] w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-ink-muted hover:bg-surface-subtle hover:text-status-danger"
+          className="flex min-h-[40px] w-full items-center gap-2 rounded-md px-3 py-2 text-[13px] text-stone-600 transition hover:bg-stone-100 hover:text-stone-950"
         >
           <LogOut className="h-4 w-4" /> 로그아웃
         </button>
@@ -149,27 +149,27 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="flex min-h-screen bg-surface-subtle">
+    <div className="flex min-h-screen bg-[#FAFAF7]">
       {/* 데스크탑 사이드바 (md+) */}
-      <aside className="sticky top-0 hidden h-screen w-[228px] shrink-0 flex-col border-r border-border bg-surface-base md:flex">
+      <aside className="sticky top-0 hidden h-screen w-[228px] shrink-0 flex-col border-r border-stone-200/70 bg-[#FAFAF7] md:flex">
         {sidebarContent}
       </aside>
 
       {/* 모바일 햄버거 헤더 (md 미만) */}
-      <div className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-surface-base px-4 md:hidden">
+      <div className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-stone-200/70 bg-[#FAFAF7] px-4 md:hidden">
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label="메뉴 열기"
-          className="-ml-2 flex h-10 w-10 items-center justify-center rounded-md text-ink-soft hover:bg-surface-subtle active:bg-surface-subtle"
+          className="-ml-2 flex h-10 w-10 items-center justify-center rounded-md text-stone-700 hover:bg-stone-100"
         >
           <Menu className="h-5 w-5" />
         </button>
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-white">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900 text-white">
             <ShieldCheck className="h-3.5 w-3.5" />
           </div>
-          <span className="text-sm font-bold text-ink">WECIRCLE GEO</span>
+          <span className="text-sm font-black tracking-tight text-stone-950">WECIRCLE GEO</span>
         </div>
         <div className="w-10" />
       </div>
@@ -186,7 +186,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       {/* 모바일 drawer 사이드바 */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-border bg-surface-base transition-transform md:hidden',
+          'fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-stone-200/70 bg-[#FAFAF7] transition-transform md:hidden',
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
