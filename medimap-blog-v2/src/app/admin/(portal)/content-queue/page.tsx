@@ -9,6 +9,7 @@ import {
 import { showToast } from '@/lib/clientActions';
 import { cn } from '@/lib/cn';
 import type { ContentQuality } from '@/lib/contentQuality';
+import { PublishedTab } from '@/components/admin/PublishedTab';
 
 /** Round 81 — 구조 품질 점수 뱃지 (A/B/C/D + 점수, hover 시 부족 항목). */
 function QualityBadge({ quality, compact = false }: { quality: ContentQuality | null; compact?: boolean }) {
@@ -956,91 +957,6 @@ function FilterChip({
   );
 }
 
-/* ─────────────────────── 완료 탭 (테이블 list) ─────────────────────── */
-
-function PublishedTab({ items }: { items: QueueItem[] }) {
-  if (items.length === 0) {
-    return (
-      <div className="card flex items-center justify-center px-6 py-12 text-sm text-ink-muted">
-        아직 발행 완료된 파트너 콘텐츠가 없습니다.
-      </div>
-    );
-  }
-  return (
-    <div className="card overflow-hidden">
-      {/* Round 48 — 모바일 대응 가로 스크롤 wrap */}
-      <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] text-sm">
-        <thead className="bg-surface-subtle text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-          <tr>
-            <th className="px-4 py-3 text-left">진료항목</th>
-            <th className="px-4 py-3 text-left">클라이언트</th>
-            <th className="px-4 py-3 text-left">제목</th>
-            <th className="px-4 py-3 text-left">발행일</th>
-            <th className="px-4 py-3 text-right">조회수</th>
-            <th className="px-4 py-3 text-right">AI 인용</th>
-            <th className="px-4 py-3 text-right">라이브</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((q) => {
-            const ko = q.partner_category ? PARTNER_CATEGORY_KO[q.partner_category] ?? q.partner_category : '—';
-            return (
-              <tr key={String(q.id)} className="border-t border-border hover:bg-surface-subtle">
-                <td className="px-4 py-3 text-xs font-semibold text-brand-700">{ko}</td>
-                <td className="px-4 py-3">
-                  <div className="text-sm font-semibold text-ink">{q.tenant_name}</div>
-                  {/* Round 30 (2026-05-30): 자사면 '자사' 라벨, 파트너면 partner_slug 라벨 */}
-                  {q.is_partner_content === false ? (
-                    <div className="text-[10px] font-mono text-brand">자사</div>
-                  ) : q.partner_slug ? (
-                    <div className="text-[10px] font-mono text-ink-muted">{q.partner_slug}</div>
-                  ) : null}
-                </td>
-                <td className="px-4 py-3 max-w-md">
-                  <div className="line-clamp-1 text-sm text-ink">{q.title || '(제목 없음)'}</div>
-                  {q.keyword_text && (
-                    <div className="line-clamp-1 text-[11px] text-ink-muted">{q.keyword_text}</div>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-xs text-ink-soft">{fmtDate(q.published_at)}</td>
-                <td className="px-4 py-3 text-right text-xs font-mono">
-                  {q.view_count == null ? (
-                    <span className="inline-flex items-center gap-1 text-ink-muted" title="페이지뷰 파이프라인 미연결">
-                      <Eye className="h-3 w-3" /> —
-                    </span>
-                  ) : (
-                    q.view_count.toLocaleString()
-                  )}
-                </td>
-                <td className="px-4 py-3 text-right text-xs font-mono">
-                  {q.citation_count == null ? (
-                    <span className="inline-flex items-center gap-1 text-ink-muted" title="AI 인용 추적 미연결">
-                      <MessageSquare className="h-3 w-3" /> —
-                    </span>
-                  ) : (
-                    q.citation_count.toLocaleString()
-                  )}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  {q.live_url ? (
-                    <Link href={q.live_url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-brand-700 hover:underline">
-                      열기 <ExternalLink className="h-3 w-3" />
-                    </Link>
-                  ) : (
-                    <span className="text-xs text-ink-muted">—</span>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      </div>
-      <div className="border-t border-border bg-surface-subtle px-4 py-2.5 text-[11px] text-ink-muted">
-        조회수 / AI 인용 컬럼은 데이터 파이프라인 연결 후 자동 표시 (GA4 + /admin/citations 통합 예정)
-      </div>
-    </div>
-  );
-}
+// Round 116 P4 (2026-07-02) — PublishedTab 은 @/components/admin/PublishedTab 로 이동.
+//   원인 (함정 ED): 이 파일이 1046줄로 커지면서 Edit tool 이 truncate 반복.
+//   근본 해결 (D+B): 컴포넌트 분리 + import.
