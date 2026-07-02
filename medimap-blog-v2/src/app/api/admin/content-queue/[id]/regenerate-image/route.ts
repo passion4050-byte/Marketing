@@ -78,11 +78,15 @@ async function generateImageBytes(prompt: string): Promise<{ bytes: Uint8Array; 
  * env `GEMINI_IMAGE_MODEL` 지정 시 그것만 시도.
  */
 type GeminiImgSpec = { name: string; endpoint: 'generateContent' | 'predict' };
+// Round 107 (2026-07-03) — ListModels API 로 실제 접근 가능한 모델 확정.
+// 사용자 API key = Nano Banana 전 시리즈 + Imagen 4 접근 가능.
+// 우선순위: 나노바나나 기본 (안정) → Pro → Imagen 4 (predict endpoint)
 const GEMINI_IMAGE_FALLBACKS: GeminiImgSpec[] = [
-  { name: 'gemini-2.5-flash-image-preview', endpoint: 'generateContent' },
-  { name: 'gemini-2.0-flash-preview-image-generation', endpoint: 'generateContent' },
-  { name: 'imagen-3.0-generate-001', endpoint: 'predict' },
-  { name: 'imagen-3.0-fast-generate-001', endpoint: 'predict' },
+  { name: 'gemini-2.5-flash-image', endpoint: 'generateContent' },       // Nano Banana (기본, 안정)
+  { name: 'gemini-3-pro-image', endpoint: 'generateContent' },           // Nano Banana Pro (최신)
+  { name: 'gemini-3.1-flash-image', endpoint: 'generateContent' },       // Nano Banana 2
+  { name: 'imagen-4.0-generate-001', endpoint: 'predict' },              // Imagen 4 (별도 endpoint)
+  { name: 'imagen-4.0-fast-generate-001', endpoint: 'predict' },         // Imagen 4 Fast (fallback)
 ];
 
 async function callGeminiOneModel(spec: GeminiImgSpec, prompt: string, apiKey: string): Promise<Uint8Array | null> {
