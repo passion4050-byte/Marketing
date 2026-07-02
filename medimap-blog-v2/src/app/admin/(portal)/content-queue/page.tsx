@@ -614,7 +614,11 @@ export default function ContentManagementPage() {
                 alt={preview.cover_image_alt || preview.title || 'cover'}
                 contentId={preview.id}
                 onRegenerated={(newUrl) => {
+                  // Round 107 hotfix 4 — preview + 리스트(pending/published) 모두 동기화.
+                  // 모달 닫고 재오픈 시 옛 URL 로 롤백되던 버그 fix.
                   setPreview((cur) => (cur && cur.id === preview.id ? { ...cur, cover_image_url: newUrl } : cur));
+                  setPending((arr) => arr.map((it) => (it.id === preview.id ? { ...it, cover_image_url: newUrl } : it)));
+                  setPublished((arr) => arr.map((it) => (it.id === preview.id ? { ...it, cover_image_url: newUrl } : it)));
                 }}
               />
             )}
@@ -637,19 +641,20 @@ export default function ContentManagementPage() {
                   html={preview.body}
                   contentId={preview.id}
                   onImgRegenerated={(index, newUrl) => {
-                    // body 내 N번째 img src 만 갱신 (DB 는 이미 API 가 갱신했으니 preview state 만 sync)
-                    setPreview((cur) => {
-                      if (!cur || cur.id !== preview.id) return cur;
+                    // Round 107 hotfix 4 — preview + 리스트(pending/published) 모두 동기화.
+                    const replaceNthImg = (html: string): string => {
                       let i = 0;
-                      const updated = cur.body.replace(
+                      return html.replace(
                         /(<img\b[^>]*\bsrc\s*=\s*")([^"]+)("[^>]*>)/gi,
-                        (m, pre, oldSrc, post) => {
+                        (m, pre, _oldSrc, post) => {
                           i += 1;
                           return i === index ? `${pre}${newUrl}${post}` : m;
                         },
                       );
-                      return { ...cur, body: updated };
-                    });
+                    };
+                    setPreview((cur) => (cur && cur.id === preview.id ? { ...cur, body: replaceNthImg(cur.body) } : cur));
+                    setPending((arr) => arr.map((it) => (it.id === preview.id ? { ...it, body: replaceNthImg(it.body) } : it)));
+                    setPublished((arr) => arr.map((it) => (it.id === preview.id ? { ...it, body: replaceNthImg(it.body) } : it)));
                   }}
                 />
               ) : preview.body ? (
