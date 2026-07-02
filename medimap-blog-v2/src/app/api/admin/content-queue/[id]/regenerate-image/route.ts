@@ -201,9 +201,11 @@ async function uploadBytesToStorage(bytes: Uint8Array, keyword: string, contentI
     // Round 107 (2026-07-03) — 실제 버킷 이름 = post-images (기존 이미지 URL 로 확인).
     // Nano Banana 는 성공했는데 blog-images 버킷 없어서 업로드 400 남.
     const bucket = process.env.SUPABASE_STORAGE_BUCKET || 'post-images';
-    const slug = keyword.replace(/[^a-zA-Z0-9가-힣]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'img';
+    // Round 107 hotfix 2 — Supabase Storage object key 는 ASCII 만 허용 (한글 → InvalidKey 400).
+    // 한글 제거 → 영문/숫자/dash 만. 빈 문자열이면 'regen' 폴더로 fallback.
+    const asciiSlug = keyword.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'regen';
     const ts = Date.now();
-    const objectPath = `${slug}/regen-${contentId}-${ts}.png`;
+    const objectPath = `${asciiSlug}/regen-${contentId}-${ts}.png`;
 
     // Round 106 hotfix: TS strict — Uint8Array 를 BodyInit 로 직접 못 넘김. Blob 으로 감쌈.
     const up = await fetch(`${supaUrl}/storage/v1/object/${bucket}/${objectPath}`, {
