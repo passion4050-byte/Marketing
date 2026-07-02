@@ -4495,3 +4495,112 @@ Round 104-c 사무실 세션에서 이미지 문제 조치됨 (`unsplash_client.
 **D. 자사 콘텐츠 CTA 개선** — 지금은 "위서클 상담"만. 파트너 병원 목록/카테고리 링크 카드 추가로 wecircle 내부 순환 극대화.
 
 **E. 콘텐츠 자동 A/B 테스트 활성** — Round 95 A/B 인프라 있음. 새 콘텐츠 발행 시 자동 variant 생성 → 인용률 측정 → 승자 학습.
+
+---
+
+## Round 109~116 (2026-06-30 ~ 2026-07-02) — AI 인용 KPI + editorial 톤 + 리포트 기간 선택기
+
+**커밋 요약**: Round 109-A/B (AI 인용 KPI 대시보드 + 파트너 리더보드 카드) → Round 110-113 (WECIRCLE 리브랜딩 잔재 정리 + 자사 크롤러 라다 + 카카오 유입 트래킹) → Round 111 v3~v5 (사이트 전체 editorial 매거진 톤 + Fraunces serif + 모바일 최적화) → Round 114 (리포트 라벨 정합) → Round 115 (월간 리포트 기간 선택기 + 즉시 이메일 발송) → Round 116 (Admin editorial 톤 통일 + 대시보드 LLM 비용 3-tier)
+
+### Round 111 v3~v5 (2026-07-01~02) — taste-skill 기반 editorial 재설계
+
+**목표**: 사용자가 "디자인이 조금 AI스러워" → https://github.com/leonxlnx/taste-skill 원칙 도입.
+
+**taste-skill 규칙**:
+- No 3-col grids (=AI slop 신호)
+- No gradient text (특히 인디고→퍼플)
+- No neon glow (shadow-brand-500/50 금지)
+- No oversized H1 (text-8xl 이상)
+- No purple/blue AI palette
+- **Yes**: warm off-white `#FAFAF7`, stone palette, hairline dividers `border-stone-200/70`, Fraunces serif italic 악센트
+
+**적용 범위 (medimap-blog)**:
+- Home (split hero + featured cover story)
+- About (4 principles + timeline + manifesto quote)
+- Guide (5 steps + FAQ)
+- Contact (2 channels + hours + company)
+- Blog (masonry → editorial index)
+- With-partners (numbered directory)
+- Header (editorial masthead + Kakao CTA)
+- Footer (colophon style)
+- ArticleCard (3 variants: default/compact/index)
+- Legal (privacy/terms/not-found)
+
+### Round 115 (2026-07-02) — 월간 리포트 기간 선택기
+
+**요구**: "월별/주별 등 희망 기간을 설정하고, 해당 기간에 해당되는 데이터 보고서를 클라이언트에게 전달하는 기능"
+
+**아키텍처**: URL 쿼리 파라미터 (`?range=7d&from=...&to=...`) → server 재렌더 패턴.
+
+**구현**:
+- `ReportRangeSelector.tsx` (client, 213 lines): pill 5개 (7d/30d/90d/month/prev_month) + 커스텀 date picker + 즉시 이메일 발송 버튼
+- `resolveRangeCutoffs()` 함수: range 코드 → cutoffThisMonth/cutoffPrev/end/rangeLabel/rangeShort/rangeCode
+- `fetchReportData(tenantId, rangeOpts)` 시그니처 확장: `rangeMeta` 반환
+- `/api/admin/reports/email` POST: `range/from/to` 받아서 reportUrl 에도 반영
+
+### Round 116 (2026-07-02) — Admin editorial 톤 + LLM 비용 3-tier
+
+**Phase 1 (920b9fe)** — AdminShell.tsx editorial 톤
+- Sidebar 배경: `bg-surface-subtle/base` → `bg-[#FAFAF7]` (warm off-white)
+- Active link: `bg-brand-50 text-brand-700` → **`bg-stone-900 text-white`** (검정 pill)
+- Divider: `border-border` → `border-stone-200/70` (hairline)
+- 로고 박스: `bg-brand` → `bg-stone-900`
+- 그룹 라벨 letter-spacing `0.2em` (editorial feel)
+- 링크 min-h `40px`, text-`[13px]`
+- **1 file changed, 20 insertions(+), 20 deletions(-)** — 정확히 1:1 라인 교체, sed 부작용 zero
+
+**Phase 2 (84863b6)** — Reports 페이지 파랑 → stone/emerald (12곳)
+- 표지 헤더 그라디언트 `bg-gradient-to-br from-brand-50 via-surface-base to-surface-base` → **평면 `border-b border-stone-200/70 bg-stone-50/40`** (AI 슬롭 제거)
+- EXECUTIVE SUMMARY 라벨 `text-brand-700` → `text-stone-600`
+- Executive Summary 강조 spans `text-brand` → `font-bold text-stone-950` (파란 → 검정 볼드)
+- 표 셀 `text-brand` (T1 count) → `font-semibold text-emerald-700` (성공 지표)
+- 다음 달 액션 1-4 번호 `text-brand` → `text-stone-900` (structural marker)
+- **KpiCell highlight state**: `border-brand bg-brand-50/30` → **`border-stone-900 bg-stone-50`** + text `text-brand` → `text-stone-950`
+- **AI 인용 chip**: `bg-brand-50 text-brand` → **`bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200/60`** (파랑과 차별 = 성공 신호 살림)
+- Cited content border: `border-brand/30 bg-brand-50/40` → `border-emerald-200 bg-emerald-50/40`
+- AI 인용 tag: `bg-brand` → `bg-emerald-600`
+- Slug links: `text-brand-700` → `text-stone-700`
+- "AI 가 인용한 위서클 콘텐츠" 섹션 wrapper: `bg-brand-50/30` → `bg-emerald-50/30`
+
+**Phase 5 (84863b6)** — 대시보드 LLM 비용 3-tier
+- **문제**: "오늘 LLM 비용 $0.00" 가 진짜 값인데 (cron 아직 안 돎) 시각적으로 "미터링 실패" 착시
+- **해결**: 오늘값 0 이면 어제 fallback + 14일 hint 항상 노출
+- Fetch 확장: `todayCost + yesterdayCost + cost14d` 3개 값 (한 번의 supabase select)
+- **KST 판정**: UTC → +9h 보정. 기존 `todayUtc` 는 UTC 오늘 → KST 오전 시간대 어긋남. 새로: `const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);` 후 매 row 마다 `+9h` shift 로 kstDay 비교
+- KPI 카드 라벨: `d.todayCost > 0 ? '오늘 LLM 비용' : '어제 LLM 비용'`
+- KPI hint: `14일 $X.XX · 한도 $5/일` (실 미터링 상태 명확)
+- 스몰카드 재라벨: "오늘 비용" → "14일 비용"
+
+### 함정 DZ — brand 토큰 일괄 제거 시 emerald 는 살릴 것
+
+- brand-blue 를 stone 으로 완전 회색화하면 **성공 신호 (AI 인용 활용, 점유율 상승) 가 죽음**
+- 규칙: **구조 (라벨/링크/카드) = stone**, **성과 (성공 카운트/chip/badge) = emerald**
+- Editorial 톤 = "회색 + 한 톤의 성과 색" (다중 색상 뱃지 = AI 슬롭)
+
+### 함정 EA — UTC vs KST 오늘 판정
+
+- `new Date().toISOString().slice(0, 10)` = UTC 오늘 → 한국 오전 09시 전까지는 UTC 어제
+- KST 정확 판정: `new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)`
+- **집계 로직**에서도 매 row `called_at` 을 +9h shift 후 비교해야 KST 일자 정확
+- 어제 판정: `new Date(kstNow.getTime() - 24 * 60 * 60 * 1000)` (KST 기준)
+
+### 함정 EB — sed 대신 Edit 도구로 surgical 편집
+
+- 이전 Round 111 v5 에서 sed 로 `px-6` → `px-5 sm:px-6` 패딩 일괄 교체 시 **551 lines 손실 + 12 files 파괴** (Vercel 빌드 실패)
+- 규칙 확립: 색상/토큰 일괄 교체 시 **Edit 도구 (replace_all=true 신중히)** 사용, sed 는 절대 금지
+- 커밋 후 항상 `git diff --stat` 로 라인 수 변화 확인 (예: Phase 1 "20 insertions(+), 20 deletions(-)" = 정확히 1:1 교체 = 안전)
+
+### 함정 EC — 시각 로그아웃 중복
+
+- Round 116 Phase 1 후 사용자 스샷에 로그아웃이 2개 보인다고 지적
+- 코드 감사 결과 **1개만 렌더** (AdminShell `sidebarContent` 마지막 로그아웃 button 하나만 있음)
+- 판정: 스크롤 대비 fixed 사이드바 겹침 or 다른 페이지의 로그아웃 링크가 함께 캡처된 시각 착시
+- 교훈: **사용자 스샷 지적 시에도 코드 grep 부터** — 자동 반응으로 코드 수정 금지
+
+### 다음 라운드 후보 (Round 116 세션 종료 시점)
+
+- **Round 116 Phase 4** (~1시간): 콘텐츠 완료 탭 카테고리 chip filter + 페이지네이션 + 인라인 삭제/수정
+- **Round 110-A**: 신규 AI 인용 감지 → 이메일 알림 자동화 (실전 GEO 효과 즉시 인지)
+- **Round 110-B**: 크롤러 로그 시각화 위젯 (GPTBot/Claudebot/PerplexityBot 방문 로그)
+- **Round 110-C**: UTM 카카오톡 유입 트래킹 대시보드 (Round 108-e CTA 통일 활용)
+
