@@ -35,28 +35,39 @@ const ANTI_TEXT_DIRECTIVE =
 
 function buildKoreanPrompt(keyword: string, title: string | null, isSelfTenant: boolean): string {
   const titleHint = title ? `, concept: ${title}` : '';
+  // Round 108-c (2026-07-03) — 사용자 요구: 무신사 매거진 감도. 시네마틱 필름 톤.
+  // Python nano_banana_client._build_korean_prompt 와 동일 (검수 재생성 = cron 발행 톤 일치).
   if (isSelfTenant) {
     return (
-      `Editorial photography for a Korean medical magazine. ` +
+      `High-end editorial magazine photography, Musinsa magazine aesthetic, ` +
+      `cinematic lifestyle photography for a Korean medical/wellness feature. ` +
       `Korean (ethnically East Asian) medical professional and Korean patient ` +
-      `in a modern Seoul medical clinic, theme: ${keyword}${titleHint}. ` +
-      `All subjects are clearly Korean (not Western, not Caucasian). ` +
-      `Authentic Korean facial features. Natural Korean skin tones. ` +
-      `Modern bright clinic interior, soft natural daylight, warm and trustworthy mood. ` +
-      `Professional DSLR photography, shallow depth of field, sharp focus, ` +
-      `realistic photo (not illustration, not anime). ` +
-      `8k uhd, magazine editorial quality.` +
+      `in a modern minimalist Seoul clinic space, theme: ${keyword}${titleHint}. ` +
+      `All subjects clearly Korean (authentic East Asian features, NOT Western/Caucasian). ` +
+      `Natural Korean skin tones, subtle makeup, natural expressions. ` +
+      `Cinematic natural window light, warm film-like tone, moody atmosphere, ` +
+      `minimalist interior with clean lines, wooden accents, off-white walls. ` +
+      `Shot on 35mm film camera, shallow depth of field (f/1.8), 50mm lens, ` +
+      `soft bokeh, editorial framing, magazine cover quality. ` +
+      `Photorealistic (NOT illustration, NOT anime, NOT cartoon, NOT 3D render). ` +
+      `8k UHD, sharp fine detail, high dynamic range, professional color grading, ` +
+      `muted earth tones, sophisticated palette.` +
       ANTI_TEXT_DIRECTIVE
     );
   }
   return (
-    `Professional photograph of a Korean (ethnically East Asian) medical doctor ` +
-    `consulting with a Korean patient, theme: ${keyword}${titleHint}. ` +
-    `Both subjects clearly Korean (East Asian features, NOT Western/Caucasian). ` +
-    `Modern bright Korean medical clinic interior in Seoul. ` +
-    `Warm natural lighting, friendly and trustworthy atmosphere. ` +
-    `Photorealistic (not illustration), professional camera quality, ` +
-    `shallow depth of field, sharp detail.` +
+    `High-end editorial magazine photography, Musinsa magazine aesthetic, ` +
+    `cinematic lifestyle shot. ` +
+    `Korean (ethnically East Asian) medical doctor with a Korean patient, ` +
+    `theme: ${keyword}${titleHint}. ` +
+    `Both subjects clearly Korean (authentic East Asian features, NOT Western). ` +
+    `Modern minimalist Korean clinic interior in Seoul, ` +
+    `clean lines, warm neutral tones, natural daylight from side window. ` +
+    `Cinematic film-like lighting, moody warm atmosphere, editorial composition. ` +
+    `Shot on 35mm, 50mm lens, shallow depth of field, soft bokeh, ` +
+    `professional DSLR quality, magazine editorial framing. ` +
+    `Photorealistic (NOT illustration, NOT anime, NOT cartoon). ` +
+    `8k UHD, sharp detail, sophisticated muted palette, high fidelity.` +
     ANTI_TEXT_DIRECTIVE
   );
 }

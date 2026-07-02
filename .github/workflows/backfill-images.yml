@@ -1,0 +1,79 @@
+name: Backfill images (Nano Banana 재생성)
+
+# Round 108-c (2026-07-03) — 기존 콘텐츠 65편의 커버 이미지를 무신사 매거진 감도로 일괄 재생성.
+# 수동 트리거 전용. 로컬에서 스크립트 실행 대신 GH Actions Runner 에서 원격 실행.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tenant_id:
+        description: '특정 tenant 만 (빈값 = 전체)'
+        required: false
+        default: ''
+      max_items:
+        description: '최대 처리 편 수 (빈값 = 무제한)'
+        required: false
+        default: ''
+      skip_existing:
+        description: '이미 nano_banana 로 재생성된 것 skip'
+        required: false
+        default: 'true'
+      sleep_sec:
+        description: '편 사이 대기(초)'
+        required: false
+        default: '3'
+      dry_run:
+        description: 'dry-run (실제 UPDATE 안 함)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backfill-images
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify required secrets
+        run: |
+          [ -n "${{ secrets.DATABASE_URL }}" ] || { echo "::error::DATABASE_URL 없음"; exit 1; }
+          [ -n "${{ secrets.GEMINI_API_KEY }}" ] || { echo "::error::GEMINI_API_KEY 없음"; exit 1; }
+
+      - name: Run regenerate_all_images.py
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          IMAGE_PROVIDER: nano_banana
+          IMAGE_STRICT: 'true'
+        run: |
+          ARGS=""
+          [ -n "${{ inputs.tenant_id }}" ] && ARGS="$ARGS --tenant-id ${{ inputs.tenant_id }}"
+          [ -n "${{ inputs.max_items }}" ] && ARGS="$ARGS --max ${{ inputs.max_items }}"
+          [ "${{ inputs.skip_existing }}" = "true" ] && ARGS="$ARGS --skip-existing-nano"
+          [ "${{ inputs.dry_run }}" = "true" ] && ARGS="$ARGS --dry-run"
+          [ -n "${{ inputs.sleep_sec }}" ] && ARGS="$ARGS --sleep ${{ inputs.sleep_sec }}"
+          echo "Running: python scripts/regenerate_all_images.py $ARGS"
+          python scripts/regenerate_all_images.py $ARGS

@@ -67,7 +67,11 @@ def is_nano_banana_enabled() -> bool:
 
 
 def _build_korean_prompt(keyword: str, title: str | None = None, *, is_self_tenant: bool = False) -> str:
-    """Nano Banana 한국인 모델 프롬프트 (Vercel route.ts 미러)."""
+    """Nano Banana 한국인 모델 프롬프트 (무신사 매거진 감도).
+
+    Round 108-c (2026-07-03): 사용자 요구 = "감도 높은 실사, 무신사 매거진 스타일".
+    시네마틱 · 필름 톤 · 자연광 · 미니멀 공간 · 얕은 심도.
+    """
     from src.content.image_picker import keyword_to_english_context
 
     en_ctx = keyword_to_english_context(keyword)
@@ -75,25 +79,34 @@ def _build_korean_prompt(keyword: str, title: str | None = None, *, is_self_tena
 
     if is_self_tenant:
         return (
-            f"Editorial photography for a Korean medical magazine. "
+            f"High-end editorial magazine photography, Musinsa magazine aesthetic, "
+            f"cinematic lifestyle photography for a Korean medical/wellness feature. "
             f"Korean (ethnically East Asian) medical professional and Korean patient "
-            f"in a modern Seoul medical clinic, theme: {en_ctx}{title_hint}. "
-            f"All subjects are clearly Korean (not Western, not Caucasian). "
-            f"Authentic Korean facial features. Natural Korean skin tones. "
-            f"Modern bright clinic interior, soft natural daylight, warm and trustworthy mood. "
-            f"Professional DSLR photography, shallow depth of field, sharp focus, "
-            f"realistic photo (not illustration, not anime). "
-            f"8k uhd, magazine editorial quality."
+            f"in a modern minimalist Seoul clinic space, theme: {en_ctx}{title_hint}. "
+            f"All subjects clearly Korean (authentic East Asian features, NOT Western/Caucasian). "
+            f"Natural Korean skin tones, subtle makeup, natural expressions. "
+            f"Cinematic natural window light, warm film-like tone, moody atmosphere, "
+            f"minimalist interior with clean lines, wooden accents, off-white walls. "
+            f"Shot on 35mm film camera, shallow depth of field (f/1.8), 50mm lens, "
+            f"soft bokeh, editorial framing, magazine cover quality. "
+            f"Photorealistic (NOT illustration, NOT anime, NOT cartoon, NOT 3D render). "
+            f"8k UHD, sharp fine detail, high dynamic range, professional color grading, "
+            f"muted earth tones, sophisticated palette."
             + _ANTI_TEXT_DIRECTIVE
         )
     return (
-        f"Professional photograph of a Korean (ethnically East Asian) medical doctor "
-        f"consulting with a Korean patient, theme: {en_ctx}{title_hint}. "
-        f"Both subjects clearly Korean (East Asian features, NOT Western/Caucasian). "
-        f"Modern bright Korean medical clinic interior in Seoul. "
-        f"Warm natural lighting, friendly and trustworthy atmosphere. "
-        f"Photorealistic (not illustration), professional camera quality, "
-        f"shallow depth of field, sharp detail."
+        f"High-end editorial magazine photography, Musinsa magazine aesthetic, "
+        f"cinematic lifestyle shot. "
+        f"Korean (ethnically East Asian) medical doctor with a Korean patient, "
+        f"theme: {en_ctx}{title_hint}. "
+        f"Both subjects clearly Korean (authentic East Asian features, NOT Western). "
+        f"Modern minimalist Korean clinic interior in Seoul, "
+        f"clean lines, warm neutral tones, natural daylight from side window. "
+        f"Cinematic film-like lighting, moody warm atmosphere, editorial composition. "
+        f"Shot on 35mm, 50mm lens, shallow depth of field, soft bokeh, "
+        f"professional DSLR quality, magazine editorial framing. "
+        f"Photorealistic (NOT illustration, NOT anime, NOT cartoon). "
+        f"8k UHD, sharp detail, sophisticated muted palette, high fidelity."
         + _ANTI_TEXT_DIRECTIVE
     )
 

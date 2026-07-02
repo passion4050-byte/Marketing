@@ -1,56 +1,109 @@
-"""HTML body 후처리 폴리셔 — Round 108-b (2026-07-03).
+"""HTML body 후처리 폴리셔 v2 — Round 108-c (2026-07-03).
 
-`render_body()` 결과 HTML 을 스캔해서 id 83 (gangnam-rejuran-healer-effect-protocol)
-스타일로 폴리셔:
+id 42 (jamsil-lasik-types-and-screening, llm_provider=manual-claude) 를 벤치마크로
+사용자 최초 세팅 콘텐츠 스타일 완전 재현.
 
-1. 연속된 `<p>| ... |</p>` 마크다운 표 잔재 → `<table>` 병합
-2. HTML entity 이중 인코딩 복구 (`&amp;` → `&`, `&#x27;` → `'`, `&quot;` → `"`)
-3. 헤더/문단/표/figure 에 인라인 스타일 자동 삽입
-4. H3 chip 스타일 (핑크 배지) 로 강조
+폴리셔 로직:
+1. HTML entity 이중 인코딩 복구 (&amp; → &)
+2. 연속 <p>|...|</p> 마크다운 표 잔재 → 스타일드 <table> 병합
+3. 태그별 인라인 스타일 자동 삽입 (id 42 정확한 팔레트)
+4. **Pretendard 폰트** wrapper 감쌈 (전체 강제)
 
-사용:
-    from src.content.body_polish import polish_body_html
-    polished = polish_body_html(raw_body_html)
+id 42 스타일 특징:
+- font-size 1.1em, line-height 1.85 (본문)
+- <h2> font-size 1.75em, letter-spacing -0.01em
+- <mark> 노란 형광펜 (#FEF08A)
+- 컬러 chip H3 배지 4종 (블루/그린/인디고/레드/핑크)
+- 표 padding 14px 18px + border #cbd5e1 + alternating #fafafa
 """
 from __future__ import annotations
 
-import html
 import logging
 import re
 
 logger = logging.getLogger(__name__)
 
-# ─── 인라인 스타일 (id 83 참조) ──────────────────────────────
+# ─── Pretendard 폰트 wrapper (전체 감쌈) ─────────────────────
 
+_PRETENDARD_FONT_STACK = (
+    "'Pretendard Variable', Pretendard, "
+    "-apple-system, BlinkMacSystemFont, system-ui, "
+    "Roboto, 'Helvetica Neue', 'Segoe UI', "
+    "'Apple SD Gothic Neo', 'Noto Sans KR', "
+    "'Malgun Gothic', sans-serif"
+)
+_WRAPPER_OPEN = (
+    f'<div class="wecircle-body" style="font-family: {_PRETENDARD_FONT_STACK}; '
+    f'color: #1e293b; -webkit-font-smoothing: antialiased;">'
+)
+_WRAPPER_CLOSE = "</div>"
+
+# ─── 인라인 스타일 (id 42 정확 벤치마크) ─────────────────────
+
+# Round 108-c (2026-07-03) — 무신사 매거진 감도 참고.
+# 미니멀 · 시네마틱 · 넉넉한 여백 · 강한 typography contrast.
 _STYLE_H1 = (
-    "font-size: 2em; font-weight: 800; color: #0f172a; "
-    "margin-top: 0.5em; margin-bottom: 0.8em; line-height: 1.3;"
+    "font-size: 2.4em; font-weight: 900; color: #0a0a0a; "
+    "margin: 0.3em 0 1em 0; line-height: 1.25; "
+    "letter-spacing: -0.025em;"
 )
 _STYLE_H2 = (
-    "font-size: 1.75em; font-weight: 800; color: #0f172a; "
-    "margin-top: 2.5em; margin-bottom: 1em; line-height: 1.4;"
+    "font-size: 1.85em; font-weight: 800; color: #0a0a0a; "
+    "margin-top: 3em; margin-bottom: 1em; line-height: 1.35; "
+    "letter-spacing: -0.02em;"
 )
-_STYLE_H3_CHIP = (
-    "display: inline-block; background: #FCE7F3; color: #9D174D; "
-    "padding: 0.4em 0.9em; border-radius: 8px; "
-    "font-size: 1.05em; font-weight: 700; margin: 1.5em 0 0.8em 0;"
-)
+# H3 — 무신사 style: 서브 라벨 uppercase small caps, 색상 절제
+_H3_ACCENT_COLORS = [
+    "#1a1a1a",   # black
+    "#3a3a3a",   # dark gray
+    "#525252",   # medium gray
+]
+
+
+def _h3_chip_style(idx: int) -> str:
+    color = _H3_ACCENT_COLORS[idx % len(_H3_ACCENT_COLORS)]
+    return (
+        f"font-size: 1.15em; font-weight: 800; color: {color}; "
+        f"margin: 2.4em 0 0.8em 0; line-height: 1.4; "
+        f"letter-spacing: -0.01em; "
+        f"padding-bottom: 0.4em; border-bottom: 2px solid #0a0a0a; "
+        f"display: inline-block;"
+    )
+
+
 _STYLE_P = (
-    "font-size: 1.05em; line-height: 1.85; color: #1e293b; "
-    "margin: 1em 0;"
+    "font-size: 1.08em; line-height: 1.9; color: #1a1a1a; "
+    "margin-bottom: 1.6em; font-weight: 400;"
 )
-_STYLE_TABLE = "width: 100%; border-collapse: collapse; margin: 1.5em 0;"
-_STYLE_TABLE_TR_HEADER = "background: #F1F5F9;"
-_STYLE_TABLE_TR_ALT = "background: #F8FAFC;"
+_STYLE_TABLE = (
+    "width: 100%; border-collapse: collapse; margin-bottom: 2em; "
+    "font-size: 0.95em; border: 1px solid #cbd5e1;"
+)
+_STYLE_TABLE_TR_HEADER = "background-color: #f1f5f9;"
+_STYLE_TABLE_TR_ALT = "background-color: #fafafa;"
 _STYLE_TABLE_TH = (
-    "padding: 12px; text-align: left; border: 1px solid #E2E8F0; "
+    "border: 1px solid #cbd5e1; padding: 14px 18px; text-align: left; "
     "font-weight: 700; color: #0f172a;"
 )
-_STYLE_TABLE_TD = "padding: 12px; border: 1px solid #E2E8F0; color: #1e293b;"
+_STYLE_TABLE_TD = (
+    "border: 1px solid #cbd5e1; padding: 14px 18px; color: #1e293b;"
+)
+_STYLE_UL = "margin-bottom: 1.5em; line-height: 1.9; padding-left: 1.5em;"
+_STYLE_OL = _STYLE_UL
+_STYLE_LI = "margin-bottom: 0.5em;"
 _STYLE_FIGURE = "margin: 2.5em 0;"
 _STYLE_IMG = "width: 100%; height: auto; border-radius: 12px;"
 _STYLE_FIGCAPTION = (
     "text-align: center; color: #64748b; font-size: 0.9em; margin-top: 0.6em;"
+)
+_STYLE_MARK = (
+    "background-color: #FEF08A; padding: 3px 6px; border-radius: 4px; "
+    "font-weight: 600;"
+)
+_STYLE_STRONG = "font-weight: 700; color: #0f172a;"
+_STYLE_BLOCKQUOTE = (
+    "border-left: 4px solid #cbd5e1; margin: 1.5em 0; "
+    "padding: 0.5em 1em; color: #475569; background: #f8fafc;"
 )
 
 
@@ -64,14 +117,12 @@ _ENTITY_MAP = {
     "&#34;": '"',
     "&lt;": "<",
     "&gt;": ">",
+    "&nbsp;": " ",
 }
 
 
 def _decode_double_entities(text: str) -> str:
-    """Round 61 재발 방지: LLM 응답의 이중 인코딩 (&amp;) 복구."""
     for enc, dec in _ENTITY_MAP.items():
-        # 태그 안 속성이 아닌 텍스트 노드에만 적용해야 하지만,
-        # blog 본문 HTML 은 대부분 텍스트라 안전. 문제 시 tag-aware 파서 도입.
         text = text.replace(enc, dec)
     return text
 
@@ -86,28 +137,16 @@ _MD_SEP_ROW_RE = re.compile(r"^\s*:?-{2,}:?(\s*\|\s*:?-{2,}:?)*\s*$")
 
 
 def _consolidate_md_table_paragraphs(html_text: str) -> str:
-    """<p>| ... |</p> 가 여러 개 연속되면 하나의 <table> 로 병합.
-
-    예:
-        <p>| A | B |</p>
-        <p>|---|---|</p>
-        <p>| 1 | 2 |</p>
-        <p>| 3 | 4 |</p>
-    → <table>...</table>
-    """
-    # 모든 <p>|...|</p> 위치 수집
     matches = list(_MD_ROW_P_RE.finditer(html_text))
     if not matches:
         return html_text
 
-    # 연속된 그룹 찾기 (2개 이상, 사이에 non-whitespace 없음)
     groups: list[list[re.Match]] = []
     current: list[re.Match] = []
-    for i, m in enumerate(matches):
+    for m in matches:
         if current:
             between = html_text[current[-1].end():m.start()]
             if between.strip():
-                # 사이에 다른 태그 있음 → 그룹 종료
                 if len(current) >= 2:
                     groups.append(current)
                 current = [m]
@@ -119,22 +158,16 @@ def _consolidate_md_table_paragraphs(html_text: str) -> str:
     if not groups:
         return html_text
 
-    # 뒤에서부터 치환 (offset 유지)
     for group in reversed(groups):
         start = group[0].start()
         end = group[-1].end()
-        # 각 행 셀 추출
-        rows_cells: list[list[str]] = []
         header: list[str] | None = None
+        rows_cells: list[list[str]] = []
         for m in group:
             row_content = m.group(1).strip()
-            # 구분행 (|---|---|) skip
             if _MD_SEP_ROW_RE.match(row_content):
                 continue
             cells = [c.strip() for c in row_content.split("|")]
-            # 앞뒤 빈 셀 제거
-            cells = [c for c in cells if c or True]  # keep empty; 실제로는 |...|.split('|')는 정상
-            # 첫 유효 행 = 헤더
             if header is None:
                 header = cells
             else:
@@ -143,7 +176,6 @@ def _consolidate_md_table_paragraphs(html_text: str) -> str:
         if not header:
             continue
 
-        # HTML 조립
         thead_cells = "".join(
             f'<th style="{_STYLE_TABLE_TH}">{c}</th>' for c in header
         )
@@ -164,53 +196,125 @@ def _consolidate_md_table_paragraphs(html_text: str) -> str:
     return html_text
 
 
-# ─── 3. 인라인 스타일 자동 삽입 ─────────────────────────────
+# ─── 3. 기존 <table> 스타일 강화 (스타일 없는 것만) ────────
+
+_TABLE_NO_STYLE_RE = re.compile(
+    r"<table(?![^>]*\bstyle=)([^>]*)>(.*?)</table>",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _style_existing_tables(text: str) -> str:
+    def _wrap(m: re.Match) -> str:
+        attrs, inner = m.group(1), m.group(2)
+        # thead 첫 tr 헤더 스타일
+        inner = re.sub(
+            r"<thead[^>]*>\s*<tr(?![^>]*\bstyle=)([^>]*)>",
+            rf'<thead><tr style="{_STYLE_TABLE_TR_HEADER}"\1>',
+            inner, count=1, flags=re.IGNORECASE,
+        )
+        # th 스타일
+        inner = re.sub(
+            r"<th(?![^>]*\bstyle=)([^>]*)>",
+            rf'<th style="{_STYLE_TABLE_TH}"\1>',
+            inner, flags=re.IGNORECASE,
+        )
+        # td 스타일
+        inner = re.sub(
+            r"<td(?![^>]*\bstyle=)([^>]*)>",
+            rf'<td style="{_STYLE_TABLE_TD}"\1>',
+            inner, flags=re.IGNORECASE,
+        )
+        # tbody 안 tr alternating (홀수만 배경)
+        tbody_match = re.search(
+            r"(<tbody[^>]*>)(.*?)(</tbody>)", inner, re.IGNORECASE | re.DOTALL
+        )
+        if tbody_match:
+            tbody_open, tbody_inner, tbody_close = tbody_match.groups()
+            trs = re.findall(
+                r"<tr(?![^>]*\bstyle=)([^>]*)>(.*?)</tr>",
+                tbody_inner, flags=re.IGNORECASE | re.DOTALL,
+            )
+            new_tbody = ""
+            for i, (attrs2, content) in enumerate(trs):
+                style = f' style="{_STYLE_TABLE_TR_ALT}"' if i % 2 == 1 else ""
+                new_tbody += f"<tr{style}{attrs2}>{content}</tr>"
+            inner = inner.replace(tbody_match.group(0), tbody_open + new_tbody + tbody_close)
+        return f'<table style="{_STYLE_TABLE}"{attrs}>{inner}</table>'
+
+    return _TABLE_NO_STYLE_RE.sub(_wrap, text)
+
+
+# ─── 4. 헤더/문단/기타 인라인 스타일 자동 삽입 ─────────────
 
 _H1_RE = re.compile(r"<h1(?![^>]*\bstyle=)([^>]*)>", re.IGNORECASE)
 _H2_RE = re.compile(r"<h2(?![^>]*\bstyle=)([^>]*)>", re.IGNORECASE)
 _H3_RE = re.compile(r"<h3(?![^>]*\bstyle=)([^>]*)>", re.IGNORECASE)
 _P_RE = re.compile(r"<p(?![^>]*\bstyle=)([^>]*)>", re.IGNORECASE)
-_TABLE_RE = re.compile(r"<table(?![^>]*\bstyle=)([^>]*)>", re.IGNORECASE)
+_UL_RE = re.compile(r"<ul(?![^>]*\bstyle=)([^>]*)>", re.IGNORECASE)
+_OL_RE = re.compile(r"<ol(?![^>]*\bstyle=)([^>]*)>", re.IGNORECASE)
+_LI_RE = re.compile(r"<li(?![^>]*\bstyle=)([^>]*)>", re.IGNORECASE)
 _FIGURE_RE = re.compile(r"<figure(?![^>]*\bstyle=)([^>]*)>", re.IGNORECASE)
 _IMG_RE = re.compile(r"<img(?![^>]*\bstyle=)([^>]*)>", re.IGNORECASE)
-_FIGCAPTION_RE = re.compile(
-    r"<figcaption(?![^>]*\bstyle=)([^>]*)>", re.IGNORECASE
-)
+_FIGCAPTION_RE = re.compile(r"<figcaption(?![^>]*\bstyle=)([^>]*)>", re.IGNORECASE)
+_MARK_RE = re.compile(r"<mark(?![^>]*\bstyle=)([^>]*)>", re.IGNORECASE)
+_STRONG_RE = re.compile(r"<strong(?![^>]*\bstyle=)([^>]*)>", re.IGNORECASE)
+_BLOCKQUOTE_RE = re.compile(r"<blockquote(?![^>]*\bstyle=)([^>]*)>", re.IGNORECASE)
+
+
+def _cycle_h3_styles(text: str) -> str:
+    """<h3> 마다 색상 chip 순환 (5색)."""
+    counter = {"i": 0}
+
+    def _sub(m: re.Match) -> str:
+        style = _h3_chip_style(counter["i"])
+        counter["i"] += 1
+        return f'<h3 style="{style}"{m.group(1)}>'
+
+    return re.sub(r"<h3(?![^>]*\bstyle=)([^>]*)>", _sub, text, flags=re.IGNORECASE)
 
 
 def _inject_inline_styles(text: str) -> str:
-    """스타일 없는 태그에 기본 인라인 스타일 자동 삽입 (id 83 스타일)."""
     text = _H1_RE.sub(rf'<h1 style="{_STYLE_H1}"\1>', text)
     text = _H2_RE.sub(rf'<h2 style="{_STYLE_H2}"\1>', text)
-    text = _H3_RE.sub(rf'<h3 style="{_STYLE_H3_CHIP}"\1>', text)
+    text = _cycle_h3_styles(text)
     text = _P_RE.sub(rf'<p style="{_STYLE_P}"\1>', text)
-    text = _TABLE_RE.sub(rf'<table style="{_STYLE_TABLE}"\1>', text)
+    text = _UL_RE.sub(rf'<ul style="{_STYLE_UL}"\1>', text)
+    text = _OL_RE.sub(rf'<ol style="{_STYLE_OL}"\1>', text)
+    text = _LI_RE.sub(rf'<li style="{_STYLE_LI}"\1>', text)
     text = _FIGURE_RE.sub(rf'<figure style="{_STYLE_FIGURE}"\1>', text)
     text = _IMG_RE.sub(rf'<img style="{_STYLE_IMG}"\1>', text)
-    text = _FIGCAPTION_RE.sub(
-        rf'<figcaption style="{_STYLE_FIGCAPTION}"\1>', text
-    )
+    text = _FIGCAPTION_RE.sub(rf'<figcaption style="{_STYLE_FIGCAPTION}"\1>', text)
+    text = _MARK_RE.sub(rf'<mark style="{_STYLE_MARK}"\1>', text)
+    text = _STRONG_RE.sub(rf'<strong style="{_STYLE_STRONG}"\1>', text)
+    text = _BLOCKQUOTE_RE.sub(rf'<blockquote style="{_STYLE_BLOCKQUOTE}"\1>', text)
     return text
 
 
-# ─── 4. 통합 진입점 ────────────────────────────────────────
+# ─── 5. 통합 진입점 ────────────────────────────────────────
 
 
 def polish_body_html(body_html: str) -> str:
-    """저장 직전 body HTML 을 폴리셔 — id 83 스타일 재현.
+    """저장 직전 body HTML 을 폴리셔 — id 42 스타일 재현.
 
     순서:
       1. entity 이중 인코딩 복구
       2. 연속 <p>|...|</p> → <table> 병합
-      3. 태그별 인라인 스타일 삽입
+      3. 기존 <table> 스타일 강화 (스타일 없는 것만)
+      4. 태그별 인라인 스타일 삽입
+      5. Pretendard 폰트 wrapper 감쌈
     """
     if not body_html:
         return body_html
     try:
+        # 이미 wrapper 감싸진 경우 skip (재폴리셔 idempotent)
+        if 'class="wecircle-body"' in body_html and 'font-family' in body_html[:500]:
+            return body_html
         polished = _decode_double_entities(body_html)
         polished = _consolidate_md_table_paragraphs(polished)
+        polished = _style_existing_tables(polished)
         polished = _inject_inline_styles(polished)
-        return polished
+        return _WRAPPER_OPEN + polished + _WRAPPER_CLOSE
     except Exception as e:  # noqa: BLE001
         logger.warning("polish_body_html 예외: %s", e)
         return body_html
