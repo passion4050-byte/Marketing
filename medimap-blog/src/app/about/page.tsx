@@ -48,7 +48,7 @@ export default function AboutPage() {
             </div>
 
             <div className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end">
-              <h1 className="text-[42px] font-black leading-[1.05] tracking-[-0.025em] text-stone-950 md:text-[64px]">
+              <h1 className="text-[38px] font-black leading-[1.08] tracking-[-0.025em] text-stone-950 md:text-[52px] xl:text-[58px]">
                 검색이 검색을 벗어난 시대,
                 <br />
                 <span className="font-serif italic font-normal text-stone-500">병원이 남길 문장을 편집합니다.</span>

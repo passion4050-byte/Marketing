@@ -61,7 +61,7 @@ export default function ContactPage() {
             </div>
 
             <div className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end">
-              <h1 className="text-[42px] font-black leading-[1.05] tracking-[-0.025em] text-stone-950 md:text-[60px]">
+              <h1 className="text-[38px] font-black leading-[1.08] tracking-[-0.025em] text-stone-950 md:text-[52px] xl:text-[58px]">
                 한 문장의 상담으로,
                 <br />
                 <span className="font-serif italic font-normal text-stone-500">시작할 수 있습니다.</span>

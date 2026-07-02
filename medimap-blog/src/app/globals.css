@@ -24,6 +24,13 @@
     @apply bg-surface text-ink antialiased;
     font-feature-settings: "tnum" on, "ss01" on;
   }
+  /* Round 111 v4 (2026-07-02) — Editorial serif for italic accents.
+     Fraunces is loaded from Google Fonts in layout.tsx.
+     Applied to `.font-serif` utility (Tailwind default fallback maps here). */
+  .font-serif {
+    font-family: "Fraunces", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    font-optical-sizing: auto;
+  }
   ::selection {
     @apply bg-brand/15 text-brand-700;
   }

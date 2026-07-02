@@ -48,6 +48,11 @@ export const viewport: Viewport = {
 const PRETENDARD_HREF =
   "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css";
 
+// Round 111 v4 (2026-07-02) — Editorial serif for italic accent (h1 span, quotes, numerals).
+// Fraunces is variable, italic-capable, and reads warm/magazine. Loaded from Google Fonts.
+const FRAUNCES_HREF =
+  "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,300;1,9..144,400;1,9..144,500&display=swap";
+
 export default function RootLayout({
   children,
 }: {
@@ -63,12 +68,22 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
+        <link
+          rel="preconnect"
+          href="https://fonts.googleapis.com"
+        />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
         {/* Pre-resolve DNS for analytics so lazy-loaded GA/GTM connects faster. */}
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
         {/* Plain stylesheet link in <head> — Next 14 hoists it; loaded in parallel
             with the rest of the document. The Pretendard subset CSS uses
             `font-display: swap` so system Korean fonts render immediately. */}
         <link rel="stylesheet" href={PRETENDARD_HREF} />
+        <link rel="stylesheet" href={FRAUNCES_HREF} />
       </head>
       <body className="flex min-h-screen flex-col bg-[#FAFAF7] text-stone-900 antialiased">
         <PublicChrome header={<Header />} footer={<Footer />}>

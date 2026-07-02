@@ -1,5 +1,4 @@
 import { siteConfig } from "@/lib/site";
-import { MessageCircle } from "lucide-react";
 import { TrackedLink } from "./TrackedLink";
 
 interface CTABlockProps {
@@ -23,38 +22,33 @@ function withUtm(url: string, source: string, campaign: string): string {
 }
 
 /**
- * Round 108-e (2026-07-03) — CTA 심플화.
- * 이전: 카카오톡 + 네이버 플레이스 + 외부 medimap 링크 3개 (외부 이탈 유도)
- * 개선: 카카오톡 오픈챗 CTA 하나만 크게 (wecircle.co.kr 내부 유도 정책).
+ * Round 111 v4 (2026-07-02) — Editorial CTA. Off-white, hairline top divider,
+ * italic serif quote, ink black button. Blog post 본문에서 사용.
  */
 export function CTABlock({
-  title = "지금 바로 위서클 상담받기",
-  description = "AI 검색 시대의 의료 마케팅, 위서클 운영자가 직접 안내합니다.",
+  title = "더 자세한 상담이 필요하다면.",
+  description = "AI 검색 시대의 의료 마케팅, 위서클 파트너십 팀이 카카오톡으로 안내합니다.",
   utmSource = "blog",
   utmCampaign = "blog_cta",
 }: CTABlockProps) {
   const kakao = withUtm(siteConfig.contact.kakao, utmSource, utmCampaign);
   return (
     <aside
-      className="relative my-12 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-700 p-8 text-white shadow-cta"
-      data-cta-block="standard"
-      style={{ contain: "paint", willChange: "transform" }}
+      className="my-14 border-t border-stone-300 pt-10"
+      data-cta-block="editorial"
     >
-      <div
-        className="absolute -right-16 -top-20 h-48 w-48 rounded-full bg-white/10 blur-2xl"
-        aria-hidden
-        style={{ transform: "translateZ(0)", willChange: "transform" }}
-      />
-      <div
-        className="absolute -bottom-24 -left-10 h-56 w-56 rounded-full bg-accent/30 blur-3xl"
-        aria-hidden
-        style={{ transform: "translateZ(0)", willChange: "transform" }}
-      />
-      <div className="relative text-center">
-        <h3 className="text-[22px] font-bold tracking-tight md:text-2xl">
-          {title}
-        </h3>
-        <p className="mx-auto mt-2 max-w-xl text-white/85">{description}</p>
+      <div className="grid gap-6 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:items-center">
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
+            Get in touch
+          </div>
+          <h3 className="mt-4 font-serif text-2xl italic leading-tight text-stone-900 md:text-[28px]">
+            &ldquo;{title}&rdquo;
+          </h3>
+          <p className="mt-3 max-w-md text-[14px] leading-[1.75] text-stone-600">
+            {description}
+          </p>
+        </div>
         <TrackedLink
           href={kakao}
           target="_blank"
@@ -62,9 +56,14 @@ export function CTABlock({
           trackChannel="kakao"
           trackSource={utmSource}
           trackCampaign={utmCampaign}
-          className="mt-6 inline-flex items-center justify-center gap-2 rounded-full bg-[#FEE500] px-8 py-4 text-base font-extrabold text-[#3C1E1E] shadow-md transition hover:scale-105 hover:shadow-lg"
+          kakaoMedium="cta"
+          className="group inline-flex items-center justify-between gap-4 border border-stone-900 bg-stone-900 px-6 py-5 text-white transition hover:bg-stone-800"
         >
-          <MessageCircle size={20} /> 카카오톡으로 상담받기
+          <span className="text-sm font-bold tracking-tight">카카오톡으로 상담받기</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden>
+            <path stroke="currentColor" d="M7 17L17 7" />
+            <path stroke="currentColor" d="M7 7h10v10" />
+          </svg>
         </TrackedLink>
       </div>
     </aside>

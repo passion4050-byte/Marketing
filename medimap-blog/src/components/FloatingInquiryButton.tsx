@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageSquareText } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 
 /**
- * 강남언니 톤 플로팅 "문의하기" CTA — 모든 공개 페이지에서 우하단 고정.
- * 어드민/문의 페이지 자체에선 숨김 (중복 노출 방지).
+ * Round 111 v4 (2026-07-02) — Editorial 톤에 맞춘 미니멀 플로팅 CTA.
+ * 검정 원형 버튼 + 카카오 아이콘. Contact/Admin 페이지에선 숨김.
  */
 const HIDE_ON: ((p: string) => boolean)[] = [
   (p) => p.startsWith("/admin"),
+  (p) => p.startsWith("/client"),
   (p) => p === "/contact",
 ];
 
@@ -21,12 +22,10 @@ export function FloatingInquiryButton() {
   return (
     <Link
       href="/contact"
-      aria-label="문의하기"
-      className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-pill bg-gradient-to-r from-brand to-accent px-5 py-3.5 text-[14px] font-bold text-white shadow-cta ring-2 ring-white/30 transition-all duration-200 hover:-translate-y-1 hover:shadow-glow active:translate-y-0 sm:bottom-6 sm:right-6"
+      aria-label="제휴 문의하기"
+      className="group fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 border border-stone-900 bg-stone-900 px-4 py-3 text-[13px] font-bold tracking-tight text-white shadow-[0_10px_30px_-10px_rgba(0,0,0,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-stone-800 sm:bottom-8 sm:right-8"
     >
-      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20">
-        <MessageSquareText size={14} />
-      </span>
+      <MessageCircle size={14} strokeWidth={2} />
       <span className="hidden sm:inline">문의하기</span>
       <span className="sm:hidden">문의</span>
     </Link>
