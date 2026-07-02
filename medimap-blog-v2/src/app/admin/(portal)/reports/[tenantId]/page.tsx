@@ -450,10 +450,11 @@ export default async function TenantReportPage({
       {/* 보고서 본문 */}
       <article className="card overflow-hidden print:border-0 print:shadow-none">
         {/* === 1. 표지/헤더 === */}
-        <header className="bg-gradient-to-br from-brand-50 via-surface-base to-surface-base px-6 py-8 md:px-10 print:bg-white">
+        {/* Round 116 Phase 2 (2026-07-02) — Editorial 톤. 그라디언트 제거 + stone hairline + emerald AI 인용 강조. */}
+        <header className="border-b border-stone-200/70 bg-stone-50/40 px-6 py-8 md:px-10 print:bg-white">
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-700">
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600">
                 WECIRCLE GEO · Monthly Report
               </div>
               <h1 className="mt-2 text-2xl font-bold text-ink md:text-3xl">{tenant.name}</h1>
@@ -468,7 +469,7 @@ export default async function TenantReportPage({
 
         {/* === 2. Executive Summary === */}
         <section className="border-t border-border px-6 py-6 md:px-10">
-          <h2 className="mb-3 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-700">
+          <h2 className="mb-3 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-stone-600">
             <Award className="h-3 w-3" />
             EXECUTIVE SUMMARY
           </h2>
@@ -476,8 +477,8 @@ export default async function TenantReportPage({
             {data.totalThis > 0 ? (
               <>
                 {periodShort} AI 검색 모니터링 결과,{' '}
-                <span className="text-brand">{tenant.name}</span>의 키워드에서 총{' '}
-                <span className="text-brand">{data.totalThis}건</span>의 AI 인용이 발생했습니다.{' '}
+                <span className="font-bold text-stone-950">{tenant.name}</span>의 키워드에서 총{' '}
+                <span className="font-bold text-stone-950">{data.totalThis}건</span>의 AI 인용이 발생했습니다.{' '}
                 {data.t1ShareDelta > 0.02 && (
                   <>위서클 도메인 점유율이 지난 달 대비 <span className="text-status-success">+{deltaPct}%p</span> 상승했습니다.</>
                 )}
@@ -556,7 +557,7 @@ export default async function TenantReportPage({
                   <tr key={k.keyword} className="border-t border-border">
                     <td className="px-3 py-2 font-semibold text-ink">{k.keyword}</td>
                     <td className="px-3 py-2 text-right">{k.citations}</td>
-                    <td className="px-3 py-2 text-right text-brand">{k.t1}</td>
+                    <td className="px-3 py-2 text-right font-semibold text-emerald-700">{k.t1}</td>
                     <td className="px-3 py-2 text-right text-status-warning">{k.t5}</td>
                     <td className="px-3 py-2 text-right font-semibold">
                       <span className={k.win_rate >= 0.3 ? 'text-status-success' : 'text-ink-muted'}>
@@ -622,14 +623,14 @@ export default async function TenantReportPage({
           <div className="mb-1 flex items-center justify-between gap-2">
             <h2 className="text-base font-bold text-ink">📝 위서클 발행 콘텐츠 ({data.publishedCount}편)</h2>
             {data.citedContentCount > 0 && (
-              <span className="rounded-full bg-brand-50 px-3 py-1 text-[11px] font-bold text-brand">
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-200/60">
                 AI 인용 활용: <strong>{data.citedContentCount}편</strong> / {data.publishedCount}편 ({Math.round((data.citedContentCount / Math.max(1, data.publishedCount)) * 100)}%)
               </span>
             )}
           </div>
           <p className="mb-4 text-[12px] text-ink-muted">
             {periodShort} 위서클이 {tenant.name}을 위해 발행한 콘텐츠 list — 각 글의 AI 검색 인용 활용 여부 표시.
-            <strong className="ml-1 text-brand">AI 인용</strong> 표시 글이 클라이언트의 grounding 성과
+            <strong className="ml-1 text-emerald-700">AI 인용</strong> 표시 글이 클라이언트의 grounding 성과
           </p>
           {data.publishedContents.length === 0 ? (
             <div className="rounded border border-dashed border-border bg-surface-subtle p-4 text-center text-[12px] text-ink-muted">
@@ -642,8 +643,8 @@ export default async function TenantReportPage({
                   key={c.id}
                   className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 text-[12px] ${
                     c.ai_cited
-                      ? 'border-brand/30 bg-brand-50/40'
-                      : 'border-border bg-surface-base'
+                      ? 'border-emerald-200 bg-emerald-50/40'
+                      : 'border-stone-200/70 bg-white'
                   }`}
                 >
                   {c.cover_image_url ? (
@@ -664,7 +665,7 @@ export default async function TenantReportPage({
                         {c.title}
                       </h3>
                       {c.ai_cited && (
-                        <span className="shrink-0 rounded bg-brand px-1.5 py-0.5 text-[9px] font-bold text-white">
+                        <span className="shrink-0 rounded bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold text-white">
                           ✓ AI 인용
                         </span>
                       )}
@@ -679,7 +680,7 @@ export default async function TenantReportPage({
                           href={`https://wecircle.co.kr/blog/${c.slug}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-mono text-brand-700 underline decoration-dotted hover:text-brand"
+                          className="font-mono text-stone-700 underline decoration-dotted hover:text-stone-950"
                         >
                           /blog/{c.slug}
                         </a>
@@ -701,7 +702,7 @@ export default async function TenantReportPage({
               <strong className="text-ink">💡 ROI 인사이트:</strong>{' '}
               {data.citedContentCount > 0 ? (
                 <>
-                  발행 {data.publishedCount}편 중 <strong className="text-brand">{data.citedContentCount}편</strong>이 AI 검색 답변의 출처로 사용됨.{' '}
+                  발행 {data.publishedCount}편 중 <strong className="text-emerald-700">{data.citedContentCount}편</strong>이 AI 검색 답변의 출처로 사용됨.{' '}
                   위서클 SaaS 의 직접 효과 = 잠재 환자가 AI 에 질문할 때 {tenant.name} 콘텐츠가 출처로 노출되는 것.
                 </>
               ) : (
@@ -715,7 +716,7 @@ export default async function TenantReportPage({
 
         {/* === 8. 위서클 인용 URL === */}
         {data.medimapCitedUrls.length > 0 && (
-          <section className="border-t border-border bg-brand-50/30 px-6 py-6 md:px-10">
+          <section className="border-t border-stone-200/70 bg-emerald-50/30 px-6 py-6 md:px-10">
             <h2 className="mb-1 text-base font-bold text-ink">✨ AI 가 인용한 위서클 콘텐츠 ({data.medimapCitedUrls.length})</h2>
             <p className="mb-3 text-[12px] text-ink-muted">
               아래 URL 이 AI 검색 답변의 출처로 사용됨 — SaaS 가치의 직접 증거
@@ -727,7 +728,7 @@ export default async function TenantReportPage({
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-brand-700 underline decoration-dotted hover:text-brand"
+                    className="text-stone-700 underline decoration-dotted hover:text-stone-950"
                   >
                     {decodeURIComponent(url).slice(0, 100)}
                     {url.length > 100 && '…'}
@@ -746,7 +747,7 @@ export default async function TenantReportPage({
           </p>
           <ol className="space-y-2 text-[12px] text-ink-soft">
             <li className="flex gap-2">
-              <span className="font-bold text-brand">1.</span>
+              <span className="font-bold text-stone-900">1.</span>
               <div>
                 <strong className="text-ink">보강 키워드 콘텐츠 ({Math.min(data.weakKeywords.length, 3)}편)</strong>
                 {data.weakKeywords.length > 0 && (
@@ -757,7 +758,7 @@ export default async function TenantReportPage({
               </div>
             </li>
             <li className="flex gap-2">
-              <span className="font-bold text-brand">2.</span>
+              <span className="font-bold text-stone-900">2.</span>
               <div>
                 <strong className="text-ink">강한 키워드 확장 ({Math.min(data.topKeywords.length, 2)}편)</strong>
                 {data.topKeywords.length > 0 && (
@@ -768,7 +769,7 @@ export default async function TenantReportPage({
               </div>
             </li>
             <li className="flex gap-2">
-              <span className="font-bold text-brand">3.</span>
+              <span className="font-bold text-stone-900">3.</span>
               <div>
                 <strong className="text-ink">경쟁사 학습 분석</strong>
                 {data.competitorTop.length > 0 && (
@@ -779,7 +780,7 @@ export default async function TenantReportPage({
               </div>
             </li>
             <li className="flex gap-2">
-              <span className="font-bold text-brand">4.</span>
+              <span className="font-bold text-stone-900">4.</span>
               <div>
                 <strong className="text-ink">월간 영업 인사이트</strong>
                 <div className="mt-0.5 text-ink-muted">
@@ -827,13 +828,13 @@ function KpiBox({
   highlight?: boolean;
 }) {
   return (
-    <div className={`rounded-lg border p-3 ${highlight ? 'border-brand bg-brand-50/30' : 'border-border bg-surface-base'}`}>
-      <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold text-ink-muted">
+    <div className={`rounded-lg border p-3 ${highlight ? 'border-stone-900 bg-stone-50' : 'border-stone-200/70 bg-white'}`}>
+      <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold text-stone-500">
         <Icon className="h-3 w-3" />
         {label}
       </div>
       <div className="flex items-baseline gap-1">
-        <span className={`text-2xl font-bold ${highlight ? 'text-brand' : 'text-ink'}`}>{value}</span>
+        <span className={`text-2xl font-bold ${highlight ? 'text-stone-950' : 'text-ink'}`}>{value}</span>
         {unit && <span className="text-sm font-semibold text-ink-muted">{unit}</span>}
       </div>
       {delta !== undefined && delta !== 0 && (

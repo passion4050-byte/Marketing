@@ -88,6 +88,8 @@ async function fetchDashboardData(opts: {
       activeTenants: 0,
       pendingQueue: 0,
       todayCost: 0,
+      yesterdayCost: 0,
+      cost14d: 0,
       citations24h: 0,
       recentDrafts: [] as Array<DraftRow & { tenant_name: string }>,
       recentCitations: [] as Array<{
@@ -138,24 +140,34 @@ async function fetchDashboardData(opts: {
     .select('id', { count: 'exact', head: true })
     .in('status', ['draft', 'pending']);
 
-  // 3. 오늘 LLM 비용 — llm_call_logs 합산 (today UTC)
-  // 컬럼 확인 — tokens_input, tokens_output, cost_usd 가 있을 것 (없을 수도)
+  // 3. LLM 비용 — llm_call_logs 합산 (오늘·어제·최근 14일 3-tier)
+  // Round 116 Phase 5 (2026-07-02): 오늘 값만 노출 시 cron 미실행 시간대 $0.00 착시.
+  //   → 어제 + 14일 누적 병기해 실 미터링 상태를 항상 유의미하게 표시.
   let todayCost = 0;
+  let yesterdayCost = 0;
+  let cost14d = 0;
   let costError: string | null = null;
   try {
-    const todayUtc = new Date().toISOString().slice(0, 10);
+    const since14dIso = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
     const { data: costRows, error: costErr } = await sb
       .from('llm_call_logs')
-      .select('cost_usd')
-      .gte('called_at', `${todayUtc}T00:00:00Z`)
-      .lt('called_at', `${todayUtc}T23:59:59Z`);
+      .select('cost_usd, called_at')
+      .gte('called_at', since14dIso)
+      .limit(20000);
     if (costErr) {
       costError = costErr.message;
     } else {
-      todayCost = (costRows ?? []).reduce(
-        (sum, r: { cost_usd: number | null }) => sum + (r.cost_usd ?? 0),
-        0
-      );
+      // KST 기준 오늘/어제 판정 (UTC+9)
+      const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+      const todayKst = kstNow.toISOString().slice(0, 10);
+      const yestKst = new Date(kstNow.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      for (const r of (costRows ?? []) as { cost_usd: number | null; called_at: string }[]) {
+        const usd = r.cost_usd ?? 0;
+        cost14d += usd;
+        const kstDay = new Date(new Date(r.called_at).getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        if (kstDay === todayKst) todayCost += usd;
+        else if (kstDay === yestKst) yesterdayCost += usd;
+      }
     }
   } catch (e) {
     costError = e instanceof Error ? e.message : String(e);
@@ -918,6 +930,8 @@ async function fetchDashboardData(opts: {
     activeTenants: clientCount ?? 0,
     pendingQueue: pendingCount ?? 0,
     todayCost,
+    yesterdayCost,
+    cost14d,
     citations24h,
     citations30d,
     publishedThisMonth,
@@ -1002,12 +1016,13 @@ export default async function AdminDashboardPage({
       hint: 'blog_html published',
     },
     {
-      label: '오늘 LLM 비용',
-      value: `$${d.todayCost.toFixed(2)}`,
+      // Round 116 Phase 5 (2026-07-02): 오늘값이 0이면 어제/14일 노출로 실미터링 상태 명시.
+      label: d.todayCost > 0 ? '오늘 LLM 비용' : '어제 LLM 비용',
+      value: d.todayCost > 0 ? `$${d.todayCost.toFixed(2)}` : `$${d.yesterdayCost.toFixed(2)}`,
       suffix: '',
       href: '/admin/cost',
       icon: DollarSign,
-      hint: '한도 $5',
+      hint: `14일 $${d.cost14d.toFixed(2)} · 한도 $5/일`,
     },
     {
       label: '측정 cron 상태',
@@ -1108,8 +1123,8 @@ export default async function AdminDashboardPage({
                     <div className="mt-1 text-sm font-bold text-ink">{(d.citations30d ?? 0).toLocaleString()}</div>
                   </div>
                   <div className="px-3 py-3 text-center">
-                    <div className="text-[10px] uppercase tracking-wider text-ink-muted">오늘 비용</div>
-                    <div className="mt-1 text-sm font-bold text-ink">${d.todayCost.toFixed(2)}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-ink-muted">14일 비용</div>
+                    <div className="mt-1 text-sm font-bold text-ink">${d.cost14d.toFixed(2)}</div>
                   </div>
                 </div>
                 <div className="px-4 py-3">
