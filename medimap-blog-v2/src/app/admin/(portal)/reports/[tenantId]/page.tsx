@@ -291,7 +291,15 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
     return <div className="p-10 text-center text-ink-muted">테넌트를 찾을 수 없습니다.</div>;
   }
   const { tenant } = data;
-  const period = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' });
+  // Round 114 P1-1 (2026-07-02): 라벨 정합. 이번 달이 30일 미만이면 실제 데이터는 30일 rolling
+  // → 라벨도 "(최근 30일 기준)" 병기해 표시 데이터와 문구 일치.
+  const _now = new Date();
+  const _monthStart = new Date(_now.getFullYear(), _now.getMonth(), 1);
+  const _thirtyDaysAgo = new Date(_now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const isRolling30d = _monthStart.getTime() >= _thirtyDaysAgo.getTime();
+  const monthLabel = _now.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' });
+  const period = isRolling30d ? `${monthLabel} (최근 30일 기준)` : monthLabel;
+  const periodShort = isRolling30d ? '최근 30일' : '이번 달';
 
   if (!data.hasData) {
     return (
@@ -353,7 +361,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
           <p className="text-base font-semibold leading-relaxed text-ink md:text-lg">
             {data.totalThis > 0 ? (
               <>
-                이번 달 AI 검색 모니터링 결과,{' '}
+                {periodShort} AI 검색 모니터링 결과,{' '}
                 <span className="text-brand">{tenant.name}</span>의 키워드에서 총{' '}
                 <span className="text-brand">{data.totalThis}건</span>의 AI 인용이 발생했습니다.{' '}
                 {data.t1ShareDelta > 0.02 && (
@@ -367,7 +375,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
                 )}
               </>
             ) : (
-              <>이번 달 측정 데이터 누적 중 — 다음 보고서에서 본격 추이 확인 가능</>
+              <>{periodShort} 측정 데이터 누적 중 — 다음 보고서에서 본격 추이 확인 가능</>
             )}
           </p>
         </section>
@@ -397,7 +405,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
             label="발행 콘텐츠"
             value={`${data.publishedCount}`}
             unit="편"
-            note="이번 달 위서클 발행"
+            note={`${periodShort} 위서클 발행`}
           />
         </section>
 
@@ -405,7 +413,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
         <section className="border-t border-border px-6 py-6 md:px-10">
           <h2 className="mb-1 text-base font-bold text-ink">📊 AI 검색 노출 추이</h2>
           <p className="mb-4 text-[12px] text-ink-muted">
-            이번 달 일자별 인용 수 + 위서클 도메인 점유율 — SaaS 누적 효과
+            {periodShort} 일자별 인용 수 + 위서클 도메인 점유율 — SaaS 누적 효과
           </p>
           <ReportTrendChart data={data.dailyTrend} />
         </section>
@@ -417,7 +425,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
             가장 많이 인용된 키워드 — 강한 키워드 우선 콘텐츠 확장 권장
           </p>
           {data.topKeywords.length === 0 ? (
-            <div className="text-[12px] text-ink-muted">이번 달 인용 데이터 없음</div>
+            <div className="text-[12px] text-ink-muted">{periodShort} 인용 데이터 없음</div>
           ) : (
             <table className="w-full text-[12px]">
               <thead className="bg-surface-subtle text-[10px] font-bold uppercase text-ink-muted">
@@ -472,7 +480,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
         <section className="border-t border-border px-6 py-6 md:px-10">
           <h2 className="mb-1 text-base font-bold text-ink">🔍 경쟁사 노출 현황</h2>
           <p className="mb-4 text-[12px] text-ink-muted">
-            이번 달 동일 키워드에서 AI 가 인용한 외부 도메인 Top 5 — 시장 점유 추적
+            {periodShort} 동일 키워드에서 AI 가 인용한 외부 도메인 Top 5 — 시장 점유 추적
           </p>
           {data.competitorTop.length === 0 ? (
             <div className="text-[12px] text-ink-muted">경쟁사 인용 데이터 없음 — 시장 선점 중</div>
@@ -506,12 +514,12 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
             )}
           </div>
           <p className="mb-4 text-[12px] text-ink-muted">
-            이번 달 위서클이 {tenant.name}을 위해 발행한 콘텐츠 list — 각 글의 AI 검색 인용 활용 여부 표시.
+            {periodShort} 위서클이 {tenant.name}을 위해 발행한 콘텐츠 list — 각 글의 AI 검색 인용 활용 여부 표시.
             <strong className="ml-1 text-brand">AI 인용</strong> 표시 글이 클라이언트의 grounding 성과
           </p>
           {data.publishedContents.length === 0 ? (
             <div className="rounded border border-dashed border-border bg-surface-subtle p-4 text-center text-[12px] text-ink-muted">
-              이번 달 발행 콘텐츠 없음 — 다음 cron 부터 누적
+              {periodShort} 발행 콘텐츠 없음 — 다음 cron 부터 누적
             </div>
           ) : (
             <div className="space-y-2">
@@ -584,7 +592,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
                 </>
               ) : (
                 <>
-                  이번 달 발행 콘텐츠가 아직 AI grounding 에 진입 못함. 발행 후 1~3개월 누적 효과 — 다음 보고서에서 본격 확인 예상.
+                  {periodShort} 발행 콘텐츠가 아직 AI grounding 에 진입 못함. 발행 후 1~3개월 누적 효과 — 다음 보고서에서 본격 확인 예상.
                 </>
               )}
             </div>
