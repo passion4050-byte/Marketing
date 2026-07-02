@@ -207,9 +207,10 @@ async function fetchReportData(tenantIdStr: string) {
   const t1SharePrev = totalPrev > 0 ? tierCountPrev.T1 / totalPrev : 0;
   const t1ShareDelta = t1ShareThis - t1SharePrev;
 
-  // 일자별 fill (이번 달 1일부터 오늘까지)
+  // Round 114 P1-2 (2026-07-02): 차트 fill 도 cutoffThisMonth 조건부.
+  // 30일 rolling 모드면 30일 앞부터 그림 → 라벨과 실 데이터 일치.
   const dailyTrend: DailyPoint[] = [];
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const start = new Date(cutoffThisMonth);
   for (let d = new Date(start); d <= now; d.setDate(d.getDate() + 1)) {
     const k = d.toISOString().slice(5, 10);
     const b = dailyMap.get(k) ?? { t1: 0, total: 0 };

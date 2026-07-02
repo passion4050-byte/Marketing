@@ -28,6 +28,9 @@ async function sendOne(opts: {
     return { ok: false, stub: true, reportUrl };
   }
 
+  // Round 114 P1-3: period 안에 "(최근 30일" 포함 여부로 본문 문구 조건부 처리.
+  const _isRolling = opts.period.includes('최근 30일');
+  const _periodShort = _isRolling ? '최근 30일' : '이번 달';
   const subject = `[WECIRCLE GEO] ${opts.period} 월간 AI 검색 노출 보고서 — ${opts.tenantName}`;
   const html = `
 <div style="font-family:'Noto Sans KR',sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0F172A">
@@ -37,10 +40,10 @@ async function sendOne(opts: {
     <p style="margin:4px 0 0;font-size:13px;color:#64748B">${opts.period} 월간 AI 검색 노출 성과 보고</p>
   </div>
   <p style="font-size:14px;line-height:1.6">안녕하세요, ${opts.tenantName} 운영진 여러분.</p>
-  <p style="font-size:14px;line-height:1.6">이번 달 4대 AI 엔진 (Gemini · Claude · Perplexity · OpenAI) 의 grounding 데이터 기반 월간 보고서가 준비되었습니다.</p>
+  <p style="font-size:14px;line-height:1.6">${_periodShort} 4대 AI 엔진 (Gemini · Claude · Perplexity · OpenAI) 의 grounding 데이터 기반 월간 보고서가 준비되었습니다.</p>
   <p style="font-size:14px;line-height:1.6">보고서에는 다음 내용이 포함됩니다:</p>
   <ul style="font-size:13px;line-height:1.7;color:#334155">
-    <li>이번 달 AI 검색 인용 횟수 + 위서클 도메인 점유율 (전월 대비)</li>
+    <li>${_periodShort} AI 검색 인용 횟수 + 위서클 도메인 점유율 (전월 대비)</li>
     <li>키워드별 성과 + 보강 필요 키워드</li>
     <li>경쟁사 노출 현황 Top 5</li>
     <li>파트너별 인용 랭킹 (30일) + 자사 발행 콘텐츠 성과</li>
@@ -77,7 +80,14 @@ export async function POST(req: NextRequest) {
     all?: boolean;
     cronSecret?: string;
   };
-  const period = body.period ?? new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' });
+  // Round 114 P1-3 (2026-07-02): 리포트 페이지의 rolling 30일 라벨과 정합.
+  // 이번 달이 30일 미만이면 "(최근 30일 기준)" 병기.
+  const _emailNow = new Date();
+  const _emailMonthStart = new Date(_emailNow.getFullYear(), _emailNow.getMonth(), 1);
+  const _emailThirtyDaysAgo = new Date(_emailNow.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const _emailIsRolling30d = _emailMonthStart.getTime() >= _emailThirtyDaysAgo.getTime();
+  const _emailMonthLabel = _emailNow.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' });
+  const period = body.period ?? (_emailIsRolling30d ? `${_emailMonthLabel} (최근 30일 기준)` : _emailMonthLabel);
   const origin = req.nextUrl.origin;
 
   // Round 48 — all=true 모드 (cron 일괄 발송)
