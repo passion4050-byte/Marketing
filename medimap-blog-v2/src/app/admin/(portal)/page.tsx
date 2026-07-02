@@ -20,6 +20,7 @@ import { cn } from '@/lib/cn';
 import { ActionRecommendations } from '@/components/admin/ActionRecommendations';
 import { ContentCompetitiveness } from '@/components/admin/ContentCompetitiveness';
 import { MarketShareDiagnosis } from '@/components/admin/MarketShareDiagnosis';
+import { PartnerLeaderboard } from '@/components/admin/PartnerLeaderboard';
 import { ContentPatternStats } from '@/components/admin/ContentPatternStats';
 import { DashboardChartsTabbed } from '@/components/admin/DashboardChartsTabbed';
 import type {
@@ -1144,6 +1145,15 @@ export default async function AdminDashboardPage({
           <ContentCompetitiveness contents={d.topContents ?? []} />
           <ContentPatternStats stats={d.structureStats} />
         </div>
+      </div>
+
+      {/* === Tier 2.5 (Round 109-A): 파트너별 AI 인용 리더보드 (영업 무기) === */}
+      <div className="mt-8">
+        <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-brand" />
+          파트너 성과 실측
+        </div>
+        <PartnerLeaderboard />
       </div>
 
       {/* === Tier 3: 운영 차트 (탭 통합) === */}
