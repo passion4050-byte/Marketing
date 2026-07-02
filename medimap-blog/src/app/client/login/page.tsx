@@ -86,7 +86,7 @@ export default function ClientLoginPage() {
             </button>
           </form>
           <div className="mt-6 text-center text-[11.5px] text-ink-subtle">
-            비밀번호 분실 시 위서클 운영팀에 문의해주세요 — sales@medimap.team
+            비밀번호 분실 시 위서클 운영팀에 문의해주세요 — passion4050@gmail.com
           </div>
         </div>
         <Link href="/" className="mt-6 block text-center text-[12px] text-ink-muted hover:text-brand">
