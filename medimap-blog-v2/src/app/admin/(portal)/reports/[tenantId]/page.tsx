@@ -400,7 +400,6 @@ export default async function TenantReportPage({
   const { tenant } = data;
   const period = data.rangeMeta?.label ?? '최근 30일';
   const periodShort = data.rangeMeta?.short ?? '최근 30일';
-  const periodShort = isRolling30d ? '최근 30일' : '이번 달';
 
   if (!data.hasData) {
     return (
