@@ -70,7 +70,7 @@ export default function RootLayout({
             `font-display: swap` so system Korean fonts render immediately. */}
         <link rel="stylesheet" href={PRETENDARD_HREF} />
       </head>
-      <body className="flex min-h-screen flex-col">
+      <body className="flex min-h-screen flex-col bg-[#FAFAF7] text-stone-900 antialiased">
         <PublicChrome header={<Header />} footer={<Footer />}>
           {children}
         </PublicChrome>

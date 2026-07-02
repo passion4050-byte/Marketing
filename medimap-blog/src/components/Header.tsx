@@ -5,6 +5,10 @@ import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { siteConfig, navItems } from "@/lib/site";
 
+/**
+ * Round 111 v3 (2026-07-02) — Editorial masthead style header.
+ * Warm off-white, hairline divider on scroll, no glass blur, tabular nums for CTA.
+ */
 export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
@@ -17,11 +21,7 @@ export function Header() {
   }, []);
 
   useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
+    document.body.style.overflow = open ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
@@ -29,51 +29,49 @@ export function Header() {
 
   return (
     <header
-      className={`sticky top-0 z-40 transition-[backdrop-filter,box-shadow,background-color] duration-200 ${
-        scrolled
-          ? "bg-white/85 shadow-soft backdrop-blur-md"
-          : "bg-white/95 backdrop-blur-sm"
+      className={`sticky top-0 z-40 bg-[#FAFAF7] transition-[border-color,background-color] duration-200 ${
+        scrolled ? "border-b border-stone-200/70" : "border-b border-transparent"
       }`}
     >
-      <div
-        className={`pointer-events-none absolute inset-x-0 top-0 h-px transition-opacity duration-200 ${
-          scrolled ? "opacity-100" : "opacity-0"
-        }`}
-        style={{
-          background:
-            "linear-gradient(90deg, transparent 0%, rgba(27,104,255,0.40) 50%, transparent 100%)",
-        }}
-      />
-      <div className="container-content flex h-16 items-center justify-between">
-        <Link href="/" className="flex items-center gap-2" aria-label="위서클 홈">
+      <div className="mx-auto flex h-16 w-full max-w-[1280px] items-center justify-between px-6 lg:px-10">
+        {/* Wordmark */}
+        <Link href="/" className="group inline-flex items-center gap-3" aria-label="위서클 홈">
           <Logo />
-          <span className="sr-only">위서클</span>
         </Link>
+
+        {/* Desktop nav */}
         <nav aria-label="주요 메뉴" className="hidden items-center gap-1 md:flex">
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-pill px-4 py-2 text-sm font-medium text-ink-muted transition hover:bg-surface-hover hover:text-brand"
+              className="px-3 py-2 text-sm font-medium text-stone-600 transition hover:text-stone-950"
             >
               {item.label}
             </Link>
           ))}
+          <span className="mx-3 h-4 w-px bg-stone-300" aria-hidden />
           <Link
             href={siteConfig.contact.medimapMain}
-            className="btn-primary ml-3 px-5 py-2.5 text-sm"
+            className="group inline-flex items-center gap-2 border border-stone-900 bg-stone-900 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-white transition hover:bg-stone-800"
             target="_blank"
             rel="noopener noreferrer"
           >
             위서클 바로가기
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden>
+              <path stroke="currentColor" d="M7 17L17 7" />
+              <path stroke="currentColor" d="M7 7h10v10" />
+            </svg>
           </Link>
         </nav>
+
+        {/* Mobile trigger */}
         <button
           type="button"
           aria-label="메뉴 열기"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-pill border border-line bg-white text-ink-muted transition hover:bg-surface-hover hover:text-brand md:hidden"
+          className="inline-flex h-10 w-10 items-center justify-center border border-stone-300 bg-white text-stone-700 transition hover:border-stone-900 hover:text-stone-900 md:hidden"
         >
           {open ? <X size={18} /> : <Menu size={18} />}
         </button>
@@ -81,47 +79,56 @@ export function Header() {
 
       {/* Mobile drawer */}
       <div
-        className={`md:hidden ${
-          open ? "pointer-events-auto" : "pointer-events-none"
-        }`}
+        className={`md:hidden ${open ? "pointer-events-auto" : "pointer-events-none"}`}
         aria-hidden={!open}
       >
         <div
           onClick={() => setOpen(false)}
-          className={`fixed inset-0 z-30 bg-ink/40 backdrop-blur-sm transition-opacity duration-200 ${
+          className={`fixed inset-0 z-30 bg-stone-900/50 transition-opacity duration-200 ${
             open ? "opacity-100" : "opacity-0"
           }`}
         />
         <nav
-          className={`fixed inset-x-3 top-20 z-40 origin-top rounded-card border border-line bg-white p-4 shadow-card transition-all duration-200 ${
-            open ? "scale-100 opacity-100" : "scale-95 opacity-0"
+          className={`fixed inset-x-0 top-16 z-40 border-b border-stone-200/70 bg-[#FAFAF7] p-6 transition-all duration-200 ${
+            open ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"
           }`}
           aria-label="모바일 메뉴"
         >
-          <ul className="flex flex-col gap-1">
-            {navItems.map((item) => (
+          <div className="mb-4 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
+            <span className="inline-block h-px w-6 bg-stone-400" />
+            Menu
+          </div>
+          <ul className="divide-y divide-stone-200/70">
+            {navItems.map((item, i) => (
               <li key={item.href}>
                 <Link
                   href={item.href}
                   onClick={() => setOpen(false)}
-                  className="block rounded-pill px-4 py-3 text-base font-medium text-ink-muted transition hover:bg-surface-hover hover:text-brand"
+                  className="group flex items-baseline gap-4 py-4"
                 >
-                  {item.label}
+                  <span className="font-serif text-sm tabular-nums text-stone-400 group-hover:text-stone-900">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="text-lg font-bold tracking-tight text-stone-950 group-hover:text-stone-700">
+                    {item.label}
+                  </span>
                 </Link>
               </li>
             ))}
-            <li className="mt-2">
-              <Link
-                href={siteConfig.contact.medimapMain}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setOpen(false)}
-                className="btn-primary w-full justify-center"
-              >
-                위서클 바로가기
-              </Link>
-            </li>
           </ul>
+          <Link
+            href={siteConfig.contact.medimapMain}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setOpen(false)}
+            className="mt-6 flex w-full items-center justify-between border border-stone-900 bg-stone-900 px-5 py-4 text-white"
+          >
+            <span className="text-sm font-bold tracking-tight">위서클 바로가기</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path stroke="currentColor" d="M7 17L17 7" />
+              <path stroke="currentColor" d="M7 7h10v10" />
+            </svg>
+          </Link>
         </nav>
       </div>
     </header>
@@ -130,11 +137,13 @@ export function Header() {
 
 function Logo() {
   return (
-    <span
-      className="text-base font-extrabold tracking-tight text-brand md:text-lg"
-      style={{ letterSpacing: "-0.02em" }}
-    >
-      WECIRCLE
-    </span>
+    <div className="flex items-baseline gap-2">
+      <span className="text-base font-black tracking-[-0.02em] text-stone-950 md:text-[17px]">
+        WECIRCLE
+      </span>
+      <span className="hidden font-serif text-[10px] italic text-stone-500 md:inline">
+        Insights
+      </span>
+    </div>
   );
 }

@@ -224,7 +224,7 @@ export default async function BlogPostPage({
       <JsonLd data={medicalWebPageLd(post)} />
       <JsonLd data={faqPageLd(post.faq ?? [])} />
 
-      <div className="container-content py-10 md:py-14">
+      <div className="mx-auto w-full max-w-[1280px] px-6 py-10 md:py-14 lg:px-10">
         <nav
           aria-label="Breadcrumb"
           className="flex items-center gap-1.5 text-sm text-ink-subtle"

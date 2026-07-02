@@ -1,22 +1,32 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
+import { ArrowUpRight } from "lucide-react";
 import {
   getCategoryMeta,
   getPartnerPostsByPartner,
 } from "@/lib/partners";
 import { siteConfig, absoluteUrl } from "@/lib/site";
 
-// Round 12: force-dynamic 으로 빌드 시점 prerender 회피
-export const dynamic = 'force-dynamic';
+// Round 111 v3 (2026-07-02) — Editorial partner page.
+export const dynamic = "force-dynamic";
+
+const CATEGORY_OVERLINE: Record<string, string> = {
+  eyeclinic: "Ophthalmology",
+  derma: "Dermatology",
+  plastic: "Plastic Surgery",
+  dental: "Dental",
+  internal: "Internal Medicine",
+  hair: "Hair Transplant",
+  oriental: "Oriental Medicine",
+};
 
 interface PageProps {
   params: Promise<{ category: string; partner: string }>;
 }
 
-export async function generateMetadata(
-  { params }: PageProps,
-): Promise<Metadata> {
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { category, partner } = await params;
   const meta = getCategoryMeta(category);
   if (!meta) return { title: "파트너 — 위서클" };
@@ -27,9 +37,7 @@ export async function generateMetadata(
   return {
     title,
     description,
-    alternates: {
-      canonical: absoluteUrl(`/with-partners/${category}/${partner}`),
-    },
+    alternates: { canonical: absoluteUrl(`/with-partners/${category}/${partner}`) },
     openGraph: {
       title,
       description,
@@ -47,102 +55,146 @@ export default async function PartnerListPage({ params }: PageProps) {
   const posts = await getPartnerPostsByPartner(meta.slug, partner);
   if (posts.length === 0) notFound();
   const tenantName = posts[0].tenant_name;
+  const overline = CATEGORY_OVERLINE[meta.slug] ?? meta.slug;
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-6 py-10 sm:py-14">
-      <nav className="mb-6 text-xs text-ink-muted">
-        <Link href="/with-partners" className="hover:text-brand">
-          파트너 콘텐츠
-        </Link>{" "}
-        /{" "}
-        <Link
-          href={`/with-partners/${meta.slug}`}
-          className="hover:text-brand"
-        >
-          {meta.ko}
-        </Link>{" "}
-        / <span className="font-semibold text-ink">{tenantName}</span>
-      </nav>
-
-      <header className="mb-10 rounded-2xl bg-slate-50 p-6">
-        <p className="text-xs font-bold uppercase tracking-widest text-brand-700">
-          Partner
-        </p>
-        <h1 className="mt-2 text-3xl font-bold leading-tight text-ink">
-          {tenantName}
-        </h1>
-        <p className="mt-2 text-sm text-ink-soft">
-          {meta.ko} 분야 위서클 파트너 병원. 총 {posts.length} 개의 검증된
-          의료 콘텐츠.
-        </p>
-      </header>
-
-      <section>
-        <h2 className="mb-6 text-lg font-bold text-ink">전체 글</h2>
-        <div className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-          {posts.map((p) => (
-            <Link
-              key={p.id}
-              href={`/with-partners/${meta.slug}/${p.partner_slug}/${p.slug}`}
-              className="group flex items-start gap-5 p-5 transition hover:bg-emerald-50/40"
-            >
-              {p.cover_image_url && (
-                <div className="relative hidden shrink-0 overflow-hidden rounded-lg bg-slate-100 sm:block sm:w-36 sm:aspect-[16/10]">
-                  <img
-                    src={p.cover_image_url}
-                    alt={p.cover_image_alt ?? p.title}
-                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    loading="lazy"
-                  />
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <div className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
-                  {p.published_at}
-                </div>
-                <h3 className="mt-1 text-base font-bold leading-snug text-ink transition-colors group-hover:text-emerald-700 sm:text-lg">
-                  {p.title}
-                </h3>
-                <p className="mt-1.5 line-clamp-2 text-sm text-ink-soft">
-                  {p.excerpt}
-                </p>
-              </div>
-              <span className="hidden shrink-0 self-center sm:inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white transition-all group-hover:border-emerald-500 group-hover:bg-emerald-600">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                  className="text-slate-500 transition-colors group-hover:text-white"
-                >
-                  <path stroke="currentColor" d="M7 17L17 7" />
-                  <path stroke="currentColor" d="M7 7h10v10" />
-                </svg>
-              </span>
+    <main className="bg-[#FAFAF7] text-stone-900">
+      {/* Masthead */}
+      <section className="border-b border-stone-200/70">
+        <div className="mx-auto w-full max-w-[1280px] px-6 pt-16 pb-14 md:pt-20 md:pb-16 lg:px-10">
+          <nav className="flex items-center gap-3 border-b border-stone-300 pb-4 text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
+            <span className="inline-block h-px w-6 bg-stone-400" />
+            <Link href="/with-partners" className="hover:text-stone-900">
+              Partners
             </Link>
-          ))}
+            <span className="text-stone-300">/</span>
+            <Link href={`/with-partners/${meta.slug}`} className="hover:text-stone-900">
+              {overline}
+            </Link>
+            <span className="text-stone-300">/</span>
+            <span className="text-stone-900">{tenantName}</span>
+          </nav>
+
+          <div className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-stone-500">
+                {overline} · Partner Clinic
+              </div>
+              <h1 className="mt-4 text-[42px] font-black leading-[1.05] tracking-[-0.025em] text-stone-950 md:text-[60px]">
+                {tenantName}
+              </h1>
+            </div>
+            <div className="max-w-md space-y-3 lg:pb-4">
+              <p className="text-[15px] leading-[1.75] text-stone-600">
+                {meta.ko} 분야 위서클 파트너 병원. 아래는 위서클 편집팀이 발행한 검증된 콘텐츠 아카이브입니다.
+              </p>
+              <div className="flex items-baseline gap-3 border-t border-stone-200/70 pt-3">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-stone-500">
+                  Published
+                </span>
+                <span className="font-serif text-2xl tabular-nums text-stone-950">
+                  {String(posts.length).padStart(2, "0")}
+                </span>
+                <span className="text-[11px] font-bold uppercase tracking-widest text-stone-400">
+                  posts
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <footer className="mt-12 rounded-2xl bg-brand/5 p-6">
-        <h3 className="text-sm font-bold text-ink">{tenantName} 문의</h3>
-        <p className="mt-1 text-sm text-ink-soft">
-          진료 상담은 위서클 카카오 채널을 통해 연결됩니다.
-        </p>
-        <a
-          href={siteConfig.contact.kakao}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[#FEE500] px-4 py-2 text-sm font-bold text-[#3C1E1E]"
-        >
-          카카오톡으로 상담받기
-        </a>
-      </footer>
+      {/* Posts — TOC index */}
+      <section className="mx-auto w-full max-w-[1280px] px-6 py-16 md:py-20 lg:px-10">
+        <div className="mb-8 flex items-baseline justify-between border-b border-stone-300 pb-4">
+          <h2 className="text-xs font-bold uppercase tracking-[0.35em] text-stone-700">
+            Archive
+          </h2>
+          <span className="text-xs tabular-nums text-stone-500">{posts.length} stories</span>
+        </div>
+
+        <ol className="divide-y divide-stone-200/70">
+          {posts.map((p, i) => {
+            const num = String(i + 1).padStart(2, "0");
+            return (
+              <li key={p.id}>
+                <Link
+                  href={`/with-partners/${meta.slug}/${p.partner_slug}/${p.slug}`}
+                  className="group grid grid-cols-[48px_1fr_auto] items-center gap-6 py-8 md:grid-cols-[64px_minmax(0,3fr)_minmax(0,180px)_auto] md:gap-10 md:py-10"
+                >
+                  <span className="font-serif text-3xl font-light tabular-nums leading-none text-stone-400 transition group-hover:text-stone-900 md:text-4xl">
+                    {num}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-stone-500">
+                      {overline}
+                    </div>
+                    <h3 className="mt-1.5 text-[17px] font-bold leading-snug tracking-tight text-stone-950 transition group-hover:text-stone-700 md:text-[20px]">
+                      {p.title}
+                    </h3>
+                    {p.excerpt && (
+                      <p className="mt-1.5 line-clamp-1 text-sm text-stone-500">
+                        {p.excerpt}
+                      </p>
+                    )}
+                  </div>
+                  {/* Cover preview — desktop */}
+                  <div className="hidden md:block">
+                    {p.cover_image_url ? (
+                      <div className="relative aspect-[3/2] w-full overflow-hidden bg-stone-100 transition duration-500 group-hover:scale-[1.02]">
+                        <Image
+                          src={p.cover_image_url}
+                          alt={p.cover_image_alt ?? p.title}
+                          fill
+                          sizes="180px"
+                          className="object-cover grayscale transition duration-700 group-hover:grayscale-0"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex aspect-[3/2] w-full items-center justify-center border border-dashed border-stone-200 bg-stone-50 text-[9px] font-semibold uppercase tracking-widest text-stone-400">
+                        No cover
+                      </div>
+                    )}
+                  </div>
+                  <ArrowUpRight
+                    size={20}
+                    strokeWidth={1.5}
+                    className="text-stone-300 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-stone-900"
+                  />
+                </Link>
+              </li>
+            );
+          })}
+        </ol>
+      </section>
+
+      {/* Contact */}
+      <section className="border-t border-stone-200/70">
+        <div className="mx-auto w-full max-w-[1280px] px-6 py-20 md:py-24 lg:px-10">
+          <div className="grid gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-center">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
+                Consultation
+              </div>
+              <h2 className="mt-4 font-serif text-3xl italic leading-tight text-stone-900 md:text-[40px]">
+                &ldquo;{tenantName}, 상담부터 시작하세요.&rdquo;
+              </h2>
+              <p className="mt-4 max-w-md text-[15px] leading-[1.75] text-stone-600">
+                진료 상담은 위서클 카카오 채널을 통해 연결됩니다.
+              </p>
+            </div>
+            <a
+              href={siteConfig.contact.kakao}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group inline-flex items-center justify-between gap-4 border border-stone-900 bg-stone-900 px-6 py-5 text-white transition hover:bg-stone-800"
+            >
+              <span className="text-sm font-bold tracking-tight">카카오톡으로 상담받기</span>
+              <ArrowUpRight size={16} strokeWidth={2} className="transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+            </a>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }

@@ -1,110 +1,138 @@
 import Link from "next/link";
-import { Mail, MessageCircle, MapPin, Phone } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { siteConfig } from "@/lib/site";
 
+/**
+ * Round 111 v3 (2026-07-02) — Editorial masthead-style footer.
+ * Off-white bg, ink typography, hairline dividers, tabular nums, no gradients.
+ */
 export function Footer() {
+  const year = new Date().getFullYear();
   return (
-    <footer className="mt-24 bg-ink text-white">
-      <div className="container-content grid gap-10 py-16 md:grid-cols-12">
-        <div className="md:col-span-5">
-          <div className="flex items-center gap-2.5">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={siteConfig.publisher.logo}
-              alt={siteConfig.brand}
-              width={134}
-              height={22}
-              className="h-7 w-auto brightness-0 invert"
+    <footer className="mt-24 border-t border-stone-200/70 bg-[#F5F4EF] text-stone-900">
+      <div className="mx-auto w-full max-w-[1280px] px-6 pt-16 pb-8 lg:px-10">
+        {/* Masthead row */}
+        <div className="grid gap-12 border-b border-stone-300 pb-12 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+          <div>
+            <div className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
+              <span className="inline-block h-px w-6 bg-stone-400" />
+              Colophon
+            </div>
+            <div className="mt-5 flex items-baseline gap-3">
+              <span className="text-[32px] font-black tracking-[-0.02em] text-stone-950">WECIRCLE</span>
+              <span className="font-serif text-sm italic text-stone-500">Insights</span>
+            </div>
+            <p className="mt-4 max-w-md text-[13px] leading-[1.75] text-stone-600">
+              {siteConfig.description}
+            </p>
+          </div>
+
+          {/* Directory columns */}
+          <div className="grid grid-cols-2 gap-8 md:grid-cols-3">
+            <FooterColumn
+              overline="Sections"
+              items={[
+                { label: "회사소개", href: "/about" },
+                { label: "병원 입점 가이드", href: "/guide" },
+                { label: "블로그", href: "/blog" },
+                { label: "파트너 콘텐츠", href: "/with-partners" },
+              ]}
+            />
+            <FooterColumn
+              overline="Contact"
+              items={[
+                { label: "카카오톡 상담", href: siteConfig.contact.kakao, external: true },
+                { label: "제휴 문의", href: "/contact" },
+                { label: "passion4050@gmail.com", href: "mailto:passion4050@gmail.com" },
+              ]}
+            />
+            <FooterColumn
+              overline="Legal"
+              items={[
+                { label: "개인정보처리방침", href: "/privacy" },
+                { label: "이용약관", href: "/terms" },
+              ]}
+              trailing={
+                <div className="mt-6 space-y-1 text-[11px] leading-relaxed text-stone-500">
+                  <div className="font-semibold text-stone-700">{siteConfig.publisher.legalName}</div>
+                  <div>{siteConfig.contact.address}</div>
+                  <div>사업자 {siteConfig.contact.businessNumber}</div>
+                </div>
+              }
             />
           </div>
-          <p className="mt-3 max-w-md text-sm leading-relaxed text-white/70">
-            {siteConfig.description}
-          </p>
-          {/* Round 90 — 사업자 정보 (한국 전자상거래법 준수) */}
-          <div className="mt-4 space-y-0.5 text-[11px] leading-relaxed text-white/55">
-            <div>{siteConfig.publisher.legalName}</div>
-            <div>주소: {siteConfig.contact.address}</div>
-            <div>사업자등록번호: {siteConfig.contact.businessNumber}</div>
-          </div>
-          <div className="mt-6 flex flex-wrap gap-2">
-            <a
-              href={siteConfig.contact.kakao}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-pill bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/85 transition hover:bg-white/20 hover:text-white"
-            >
-              <MessageCircle size={13} /> 카카오톡
-            </a>
-            <a
-              href={siteConfig.contact.naverPlace}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-pill bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/85 transition hover:bg-white/20 hover:text-white"
-            >
-              <MapPin size={13} /> 네이버
-            </a>
-            {/* Round 21 (2026-05-28): 사용자 요청으로 전화번호 표시 제거 */}
-          </div>
         </div>
-        <div className="md:col-span-3">
-          <h4 className="text-xs font-bold uppercase tracking-[0.14em] text-white/60">
-            바로가기
-          </h4>
-          <ul className="mt-4 space-y-2.5 text-sm text-white/75">
-            <li>
-              <Link href="/about" className="transition hover:text-white">
-                회사소개
-              </Link>
-            </li>
-            <li>
-              <Link href="/guide" className="transition hover:text-white">
-                병원 입점 가이드
-              </Link>
-            </li>
-            <li>
-              <Link href="/blog" className="transition hover:text-white">
-                블로그
-              </Link>
-            </li>
-            <li>
-              <Link href="/contact" className="transition hover:text-white">
-                제휴 문의
-              </Link>
-            </li>
-          </ul>
-        </div>
-        <div className="md:col-span-4">
-          <h4 className="text-xs font-bold uppercase tracking-[0.14em] text-white/60">
-            제휴/문의
-          </h4>
-          <p className="mt-4 text-sm leading-relaxed text-white/75">
-            병원·의료기관 제휴 문의는 카카오톡 채널 또는 이메일로 보내주세요.
-            영업일 기준 1~2일 내 회신드립니다.
-          </p>
+
+        {/* CTA row */}
+        <div className="mt-10 grid gap-6 border-b border-stone-300 pb-10 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:items-center">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
+              Become a Partner
+            </div>
+            <p className="mt-3 font-serif text-2xl italic leading-snug text-stone-800 md:text-3xl">
+              &ldquo;병원의 이야기를, AI 가 인용할 수 있는 자산으로.&rdquo;
+            </p>
+          </div>
           <a
-            href={`mailto:passion4050@gmail.com`}
-            className="mt-4 inline-flex items-center gap-2 rounded-pill border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/30 hover:bg-white/10"
+            href={siteConfig.contact.kakao}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group inline-flex items-center justify-between gap-4 border border-stone-900 bg-stone-900 px-6 py-4 text-white transition hover:bg-stone-800"
           >
-            <Mail size={14} /> passion4050@gmail.com
+            <span className="text-sm font-bold tracking-tight">카카오톡으로 상담</span>
+            <ArrowUpRight size={16} strokeWidth={2} className="transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
           </a>
         </div>
-      </div>
-      <div className="border-t border-white/10">
-        <div className="container-content flex flex-col items-start justify-between gap-2 py-6 text-xs text-white/50 md:flex-row md:items-center">
+
+        {/* Copyright */}
+        <div className="mt-8 flex flex-col items-start justify-between gap-2 text-[11px] tabular-nums text-stone-500 md:flex-row md:items-center">
           <div>
-            © {new Date().getFullYear()} {siteConfig.publisher.legalName}. All
-            rights reserved.
+            © {year} {siteConfig.publisher.legalName}. All rights reserved.
           </div>
-          <div className="flex gap-4">
-            <Link href="/privacy" className="hover:text-white/80">
-              개인정보처리방침
-            </Link>
-            <Link href="/terms" className="hover:text-white/80">
-              이용약관
-            </Link>
-          </div>
+          <div className="text-stone-400">Issue {year - 2000} · Vol. wecircle.co.kr</div>
         </div>
       </div>
     </footer>
+  );
+}
+
+function FooterColumn({
+  overline,
+  items,
+  trailing,
+}: {
+  overline: string;
+  items: { label: string; href: string; external?: boolean }[];
+  trailing?: React.ReactNode;
+}) {
+  return (
+    <div>
+      <h4 className="text-[10px] font-semibold uppercase tracking-[0.28em] text-stone-500">
+        {overline}
+      </h4>
+      <ul className="mt-4 space-y-2.5">
+        {items.map((item) =>
+          item.external || item.href.startsWith("http") || item.href.startsWith("mailto:") ? (
+            <li key={item.label}>
+              <a
+                href={item.href}
+                target={item.external ? "_blank" : undefined}
+                rel={item.external ? "noopener noreferrer" : undefined}
+                className="text-sm text-stone-700 transition hover:text-stone-950"
+              >
+                {item.label}
+              </a>
+            </li>
+          ) : (
+            <li key={item.href}>
+              <Link href={item.href} className="text-sm text-stone-700 transition hover:text-stone-950">
+                {item.label}
+              </Link>
+            </li>
+          )
+        )}
+      </ul>
+      {trailing}
+    </div>
   );
 }

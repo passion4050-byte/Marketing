@@ -1,351 +1,207 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  Phone,
-  Mail,
-  Globe,
-  MapPin,
-  Train,
-  Clock,
-  ArrowUpRight,
-} from "lucide-react";
+import { ArrowUpRight, MessageCircle, Mail, MapPin } from "lucide-react";
 import { JsonLd } from "@/components/JsonLd";
-import { ContactInquiryForm } from "@/components/ContactInquiryForm";
-import { breadcrumbLd, organizationLd } from "@/lib/schema";
-import { absoluteUrl, siteConfig } from "@/lib/site";
+import { breadcrumbLd } from "@/lib/schema";
+import { siteConfig } from "@/lib/site";
 
-export const revalidate = false;
-
-const CONTACT = {
-  // Round 98 (2026-06-28) — wecircle 새 회사 정보. 카카오톡은 위서클 채널 당분간 활용.
-  phone: "010-9024-8500",
-  phoneTel: "01090248500",
-  email: "passion4050@gmail.com",
-  website: "wecircle.co.kr",
-  websiteUrl: "https://wecircle.co.kr",
-  office: "서울특별시 서초구 사임당로 8길 13",
-  officeShort: "서울 서초구 사임당로 8길 13",
-  subway: "강남역 인근",
-  hours: ["평일 09:00 - 18:00", "주말·공휴일 휴무"],
-  mapQuery: "서울특별시 서초구 사임당로 8길 13",
-} as const;
+// Round 111 v3 (2026-07-02) — Editorial contact page.
 
 export const metadata: Metadata = {
-  title: "문의하기 | WECIRCLE",
+  title: "제휴 문의 — 위서클",
   description:
-    "AI 검색 시대의 의료 마케팅 자동화 SaaS · WECIRCLE. 도입 상담, 파트너십 제안 등 어떤 내용이든 편하게 연락주세요. 본사: 서울 서초구 사임당로 8길 13.",
+    "위서클 파트너십 · 제휴 문의. 카카오톡 상담이 가장 빠릅니다. 서면 문의는 이메일로.",
   alternates: { canonical: "/contact" },
-  openGraph: {
-    title: "문의하기 | WECIRCLE",
-    description:
-      "AI 가 우리 병원을 추천하도록 — WECIRCLE 와 함께 시작하세요. 도입 상담은 카카오톡 또는 이메일로.",
-    type: "website",
-  },
 };
 
-const contactPageLd = {
-  "@context": "https://schema.org",
-  "@type": "ContactPage",
-  name: "WECIRCLE 문의하기",
-  url: absoluteUrl("/contact"),
-  inLanguage: "ko-KR",
-  about: {
-    "@type": "Organization",
-    name: siteConfig.publisher.name,
-    legalName: siteConfig.publisher.legalName,
-    url: siteConfig.url,
-    address: {
-      "@type": "PostalAddress",
-      streetAddress: "사임당로 8길 13",
-      addressLocality: "서초구",
-      addressRegion: "서울특별시",
-      addressCountry: "KR",
-    },
-    contactPoint: [
-      {
-        "@type": "ContactPoint",
-        telephone: "+82-10-9024-8500",
-        email: CONTACT.email,
-        contactType: "customer service",
-        areaServed: "KR",
-        availableLanguage: ["ko"],
-      },
-    ],
+const CHANNELS = [
+  {
+    num: "01",
+    overline: "Kakao",
+    title: "카카오톡 상담",
+    body: "가장 빠른 채널. 평일 10:00–19:00 실시간 응답, 그 외 시간은 다음 영업일 첫 응답.",
+    ctaLabel: "카카오톡 열기",
+    href: siteConfig.contact.kakao,
+    external: true,
+    Icon: MessageCircle,
   },
-};
+  {
+    num: "02",
+    overline: "Email",
+    title: "서면 문의",
+    body: "제안서 · 계약 조건 · 컴플라이언스 문서가 필요한 문의는 이메일이 편합니다. 영업일 1–2일 내 회신.",
+    ctaLabel: "메일 보내기",
+    href: "mailto:passion4050@gmail.com",
+    external: false,
+    Icon: Mail,
+  },
+];
+
+const HOURS = [
+  { day: "평일", hours: "10:00 – 19:00" },
+  { day: "토요일", hours: "휴무" },
+  { day: "일요일 · 공휴일", hours: "휴무" },
+];
 
 export default function ContactPage() {
   return (
     <>
-      <JsonLd data={organizationLd()} />
-      <JsonLd
-        data={breadcrumbLd([
-          { name: "홈", href: "/" },
-          { name: "문의하기", href: "/contact" },
-        ])}
-      />
-      <JsonLd data={contactPageLd} />
+      <JsonLd data={breadcrumbLd([{ name: "홈", href: "/" }, { name: "제휴 문의", href: "/contact" }])} />
 
-      <PageHeader />
-      <ContactSection />
-      <LocationSection />
-    </>
-  );
-}
-
-/* ────────────────── 1. Page header ────────────────── */
-
-function PageHeader() {
-  return (
-    <section className="container-content pt-16 pb-4 md:pt-20">
-      <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-700">
-        Contact
-      </div>
-      <h1 className="mt-3 text-[36px] font-extrabold tracking-[-0.025em] text-ink md:text-[44px]">
-        문의하기
-      </h1>
-      <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-ink-muted">
-        광고 문의, 파트너십 제안 등 어떤 내용이든 편하게 연락주세요.
-      </p>
-      <div
-        className="mt-8 h-[2px] w-full max-w-[120px] rounded-full bg-gradient-to-r from-brand to-accent"
-        aria-hidden
-      />
-    </section>
-  );
-}
-
-/* ────────────────── 2. Contact (info | form) ────────────────── */
-
-function ContactSection() {
-  return (
-    <section className="container-content py-14 md:py-20">
-      <div className="grid gap-10 md:grid-cols-[0.95fr_1.05fr] md:gap-14">
-        {/* 좌 — 텍스트 정보 */}
-        <div>
-          <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-700">
-            Contact
-          </div>
-          <h2 className="mt-3 text-[28px] font-bold leading-tight tracking-[-0.02em] balance-text md:text-[32px]">
-            함께 성장할
-            <br />
-            파트너를{" "}
-            <span className="bg-gradient-to-br from-brand to-accent bg-clip-text text-transparent">
-              찾고 있습니다.
-            </span>
-          </h2>
-          <p className="mt-5 max-w-md text-[15px] leading-relaxed text-ink-muted">
-            광고 문의, 파트너십 제안 등 어떤 내용이든 편하게 연락주세요.
-          </p>
-
-          <div className="mt-10 space-y-6">
-            <InfoRow
-              icon={<Mail size={16} />}
-              label="Email"
-              value={CONTACT.email}
-              href={`mailto:${CONTACT.email}`}
-            />
-            <InfoRow
-              icon={<Globe size={16} />}
-              label="Website"
-              value={CONTACT.website}
-              href={CONTACT.websiteUrl}
-              external
-            />
-            <InfoRow
-              icon={<MapPin size={16} />}
-              label="Office"
-              value={CONTACT.officeShort}
-            />
-          </div>
-        </div>
-
-        {/* 우 — 폼 */}
-        <ContactInquiryForm />
-      </div>
-    </section>
-  );
-}
-
-function InfoRow({
-  icon,
-  label,
-  value,
-  href,
-  external,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  href?: string;
-  external?: boolean;
-}) {
-  const content = (
-    <>
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-pill bg-brand-50 text-brand transition group-hover:bg-brand group-hover:text-white">
-        {icon}
-      </div>
-      <div className="flex flex-col leading-tight">
-        <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-subtle">
-          {label}
-        </span>
-        <span className="mt-1 text-[15px] font-semibold text-ink num">
-          {value}
-        </span>
-      </div>
-      {href && (
-        <ArrowUpRight
-          size={14}
-          className="ml-auto text-ink-subtle transition group-hover:translate-x-0.5 group-hover:text-brand"
-        />
-      )}
-    </>
-  );
-
-  if (!href) {
-    return <div className="group flex items-center gap-3">{content}</div>;
-  }
-
-  if (external) {
-    return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="group flex items-center gap-3"
-      >
-        {content}
-      </a>
-    );
-  }
-
-  return (
-    <a href={href} className="group flex items-center gap-3">
-      {content}
-    </a>
-  );
-}
-
-/* ────────────────── 3. Location (map | info table) ────────────────── */
-
-function LocationSection() {
-  const mapSrc = `https://maps.google.com/maps?q=${encodeURIComponent(
-    CONTACT.mapQuery,
-  )}&hl=ko&z=17&output=embed`;
-  const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-    CONTACT.mapQuery,
-  )}`;
-
-  return (
-    <section className="bg-surface-alt/70 py-14 md:py-20">
-      <div className="container-content">
-        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-700">
-          Location
-        </div>
-        <h2 className="mt-3 text-[28px] font-bold tracking-[-0.02em] text-ink md:text-[32px]">
-          찾아오시는 길
-        </h2>
-
-        <div className="mt-10 grid gap-8 md:grid-cols-[1.1fr_1fr] md:gap-10">
-          {/* 지도 */}
-          <div className="relative overflow-hidden rounded-card border border-line/70 bg-white shadow-soft">
-            <div className="aspect-[4/3] w-full md:aspect-[5/4]">
-              <iframe
-                src={mapSrc}
-                title="WECIRCLE 본사 위치 — 서울특별시 서초구 사임당로 8길 13"
-                className="h-full w-full border-0"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                allowFullScreen
-              />
+      <main className="bg-[#FAFAF7] text-stone-900">
+        {/* Masthead */}
+        <section className="border-b border-stone-200/70">
+          <div className="mx-auto w-full max-w-[1280px] px-6 pt-16 pb-14 md:pt-24 md:pb-20 lg:px-10">
+            <div className="flex items-baseline justify-between border-b border-stone-300 pb-4 text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
+              <div className="flex items-center gap-3">
+                <span className="inline-block h-px w-6 bg-stone-400" />
+                Contact WECIRCLE
+              </div>
+              <span className="hidden md:inline">응답 D+1</span>
             </div>
-            <a
-              href={mapLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-pill bg-white/95 px-3 py-1.5 text-[11px] font-bold text-ink shadow-soft backdrop-blur transition hover:bg-brand hover:text-white"
-            >
-              구글 지도에서 보기
-              <ArrowUpRight size={11} />
-            </a>
-          </div>
 
-          {/* 정보 테이블 */}
-          <dl className="rounded-card border border-line/70 bg-white p-6 shadow-soft md:p-8">
-            <Row icon={<MapPin size={15} />} label="주소" value={CONTACT.office} />
-            <Row icon={<Train size={15} />} label="지하철" value={CONTACT.subway} />
-            <Row
-              icon={<Mail size={15} />}
-              label="이메일"
-              value={
-                <a
-                  href={`mailto:${CONTACT.email}`}
-                  className="transition hover:text-brand"
-                >
-                  {CONTACT.email}
-                </a>
-              }
-            />
-            <Row
-              icon={<Clock size={15} />}
-              label="운영시간"
-              last
-              value={
-                <span className="flex flex-col gap-0.5">
-                  {CONTACT.hours.map((h) => (
-                    <span key={h}>{h}</span>
+            <div className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end">
+              <h1 className="text-[42px] font-black leading-[1.05] tracking-[-0.025em] text-stone-950 md:text-[60px]">
+                한 문장의 상담으로,
+                <br />
+                <span className="font-serif italic font-normal text-stone-500">시작할 수 있습니다.</span>
+              </h1>
+              <p className="max-w-md text-[15px] leading-[1.75] text-stone-600 lg:pb-4">
+                병원 · 의료기관 · 제휴 · 컴플라이언스 관련 문의는 아래 채널로 보내주세요. 위서클 파트너십 팀이 직접 응답합니다.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Channels */}
+        <section className="border-b border-stone-200/70">
+          <div className="mx-auto w-full max-w-[1280px] px-6 py-20 md:py-24 lg:px-10">
+            <div className="mb-12 flex items-baseline justify-between border-b border-stone-300 pb-4">
+              <h2 className="text-xs font-bold uppercase tracking-[0.35em] text-stone-700">Channels</h2>
+              <span className="text-xs text-stone-500">두 가지 방법</span>
+            </div>
+
+            <ol className="divide-y divide-stone-200/70">
+              {CHANNELS.map((c) => (
+                <li key={c.num}>
+                  <a
+                    href={c.href}
+                    target={c.external ? "_blank" : undefined}
+                    rel={c.external ? "noopener noreferrer" : undefined}
+                    className="group grid grid-cols-[56px_1fr_auto] items-start gap-6 py-10 md:grid-cols-[88px_minmax(0,3fr)_minmax(0,4fr)_auto] md:gap-10"
+                  >
+                    <span className="font-serif text-4xl font-light tabular-nums leading-none text-stone-400 transition group-hover:text-stone-900 md:text-5xl">
+                      {c.num}
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-stone-500">
+                        <c.Icon size={12} strokeWidth={1.75} />
+                        {c.overline}
+                      </div>
+                      <h3 className="mt-2 text-2xl font-bold tracking-tight text-stone-950 md:text-[26px]">
+                        {c.title}
+                      </h3>
+                    </div>
+                    <p className="col-start-2 max-w-md text-[15px] leading-[1.75] text-stone-600 md:col-start-3">
+                      {c.body}
+                    </p>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.24em] text-stone-500 transition group-hover:text-stone-900">
+                      {c.ctaLabel}
+                      <ArrowUpRight size={13} strokeWidth={2} className="transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        {/* Hours + Company */}
+        <section className="border-b border-stone-200/70">
+          <div className="mx-auto w-full max-w-[1280px] px-6 py-20 md:py-24 lg:px-10">
+            <div className="grid gap-12 md:grid-cols-2 md:gap-16">
+              <div>
+                <div className="mb-4 flex items-baseline justify-between border-b border-stone-300 pb-3">
+                  <h2 className="text-xs font-bold uppercase tracking-[0.35em] text-stone-700">Hours</h2>
+                  <span className="text-xs text-stone-500">KST</span>
+                </div>
+                <dl className="divide-y divide-stone-200/70">
+                  {HOURS.map((h) => (
+                    <div key={h.day} className="flex items-baseline justify-between py-4">
+                      <dt className="text-[14px] text-stone-700">{h.day}</dt>
+                      <dd className="font-serif tabular-nums text-[17px] text-stone-950">
+                        {h.hours}
+                      </dd>
+                    </div>
                   ))}
-                </span>
-              }
-            />
+                </dl>
+              </div>
 
-            <div className="mt-6 flex flex-wrap gap-2 border-t border-line/70 pt-5">
-              <a
-                href={`mailto:${CONTACT.email}`}
-                className="inline-flex items-center gap-1.5 rounded-pill border border-line bg-white px-4 py-2 text-[13px] font-bold text-ink-muted transition hover:border-brand-200 hover:text-brand"
-              >
-                <Mail size={13} /> 이메일
-              </a>
-              <Link
-                href={siteConfig.contact.kakao}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-pill border border-line bg-white px-4 py-2 text-[13px] font-bold text-ink-muted transition hover:border-brand-200 hover:text-brand"
-              >
-                카카오톡
-              </Link>
+              <div>
+                <div className="mb-4 flex items-baseline justify-between border-b border-stone-300 pb-3">
+                  <h2 className="text-xs font-bold uppercase tracking-[0.35em] text-stone-700">Company</h2>
+                  <span className="text-xs text-stone-500">Publisher</span>
+                </div>
+                <dl className="space-y-4">
+                  <Row label="법인명" value={siteConfig.publisher.legalName} />
+                  <Row
+                    label="주소"
+                    value={siteConfig.contact.address}
+                    icon={<MapPin size={12} strokeWidth={1.75} />}
+                  />
+                  <Row label="사업자등록번호" value={siteConfig.contact.businessNumber} mono />
+                </dl>
+              </div>
             </div>
-          </dl>
-        </div>
-      </div>
-    </section>
+          </div>
+        </section>
+
+        {/* Final CTA */}
+        <section>
+          <div className="mx-auto w-full max-w-[1280px] px-6 py-24 lg:px-10">
+            <div className="grid gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-center">
+              <div>
+                <div className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
+                  <span className="inline-block h-px w-6 bg-stone-400" />
+                  Explore
+                </div>
+                <h2 className="mt-5 font-serif text-3xl italic leading-tight text-stone-900 md:text-[40px]">
+                  &ldquo;문의 전에 먼저 읽어보세요.&rdquo;
+                </h2>
+              </div>
+              <div className="flex flex-col gap-3">
+                <Link
+                  href="/guide"
+                  className="group inline-flex items-center justify-between gap-4 border border-stone-900 bg-stone-900 px-6 py-5 text-white transition hover:bg-stone-800"
+                >
+                  <span className="text-sm font-bold tracking-tight">병원 입점 가이드</span>
+                  <ArrowUpRight size={16} strokeWidth={2} className="transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                </Link>
+                <Link
+                  href="/with-partners"
+                  className="group inline-flex items-center justify-between gap-4 border border-stone-300 bg-white px-6 py-5 text-stone-900 transition hover:border-stone-900"
+                >
+                  <span className="text-sm font-bold tracking-tight">파트너 아카이브</span>
+                  <ArrowUpRight size={16} strokeWidth={2} className="transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </>
   );
 }
 
-function Row({
-  icon,
-  label,
-  value,
-  last,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: React.ReactNode;
-  last?: boolean;
-}) {
+function Row({ label, value, icon, mono }: { label: string; value: string; icon?: React.ReactNode; mono?: boolean }) {
   return (
-    <div
-      className={`grid grid-cols-[88px_1fr] items-start gap-4 py-3.5 ${
-        last ? "" : "border-b border-line/60"
-      }`}
-    >
-      <dt className="flex items-center gap-2 text-[13px] font-semibold text-ink-subtle">
-        <span className="flex h-6 w-6 items-center justify-center rounded-pill bg-brand-50 text-brand">
-          {icon}
-        </span>
-        {label}
+    <div className="flex items-baseline justify-between gap-6 border-b border-stone-200/70 py-3">
+      <dt className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.2em] text-stone-500">
+        {icon} {label}
       </dt>
-      <dd className="text-[14.5px] leading-relaxed text-ink">{value}</dd>
+      <dd className={`text-right text-[14px] text-stone-800 ${mono ? "font-mono tabular-nums" : ""}`}>
+        {value}
+      </dd>
     </div>
   );
 }

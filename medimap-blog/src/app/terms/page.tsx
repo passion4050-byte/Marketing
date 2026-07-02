@@ -28,18 +28,21 @@ export default function TermsPage() {
           { name: "이용약관", href: "/terms" },
         ])}
       />
-      <main className="container-content py-16 md:py-24">
-        <header className="mb-10">
-          <Link href="/" className="text-[11px] font-semibold uppercase tracking-wider text-brand-700 hover:underline">
-            ← {siteConfig.brand}
-          </Link>
-          <h1 className="mt-3 text-[32px] font-extrabold tracking-tight text-ink md:text-[42px]">
+      <main className="mx-auto w-full max-w-[1280px] px-6 py-16 md:py-24 lg:px-10">
+        <div className="flex items-center gap-3 border-b border-stone-300 pb-4 text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
+          <span className="inline-block h-px w-6 bg-stone-400" />
+          <Link href="/" className="hover:text-stone-900">{siteConfig.brand}</Link>
+          <span className="text-stone-300">/</span>
+          <span className="text-stone-900">Terms of Service</span>
+        </div>
+        <header className="my-12 max-w-3xl">
+          <h1 className="text-[36px] font-black tracking-[-0.025em] text-stone-950 md:text-[52px]">
             이용약관
           </h1>
-          <p className="mt-3 text-sm text-ink-muted">최종 갱신: 2026-06-28</p>
+          <p className="mt-4 text-sm tabular-nums text-stone-500">최종 갱신 · 2026-06-28</p>
         </header>
 
-        <article className="prose prose-sm max-w-none text-ink-soft md:prose-base">
+        <article className="prose prose-sm max-w-3xl text-stone-700 prose-headings:text-stone-950 prose-headings:tracking-tight prose-a:text-stone-900 md:prose-base">
           <p>
             본 약관은 {siteConfig.publisher.legalName}(이하 &ldquo;회사&rdquo;)이 제공하는 AI 검색
             최적화 SaaS 서비스(이하 &ldquo;서비스&rdquo;) 이용에 관한 조건과 절차, 회원의 권리·의무

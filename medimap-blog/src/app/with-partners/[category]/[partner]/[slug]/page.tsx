@@ -102,33 +102,36 @@ export default async function PartnerPostPage({ params }: PageProps) {
   };
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-6 py-10 sm:py-14">
+    <main className="mx-auto w-full max-w-[860px] px-6 py-14 md:py-20 lg:px-10">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ldJson) }} />
 
-      <nav className="mb-6 text-xs text-ink-muted">
-        <Link href="/with-partners" className="hover:text-brand">파트너 콘텐츠</Link>
-        {" / "}
-        <Link href={`/with-partners/${meta.slug}`} className="hover:text-brand">{meta.ko}</Link>
-        {" / "}
-        <Link href={`/with-partners/${meta.slug}/${post.partner_slug}`} className="hover:text-brand">
+      <nav className="flex items-center gap-3 border-b border-stone-300 pb-4 text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
+        <span className="inline-block h-px w-6 bg-stone-400" />
+        <Link href="/with-partners" className="hover:text-stone-900">Partners</Link>
+        <span className="text-stone-300">/</span>
+        <Link href={`/with-partners/${meta.slug}`} className="hover:text-stone-900">{meta.ko}</Link>
+        <span className="text-stone-300">/</span>
+        <Link href={`/with-partners/${meta.slug}/${post.partner_slug}`} className="hover:text-stone-900">
           {post.tenant_name}
         </Link>
       </nav>
 
-      <header className="mb-8">
-        <div className="text-xs font-bold uppercase tracking-widest text-brand-700">
+      <header className="mb-10 mt-10">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-stone-500">
           {meta.ko} · {post.tenant_name}
         </div>
-        <h1 className="mt-2 text-3xl font-bold leading-tight text-ink sm:text-4xl">
+        <h1 className="mt-4 text-[36px] font-black leading-[1.1] tracking-[-0.025em] text-stone-950 md:text-[48px]">
           {post.title}
         </h1>
-        <p className="mt-3 text-sm text-ink-muted">
-          {post.published_at} · 위서클 의료법 가이드 통과
-        </p>
+        <div className="mt-6 flex items-center gap-3 border-t border-stone-200/70 pt-4 text-[12px] tabular-nums text-stone-500">
+          <time>{post.published_at}</time>
+          <span className="text-stone-300">·</span>
+          <span>위서클 의료법 가이드 통과</span>
+        </div>
       </header>
 
       {post.cover_image_url && (
-        <div className="mb-8 overflow-hidden rounded-2xl bg-slate-100">
+        <div className="mb-10 overflow-hidden bg-stone-100">
           <Image
             src={post.cover_image_url}
             alt={post.cover_image_alt || post.title}
@@ -142,76 +145,78 @@ export default async function PartnerPostPage({ params }: PageProps) {
       )}
 
       <article
-        className="prose prose-slate max-w-none prose-headings:text-ink prose-a:text-brand"
+        className="prose prose-stone max-w-none prose-headings:tracking-tight prose-headings:text-stone-950 prose-a:text-stone-900"
         dangerouslySetInnerHTML={{
           __html: stripReferenceSection(stripFirstH1IfMatchesTitle(post.body, post.title)),
         }}
       />
 
-      {/* Round 108-e — 카카오톡 상담 CTA (외부 URL 대신 wecircle 채널) */}
-      <div className="mt-10 rounded-2xl bg-gradient-to-br from-brand-50 to-white border border-brand-100 p-6 text-center shadow-soft">
-        <div className="text-xs font-bold uppercase tracking-widest text-brand-700">
-          {post.tenant_name}
+      {/* Editorial CTA */}
+      <div className="mt-16 border-t border-stone-300 pt-10">
+        <div className="grid gap-6 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:items-center">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
+              Consultation · {post.tenant_name}
+            </div>
+            <h3 className="mt-4 font-serif text-2xl italic leading-tight text-stone-900 md:text-[28px]">
+              &ldquo;더 자세한 상담이 필요하다면.&rdquo;
+            </h3>
+            <p className="mt-3 max-w-md text-[14px] leading-[1.75] text-stone-600">
+              위서클 상담 채널을 통해 {post.tenant_name}과 연결됩니다.
+            </p>
+          </div>
+          <a
+            href={siteConfig.contact.kakao}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group inline-flex items-center justify-between gap-4 border border-stone-900 bg-stone-900 px-6 py-5 text-white transition hover:bg-stone-800"
+          >
+            <span className="text-sm font-bold tracking-tight">카카오톡으로 상담받기</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden>
+              <path stroke="currentColor" d="M7 17L17 7" />
+              <path stroke="currentColor" d="M7 7h10v10" />
+            </svg>
+          </a>
         </div>
-        <h3 className="mt-2 text-xl font-extrabold text-ink">
-          지금 바로 상담받고 자세히 알아보세요
-        </h3>
-        <p className="mt-2 text-sm text-ink-soft">
-          위서클 상담 채널을 통해 {post.tenant_name}과 연결됩니다.
-        </p>
-        <a
-          href={siteConfig.contact.kakao}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-[#FEE500] px-6 py-3 text-base font-extrabold text-[#3C1E1E] shadow-md transition hover:scale-105 hover:shadow-lg"
-        >
-          💬 카카오톡으로 상담받기
-        </a>
       </div>
 
       {/* Round 108-e — 관련 콘텐츠 (같은 병원 다른 글) */}
       {relatedPosts.length > 0 && (
-        <section className="mt-16">
-          <div className="text-xs font-bold uppercase tracking-widest text-brand-700">
-            함께 보면 좋은 글
+        <section className="mt-16 border-t border-stone-200/70 pt-10">
+          <div className="mb-8 flex items-baseline justify-between border-b border-stone-300 pb-4">
+            <h2 className="text-xs font-bold uppercase tracking-[0.35em] text-stone-700">
+              More from {post.tenant_name}
+            </h2>
+            <span className="text-xs tabular-nums text-stone-500">{relatedPosts.length}</span>
           </div>
-          <h2 className="mt-2 text-2xl font-extrabold text-ink">
-            {post.tenant_name}의 관련 콘텐츠
-          </h2>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            {relatedPosts.map((rp) => (
-              <Link
-                key={rp.id}
-                href={`/with-partners/${category}/${partner}/${rp.slug}`}
-                className="group block rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-soft transition hover:border-brand-200 hover:shadow-card"
-              >
-                {rp.cover_image_url && (
-                  <div className="aspect-[16/10] w-full bg-slate-100 overflow-hidden">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={rp.cover_image_url}
-                      alt={rp.cover_image_alt || rp.title}
-                      className="h-full w-full object-cover transition group-hover:scale-105"
-                      loading="lazy"
-                    />
+          <ol className="divide-y divide-stone-200/70">
+            {relatedPosts.map((rp, i) => (
+              <li key={rp.id}>
+                <Link
+                  href={`/with-partners/${category}/${partner}/${rp.slug}`}
+                  className="group grid grid-cols-[40px_1fr_auto] items-center gap-4 py-5 md:grid-cols-[56px_minmax(0,1fr)_auto] md:gap-8"
+                >
+                  <span className="font-serif text-2xl font-light tabular-nums leading-none text-stone-400 transition group-hover:text-stone-900">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <div className="min-w-0">
+                    <h3 className="text-[15px] font-bold leading-snug tracking-tight text-stone-950 transition group-hover:text-stone-700 md:text-[17px]">
+                      {rp.title}
+                    </h3>
+                    {rp.excerpt && (
+                      <p className="mt-1 line-clamp-1 text-sm text-stone-500">
+                        {rp.excerpt}
+                      </p>
+                    )}
                   </div>
-                )}
-                <div className="p-4">
-                  <h3 className="text-sm font-bold text-ink line-clamp-2 group-hover:text-brand">
-                    {rp.title}
-                  </h3>
-                  {rp.excerpt && (
-                    <p className="mt-1.5 text-xs text-ink-muted line-clamp-2">
-                      {rp.excerpt}
-                    </p>
-                  )}
-                  <div className="mt-2 text-[11px] font-semibold uppercase tracking-wider text-brand-700">
-                    자세히 보기 →
-                  </div>
-                </div>
-              </Link>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-300 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-stone-900" aria-hidden>
+                    <path stroke="currentColor" d="M7 17L17 7" />
+                    <path stroke="currentColor" d="M7 7h10v10" />
+                  </svg>
+                </Link>
+              </li>
             ))}
-          </div>
+          </ol>
         </section>
       )}
     </main>
