@@ -88,6 +88,72 @@ export async function recordClick(evt: ClickEvent): Promise<boolean> {
   }
 }
 
+// ============================================================
+// Round 110-B (2026-07-02) — AI 크롤러 방문 로그
+// ============================================================
+export interface CrawlerHitEvent {
+  bot_name: string;
+  user_agent: string | null;
+  path: string;
+  referer: string | null;
+  country: string | null;
+  status_code?: number;
+}
+
+export async function recordCrawlerHit(evt: CrawlerHitEvent): Promise<boolean> {
+  const sql = getSql();
+  if (!sql) return false;
+  try {
+    await sql`
+      INSERT INTO crawler_hits (bot_name, user_agent, path, referer, country, status_code, hit_at)
+      VALUES (
+        ${evt.bot_name}, ${evt.user_agent ?? null}, ${evt.path},
+        ${evt.referer ?? null}, ${evt.country ?? null},
+        ${evt.status_code ?? 200}, NOW()
+      )
+    `;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ============================================================
+// Round 110-C (2026-07-02) — 카카오톡 UTM 유입 로그
+// ============================================================
+export interface KakaoReferralEvent {
+  event: 'kakao_cta_click' | 'kakao_channel_click' | 'kakao_beacon' | 'kakao_floating_click';
+  page_path: string | null;
+  cta_label: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  tenant_id: number | null;
+  user_agent: string | null;
+  referer: string | null;
+  ip_hash: string | null;
+}
+
+export async function recordKakaoReferral(evt: KakaoReferralEvent): Promise<boolean> {
+  const sql = getSql();
+  if (!sql) return false;
+  try {
+    await sql`
+      INSERT INTO kakao_referrals (
+        event, page_path, cta_label, utm_source, utm_medium, utm_campaign,
+        tenant_id, ip_hash, user_agent, referer, clicked_at
+      ) VALUES (
+        ${evt.event}, ${evt.page_path}, ${evt.cta_label},
+        'kakao', ${evt.utm_medium}, ${evt.utm_campaign},
+        ${evt.tenant_id}, ${evt.ip_hash}, ${evt.user_agent}, ${evt.referer},
+        NOW()
+      )
+    `;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function hashIp(ip: string | null): Promise<string | null> {
   if (!ip) return null;
   const salt = process.env.IP_HASH_SALT || "medimap-funnel-v1";

@@ -41,18 +41,18 @@ export function ReportTrendChart({ data }: { data: Point[] }) {
         />
         <Tooltip
           formatter={(v: number, name: string) => {
-            if (name === '메디맵 share') return `${Math.round(v * 100)}%`;
+            if (name === '위서클 share') return `${Math.round(v * 100)}%`;
             return v;
           }}
         />
         <Legend wrapperStyle={{ fontSize: 11 }} />
         <Bar yAxisId="left" dataKey="total" name="총 인용" fill="#94A3B8" fillOpacity={0.4} radius={[2, 2, 0, 0]} />
-        <Bar yAxisId="left" dataKey="t1" name="메디맵 T1" fill="#1B68FF" radius={[2, 2, 0, 0]} />
+        <Bar yAxisId="left" dataKey="t1" name="위서클 T1" fill="#1B68FF" radius={[2, 2, 0, 0]} />
         <Line
           yAxisId="right"
           type="monotone"
           dataKey="t1_share"
-          name="메디맵 share"
+          name="위서클 share"
           stroke="#1B68FF"
           strokeWidth={2.5}
           dot={{ r: 3 }}

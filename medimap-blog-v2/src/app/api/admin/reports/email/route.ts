@@ -21,18 +21,18 @@ async function sendOne(opts: {
   origin: string;
 }): Promise<{ ok: boolean; to?: string; reportUrl: string; resend?: unknown; stub?: boolean; error?: string }> {
   const key = process.env.RESEND_API_KEY;
-  const fromAddr = process.env.RESEND_FROM ?? 'MEDIMAP GEO <reports@medimap.team>';
+  const fromAddr = process.env.RESEND_FROM ?? 'WECIRCLE GEO <reports@medimap.team>';
   const reportUrl = `${opts.origin}/admin/reports/${opts.tenantId}`;
 
   if (!key) {
     return { ok: false, stub: true, reportUrl };
   }
 
-  const subject = `[MEDIMAP GEO] ${opts.period} 월간 AI 검색 노출 보고서 — ${opts.tenantName}`;
+  const subject = `[WECIRCLE GEO] ${opts.period} 월간 AI 검색 노출 보고서 — ${opts.tenantName}`;
   const html = `
 <div style="font-family:'Noto Sans KR',sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0F172A">
   <div style="border-bottom:2px solid #1B68FF;padding-bottom:12px;margin-bottom:20px">
-    <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#1B68FF;text-transform:uppercase">MEDIMAP GEO Monthly Report</div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#1B68FF;text-transform:uppercase">WECIRCLE GEO Monthly Report</div>
     <h1 style="margin:6px 0 0;font-size:22px">${opts.tenantName}</h1>
     <p style="margin:4px 0 0;font-size:13px;color:#64748B">${opts.period} 월간 AI 검색 노출 성과 보고</p>
   </div>
@@ -40,10 +40,10 @@ async function sendOne(opts: {
   <p style="font-size:14px;line-height:1.6">이번 달 4대 AI 엔진 (Gemini · Claude · Perplexity · OpenAI) 의 grounding 데이터 기반 월간 보고서가 준비되었습니다.</p>
   <p style="font-size:14px;line-height:1.6">보고서에는 다음 내용이 포함됩니다:</p>
   <ul style="font-size:13px;line-height:1.7;color:#334155">
-    <li>이번 달 AI 검색 인용 횟수 + 메디맵 도메인 점유율 (전월 대비)</li>
+    <li>이번 달 AI 검색 인용 횟수 + 위서클 도메인 점유율 (전월 대비)</li>
     <li>키워드별 성과 + 보강 필요 키워드</li>
     <li>경쟁사 노출 현황 Top 5</li>
-    <li>메디맵이 발행한 콘텐츠 list + AI 인용 활용률</li>
+    <li>파트너별 인용 랭킹 (30일) + 자사 발행 콘텐츠 성과</li>
     <li>다음 달 액션 플랜 4개</li>
   </ul>
   <div style="text-align:center;margin:24px 0">
@@ -52,8 +52,8 @@ async function sendOne(opts: {
   <p style="font-size:12px;color:#64748B;line-height:1.6">PDF 저장이 필요하시면 보고서 화면 상단의 [PDF 저장 / 인쇄] 버튼을 클릭해 주세요.</p>
   <hr style="border:0;border-top:1px solid #E2E8F0;margin:24px 0">
   <p style="font-size:11px;color:#94A3B8;line-height:1.5">
-    MEDIMAP GEO/AEO SaaS · AI 검색 시대 의료 마케팅 솔루션<br>
-    medi-map.co.kr · 이 보고서는 매월 1일 자동 발송됩니다.
+    WECIRCLE GEO/AEO SaaS · AI 검색 시대 의료 마케팅 솔루션<br>
+    wecircle.co.kr · 이 보고서는 매월 1일 자동 발송됩니다.
   </p>
 </div>`;
 

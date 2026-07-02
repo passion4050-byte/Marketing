@@ -2,7 +2,7 @@
  * Round 44 (2026-05-31) — 월간 보고서 17년차 영업/마케터 관점 재구성.
  *
  * 클라이언트 (병·의원장/마케팅 담당자) 가 받는 자료.
- * "메디맵에 돈 쓴 ROI 가 무엇인가" 답하는 게 핵심.
+ * "위서클에 돈 쓴 ROI 가 무엇인가" 답하는 게 핵심.
  *
  * 구성:
  *   1. Executive Summary — 한 줄 요약 + KPI 3개 + 성공 사례
@@ -323,7 +323,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
           <div className="flex items-start justify-between">
             <div>
               <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-700">
-                MEDIMAP GEO · Monthly Report
+                WECIRCLE GEO · Monthly Report
               </div>
               <h1 className="mt-2 text-2xl font-bold text-ink md:text-3xl">{tenant.name}</h1>
               <p className="mt-1 text-sm text-ink-muted">{period} · 월간 AI 검색 노출 성과 보고</p>
@@ -348,13 +348,13 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
                 <span className="text-brand">{tenant.name}</span>의 키워드에서 총{' '}
                 <span className="text-brand">{data.totalThis}건</span>의 AI 인용이 발생했습니다.{' '}
                 {data.t1ShareDelta > 0.02 && (
-                  <>메디맵 도메인 점유율이 지난 달 대비 <span className="text-status-success">+{deltaPct}%p</span> 상승했습니다.</>
+                  <>위서클 도메인 점유율이 지난 달 대비 <span className="text-status-success">+{deltaPct}%p</span> 상승했습니다.</>
                 )}
                 {data.t1ShareDelta < -0.02 && (
-                  <>메디맵 점유율은 지난 달 대비 {deltaPct}%p 변동했습니다 — 콘텐츠 보강이 필요합니다.</>
+                  <>위서클 점유율은 지난 달 대비 {deltaPct}%p 변동했습니다 — 콘텐츠 보강이 필요합니다.</>
                 )}
                 {Math.abs(data.t1ShareDelta) <= 0.02 && (
-                  <>메디맵 점유율은 안정적으로 유지되고 있습니다 ({t1SharePct}%).</>
+                  <>위서클 점유율은 안정적으로 유지되고 있습니다 ({t1SharePct}%).</>
                 )}
               </>
             ) : (
@@ -375,7 +375,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
           />
           <KpiBox
             icon={TrendingUp}
-            label="메디맵 점유율"
+            label="위서클 점유율"
             value={`${t1SharePct}`}
             unit="%"
             delta={deltaPct}
@@ -388,7 +388,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
             label="발행 콘텐츠"
             value={`${data.publishedCount}`}
             unit="편"
-            note="이번 달 메디맵 발행"
+            note="이번 달 위서클 발행"
           />
         </section>
 
@@ -396,7 +396,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
         <section className="border-t border-border px-6 py-6 md:px-10">
           <h2 className="mb-1 text-base font-bold text-ink">📊 AI 검색 노출 추이</h2>
           <p className="mb-4 text-[12px] text-ink-muted">
-            이번 달 일자별 인용 수 + 메디맵 도메인 점유율 — SaaS 누적 효과
+            이번 달 일자별 인용 수 + 위서클 도메인 점유율 — SaaS 누적 효과
           </p>
           <ReportTrendChart data={data.dailyTrend} />
         </section>
@@ -415,7 +415,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
                 <tr>
                   <th className="px-3 py-2 text-left">키워드</th>
                   <th className="px-3 py-2 text-right">인용 수</th>
-                  <th className="px-3 py-2 text-right">메디맵</th>
+                  <th className="px-3 py-2 text-right">위서클</th>
                   <th className="px-3 py-2 text-right">경쟁사</th>
                   <th className="px-3 py-2 text-right">win rate</th>
                 </tr>
@@ -445,7 +445,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
                 보강 필요 키워드 ({data.weakKeywords.length})
               </h3>
               <p className="mb-2 text-[10px] text-ink-muted">
-                인용은 발생하지만 메디맵 점유율 20% 미만 — 다음 달 콘텐츠 생성 우선순위
+                인용은 발생하지만 위서클 점유율 20% 미만 — 다음 달 콘텐츠 생성 우선순위
               </p>
               <div className="flex flex-wrap gap-1">
                 {data.weakKeywords.map((k) => (
@@ -486,10 +486,10 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
           )}
         </section>
 
-        {/* === 7. 발행 콘텐츠 + 효과 — 메디맵에 돈 쓴 직접 결과물 === */}
+        {/* === 7. 발행 콘텐츠 + 효과 — 위서클에 돈 쓴 직접 결과물 === */}
         <section className="border-t border-border px-6 py-6 md:px-10">
           <div className="mb-1 flex items-center justify-between gap-2">
-            <h2 className="text-base font-bold text-ink">📝 메디맵 발행 콘텐츠 ({data.publishedCount}편)</h2>
+            <h2 className="text-base font-bold text-ink">📝 위서클 발행 콘텐츠 ({data.publishedCount}편)</h2>
             {data.citedContentCount > 0 && (
               <span className="rounded-full bg-brand-50 px-3 py-1 text-[11px] font-bold text-brand">
                 AI 인용 활용: <strong>{data.citedContentCount}편</strong> / {data.publishedCount}편 ({Math.round((data.citedContentCount / Math.max(1, data.publishedCount)) * 100)}%)
@@ -497,7 +497,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
             )}
           </div>
           <p className="mb-4 text-[12px] text-ink-muted">
-            이번 달 메디맵이 {tenant.name}을 위해 발행한 콘텐츠 list — 각 글의 AI 검색 인용 활용 여부 표시.
+            이번 달 위서클이 {tenant.name}을 위해 발행한 콘텐츠 list — 각 글의 AI 검색 인용 활용 여부 표시.
             <strong className="ml-1 text-brand">AI 인용</strong> 표시 글이 클라이언트의 grounding 성과
           </p>
           {data.publishedContents.length === 0 ? (
@@ -571,7 +571,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
               {data.citedContentCount > 0 ? (
                 <>
                   발행 {data.publishedCount}편 중 <strong className="text-brand">{data.citedContentCount}편</strong>이 AI 검색 답변의 출처로 사용됨.{' '}
-                  메디맵 SaaS 의 직접 효과 = 잠재 환자가 AI 에 질문할 때 {tenant.name} 콘텐츠가 출처로 노출되는 것.
+                  위서클 SaaS 의 직접 효과 = 잠재 환자가 AI 에 질문할 때 {tenant.name} 콘텐츠가 출처로 노출되는 것.
                 </>
               ) : (
                 <>
@@ -582,10 +582,10 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
           )}
         </section>
 
-        {/* === 8. 메디맵 인용 URL === */}
+        {/* === 8. 위서클 인용 URL === */}
         {data.medimapCitedUrls.length > 0 && (
           <section className="border-t border-border bg-brand-50/30 px-6 py-6 md:px-10">
-            <h2 className="mb-1 text-base font-bold text-ink">✨ AI 가 인용한 메디맵 콘텐츠 ({data.medimapCitedUrls.length})</h2>
+            <h2 className="mb-1 text-base font-bold text-ink">✨ AI 가 인용한 위서클 콘텐츠 ({data.medimapCitedUrls.length})</h2>
             <p className="mb-3 text-[12px] text-ink-muted">
               아래 URL 이 AI 검색 답변의 출처로 사용됨 — SaaS 가치의 직접 증거
             </p>
@@ -611,7 +611,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
         <section className="border-t border-border px-6 py-6 md:px-10">
           <h2 className="mb-1 text-base font-bold text-ink">📋 다음 달 액션 플랜</h2>
           <p className="mb-4 text-[12px] text-ink-muted">
-            데이터 기반 권장 — 메디맵이 자동 실행 / 클라이언트 검토 후 확정
+            데이터 기반 권장 — 위서클이 자동 실행 / 클라이언트 검토 후 확정
           </p>
           <ol className="space-y-2 text-[12px] text-ink-soft">
             <li className="flex gap-2">
@@ -620,7 +620,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
                 <strong className="text-ink">보강 키워드 콘텐츠 ({Math.min(data.weakKeywords.length, 3)}편)</strong>
                 {data.weakKeywords.length > 0 && (
                   <div className="mt-0.5 text-ink-muted">
-                    {data.weakKeywords.slice(0, 3).map((k) => k.keyword).join(', ')} — 메디맵 콘텐츠 가이드 v4 적용
+                    {data.weakKeywords.slice(0, 3).map((k) => k.keyword).join(', ')} — 위서클 콘텐츠 가이드 v4 적용
                   </div>
                 )}
               </div>
@@ -642,7 +642,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
                 <strong className="text-ink">경쟁사 학습 분석</strong>
                 {data.competitorTop.length > 0 && (
                   <div className="mt-0.5 text-ink-muted">
-                    Top 경쟁사 ({data.competitorTop[0].domain}) 의 콘텐츠 구조 학습 → 메디맵 가이드 v5 반영
+                    Top 경쟁사 ({data.competitorTop[0].domain}) 의 콘텐츠 구조 학습 → 위서클 가이드 v5 반영
                   </div>
                 )}
               </div>
@@ -654,7 +654,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
                 <div className="mt-0.5 text-ink-muted">
                   {data.t1ShareDelta >= 0
                     ? `${tenant.name}의 AI 검색 노출이 ${deltaPct >= 0 ? '+' : ''}${deltaPct}%p 변화 — 다음 달 콘텐츠 발행 유지`
-                    : `${tenant.name}의 메디맵 점유율 ${deltaPct}%p 변동 — 콘텐츠 빈도 증가 권장`}
+                    : `${tenant.name}의 위서클 점유율 ${deltaPct}%p 변동 — 콘텐츠 빈도 증가 권장`}
                 </div>
               </div>
             </li>
@@ -663,9 +663,9 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
 
         {/* === Footer === */}
         <footer className="border-t border-border bg-surface-subtle px-6 py-4 text-center text-[10px] text-ink-muted md:px-10">
-          <div className="font-semibold text-ink">MEDIMAP GEO/AEO SaaS</div>
+          <div className="font-semibold text-ink">WECIRCLE GEO/AEO SaaS</div>
           <div className="mt-0.5">
-            AI 검색 시대 의료 마케팅 솔루션 · medi-map.co.kr
+            AI 검색 시대 의료 마케팅 솔루션 · wecircle.co.kr
           </div>
           <div className="mt-2 text-[9px] text-ink-faint">
             이 보고서는 4대 AI 엔진 (Gemini · Claude · Perplexity · OpenAI) 의 grounding 데이터를 기반으로 자동 생성됩니다.

@@ -21,6 +21,8 @@ import { ActionRecommendations } from '@/components/admin/ActionRecommendations'
 import { ContentCompetitiveness } from '@/components/admin/ContentCompetitiveness';
 import { MarketShareDiagnosis } from '@/components/admin/MarketShareDiagnosis';
 import { PartnerLeaderboard } from '@/components/admin/PartnerLeaderboard';
+import { CrawlerLogWidget } from '@/components/admin/CrawlerLogWidget';
+import { KakaoFunnelWidget } from '@/components/admin/KakaoFunnelWidget';
 import { ContentPatternStats } from '@/components/admin/ContentPatternStats';
 import { DashboardChartsTabbed } from '@/components/admin/DashboardChartsTabbed';
 import type {
@@ -1154,6 +1156,18 @@ export default async function AdminDashboardPage({
           파트너 성과 실측
         </div>
         <PartnerLeaderboard />
+      </div>
+
+      {/* === Tier 2.6 (Round 110-B/C): AI 크롤러 방문 + 카카오톡 유입 트래킹 === */}
+      <div className="mt-8">
+        <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          유입·크롤 실측 (Round 110)
+        </div>
+        <div className="grid gap-4 xl:grid-cols-2">
+          <CrawlerLogWidget />
+          <KakaoFunnelWidget />
+        </div>
       </div>
 
       {/* === Tier 3: 운영 차트 (탭 통합) === */}

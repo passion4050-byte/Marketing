@@ -4,10 +4,35 @@ import {
   isAdminConfigured,
   verifySessionCookie,
 } from "@/lib/admin-auth";
+import { detectAiCrawler } from "@/lib/crawler-detect";
 
 export const config = {
   matcher: ["/admin/:path*", "/with-partners/:path*", "/blog/:path*"],
 };
+
+/**
+ * Round 110-B (2026-07-02) — AI 크롤러 감지 시 fire-and-forget 로 /api/track/crawler 호출.
+ * middleware 는 edge runtime → postgres 직접 못 씀 → nodejs endpoint 로 delegate.
+ */
+function logCrawlerIfDetected(req: NextRequest, pathname: string): void {
+  const ua = req.headers.get("user-agent");
+  const bot = detectAiCrawler(ua);
+  if (!bot) return;
+  const origin = req.nextUrl.origin;
+  // fire-and-forget — 응답 지연 방지 (300ms timeout)
+  fetch(`${origin}/api/track/crawler`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      bot_name: bot,
+      path: pathname,
+      user_agent: ua,
+      referer: req.headers.get("referer"),
+      country: req.headers.get("x-vercel-ip-country"),
+    }),
+    signal: AbortSignal.timeout(300),
+  }).catch(() => { /* swallow */ });
+}
 
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
@@ -19,6 +44,7 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/with-partners") ||
     pathname.startsWith("/blog")
   ) {
+    logCrawlerIfDetected(req, pathname);
     const res = NextResponse.next();
     res.headers.set("Cache-Control", "private, no-store, no-cache, must-revalidate, max-age=0");
     res.headers.set("CDN-Cache-Control", "no-store");

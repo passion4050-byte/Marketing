@@ -1,0 +1,79 @@
+name: Citation alerts (daily KST 09:00)
+
+# Round 110-A (2026-07-02) — 최근 24h 신규 AI 인용 감지 → passion4050@gmail.com 이메일 알림.
+#
+# 흐름:
+#   1. Vercel deployed endpoint 호출 — /api/cron/citation-alerts
+#   2. endpoint 가 mentions (is_target=true, created_at >= now-24h) 조회
+#   3. tenant + engine 별 집계 후 Resend 로 알림 이메일 발송
+#   4. 신규 인용이 0건이면 skip (스팸 방지)
+#
+# 필수 secrets:
+#   - VERCEL_PROD_URL — 예: https://geo-v2-beta.vercel.app
+#   - CRON_SECRET
+#   - (Vercel 측) RESEND_API_KEY + RESEND_FROM + CITATION_ALERT_EMAIL (선택)
+
+on:
+  schedule:
+    - cron: '0 0 * * *'   # 매일 00:00 UTC = 09:00 KST (측정 cron 07:00 KST 이후 2시간)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: citation-alerts
+  cancel-in-progress: false
+
+jobs:
+  alert:
+    name: Detect new citations + email
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Verify secrets
+        run: |
+          if [ -z "${{ secrets.VERCEL_PROD_URL }}" ]; then
+            echo "::error::VERCEL_PROD_URL 미설정"
+            exit 1
+          fi
+          if [ -z "${{ secrets.CRON_SECRET }}" ]; then
+            echo "::error::CRON_SECRET 미설정"
+            exit 1
+          fi
+
+      - name: Call citation-alerts endpoint
+        env:
+          VERCEL_URL: ${{ secrets.VERCEL_PROD_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          echo "Calling $VERCEL_URL/api/cron/citation-alerts"
+          RESPONSE=$(curl -sS -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-Cron-Secret: $CRON_SECRET" \
+            "$VERCEL_URL/api/cron/citation-alerts?cronSecret=$CRON_SECRET")
+          echo "$RESPONSE" | jq '.'
+          OK=$(echo "$RESPONSE" | jq -r '.ok // false')
+          if [ "$OK" != "true" ]; then
+            echo "::error::Citation alerts API 호출 실패"
+            exit 1
+          fi
+          TOTAL=$(echo "$RESPONSE" | jq -r '.total_new // 0')
+          TENANTS=$(echo "$RESPONSE" | jq -r '.tenants // 0')
+          SKIPPED=$(echo "$RESPONSE" | jq -r '.skipped // false')
+          if [ "$SKIPPED" = "true" ]; then
+            echo "🟢 신규 인용 없음 — 이메일 skip"
+          else
+            echo "📧 신규 인용 $TOTAL 건 / 파트너 $TENANTS 개 — 이메일 발송 완료"
+          fi
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## 신규 AI 인용 감지 알림"
+            echo "- 매일 00:00 UTC (09:00 KST) 자동 실행"
+            echo "- /api/cron/citation-alerts 호출"
+            echo "- 최근 24h 신규 mentions 있으면 passion4050@gmail.com 이메일 발송"
+          } >> "$GITHUB_STEP_SUMMARY"
