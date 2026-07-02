@@ -28,9 +28,13 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
   formatDetection: { telephone: false },
   // Round 62 후속 (2026-06-20) — Google Search Console 소유권 확인 meta tag.
+  // Round 108 후속 (2026-07-03) — 네이버 서치어드바이저 소유권 확인 추가.
   // 인증 후에도 유지 (제거 시 인증 해제됨).
   verification: {
     google: "PHHfi6PtKyOBdqwbUTsFMYCDt4pUiKZU_hH7sKsThFs",
+    other: {
+      "naver-site-verification": "de48a01a6a44a45a2540c6b0a658b0b2251ce08f",
+    },
   },
 };
 
