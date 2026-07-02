@@ -19,10 +19,15 @@ async function sendOne(opts: {
   toEmail: string;
   period: string;
   origin: string;
+  range?: string;
+  from?: string;
+  to?: string;
 }): Promise<{ ok: boolean; to?: string; reportUrl: string; resend?: unknown; stub?: boolean; error?: string }> {
   const key = process.env.RESEND_API_KEY;
   const fromAddr = process.env.RESEND_FROM ?? 'WECIRCLE GEO <reports@medimap.team>';
-  const reportUrl = `${opts.origin}/admin/reports/${opts.tenantId}`;
+  // Round 115 (2026-07-02): reportUrl 에도 range 쿼리 반영 → 클라이언트가 링크 클릭 시 같은 기간 리포트 렌더.
+  const rangeQ = opts.range ? `?range=${encodeURIComponent(opts.range)}${opts.range === 'custom' && opts.from && opts.to ? `&from=${opts.from}&to=${opts.to}` : ''}` : '';
+  const reportUrl = `${opts.origin}/admin/reports/${opts.tenantId}${rangeQ}`;
 
   if (!key) {
     return { ok: false, stub: true, reportUrl };
@@ -75,10 +80,13 @@ async function sendOne(opts: {
 
 export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as {
-    tenantId?: string;
+    tenantId?: string | number;
     period?: string;
     all?: boolean;
     cronSecret?: string;
+    range?: string;
+    from?: string;
+    to?: string;
   };
   // Round 114 P1-3 (2026-07-02): 리포트 페이지의 rolling 30일 라벨과 정합.
   // 이번 달이 30일 미만이면 "(최근 30일 기준)" 병기.
@@ -169,6 +177,9 @@ export async function POST(req: NextRequest) {
     toEmail,
     period,
     origin,
+    range: body.range,
+    from: body.from,
+    to: body.to,
   });
   return NextResponse.json(r);
 }

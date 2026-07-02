@@ -19,6 +19,7 @@ import { ArrowDown, ArrowUp, Award, FileText, Target, TrendingUp, Users, Zap, Al
 import { getServerClient } from '@/lib/supabase';
 import { classifyDomain, loadClassifierSets } from '@/lib/domain-classifier';
 import { PrintButton } from './_components/PrintButton';
+import { ReportRangeSelector } from '@/components/admin/ReportRangeSelector';
 
 // Round 57 (2026-05-31) — recharts 번들 (~100KB) lazy load. 첫 페인트 후 비동기 로드.
 // Round 58 fix 2 (2026-06-01) — `export const dynamic` 과 변수명 충돌 → nextDynamic alias (함정 BR)
@@ -39,7 +40,95 @@ export const dynamic = 'force-dynamic';
 
 type DailyPoint = { date: string; t1: number; total: number; t1_share: number };
 
-async function fetchReportData(tenantIdStr: string) {
+// Round 115 (2026-07-02): 리포트 기간 선택기 지원. 사용자가 URL param 으로 range 지정.
+type ReportRange = '7d' | '30d' | '90d' | 'month' | 'prev_month' | 'custom';
+export type ReportRangeOpts = { range?: ReportRange; from?: string; to?: string };
+
+function resolveRangeCutoffs(opts: ReportRangeOpts): {
+  cutoffThisMonth: string;
+  cutoffPrev: string;
+  end: Date;
+  rangeLabel: string;
+  rangeShort: string;
+  rangeCode: ReportRange;
+} {
+  const now = new Date();
+  const range: ReportRange = opts.range ?? '30d';
+
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+  const daysAgo = (n: number) => new Date(now.getTime() - n * 24 * 60 * 60 * 1000);
+
+  const fmtDate = (d: Date) => d.toISOString().slice(0, 10);
+  const fmtKo = (d: Date) => d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  if (range === 'custom' && opts.from && opts.to) {
+    const fromD = new Date(`${opts.from}T00:00:00Z`);
+    const toD = new Date(`${opts.to}T23:59:59Z`);
+    const ms = Math.max(1, toD.getTime() - fromD.getTime());
+    const prevFrom = new Date(fromD.getTime() - ms);
+    return {
+      cutoffThisMonth: fromD.toISOString(),
+      cutoffPrev: prevFrom.toISOString(),
+      end: toD,
+      rangeLabel: `${fmtDate(fromD)} ~ ${fmtDate(toD)}`,
+      rangeShort: '선택 기간',
+      rangeCode: 'custom',
+    };
+  }
+  if (range === 'month') {
+    return {
+      cutoffThisMonth: startOfMonth.toISOString(),
+      cutoffPrev: prevMonthStart.toISOString(),
+      end: now,
+      rangeLabel: now.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' }),
+      rangeShort: '이번 달',
+      rangeCode: 'month',
+    };
+  }
+  if (range === 'prev_month') {
+    return {
+      cutoffThisMonth: prevMonthStart.toISOString(),
+      cutoffPrev: new Date(now.getFullYear(), now.getMonth() - 2, 1).toISOString(),
+      end: prevMonthEnd,
+      rangeLabel: prevMonthStart.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' }),
+      rangeShort: '지난 달',
+      rangeCode: 'prev_month',
+    };
+  }
+  if (range === '7d') {
+    return {
+      cutoffThisMonth: daysAgo(7).toISOString(),
+      cutoffPrev: daysAgo(14).toISOString(),
+      end: now,
+      rangeLabel: `최근 7일 (${fmtKo(daysAgo(7))} ~ ${fmtKo(now)})`,
+      rangeShort: '최근 7일',
+      rangeCode: '7d',
+    };
+  }
+  if (range === '90d') {
+    return {
+      cutoffThisMonth: daysAgo(90).toISOString(),
+      cutoffPrev: daysAgo(180).toISOString(),
+      end: now,
+      rangeLabel: `최근 90일 (${fmtKo(daysAgo(90))} ~ ${fmtKo(now)})`,
+      rangeShort: '최근 90일',
+      rangeCode: '90d',
+    };
+  }
+  // default: 30d
+  return {
+    cutoffThisMonth: daysAgo(30).toISOString(),
+    cutoffPrev: daysAgo(60).toISOString(),
+    end: now,
+    rangeLabel: `${now.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' })} (최근 30일 기준)`,
+    rangeShort: '최근 30일',
+    rangeCode: '30d',
+  };
+}
+
+async function fetchReportData(tenantIdStr: string, rangeOpts: ReportRangeOpts = {}) {
   const sb = getServerClient();
   if (!sb) return null;
   const tenantId = Number(tenantIdStr);
@@ -48,23 +137,15 @@ async function fetchReportData(tenantIdStr: string) {
   // 1. tenant
   const { data: tenant } = await sb
     .from('tenants')
-    .select('id, name, business_model, domain_category, region, partner_slug, homepage, additional_domains')
+    .select('id, name, business_model, domain_category, region, partner_slug, homepage, additional_domains, email')
     .eq('id', tenantId)
     .single();
   if (!tenant) return null;
 
-  const now = new Date();
-  // Round 113 P0-B fix (2026-07-02): 월 초에 리포트가 항상 "0건" 뜨는 이슈 해결.
-  // 이번 달이 시작된 지 30일 미만이면 "최근 30일" 로 fallback → 클라이언트 리포트가 항상
-  // 실측 데이터 반영. Partner Leaderboard (30일 rolling) 와도 일관성 유지.
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
-  const cutoffThisMonth = (monthStart.getTime() < thirtyDaysAgo.getTime() ? monthStart : thirtyDaysAgo).toISOString();
-  const cutoffPrev = (monthStart.getTime() < thirtyDaysAgo.getTime()
-    ? new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    : sixtyDaysAgo
-  ).toISOString();
+  const resolved = resolveRangeCutoffs(rangeOpts);
+  const now = resolved.end;
+  const cutoffThisMonth = resolved.cutoffThisMonth;
+  const cutoffPrev = resolved.cutoffPrev;
   const classifierSets = await loadClassifierSets();
 
   // selectedClientDomains (T2 매칭용)
@@ -111,6 +192,13 @@ async function fetchReportData(tenantIdStr: string) {
       publishedContents: [] as Array<{ id: number; title: string; slug: string | null; cover_image_url: string | null; channel: string | null; published_at: string | null; ai_cited: boolean }>,
       citedContentCount: 0,
       medimapCitedUrls: [] as string[],
+      rangeMeta: {
+        code: resolved.rangeCode,
+        label: resolved.rangeLabel,
+        short: resolved.rangeShort,
+        from: cutoffThisMonth.slice(0, 10),
+        to: resolved.end.toISOString().slice(0, 10),
+      },
     };
   }
 
@@ -283,23 +371,35 @@ async function fetchReportData(tenantIdStr: string) {
     publishedContents: publishedWithEffect,
     citedContentCount: citedCount,
     medimapCitedUrls: Array.from(medimapUrls).slice(0, 8),
+    rangeMeta: {
+      code: resolved.rangeCode,
+      label: resolved.rangeLabel,
+      short: resolved.rangeShort,
+      from: cutoffThisMonth.slice(0, 10),
+      to: resolved.end.toISOString().slice(0, 10),
+    },
   };
 }
 
-export default async function TenantReportPage({ params }: { params: { tenantId: string } }) {
-  const data = await fetchReportData(params.tenantId);
+export default async function TenantReportPage({
+  params,
+  searchParams,
+}: {
+  params: { tenantId: string };
+  searchParams?: { range?: string; from?: string; to?: string };
+}) {
+  const range = (searchParams?.range as ReportRange | undefined);
+  const data = await fetchReportData(params.tenantId, {
+    range,
+    from: searchParams?.from,
+    to: searchParams?.to,
+  });
   if (!data) {
     return <div className="p-10 text-center text-ink-muted">테넌트를 찾을 수 없습니다.</div>;
   }
   const { tenant } = data;
-  // Round 114 P1-1 (2026-07-02): 라벨 정합. 이번 달이 30일 미만이면 실제 데이터는 30일 rolling
-  // → 라벨도 "(최근 30일 기준)" 병기해 표시 데이터와 문구 일치.
-  const _now = new Date();
-  const _monthStart = new Date(_now.getFullYear(), _now.getMonth(), 1);
-  const _thirtyDaysAgo = new Date(_now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const isRolling30d = _monthStart.getTime() >= _thirtyDaysAgo.getTime();
-  const monthLabel = _now.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' });
-  const period = isRolling30d ? `${monthLabel} (최근 30일 기준)` : monthLabel;
+  const period = data.rangeMeta?.label ?? '최근 30일';
+  const periodShort = data.rangeMeta?.short ?? '최근 30일';
   const periodShort = isRolling30d ? '최근 30일' : '이번 달';
 
   if (!data.hasData) {
@@ -324,7 +424,7 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 md:px-8 md:py-10 print:px-0 print:py-0 print:max-w-none">
       {/* 인쇄용 안내 (화면만) */}
-      <div className="mb-6 flex items-center justify-between print:hidden">
+      <div className="mb-4 flex items-center justify-between print:hidden">
         <div>
           <h1 className="text-xl font-bold text-ink">월간 보고서 미리보기</h1>
           <p className="mt-0.5 text-[12px] text-ink-muted">
@@ -333,6 +433,20 @@ export default async function TenantReportPage({ params }: { params: { tenantId:
         </div>
         <PrintButton />
       </div>
+
+      {/* Round 115 (2026-07-02) — 기간 선택기 + 즉시 발송 */}
+      {data.rangeMeta && (
+        <div className="print:hidden">
+          <ReportRangeSelector
+            activeCode={data.rangeMeta.code}
+            activeLabel={data.rangeMeta.label}
+            from={data.rangeMeta.from}
+            to={data.rangeMeta.to}
+            tenantId={Number(params.tenantId)}
+            tenantEmail={(tenant as { email?: string | null }).email ?? null}
+          />
+        </div>
+      )}
 
       {/* 보고서 본문 */}
       <article className="card overflow-hidden print:border-0 print:shadow-none">
