@@ -54,8 +54,17 @@ async function fetchReportData(tenantIdStr: string) {
   if (!tenant) return null;
 
   const now = new Date();
-  const cutoffThisMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const cutoffPrev = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+  // Round 113 P0-B fix (2026-07-02): 월 초에 리포트가 항상 "0건" 뜨는 이슈 해결.
+  // 이번 달이 시작된 지 30일 미만이면 "최근 30일" 로 fallback → 클라이언트 리포트가 항상
+  // 실측 데이터 반영. Partner Leaderboard (30일 rolling) 와도 일관성 유지.
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+  const cutoffThisMonth = (monthStart.getTime() < thirtyDaysAgo.getTime() ? monthStart : thirtyDaysAgo).toISOString();
+  const cutoffPrev = (monthStart.getTime() < thirtyDaysAgo.getTime()
+    ? new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    : sixtyDaysAgo
+  ).toISOString();
   const classifierSets = await loadClassifierSets();
 
   // selectedClientDomains (T2 매칭용)
