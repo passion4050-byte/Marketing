@@ -19,11 +19,11 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { category, partner } = await params;
   const meta = getCategoryMeta(category);
-  if (!meta) return { title: "파트너 — 메디맵" };
+  if (!meta) return { title: "파트너 — 위서클" };
   const posts = await getPartnerPostsByPartner(meta.slug, partner);
   const tenantName = posts[0]?.tenant_name || partner;
-  const title = `${tenantName} — ${meta.ko} 파트너 콘텐츠 | 메디맵`;
-  const description = `${tenantName} 의 ${meta.ko} 의료 콘텐츠 모음. 메디맵 의료법 가이드 통과.`;
+  const title = `${tenantName} — ${meta.ko} 파트너 콘텐츠 | 위서클`;
+  const description = `${tenantName} 의 ${meta.ko} 의료 콘텐츠 모음. 위서클 의료법 가이드 통과.`;
   return {
     title,
     description,
@@ -72,7 +72,7 @@ export default async function PartnerListPage({ params }: PageProps) {
           {tenantName}
         </h1>
         <p className="mt-2 text-sm text-ink-soft">
-          {meta.ko} 분야 메디맵 파트너 병원. 총 {posts.length} 개의 검증된
+          {meta.ko} 분야 위서클 파트너 병원. 총 {posts.length} 개의 검증된
           의료 콘텐츠.
         </p>
       </header>
@@ -132,7 +132,7 @@ export default async function PartnerListPage({ params }: PageProps) {
       <footer className="mt-12 rounded-2xl bg-brand/5 p-6">
         <h3 className="text-sm font-bold text-ink">{tenantName} 문의</h3>
         <p className="mt-1 text-sm text-ink-soft">
-          진료 상담은 메디맵 카카오 채널을 통해 연결됩니다.
+          진료 상담은 위서클 카카오 채널을 통해 연결됩니다.
         </p>
         <a
           href={siteConfig.contact.kakao}

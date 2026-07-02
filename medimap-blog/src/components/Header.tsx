@@ -45,9 +45,9 @@ export function Header() {
         }}
       />
       <div className="container-content flex h-16 items-center justify-between">
-        <Link href="/" className="flex items-center gap-2" aria-label="메디맵 홈">
+        <Link href="/" className="flex items-center gap-2" aria-label="위서클 홈">
           <Logo />
-          <span className="sr-only">메디맵</span>
+          <span className="sr-only">위서클</span>
         </Link>
         <nav aria-label="주요 메뉴" className="hidden items-center gap-1 md:flex">
           {navItems.map((item) => (
@@ -65,7 +65,7 @@ export function Header() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            메디맵 바로가기
+            위서클 바로가기
           </Link>
         </nav>
         <button
@@ -118,7 +118,7 @@ export function Header() {
                 onClick={() => setOpen(false)}
                 className="btn-primary w-full justify-center"
               >
-                메디맵 바로가기
+                위서클 바로가기
               </Link>
             </li>
           </ul>
@@ -134,7 +134,7 @@ function Logo() {
       className="text-base font-extrabold tracking-tight text-brand md:text-lg"
       style={{ letterSpacing: "-0.02em" }}
     >
-      MEDIMAP
+      WECIRCLE
     </span>
   );
 }

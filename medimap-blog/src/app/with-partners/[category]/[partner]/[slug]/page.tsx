@@ -17,9 +17,9 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { category, partner, slug } = await params;
   const meta = getCategoryMeta(category);
-  if (!meta) return { title: "파트너 글 — 메디맵" };
+  if (!meta) return { title: "파트너 글 — WECIRCLE" };
   const post = await getPartnerPost(meta.slug, partner, slug);
-  if (!post) return { title: "파트너 글 — 메디맵" };
+  if (!post) return { title: "파트너 글 — WECIRCLE" };
   return {
     title: `${post.title} | ${post.tenant_name}`,
     description: post.excerpt,
@@ -92,7 +92,7 @@ export default async function PartnerPostPage({ params }: PageProps) {
           {post.title}
         </h1>
         <p className="mt-3 text-sm text-ink-muted">
-          {post.published_at} · 메디맵 의료법 가이드 통과
+          {post.published_at} · 위서클 의료법 가이드 통과
         </p>
       </header>
 
@@ -119,7 +119,7 @@ export default async function PartnerPostPage({ params }: PageProps) {
         <div className="text-xs font-bold uppercase tracking-widest text-brand-700">파트너 병원</div>
         <h3 className="mt-1 text-lg font-bold text-ink">{post.tenant_name}</h3>
         <p className="mt-2 text-sm text-ink-soft">
-          진료/상담 문의는 메디맵 카카오 채널을 통해 연결됩니다.
+          진료/상담 문의는 위서클 카카오 채널을 통해 연결됩니다.
         </p>
         <a
           href={siteConfig.contact.kakao}

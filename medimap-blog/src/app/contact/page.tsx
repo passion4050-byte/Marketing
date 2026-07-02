@@ -17,7 +17,7 @@ import { absoluteUrl, siteConfig } from "@/lib/site";
 export const revalidate = false;
 
 const CONTACT = {
-  // Round 98 (2026-06-28) — wecircle 새 회사 정보. 카카오톡은 메디맵 채널 당분간 활용.
+  // Round 98 (2026-06-28) — wecircle 새 회사 정보. 카카오톡은 위서클 채널 당분간 활용.
   phone: "010-9024-8500",
   phoneTel: "01090248500",
   email: "contact@wecircle.co.kr",

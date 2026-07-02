@@ -160,7 +160,7 @@ export default async function InquiryDetail({
             <div className="mt-3 flex flex-col gap-2">
               {row.email && (
                 <a
-                  href={`mailto:${row.email}?subject=${encodeURIComponent(`[메디맵] ${row.org_name} 문의 회신`)}`}
+                  href={`mailto:${row.email}?subject=${encodeURIComponent(`[위서클] ${row.org_name} 문의 회신`)}`}
                   className="inline-flex items-center justify-center gap-1.5 rounded-pill border border-line/70 px-4 py-2 text-[12.5px] font-semibold text-ink hover:bg-surface-alt"
                 >
                   <Mail size={13} /> 이메일 회신

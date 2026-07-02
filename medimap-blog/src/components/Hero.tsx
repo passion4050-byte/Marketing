@@ -26,13 +26,13 @@ export function Hero() {
             <span className="md:inline"> </span>함께 만들어갑니다
           </h1>
           <p className="mt-6 max-w-xl text-[17px] leading-[1.65] text-ink-muted pretty-text">
-            MEDIMAP은 Medical과 Map의 합성어로 &ldquo;건강을 찾을 수 있는 지도를 완성해
-            나간다&rdquo;는 의미를 담고 있습니다. 병원 정보부터 진료비까지, 메디맵 한
+            WECIRCLE은 Medical과 Map의 합성어로 &ldquo;건강을 찾을 수 있는 지도를 완성해
+            나간다&rdquo;는 의미를 담고 있습니다. 병원 정보부터 진료비까지, 위서클 한
             곳에서 안심하세요.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/blog" className="btn-primary">
-              메디맵 인사이트 읽기
+              위서클 인사이트 읽기
               <ArrowRight size={18} />
             </Link>
             <Link href="/contact" className="btn-secondary">

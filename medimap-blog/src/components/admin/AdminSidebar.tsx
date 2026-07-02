@@ -77,7 +77,7 @@ function BrandHeader({ onClose }: { onClose?: () => void }) {
     <div className="flex items-center justify-between border-b border-line/70 px-5 py-5">
       <Link href="/admin" onClick={onClose} className="flex items-center gap-2.5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/medimap-logo.svg" alt="MEDIMAP" width={134} height={22} className="h-5 w-auto" />
+        <img src="/medimap-logo.svg" alt="WECIRCLE" width={134} height={22} className="h-5 w-auto" />
         <span className="rounded-md bg-brand/10 px-1.5 py-0.5 text-[10px] font-bold text-brand">
           ADMIN
         </span>
@@ -132,7 +132,7 @@ export function AdminSidebar() {
 
   return (
     <>
-      {/* 모바일 헤더 — 햄버거 + MEDIMAP 마크. lg 부터 hidden. */}
+      {/* 모바일 헤더 — 햄버거 + WECIRCLE 마크. lg 부터 hidden. */}
       <div className="sticky top-0 z-30 flex items-center justify-between border-b border-line/70 bg-white px-4 py-3 lg:hidden">
         <button
           type="button"
@@ -145,7 +145,7 @@ export function AdminSidebar() {
         </button>
         <Link href="/admin" className="flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/medimap-logo.svg" alt="MEDIMAP" width={134} height={22} className="h-4 w-auto" />
+          <img src="/medimap-logo.svg" alt="WECIRCLE" width={134} height={22} className="h-4 w-auto" />
           <span className="rounded-md bg-brand/10 px-1.5 py-0.5 text-[9px] font-bold text-brand">ADMIN</span>
         </Link>
         <span className="w-10" aria-hidden />

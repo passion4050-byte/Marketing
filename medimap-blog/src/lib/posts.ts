@@ -354,7 +354,7 @@ function dbRowToPostMeta(row: DbPostRow): PostMeta {
     description,
     date,
     updated,
-    category: blogCategoryMeta?.ko ?? "메디맵 인사이트",
+    category: blogCategoryMeta?.ko ?? "위서클 인사이트",
     tags: row.keyword_text ? [row.keyword_text] : undefined,
     author: row.tenant_name ?? undefined,
     readingMinutes: readingTimeMinutes(stripHtml(row.body)),

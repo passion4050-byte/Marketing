@@ -1,7 +1,7 @@
 // Round 90 (2026-06-28) — wecircle 리브랜딩 (옵션 C 하이브리드).
-//   사이트 브랜드 = WECIRCLE (새 운영사) / 콘텐츠 컨셉 = "메디맵 인사이트" (카테고리 라벨) 유지.
+//   사이트 브랜드 = WECIRCLE (새 운영사) / 콘텐츠 컨셉 = "위서클 인사이트" (카테고리 라벨) 유지.
 //   사업자: 798-67-00527 · 서울 서초구 사임당로 8길 13 · 도메인 wecircle.co.kr.
-//   카카오톡/연락처는 메디맵 채널 당분간 그대로 (사용자 결정: 새 카톡은 추후).
+//   카카오톡/연락처는 위서클 채널 당분간 그대로 (사용자 결정: 새 카톡은 추후).
 export const siteConfig = {
   name: "WECIRCLE",
   brand: "WECIRCLE",
@@ -13,7 +13,7 @@ export const siteConfig = {
   shortlinkBase:
     process.env.NEXT_PUBLIC_SHORTLINK_BASE || "https://wecircle.co.kr/r",
   contact: {
-    // Round 90 — 카톡채널/네이버플레이스는 새 회사 카톡 만들기 전까지 메디맵 채널 활용
+    // Round 90 — 카톡채널/네이버플레이스는 새 회사 카톡 만들기 전까지 위서클 채널 활용
     kakao: "https://pf.kakao.com/_xnWQkG",
     naverPlace: "https://map.naver.com/p/search/%EB%A9%94%EB%94%94%EB%A7%B5/place/1091694610?c=15.00,0,0,0,dh&placePath=/home?bk_query=%EB%A9%94%EB%94%94%EB%A7%B5&entry=bmp&from=map&fromPanelNum=2&timestamp=202605242051&locale=ko&svcName=map_pcv5&searchText=%EB%A9%94%EB%94%94%EB%A7%B5",
     phone: process.env.NEXT_PUBLIC_PHONE || "02-0000-0000",
@@ -30,8 +30,8 @@ export const siteConfig = {
     legalName: "주식회사 위서클",
     logo: "/wecircle-logo.svg",
   },
-  // Round 90 — 콘텐츠 시리즈 컨셉 (사이트 안 "메디맵 인사이트" 라벨 유지)
-  contentBrand: "메디맵 인사이트",
+  // Round 90 — 콘텐츠 시리즈 컨셉 (사이트 안 "위서클 인사이트" 라벨 유지)
+  contentBrand: "위서클 인사이트",
 } as const;
 
 export const navItems = [

@@ -14,7 +14,7 @@ export default async function ClientDashboard() {
         <div className="text-[12px] font-semibold uppercase tracking-wider text-brand">현황 대시보드</div>
         <h1 className="mt-1 text-[24px] font-bold tracking-tight text-ink">{stats.tenantName} 운영 현황</h1>
         <p className="mt-1 text-[13px] text-ink-muted">
-          메디맵이 발행 중인 콘텐츠와 AI 검색 인용 현황입니다.
+          위서클이 발행 중인 콘텐츠와 AI 검색 인용 현황입니다.
           {stats.lastPublishedAt && (
             <> 마지막 발행: <span className="font-semibold text-ink">{formatKstRelative(stats.lastPublishedAt)}</span></>
           )}
@@ -69,9 +69,9 @@ export default async function ClientDashboard() {
           <div className="flex items-start gap-3">
             <Sparkles size={18} className="mt-0.5 text-brand" />
             <div>
-              <h3 className="text-[14px] font-bold text-ink">메디맵이 운영해 드립니다</h3>
+              <h3 className="text-[14px] font-bold text-ink">위서클이 운영해 드립니다</h3>
               <p className="mt-2 text-[12.5px] leading-relaxed text-ink-muted">
-                키워드 추가 / 병원 정보 변경 요청만 주시면 메디맵 에디터 팀이
+                키워드 추가 / 병원 정보 변경 요청만 주시면 위서클 에디터 팀이
                 의료법 검수를 거쳐 AI 검색 인용 최적화 콘텐츠를 자동 발행합니다.
               </p>
               <Link href="/client/keywords" className="mt-4 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-brand hover:underline">

@@ -30,7 +30,7 @@ export default async function ClientKeywordsPage() {
         <div className="text-[12px] font-semibold uppercase tracking-wider text-brand">키워드 관리</div>
         <h1 className="mt-1 text-[24px] font-bold tracking-tight text-ink">희망 키워드</h1>
         <p className="mt-1 text-[13px] text-ink-muted">
-          이곳에 등록한 키워드를 기반으로 메디맵 에디터 팀이 콘텐츠를 자동 발행합니다.
+          이곳에 등록한 키워드를 기반으로 위서클 에디터 팀이 콘텐츠를 자동 발행합니다.
           현재 활성 키워드 <b className="text-ink">{activeCount}</b>개.
         </p>
       </header>

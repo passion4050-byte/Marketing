@@ -7,14 +7,14 @@ import { siteConfig, absoluteUrl } from "@/lib/site";
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: "파트너 병원 콘텐츠 — 메디맵",
+  title: "파트너 병원 콘텐츠 — 위서클",
   description:
-    "메디맵과 함께하는 안과·피부과·성형외과·치과·내과·모발이식 파트너 병원의 검증된 의료 콘텐츠.",
+    "위서클과 함께하는 안과·피부과·성형외과·치과·내과·모발이식 파트너 병원의 검증된 의료 콘텐츠.",
   alternates: { canonical: absoluteUrl("/with-partners") },
   openGraph: {
-    title: "파트너 병원 콘텐츠 — 메디맵",
+    title: "파트너 병원 콘텐츠 — 위서클",
     description:
-      "메디맵과 함께하는 6개 진료과 파트너 병원의 검증된 의료 콘텐츠 모음.",
+      "위서클과 함께하는 6개 진료과 파트너 병원의 검증된 의료 콘텐츠 모음.",
     url: absoluteUrl("/with-partners"),
     siteName: siteConfig.name,
     type: "website",
@@ -38,7 +38,7 @@ export default async function WithPartnersHubPage() {
           With Partners
         </p>
         <h1 className="mt-2 text-3xl font-bold leading-tight text-ink sm:text-4xl">
-          메디맵과 함께하는 파트너 병원 콘텐츠
+          위서클과 함께하는 파트너 병원 콘텐츠
         </h1>
         <p className="mt-4 max-w-2xl text-base text-ink-soft">
           안과·피부과·성형외과·치과·내과·모발이식 6개 진료과 파트너 병원의 의료법
@@ -82,7 +82,7 @@ export default async function WithPartnersHubPage() {
       <footer className="mt-12 rounded-2xl bg-slate-50 p-6">
         <h3 className="text-sm font-bold text-ink">파트너 입점 문의</h3>
         <p className="mt-1 text-sm text-ink-soft">
-          메디맵의 GEO/AEO 콘텐츠 운영에 관심 있으신 병원/의원은 카카오 채널로
+          위서클의 GEO/AEO 콘텐츠 운영에 관심 있으신 병원/의원은 카카오 채널로
           문의해주세요.
         </p>
         <a

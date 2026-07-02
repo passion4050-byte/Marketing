@@ -7,7 +7,7 @@ import { getClientPersona } from "@/lib/client-data";
 import { CLIENT_COOKIE_NAME, isClientConfigured, verifyClientCookie } from "@/lib/client-auth";
 
 export const metadata: Metadata = {
-  title: "클라이언트 포털 — 메디맵",
+  title: "클라이언트 포털 — 위서클",
   description: "병원 콘텐츠 운영 현황 + 키워드 관리",
   robots: { index: false, follow: false },
 };
@@ -27,7 +27,7 @@ export default async function ClientPortalLayout({ children }: { children: React
         <div className="flex min-w-0 flex-1 flex-col">
           <main className="flex-1 px-6 py-8 lg:px-10">{children}</main>
           <footer className="border-t border-line/60 bg-white/60 px-6 py-3 text-center text-[12px] text-ink-subtle lg:px-10">
-            <Link href="/" className="hover:text-brand">← 메디맵 홈으로</Link>
+            <Link href="/" className="hover:text-brand">← 위서클 홈으로</Link>
           </footer>
         </div>
       </div>

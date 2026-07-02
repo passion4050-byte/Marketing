@@ -29,7 +29,7 @@ export default async function HomePage() {
 
       <section className="container-content py-20">
         <div className="mb-10 max-w-2xl">
-          <span className="pill-label">왜 메디맵인가</span>
+          <span className="pill-label">왜 위서클인가</span>
           <h2 className="mt-3 text-[28px] font-bold tracking-tight balance-text md:text-[32px]">
             의료 콘텐츠의 새로운 기준
           </h2>
@@ -64,7 +64,7 @@ export default async function HomePage() {
       <section className="container-content pb-20">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <span className="pill-label">메디맵 인사이트</span>
+            <span className="pill-label">위서클 인사이트</span>
             <h2 className="mt-3 text-[28px] font-bold tracking-tight md:text-[32px]">
               최신 콘텐츠
             </h2>

@@ -11,11 +11,11 @@ import { getAllPosts, BLOG_CATEGORIES } from "@/lib/posts";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "메디맵 인사이트",
+  title: "위서클 인사이트",
   description:
-    "메디맵이 발행하는 의료/안과 가이드. 라식·스마일·백내장 등 시술 정보부터 병원 선택 기준까지.",
+    "위서클이 발행하는 의료/안과 가이드. 라식·스마일·백내장 등 시술 정보부터 병원 선택 기준까지.",
   alternates: { canonical: "/blog" },
-  openGraph: { title: "메디맵 인사이트", type: "website" },
+  openGraph: { title: "위서클 인사이트", type: "website" },
 };
 
 export default async function BlogIndexPage() {
@@ -37,12 +37,12 @@ export default async function BlogIndexPage() {
         />
         <div className="container-content relative py-16 md:py-24">
           <header className="mx-auto max-w-3xl text-center">
-            <span className="pill-label">메디맵 인사이트</span>
+            <span className="pill-label">위서클 인사이트</span>
             <h1 className="mt-4 text-[40px] font-extrabold tracking-[-0.025em] balance-text md:text-[48px]">
               병원 마케팅을 바꾸는 인사이트
             </h1>
             <p className="mt-4 text-base text-ink-soft">
-              메디맵이 운영하는 마케팅 에이전시 관점의 콘텐츠 — AI 검색 시대의
+              위서클이 운영하는 마케팅 에이전시 관점의 콘텐츠 — AI 검색 시대의
               병원 마케팅 전략을 다룹니다.
             </p>
           </header>

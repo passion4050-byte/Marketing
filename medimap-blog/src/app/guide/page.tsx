@@ -19,7 +19,7 @@ import { siteConfig } from "@/lib/site";
 
 export const revalidate = false;
 
-// Round 98 (2026-06-28) — wecircle 톤 정렬. Hero/본문은 점진적 (콘텐츠 사이클은 메디맵 인사이트 유지).
+// Round 98 (2026-06-28) — wecircle 톤 정렬. Hero/본문은 점진적 (콘텐츠 사이클은 위서클 인사이트 유지).
 export const metadata: Metadata = {
   title: "병원 입점 가이드 | WECIRCLE",
   description:
@@ -89,7 +89,7 @@ function PageHeader() {
   );
 }
 
-/* ────────────────── 1. 메디맵만의 특별함 (이벤트) ────────────────── */
+/* ────────────────── 1. 위서클만의 특별함 (이벤트) ────────────────── */
 
 function SpecialFeature() {
   return (
@@ -97,10 +97,10 @@ function SpecialFeature() {
       <header className="mx-auto max-w-2xl text-center">
         <span className="pill-label">핵심 서비스</span>
         <h2 className="mt-3 text-[28px] font-bold tracking-tight balance-text md:text-[34px]">
-          메디맵만의 특별함
+          위서클만의 특별함
         </h2>
         <p className="mt-3 text-ink-muted pretty-text">
-          메디맵은 단순한 &lsquo;가격 비교 플랫폼&rsquo;이 아닙니다. 국내
+          위서클은 단순한 &lsquo;가격 비교 플랫폼&rsquo;이 아닙니다. 국내
           병·의원 정보를 원하는 방식으로 탐색하고, 올바른 선택을 돕는 가이드
           역할을 합니다.
         </p>
@@ -119,7 +119,7 @@ function SpecialFeature() {
             이벤트 — 한눈에 확인할 수 있는 다양한 이벤트
           </h3>
           <p className="mt-3 text-[15px] leading-relaxed text-ink-muted">
-            등록한 이벤트는 메디맵 사용자에게 카테고리·지역·관심사 기반으로
+            등록한 이벤트는 위서클 사용자에게 카테고리·지역·관심사 기반으로
             노출되어 신규 환자 유입을 안정적으로 만듭니다.
           </p>
           <ul className="mt-5 space-y-2.5">
@@ -211,7 +211,7 @@ function EventPhoneMockup() {
   );
 }
 
-/* ────────────────── 2. 왜 메디맵일까? ────────────────── */
+/* ────────────────── 2. 왜 위서클일까? ────────────────── */
 
 function WhyMedimap() {
   const items = [
@@ -237,7 +237,7 @@ function WhyMedimap() {
         <header className="mx-auto max-w-2xl text-center">
           <span className="pill-label">성장하는 플랫폼</span>
           <h2 className="mt-3 text-[28px] font-bold tracking-tight balance-text md:text-[34px]">
-            왜 <span className="text-brand">메디맵</span>일까?
+            왜 <span className="text-brand">위서클</span>일까?
           </h2>
           <p className="mt-3 text-ink-muted pretty-text">
             혁신적인 디지털 헬스케어 플랫폼으로 더 많은 사람들에게 더 나은 의료
@@ -297,7 +297,7 @@ function HowToStart() {
           </div>
           <FormPreviewMock />
           <p className="mt-5 text-[14px] leading-relaxed text-ink-muted">
-            아래 버튼 클릭 후, 메디맵 입점문의 신청서를 작성해주세요.
+            아래 버튼 클릭 후, 위서클 입점문의 신청서를 작성해주세요.
           </p>
           <Link
             href="#partner-cta"
@@ -332,7 +332,7 @@ function HowToStart() {
             rel="noopener noreferrer"
             className="mt-5 inline-flex w-fit items-center gap-2 rounded-pill border border-line bg-white px-5 py-2.5 text-sm font-bold text-ink-muted transition hover:border-brand-200 hover:text-brand"
           >
-            메디맵 파트너 관리 바로가기
+            위서클 파트너 관리 바로가기
             <ArrowRight size={14} />
           </Link>
         </div>
@@ -345,7 +345,7 @@ function FormPreviewMock() {
   return (
     <div className="mt-5 rounded-card border border-line/60 bg-surface-alt/60 p-4">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[11px] font-bold text-ink">메디맵 입점문의</span>
+        <span className="text-[11px] font-bold text-ink">위서클 입점문의</span>
         <span className="text-[10px] text-ink-subtle num">1/3 단계</span>
       </div>
       <div className="space-y-2">
@@ -421,21 +421,21 @@ function PartnerReviews() {
     {
       stars: 5,
       quote:
-        "메디맵을 통해 병원 홍보와 환자 유입이 눈에 띄게 늘었습니다. 특히 브랜딩 광고 효과가 뛰어나 병원 인지도가 크게 상승했어요.",
+        "위서클을 통해 병원 홍보와 환자 유입이 눈에 띄게 늘었습니다. 특히 브랜딩 광고 효과가 뛰어나 병원 인지도가 크게 상승했어요.",
       name: "강남 OO 성형외과",
       role: "성형외과",
     },
     {
       stars: 5,
       quote:
-        "검증된 DB를 기반으로 한 신규 환자 유치가 안정적으로 이루어지고 있습니다. 메디맵의 협업은 최고의 선택이었습니다.",
+        "검증된 DB를 기반으로 한 신규 환자 유치가 안정적으로 이루어지고 있습니다. 위서클의 협업은 최고의 선택이었습니다.",
       name: "서울 OOO 피부과",
       role: "피부과",
     },
     {
       stars: 5,
       quote:
-        "메디맵 덕분에 마케팅에만 집중하던 시간을 환자 진료에 쓸 수 있게 되었어요. 진정한 파트너십을 느낍니다.",
+        "위서클 덕분에 마케팅에만 집중하던 시간을 환자 진료에 쓸 수 있게 되었어요. 진정한 파트너십을 느낍니다.",
       name: "분당 OOOO 치과",
       role: "치과",
     },
@@ -450,7 +450,7 @@ function PartnerReviews() {
             실제 <span className="text-brand">파트너</span>의 생생한 후기
           </h2>
           <p className="mt-3 text-ink-muted pretty-text">
-            메디맵과 함께 성장하고 있는 파트너 병원들의 이야기를 들어보세요.
+            위서클과 함께 성장하고 있는 파트너 병원들의 이야기를 들어보세요.
           </p>
         </header>
 
@@ -523,7 +523,7 @@ function PartnerCta() {
             함께 만들어가세요
           </h2>
           <p className="mt-4 text-[15px] leading-relaxed text-white/85">
-            메디맵과 함께할 파트너를 찾고 있습니다. 지금 바로 문의해주세요.
+            위서클과 함께할 파트너를 찾고 있습니다. 지금 바로 문의해주세요.
           </p>
         </header>
 
@@ -533,18 +533,18 @@ function PartnerCta() {
 
         <div className="mx-auto mt-10 max-w-2xl rounded-card bg-white/10 p-7 text-center text-white backdrop-blur-sm ring-1 ring-white/20">
           <h3 className="text-xl font-bold tracking-tight">
-            메디맵 소개서 다운 받기
+            위서클 소개서 다운 받기
           </h3>
           <a
             href="/medimap-introduction.pdf"
-            download="메디맵_소개서.pdf"
+            download="위서클_소개서.pdf"
             className="mt-4 inline-flex items-center gap-2 rounded-pill bg-white px-6 py-3 text-base font-bold text-brand shadow-cta transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glow"
           >
             <FileDown size={18} />
             소개서 받기 (PDF)
           </a>
           <p className="mt-3 text-[12px] text-white/75">
-            메디맵의 자세한 소개가 담긴 PDF 파일을 즉시 다운로드합니다.
+            위서클의 자세한 소개가 담긴 PDF 파일을 즉시 다운로드합니다.
           </p>
         </div>
       </div>

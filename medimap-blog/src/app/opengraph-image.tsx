@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "메디맵 — 헬스케어의 미래를 함께 만들어갑니다";
+export const alt = "위서클 — 헬스케어의 미래를 함께 만들어갑니다";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 export const runtime = "edge";
@@ -59,7 +59,7 @@ export default function OpengraphImage() {
               opacity: 0.95,
             }}
           >
-            MEDIMAP
+            WECIRCLE
           </div>
         </div>
 

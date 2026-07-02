@@ -42,7 +42,7 @@ function BrandHeader({ onClose, tenantName }: { onClose?: () => void; tenantName
     <div className="flex items-center justify-between border-b border-line/70 px-5 py-5">
       <Link href="/client" onClick={onClose} className="flex items-center gap-2.5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/medimap-logo.svg" alt="MEDIMAP" width={134} height={22} className="h-5 w-auto" />
+        <img src="/medimap-logo.svg" alt="WECIRCLE" width={134} height={22} className="h-5 w-auto" />
         <div>
           <span className="rounded-md bg-accent/15 px-1.5 py-0.5 text-[10px] font-bold text-accent-deep">CLIENT</span>
           {tenantName && (
@@ -94,7 +94,7 @@ export function ClientSidebar({ tenantName }: { tenantName?: string }) {
         </button>
         <Link href="/client" className="flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/medimap-logo.svg" alt="MEDIMAP" width={134} height={22} className="h-4 w-auto" />
+          <img src="/medimap-logo.svg" alt="WECIRCLE" width={134} height={22} className="h-4 w-auto" />
           <span className="rounded-md bg-accent/15 px-1.5 py-0.5 text-[9px] font-bold text-accent-deep">CLIENT</span>
         </Link>
         <span className="w-10" aria-hidden />

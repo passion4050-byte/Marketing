@@ -14,7 +14,7 @@ export default function NotFound() {
           페이지를 찾을 수 없습니다
         </h1>
         <p className="mt-4 max-w-md text-ink-muted pretty-text">
-          요청하신 페이지가 이동되었거나 더 이상 존재하지 않습니다. 메디맵
+          요청하신 페이지가 이동되었거나 더 이상 존재하지 않습니다. 위서클
           인사이트에서 비슷한 글을 찾아보세요.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">

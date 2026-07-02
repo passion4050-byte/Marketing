@@ -4,8 +4,8 @@ import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminTopbar } from "@/components/admin/AdminTopbar";
 
 export const metadata: Metadata = {
-  title: "관리자 — 메디맵",
-  description: "메디맵 어드민 콘솔",
+  title: "관리자 — 위서클",
+  description: "위서클 어드민 콘솔",
   robots: { index: false, follow: false },
 };
 

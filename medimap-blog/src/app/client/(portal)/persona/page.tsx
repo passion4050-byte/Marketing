@@ -29,7 +29,7 @@ export default async function ClientPersonaPage() {
         <div className="text-[12px] font-semibold uppercase tracking-wider text-brand">병원 정보</div>
         <h1 className="mt-1 text-[24px] font-bold tracking-tight text-ink">{p.name} 페르소나</h1>
         <p className="mt-1 text-[13px] text-ink-muted">
-          이 정보를 바탕으로 메디맵 에디터가 콘텐츠 톤, 타겟 독자, CTA 를 조정합니다.
+          이 정보를 바탕으로 위서클 에디터가 콘텐츠 톤, 타겟 독자, CTA 를 조정합니다.
         </p>
       </header>
 

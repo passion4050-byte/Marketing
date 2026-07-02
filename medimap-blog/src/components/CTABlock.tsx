@@ -23,8 +23,8 @@ function withUtm(url: string, source: string, campaign: string): string {
 }
 
 export function CTABlock({
-  title = "메디맵에 상담하기",
-  description = "병원/시술 정보부터 가격 비교까지, 메디맵 운영자가 직접 안내합니다.",
+  title = "위서클에 상담하기",
+  description = "병원/시술 정보부터 가격 비교까지, 위서클 운영자가 직접 안내합니다.",
   utmSource = "blog",
   utmCampaign = "blog_cta",
 }: CTABlockProps) {

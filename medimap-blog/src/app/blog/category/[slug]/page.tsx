@@ -26,9 +26,9 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { slug } = await params;
   const meta = getBlogCategoryMeta(slug);
-  if (!meta) return { title: "카테고리 — 메디맵 인사이트" };
-  const title = `${meta.ko} — 메디맵 인사이트`;
-  const description = `${meta.description}. 메디맵이 운영하는 자사 마케팅 인사이트 콘텐츠.`;
+  if (!meta) return { title: "카테고리 — 위서클 인사이트" };
+  const title = `${meta.ko} — 위서클 인사이트`;
+  const description = `${meta.description}. 위서클이 운영하는 자사 마케팅 인사이트 콘텐츠.`;
   return {
     title,
     description,
@@ -52,7 +52,7 @@ export default async function BlogCategoryPage({ params }: PageProps) {
     <main className="mx-auto w-full max-w-5xl px-6 py-10 sm:py-14">
       <nav className="mb-6 text-xs text-ink-muted">
         <Link href="/blog" className="hover:text-brand">
-          메디맵 인사이트
+          위서클 인사이트
         </Link>{" "}
         / <span className="font-semibold text-ink">{meta.ko}</span>
       </nav>

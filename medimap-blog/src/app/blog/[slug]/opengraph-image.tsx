@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { getPostBySlug } from "@/lib/posts";
 
-export const alt = "메디맵 블로그";
+export const alt = "위서클 블로그";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 export const runtime = "nodejs";
@@ -19,7 +19,7 @@ export default async function BlogPostOgImage({
   params: { slug: string };
 }) {
   const post = await getPostBySlug(params.slug);
-  const title = post?.title ?? "메디맵 블로그";
+  const title = post?.title ?? "위서클 블로그";
   const category = post?.category ?? "헬스케어 인사이트";
   const reviewedBy = post?.reviewedBy;
 
@@ -71,7 +71,7 @@ export default async function BlogPostOgImage({
               opacity: 0.95,
             }}
           >
-            MEDIMAP
+            WECIRCLE
           </div>
           <div
             style={{

@@ -25,9 +25,9 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { category } = await params;
   const meta = getCategoryMeta(category);
-  if (!meta) return { title: "카테고리 — 메디맵" };
-  const title = `${meta.ko} 파트너 콘텐츠 — 메디맵`;
-  const description = `메디맵과 함께하는 ${meta.ko} 파트너 병원의 검증된 의료 콘텐츠. ${meta.description}.`;
+  if (!meta) return { title: "카테고리 — 위서클" };
+  const title = `${meta.ko} 파트너 콘텐츠 — 위서클`;
+  const description = `위서클과 함께하는 ${meta.ko} 파트너 병원의 검증된 의료 콘텐츠. ${meta.description}.`;
   return {
     title,
     description,

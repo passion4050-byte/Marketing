@@ -4,7 +4,7 @@ import { LoginForm } from "./LoginForm";
 import { isAdminConfigured } from "@/lib/admin-auth";
 
 export const metadata: Metadata = {
-  title: "관리자 로그인 — 메디맵",
+  title: "관리자 로그인 — 위서클",
   robots: { index: false, follow: false },
 };
 
@@ -26,7 +26,7 @@ export default function AdminLoginPage({
             M
           </div>
           <h1 className="mt-4 text-[22px] font-extrabold tracking-tight text-ink">
-            메디맵 관리자
+            위서클 관리자
           </h1>
           <p className="mt-1 text-[13px] text-ink-subtle">
             인증 후 어드민 콘솔로 진입합니다.

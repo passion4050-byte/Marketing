@@ -52,7 +52,7 @@ export default function ClientLoginPage() {
             </div>
             <h1 className="mt-4 text-[20px] font-bold tracking-tight text-ink">클라이언트 포털 로그인</h1>
             <p className="mt-1 text-[13px] text-ink-muted">
-              메디맵에서 발급한 비밀번호를 입력해주세요.
+              위서클에서 발급한 비밀번호를 입력해주세요.
             </p>
           </div>
 
@@ -86,11 +86,11 @@ export default function ClientLoginPage() {
             </button>
           </form>
           <div className="mt-6 text-center text-[11.5px] text-ink-subtle">
-            비밀번호 분실 시 메디맵 운영팀에 문의해주세요 — sales@medimap.team
+            비밀번호 분실 시 위서클 운영팀에 문의해주세요 — sales@medimap.team
           </div>
         </div>
         <Link href="/" className="mt-6 block text-center text-[12px] text-ink-muted hover:text-brand">
-          ← 메디맵 홈으로
+          ← 위서클 홈으로
         </Link>
       </div>
     </div>

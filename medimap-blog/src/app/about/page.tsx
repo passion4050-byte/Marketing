@@ -304,7 +304,7 @@ function SmallPhoneMockup() {
   );
 }
 
-/* ────────────────── Section 3 — 왜 메디맵일까? ────────────────── */
+/* ────────────────── Section 3 — 왜 위서클일까? ────────────────── */
 
 function WhyMedimap() {
   const items = [
@@ -467,7 +467,7 @@ function DashboardPreviewMock() {
   );
 }
 
-/* ────────────────── Section 5 — 메디맵 이야기(블로그) ────────────────── */
+/* ────────────────── Section 5 — 위서클 이야기(블로그) ────────────────── */
 
 function BlogStories({
   featured,
@@ -488,7 +488,7 @@ function BlogStories({
     <section className="bg-surface-alt/60 py-20">
       <div className="container-content">
         <header className="mx-auto max-w-2xl text-center">
-          <span className="pill-label">메디맵 인사이트</span>
+          <span className="pill-label">위서클 인사이트</span>
           <h2 className="mt-3 text-[28px] font-bold tracking-tight balance-text md:text-[34px]">
             WECIRCLE 전문가의 인사이트
           </h2>

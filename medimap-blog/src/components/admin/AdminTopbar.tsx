@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 
 const TITLES: { test: (p: string) => boolean; title: string; sub?: string }[] = [
-  { test: (p) => p === "/admin", title: "관리자 대시보드", sub: "메디맵 운영 현황" },
+  { test: (p) => p === "/admin", title: "관리자 대시보드", sub: "위서클 운영 현황" },
   {
     test: (p) => /^\/admin\/inquiries\/\d+$/.test(p),
     title: "문의 상세",
