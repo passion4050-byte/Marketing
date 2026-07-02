@@ -50,13 +50,13 @@ export function downloadJsonLdHtml(filename: string, payloads: unknown[]): void 
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>MEDIMAP GEO — JSON-LD</title>
+<title>WECIRCLE GEO — JSON-LD</title>
 <script type="application/ld+json">
 ${json}
 </script>
 </head>
 <body>
-<h1>MEDIMAP GEO — Schema.org JSON-LD</h1>
+<h1>WECIRCLE GEO — Schema.org JSON-LD</h1>
 <p>위 &lt;script&gt; 블록을 병원 홈페이지 &lt;head&gt; 영역에 그대로 복사해 넣으세요.</p>
 <pre>${escapeHtml(json)}</pre>
 </body>

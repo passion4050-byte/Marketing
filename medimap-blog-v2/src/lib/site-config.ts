@@ -4,12 +4,12 @@
  */
 
 export const siteConfig = {
-  name: 'MEDIMAP GEO',
+  name: 'WECIRCLE GEO',
   subtitle: 'Hospital AI Platform',
   description:
     '병원 데이터를 구조화·발행하고 ChatGPT · Claude · Gemini · Perplexity 인용을 추적하는 AEO/GEO SaaS.',
   url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://geo-v2-beta.vercel.app',
-  copyright: '© MEDIMAP GEO',
+  copyright: '© WECIRCLE GEO',
   // 자동 발행 대상이 되는 외부 채널
   channels: [
     { id: 'blog', label: '자사 블로그' },

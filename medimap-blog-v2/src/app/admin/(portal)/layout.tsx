@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     follow: false,
     googleBot: { index: false, follow: false }
   },
-  title: { default: 'Admin · MEDIMAP GEO', template: '%s · Admin · MEDIMAP GEO' }
+  title: { default: 'Admin · WECIRCLE GEO', template: '%s · Admin · WECIRCLE GEO' }
 };
 
 export default async function AdminPortalLayout({ children }: { children: React.ReactNode }) {

@@ -1,5 +1,5 @@
 /**
- * MEDIMAP GEO — 데이터 모델
+ * WECIRCLE GEO — 데이터 모델
  *
  * Figma 레퍼런스(804:353)의 모든 데이터 요소를 타입으로 매핑한다.
  * 실제 운영에서는 Supabase Postgres와 1:1 매칭되도록 설계.

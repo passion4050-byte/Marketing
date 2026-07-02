@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: 'MEDIMAP GEO <alerts@medimap.team>',
+        from: 'WECIRCLE GEO <alerts@medimap.team>',
         to,
         subject: `[${b.level}] ${b.subject}`,
         text: b.body

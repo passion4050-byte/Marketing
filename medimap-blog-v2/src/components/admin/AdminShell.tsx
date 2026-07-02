@@ -97,7 +97,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <ShieldCheck className="h-4 w-4" />
           </div>
           <div>
-            <div className="text-sm font-bold text-ink">MEDIMAP GEO</div>
+            <div className="text-sm font-bold text-ink">WECIRCLE GEO</div>
             <div className="text-[10px] font-medium uppercase tracking-wider text-brand-700">
               Admin Console
             </div>
@@ -169,7 +169,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-white">
             <ShieldCheck className="h-3.5 w-3.5" />
           </div>
-          <span className="text-sm font-bold text-ink">MEDIMAP GEO</span>
+          <span className="text-sm font-bold text-ink">WECIRCLE GEO</span>
         </div>
         <div className="w-10" />
       </div>
