@@ -51,14 +51,14 @@ export default async function WithPartnersHubPage() {
     <main className="bg-[#FAFAF7] text-stone-900">
       {/* === Editorial masthead === */}
       <section className="border-b border-stone-200/70">
-        <div className="mx-auto w-full max-w-[1280px] px-5 sm:px-6 pt-16 pb-10 md:pt-24 md:pb-14 lg:px-10">
+        <div className="mx-auto w-full max-w-[1280px] px-6 pt-16 pb-10 md:pt-24 md:pb-14 lg:px-10">
           <div className="grid gap-10 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-end">
             <div>
               <div className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
                 <span className="inline-block h-px w-6 bg-stone-400" />
                 Partner Network · Issue 07
               </div>
-              <h1 className="mt-5 text-[30px] font-black leading-[1.12] tracking-[-0.02em] text-stone-950 sm:mt-6 sm:text-[38px] md:text-[52px] md:leading-[1.08]">
+              <h1 className="mt-6 text-[38px] font-black leading-[1.08] tracking-[-0.02em] text-stone-950 md:text-[52px]">
                 같이 걷는 병원들.
                 <br />
                 <span className="text-stone-400">한 자리에서 만나는</span>{" "}
@@ -82,7 +82,7 @@ export default async function WithPartnersHubPage() {
       </section>
 
       {/* === Directory (numbered magazine index) === */}
-      <section className="mx-auto w-full max-w-[1280px] px-5 sm:px-6 py-16 md:py-24 lg:px-10">
+      <section className="mx-auto w-full max-w-[1280px] px-6 py-16 md:py-24 lg:px-10">
         <div className="mb-10 flex items-baseline justify-between border-b border-stone-300 pb-4">
           <h2 className="text-xs font-bold uppercase tracking-[0.35em] text-stone-700">
             Directory
@@ -171,7 +171,7 @@ export default async function WithPartnersHubPage() {
 
       {/* === Editorial partner CTA === */}
       <section className="border-t border-stone-200/70">
-        <div className="mx-auto w-full max-w-[1280px] px-5 sm:px-6 py-20 md:py-28 lg:px-10">
+        <div className="mx-auto w-full max-w-[1280px] px-6 py-20 md:py-28 lg:px-10">
           <div className="grid gap-12 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-center">
             <div>
               <div className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
@@ -198,3 +198,25 @@ export default async function WithPartnersHubPage() {
                 <ArrowUpRight size={18} strokeWidth={2} className="transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
               </a>
               <p className="mt-3 text-xs text-stone-500">
+                평일 10:00–19:00 · 위서클 파트너십 팀 응답
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function StatCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-[10px] font-semibold uppercase tracking-[0.25em] text-stone-500">
+        {label}
+      </dt>
+      <dd className="mt-2 text-xl font-black tabular-nums text-stone-950">
+        {value}
+      </dd>
+    </div>
+  );
+}

@@ -53,7 +53,7 @@ export default async function BlogIndexPage() {
       <main className="bg-[#FAFAF7] text-stone-900">
         {/* === Masthead === */}
         <section className="border-b border-stone-200/70">
-          <div className="mx-auto w-full max-w-[1280px] px-5 sm:px-6 pt-16 pb-10 md:pt-20 md:pb-12 lg:px-10">
+          <div className="mx-auto w-full max-w-[1280px] px-6 pt-16 pb-10 md:pt-20 md:pb-12 lg:px-10">
             <div className="flex items-baseline justify-between border-b border-stone-300 pb-6">
               <div>
                 <div className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
@@ -74,7 +74,7 @@ export default async function BlogIndexPage() {
               <div className="mt-10 grid gap-10 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:items-center md:gap-14">
                 {/* Left — cover image */}
                 <Link href={`/blog/${featured.slug}`} className="group block">
-                  <div className="relative aspect-[16/10] w-full overflow-hidden bg-stone-200 sm:aspect-[3/2] md:aspect-[4/5]">
+                  <div className="relative aspect-[4/5] w-full overflow-hidden bg-stone-200">
                     {featured.cover_image_url ? (
                       <Image
                         src={featured.cover_image_url}
@@ -104,7 +104,7 @@ export default async function BlogIndexPage() {
                       </>
                     )}
                   </div>
-                  <h1 className="mt-5 text-[26px] font-black leading-[1.15] tracking-[-0.02em] text-stone-950 sm:text-[32px] md:mt-6 md:text-[42px] xl:text-[52px]">
+                  <h1 className="mt-6 text-[36px] font-black leading-[1.1] tracking-[-0.02em] text-stone-950 md:text-[52px]">
                     <Link href={`/blog/${featured.slug}`} className="transition hover:text-stone-700">
                       {featured.title}
                     </Link>
@@ -142,7 +142,7 @@ export default async function BlogIndexPage() {
 
         {/* === Category rail (subtle chip navigation) === */}
         <section className="border-b border-stone-200/70">
-          <div className="mx-auto w-full max-w-[1280px] px-5 sm:px-6 py-8 lg:px-10">
+          <div className="mx-auto w-full max-w-[1280px] px-6 py-8 lg:px-10">
             <div className="flex flex-wrap items-center gap-2">
               <span className="mr-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-stone-500">
                 Sections
@@ -171,7 +171,7 @@ export default async function BlogIndexPage() {
 
         {/* === Index list (magazine TOC) === */}
         {rest.length > 0 && (
-          <section className="mx-auto w-full max-w-[1280px] px-5 sm:px-6 py-16 md:py-20 lg:px-10">
+          <section className="mx-auto w-full max-w-[1280px] px-6 py-16 md:py-20 lg:px-10">
             <div className="mb-8 flex items-baseline justify-between border-b border-stone-300 pb-4">
               <h2 className="text-xs font-bold uppercase tracking-[0.35em] text-stone-700">
                 Latest
@@ -216,4 +216,34 @@ export default async function BlogIndexPage() {
                         strokeWidth={1.5}
                         className="text-stone-300 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-stone-900"
                       />
-                 
+                    </Link>
+                  </li>
+                );
+              })}
+            </ol>
+
+            {total > rest.length + 1 && (
+              <div className="mt-10 flex items-center justify-center border-t border-stone-200/70 pt-8">
+                <Link
+                  href="/blog/category/content_marketing"
+                  className="group inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.24em] text-stone-900 hover:text-stone-600"
+                >
+                  전체 아카이브 보기
+                  <ArrowUpRight size={14} strokeWidth={2} className="transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                </Link>
+              </div>
+            )}
+          </section>
+        )}
+
+        {total === 0 && (
+          <section className="mx-auto w-full max-w-[1280px] px-6 py-24 lg:px-10">
+            <div className="border border-dashed border-stone-200 bg-white p-16 text-center text-sm text-stone-500">
+              새로운 인사이트가 곧 발행됩니다.
+            </div>
+          </section>
+        )}
+      </main>
+    </>
+  );
+}

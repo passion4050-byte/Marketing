@@ -36,7 +36,7 @@ export default function PrivacyPage() {
           <span className="text-stone-900">Privacy Policy</span>
         </div>
         <header className="my-12 max-w-3xl">
-          <h1 className="text-[28px] font-black tracking-[-0.02em] text-stone-950 sm:text-[34px] md:text-[52px] md:tracking-[-0.025em]">
+          <h1 className="text-[36px] font-black tracking-[-0.025em] text-stone-950 md:text-[52px]">
             개인정보처리방침
           </h1>
           <p className="mt-4 text-sm tabular-nums text-stone-500">최종 갱신 · 2026-06-28</p>
