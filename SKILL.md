@@ -4597,9 +4597,36 @@ Round 104-c 사무실 세션에서 이미지 문제 조치됨 (`unsplash_client.
 - 판정: 스크롤 대비 fixed 사이드바 겹침 or 다른 페이지의 로그아웃 링크가 함께 캡처된 시각 착시
 - 교훈: **사용자 스샷 지적 시에도 코드 grep 부터** — 자동 반응으로 코드 수정 금지
 
-### 다음 라운드 후보 (Round 116 세션 종료 시점)
+### Round 117-A (2026-07-03) — 완료 탭 archive/편집 + 검수 탭 즉시발행 모달
 
-- **Round 116 Phase 4** (~1시간): 콘텐츠 완료 탭 카테고리 chip filter + 페이지네이션 + 인라인 삭제/수정
+커밋 `6f3174d` (Vercel Ready 1m6s 확인). 5 files +749/−55.
+
+- **페이지 사이즈 드롭다운** — 완료 탭 10/25/50편 (기본 25). `PAGE_SIZE_OPTIONS` in PublishedTab.
+- **게재 중단 (archive, soft delete)** — `status='archived'` 신규 (CHECK constraint 없음 확인 완료).
+  - API: `POST /api/admin/content-queue/[id]?action=archive|unarchive`. published_at/slug/partner_category 보존 → 재개 시 원복.
+  - GET allowed set 에 `'archived'` 추가 → `?status=archived` 필터 동작.
+  - UI: 완료 탭에 "🗄 게재 중단" chip 토글 — archived 목록은 PublishedTab 이 **자체 fetch** (page.tsx 무변경). 행별 재개(unarchive) 버튼.
+- **자체 편집 모달** — PublishedTab 내장 EditModal. title/excerpt/body → 기존 `PATCH /api/admin/content-queue/[id]` (Round 18) 재사용. 저장 후 로컬 state 만 갱신 (부모 refetch 불필요).
+- **검수 탭 즉시발행 그자리 모달** — `ImmediatePublishModal.tsx` 신규. empty state 의 기존 `/admin/calendar` 링크 → 모달로 교체. `GET /api/admin/tenants` 로 클라이언트 목록 자체 로드 → `POST /api/admin/publish-now { tenantId, keyword? }` (Round 112). ok / needsManual(GH_TOKEN 미설정 → workflowUrl 안내) / error 3분기 렌더.
+- 설계 원칙: 신규 기능은 **PublishedTab/모달 안에 self-contained** — page.tsx(971줄, 위험 파일)는 anchor 정확 일치 3건만 수정.
+
+### 🔴 함정 ED 개정 (Round 117-A 재진단) — 진짜 원인은 샌드박스 마운트 동기화
+
+기존 진단("컨텍스트 임계값에서 Edit tool truncate")은 **틀렸거나 부분적**. Round 117-A 세션 팩트:
+
+1. **호스트 파일은 Edit/Write 직후 항상 완전** (Read 로 tail 검증: 207/782/971줄 전부 무결)
+2. **샌드박스 bash 마운트가 청크 동기화 중 정체** — 같은 파일이 마운트에선 434/782줄로 문장 중간에서 잘림 (수 분간 고정), page.tsx 는 끝부분 NUL 바이트 패딩, route.ts 는 177/207줄
+3. 이 상태에서 마운트 `git commit` → **잘린 파일이 실제로 커밋됨** = "5회 truncate 재현"의 유력 메커니즘
+
+**개정 프로토콜:**
+- 무결성 체크 = **호스트 Read(offset tail)** 가 정본. bash `wc -l`/`tail` 은 stale 마운트를 봐서 **오탐** 발생 — 참고용으로만.
+- 샌드박스에서 커밋해야 하면 마운트 금지 → **`/tmp` fresh clone** (`git clone --depth 1 --filter=blob:none --sparse`) 에 python 패치/heredoc 으로 정본 재구성 후 커밋.
+- **push 는 로컬 전용** — 샌드박스에 GitHub 자격증명 전무 (remote URL 토큰 없음, credential helper 없음, .env 미동기화). 사용자가 로컬 터미널에서 `git push`. 백업으로 `git format-patch` 를 outputs 에 저장.
+- Vercel Ready 확인: Vercel MCP 는 개인 계정 스코프 문제로 403 (재인증 필요) → 사용자 대시보드 스샷 또는 admin UI 스모크로 확인.
+
+### 다음 라운드 후보 (Round 117-A 세션 종료 시점)
+
+- **Round 117-B**: archived 글의 /with-partners·/blog 라우트 실제 비노출 검증 (published 필터가 페이지 쿼리에 걸려있는지 감사) + 편집 모달 의료법 린트 재실행
 - **Round 110-A**: 신규 AI 인용 감지 → 이메일 알림 자동화 (실전 GEO 효과 즉시 인지)
 - **Round 110-B**: 크롤러 로그 시각화 위젯 (GPTBot/Claudebot/PerplexityBot 방문 로그)
 - **Round 110-C**: UTM 카카오톡 유입 트래킹 대시보드 (Round 108-e CTA 통일 활용)
