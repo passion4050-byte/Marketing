@@ -6,8 +6,10 @@ export const siteConfig = {
   name: "WECIRCLE",
   brand: "WECIRCLE",
   tagline: "AI 검색 시대, 병원 마케팅을 다시 설계합니다",
+  // Round 118 (2026-07-03) — 네이버 서치어드바이저 경고 해소: 사이트 설명/OG 설명
+  // 80자 이내 권장. 기존 108자 → 72자로 축약 (브랜드 선두 + 핵심 키워드 유지).
   description:
-    "WECIRCLE 은 AI 검색 시대의 의료 마케팅 자동화 SaaS 입니다. ChatGPT · Gemini · Claude · Perplexity 가 클라이언트 병원을 추천하도록 GEO/AEO 최적화된 콘텐츠를 자동 생성합니다.",
+    "위서클 — ChatGPT·Gemini·Perplexity 가 병원을 추천하도록 GEO/AEO 콘텐츠를 자동 생성하는 의료 마케팅 SaaS.",
   url: process.env.NEXT_PUBLIC_SITE_URL || "https://wecircle.co.kr",
   basePath: process.env.NEXT_PUBLIC_BASE_PATH || "",
   shortlinkBase:

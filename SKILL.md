@@ -4624,9 +4624,27 @@ Round 104-c 사무실 세션에서 이미지 문제 조치됨 (`unsplash_client.
 - **push 는 로컬 전용** — 샌드박스에 GitHub 자격증명 전무 (remote URL 토큰 없음, credential helper 없음, .env 미동기화). 사용자가 로컬 터미널에서 `git push`. 백업으로 `git format-patch` 를 outputs 에 저장.
 - Vercel Ready 확인: Vercel MCP 는 개인 계정 스코프 문제로 403 (재인증 필요) → 사용자 대시보드 스샷 또는 admin UI 스모크로 확인.
 
-### 다음 라운드 후보 (Round 117-A 세션 종료 시점)
+### Round 117-B (2026-07-03) — 공개 라우트 archived 비노출 감사 (통과)
 
-- **Round 117-B**: archived 글의 /with-partners·/blog 라우트 실제 비노출 검증 (published 필터가 페이지 쿼리에 걸려있는지 감사) + 편집 모달 의료법 린트 재실행
+정적 감사 + 실 E2E 완료. **코드 수정 불필요.**
+
+- 정적: /with-partners 4계층 전부 `force-dynamic` + `POST_FILTER(status='published')` (partners.ts). /blog 목록·카테고리 `force-dynamic` + `DB_FILTER`. /blog/[slug] published 필터 + notFound (ISR 60s). sitemap 도 published 경유. RSS 없음. 우회 쿼리 경로 없음.
+- E2E: 글 #42 를 SQL 로 archive → 상세 404 + 파트너 목록 4→3편 확인 → unarchive → published_at/slug/카테고리 무손실 200 복귀.
+- **캐비앳 (운영 지식)**: 게재 중단의 공개 반영은 즉시가 아니라 **최대 ~60초** — partners.ts 모듈 캐시 60s TTL(Round 11) + 서버리스 인스턴스별 캐시. sitemap URL 은 최대 1h 잔존(페이지는 404 라 무해). 60초를 0초로 만들려면 archive API 에 revalidate 훅 필요하나 복잡도 대비 이득 없음으로 보류.
+- citation-alerts cron 수정 (`57b315e`): `mentions.source_url` 컬럼이 실스키마에 없음 → `responses.cited_urls`(string[]) 로 교체. Actions #2 Success. **교훈: 새 쿼리 작성 시 information_schema 실컬럼 대조 필수.**
+- GH_TOKEN Vercel 등록 완료 → 즉시발행 모달 원클릭 활성화 (fine-grained PAT, Actions RW).
+
+### Round 118 (2026-07-03) — 네이버 서치어드바이저 고도화
+
+- 진단: 7항목 중 설명 2건(사이트 설명 + OG 설명)만 80자 초과 경고 (동일 원인 — `siteConfig.description` 108자).
+- 수정: `medimap-blog/src/lib/site.ts` description 72자 축약 ("위서클 — ChatGPT·Gemini·Perplexity 가 병원을 추천하도록 GEO/AEO 콘텐츠를 자동 생성하는 의료 마케팅 SaaS.")
+- 가이드 문서: `docs/naver-searchadvisor-guide.md` — RSS 미구현(1순위 작업), 사이트맵 제출 확인, IndexNow 검증(키 파일 200 + scheduler 로그), Article JSON-LD 확인, 주간 색인 모니터링 루틴, 사이트 제목 "테크 블로그" 포지셔닝 스파링 포인트(브랜딩 결정 대기).
+- 팩트: 네이버는 IndexNow 공식 지원 — Round 82 의 api.indexnow.org 핑이 네이버 색인 통지를 커버.
+
+### 다음 라운드 후보 (Round 118 세션 종료 시점)
+
+- **Round 118-B**: /rss.xml 라우트 신규 (published+pass 필터 재사용, posts+partner 통합 50건) + 서치어드바이저 RSS 제출
+- **Round 118-C**: Article/BlogPosting JSON-LD 감사 + 사이트 제목 리포지셔닝 (사용자 브랜딩 결정 후)
 - **Round 110-A**: 신규 AI 인용 감지 → 이메일 알림 자동화 (실전 GEO 효과 즉시 인지)
 - **Round 110-B**: 크롤러 로그 시각화 위젯 (GPTBot/Claudebot/PerplexityBot 방문 로그)
 - **Round 110-C**: UTM 카카오톡 유입 트래킹 대시보드 (Round 108-e CTA 통일 활용)
