@@ -125,7 +125,11 @@ def start_scheduler(session_factory) -> Any:
     return sched
 
 
-def daily_auto_content_job(session_factory) -> dict:
+def daily_auto_content_job(
+    session_factory,
+    target_tenant_id: int | None = None,
+    target_keyword: str | None = None,
+) -> dict:
     """활성 ``AutoContentSetting`` 마다 ``daily_count`` 만큼 ``draft`` 콘텐츠 생성.
 
     - tenant 의 모든 활성 ``Keyword`` × ``AutoContentSetting.channels`` 를 (keyword, channel)
@@ -144,6 +148,67 @@ def daily_auto_content_job(session_factory) -> dict:
 
     summary = {"tenants": 0, "drafts": 0, "published": 0, "errors": 0}
     default_channels = ["schema_org", "blog_html", "naver_blog", "instagram"]
+
+    # Round 120 (2026-07-03) — admin 즉시발행 타깃 실행 (publish-now → workflow_dispatch).
+    #   target_tenant_id 지정 시: 로테이션·plan 요일 필터 무시, 해당 tenant 1편만 생성.
+    #   last_run_at 은 갱신하지 않음 — 일반 cron 로테이션 순서에 영향 주지 않기 위해.
+    #   채널은 blog_html 우선 (즉시발행 목적 = 검수 큐 등장 + /with-partners 라이브).
+    if target_tenant_id is not None:
+        from src.storage.models import AutoContentSetting as _ACS, Keyword as _Kw
+
+        with session_factory() as s:
+            st = (
+                s.query(_ACS)
+                .filter(_ACS.tenant_id == target_tenant_id)
+                .first()
+            )
+            channels = (
+                list(st.channels) if (st is not None and st.channels) else list(default_channels)
+            )
+            auto_publish = bool(getattr(st, "auto_publish", False)) if st is not None else False
+            if target_keyword:
+                keyword_text = target_keyword.strip()
+            else:
+                kws = (
+                    s.query(_Kw)
+                    .filter(_Kw.tenant_id == target_tenant_id, _Kw.is_active == True)  # noqa: E712
+                    .order_by(_Kw.id)
+                    .all()
+                )
+                if not kws:
+                    logger.error(
+                        "scheduler.target_no_keyword", tenant_id=target_tenant_id
+                    )
+                    summary["errors"] += 1
+                    return summary
+                keyword_text = kws[0].text
+        channel = "blog_html" if "blog_html" in channels else channels[0]
+        summary["tenants"] = 1
+        logger.info(
+            "scheduler.target_run",
+            tenant_id=target_tenant_id,
+            keyword=keyword_text,
+            channel=channel,
+            auto_publish=auto_publish,
+        )
+        try:
+            final_status = _generate_draft(
+                session_factory, target_tenant_id, keyword_text, channel,
+                auto_publish=auto_publish,
+            )
+            if final_status == "published":
+                summary["published"] += 1
+            else:
+                summary["drafts"] += 1
+        except Exception as e:  # pragma: no cover
+            logger.error(
+                "scheduler.target_run_error",
+                tenant_id=target_tenant_id,
+                keyword=keyword_text,
+                error=str(e),
+            )
+            summary["errors"] += 1
+        return summary
 
     # Round 28 (2026-05-30): 로테이션 정책
     #   - 매일 자사 1편 + 파트너 1편 (총 2편) 만 발행 → Pollinations 부담·운영 검수량 절감

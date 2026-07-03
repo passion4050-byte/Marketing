@@ -28,8 +28,18 @@ def main() -> int:
         print("ERROR: DATABASE_URL 미설정", file=sys.stderr)
         return 1
 
+    # Round 120 (2026-07-03) — admin 즉시발행 타깃 실행.
+    #   workflow_dispatch inputs → env 로 전달됨. 미지정(빈 문자열) 시 일반 로테이션.
+    _raw_tid = (os.environ.get("TARGET_TENANT_ID") or "").strip()
+    target_tenant_id: int | None = int(_raw_tid) if _raw_tid.isdigit() else None
+    target_keyword = (os.environ.get("TARGET_KEYWORD") or "").strip() or None
+
     try:
-        result = daily_auto_content_job(SessionLocal)
+        result = daily_auto_content_job(
+            SessionLocal,
+            target_tenant_id=target_tenant_id,
+            target_keyword=target_keyword,
+        )
     except Exception as e:  # pragma: no cover
         print(f"ERROR: daily_auto_content_job 실패: {e}", file=sys.stderr)
         return 2

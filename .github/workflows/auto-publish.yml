@@ -8,7 +8,18 @@ on:
   schedule:
     - cron: '0 23 * * *'   # 매일 23:00 UTC = 08:00 KST
     - cron: '0 5 * * *'    # 매일 05:00 UTC = 14:00 KST (Round 59 추가)
-  workflow_dispatch: {}
+  # Round 120 (2026-07-03) — admin 즉시발행(publish-now API)이 tenant_id/keyword 를
+  # inputs 로 보내는데 정의가 없어 422 발생 → inputs 정의 + run step env 전달.
+  workflow_dispatch:
+    inputs:
+      tenant_id:
+        description: '특정 tenant 만 즉시 1편 생성 (비우면 일반 로테이션)'
+        required: false
+        type: string
+      keyword:
+        description: '키워드 override (선택 — 비우면 tenant 활성 키워드 사용)'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -73,6 +84,9 @@ jobs:
           # Round 105 잔재 IMAGE_STRICT_DALLE 도 하위호환 인식.
           IMAGE_STRICT: ${{ secrets.IMAGE_STRICT || 'true' }}
           IMAGE_STRICT_DALLE: ${{ secrets.IMAGE_STRICT_DALLE || 'true' }}
+          # Round 120 — 즉시발행 타깃 (workflow_dispatch inputs → 스케줄러 타깃 실행)
+          TARGET_TENANT_ID: ${{ inputs.tenant_id }}
+          TARGET_KEYWORD: ${{ inputs.keyword }}
         run: python scripts/run_auto_content_once.py
 
       # 2026-05-29 Round 24: 두 사이트(medimap-blog + medimap-blog-v2) 모두 redeploy.
