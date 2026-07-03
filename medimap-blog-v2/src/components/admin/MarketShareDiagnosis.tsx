@@ -109,41 +109,17 @@ export function MarketShareDiagnosis({
         </div>
       </header>
 
-      {/* 🚨 medimap-blog 위치 진단 (가장 위) */}
+      {/* Round 119-b: 근본 해결 가이드 리스트 삭제 (조치 전부 완료 — 사용자 요청).
+          0건 상태만 한 줄 컴팩트 배지로 유지 — 색인·인용 누적 대기 중임을 표시. */}
       {isCritical && (
-        <div className="border-b border-status-danger/30 bg-status-danger/5 px-4 py-3 md:px-5">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-status-danger" />
-            <div className="flex-1">
-              <div className="text-sm font-bold text-status-danger">
-                🚨 위서클 도메인 AI 인용 = 0건 (30일)
-              </div>
-              <p className="mt-1 text-[12px] text-ink-soft">
-                <strong>wecircle.co.kr</strong> 의 콘텐츠가 아직 AI source URL 로 인용된 적이 없습니다.
-                위 도메인별 분포는 <strong>경쟁사가 우리 시장을 점유</strong>하고 있음을 보여줍니다.
-                현재 measure mentions 카운트는 <em>브랜드 텍스트 매칭</em> proxy일 뿐 실제 도메인 인용은 아닙니다.
-                (커스텀 도메인 전환은 완료 — 색인·인용 누적은 수 주~수개월 소요)
-              </p>
-              <div className="mt-3 rounded-md border border-status-danger/20 bg-white px-3 py-2 text-[11px]">
-                <div className="font-semibold text-ink">🎯 근본 해결 (우선순위 순)</div>
-                <ol className="ml-4 mt-1 list-decimal space-y-1 text-ink-soft">
-                  <li className="text-status-success">
-                    ✅ <strong>커스텀 도메인 전환 — 완료</strong> (<code className="rounded bg-surface-subtle px-1">wecircle.co.kr</code>). 색인·인용 누적 대기 중.
-                  </li>
-                  <li>
-                    <strong>GSC 색인 가속</strong> — Search Console 에서 sitemap 재제출 +
-                    각 글 URL Inspect → 색인 요청.
-                  </li>
-                  <li>
-                    <strong>권위 도메인 backlink</strong> — modoodoc/hidoc 같은 의료 매체에 위서클 콘텐츠 게재 협상.
-                  </li>
-                  <li>
-                    <strong>네이버 색인 강화</strong> — IndexNow 이미 핑하고 있지만 네이버 서치어드바이저 수동 제출 권장.
-                  </li>
-                </ol>
-              </div>
-            </div>
-          </div>
+        <div className="flex items-center gap-2 border-b border-status-danger/20 bg-status-danger/5 px-4 py-2.5 md:px-5">
+          <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 text-status-danger" />
+          <span className="text-[12px] font-bold text-status-danger">
+            위서클 도메인 AI 인용 0건 ({daysWindow}일)
+          </span>
+          <span className="hidden text-[11px] text-ink-muted sm:inline">
+            — 도메인 전환·GSC·네이버 제출 조치 완료, 색인·인용 누적 대기 중 (수 주~수개월)
+          </span>
         </div>
       )}
 

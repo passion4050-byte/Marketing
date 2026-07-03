@@ -1119,13 +1119,21 @@ export default async function AdminDashboardPage({
           </span>
         </div>
         <div className="mt-4 grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
-          <div className="[&_section]:!mt-0">
+          {/* 좌: 액션 권고 + 신규 등장 도메인 스택 — 우측(시장 진단 표)과 높이 균형 (Round 119-b) */}
+          <div className="space-y-4 [&_section]:!mt-0">
             <ActionRecommendations
               keywordGrounding={d.keywordGrounding}
               pendingQueue={d.pendingQueue}
               lastCronAt={d.lastCronAt}
               citations30d={d.citations30d}
               publishedThisMonth={d.publishedThisMonth}
+            />
+            <DashboardCharts
+              tierTrend={d.tierTrend}
+              clientRanking={d.clientRanking}
+              keywordGrounding={d.keywordGrounding}
+              newDomains={d.newDomains}
+              showTierAndRankingCharts={false}
             />
           </div>
           <div className="[&_section]:!mt-0">
@@ -1136,16 +1144,6 @@ export default async function AdminDashboardPage({
               daysWindow={30}
             />
           </div>
-        </div>
-        {/* 신규 등장 도메인 — 시장 인텔리전스 맥락으로 통합 (기존: 페이지 최하단 고아 배치) */}
-        <div className="mt-4 [&_section]:!mt-0">
-          <DashboardCharts
-            tierTrend={d.tierTrend}
-            clientRanking={d.clientRanking}
-            keywordGrounding={d.keywordGrounding}
-            newDomains={d.newDomains}
-            showTierAndRankingCharts={false}
-          />
         </div>
       </div>
 
