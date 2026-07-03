@@ -118,7 +118,10 @@ async function handle(req: NextRequest) {
   // 최근 24h 신규 인용
   const { data: mentions, error: menErr } = await sb
     .from('mentions')
-    .select('tenant_id, response_id, created_at, source_url, is_target')
+    // Round 117-fix (2026-07-03): mentions 에 source_url 컬럼 없음 (실스키마:
+    // id/response_id/tenant_id/brand/is_target/.../context_snippet). URL 은
+    // responses.cited_urls (string[]) 에서 가져온다.
+    .select('tenant_id, response_id, created_at, is_target')
     .eq('is_target', true)
     .gte('created_at', d24);
   if (menErr) return NextResponse.json({ ok: false, error: menErr.message }, { status: 500 });
@@ -140,7 +143,7 @@ async function handle(req: NextRequest) {
   const [{ data: tenants }, { data: responses }] = await Promise.all([
     sb.from('tenants').select('id, name, domain_category').in('id', tenantIds),
     responseIds.length > 0
-      ? sb.from('responses').select('id, query_id').in('id', responseIds)
+      ? sb.from('responses').select('id, query_id, cited_urls').in('id', responseIds)
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -151,9 +154,12 @@ async function handle(req: NextRequest) {
 
   const responseToEngine = new Map<number, string>();
   const queryToEngine = new Map<number, string>();
+  const responseToUrls = new Map<number, string[]>();
   (queries ?? []).forEach((q) => queryToEngine.set(q.id, q.engine || 'unknown'));
   (responses ?? []).forEach((r) => {
     responseToEngine.set(r.id, queryToEngine.get(r.query_id) || 'unknown');
+    const urls = (r as { cited_urls?: string[] | null }).cited_urls;
+    if (Array.isArray(urls) && urls.length > 0) responseToUrls.set(r.id, urls);
   });
 
   const tenantMap = new Map<number, { name: string; domain_category: string | null }>();
@@ -179,7 +185,10 @@ async function handle(req: NextRequest) {
     s.new_mentions_24h += 1;
     const eng = responseToEngine.get(m.response_id) || 'unknown';
     s.engines[eng] = (s.engines[eng] || 0) + 1;
-    if (m.source_url && s.sample_urls.length < 3) s.sample_urls.push(m.source_url);
+    for (const u of responseToUrls.get(m.response_id) ?? []) {
+      if (s.sample_urls.length >= 3) break;
+      if (!s.sample_urls.includes(u)) s.sample_urls.push(u);
+    }
   });
 
   const tenantSummaries = Array.from(summaries.values()).sort(
