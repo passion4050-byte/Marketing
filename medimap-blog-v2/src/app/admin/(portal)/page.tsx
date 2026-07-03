@@ -1041,61 +1041,85 @@ export default async function AdminDashboardPage({
     },
   ];
 
-  // Round 104 ④ — 좌측 빈 영역 채움용 측정 상태 요약값.
-  const cronStatusText = d.lastCronAt
-    ? (Date.now() - new Date(d.lastCronAt).getTime()) / 3600000 < 26
-      ? '정상'
-      : '⚠ 지연'
-    : '데이터 없음';
-
   return (
-    <div className="px-8 py-6">
-      <header className="admin-page-header">
+    <div className="mx-auto max-w-[1440px] px-6 py-8 lg:px-10">
+      {/* Round 119 (2026-07-03) — UI/UX 재설계: 3존 재그룹핑.
+          헤더(+필터 상단 고정) → KPI 통합 스트립 → 01 지금 봐야 할 것(액션·시장·신규도메인)
+          → 02 성과 분석(추이·콘텐츠·패턴·파트너) → 03 운영 로그(검수·인용·크롤러·카카오).
+          변경은 조립 마크업만 — fetchDashboardData/위젯 로직 무변경 (design-only 규칙). */}
+
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-ink/90 pb-5">
         <div>
-          <h1 className="admin-page-title">운영 대시보드</h1>
-          <p className="admin-page-desc">전체 클라이언트의 KPI · 발행 추이 · AI 인용 점유율을 한눈에 확인합니다</p>
+          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-ink-faint">
+            WECIRCLE GEO · OPERATIONS
+          </div>
+          <h1 className="admin-page-title mt-1">운영 대시보드</h1>
+          <p className="admin-page-desc">
+            전체 클라이언트의 KPI · 발행 추이 · AI 인용 점유율을 한눈에 확인합니다
+          </p>
         </div>
       </header>
 
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-6">
-        {KPIS.map((k) => {
-          const Icon = k.icon;
-          return (
-            <Link
-              key={k.label}
-              href={k.href}
-              className="card card-pad transition hover:border-brand-200"
-            >
-              <div className="flex items-start justify-between">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">{k.label}</div>
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-50 text-brand-700">
-                  <Icon className="h-3 w-3" />
-                </span>
-              </div>
-              <div className="mt-2 flex items-baseline gap-1">
-                <div className="text-xl font-bold text-ink">{k.value}</div>
-                <span className="text-xs text-ink-muted">{k.suffix}</span>
-              </div>
-              <div className="mt-1 text-[10px] text-ink-faint">{k.hint}</div>
-            </Link>
-          );
-        })}
+      {/* 기간 · 클라이언트 필터 — 페이지 하단 → 상단 이동 (컨텍스트가 아래 전체에 적용되므로) */}
+      <DashboardFilters
+        tenants={tenantsList}
+        currentTenantId={tenantId}
+        currentPeriod={isCustom ? 'custom' : String(periodDays)}
+        currentFrom={fromDate}
+        currentTo={toDate}
+      />
+
+      {/* KPI 통합 스트립 — 6개 낱장 카드 → 단일 카드 + 내부 분할.
+          기존 '측정·엔진 현황' 카드(중복: cron/30일 인용/14일 비용)는 여기로 흡수. */}
+      <section className="card mt-6 overflow-hidden p-0">
+        <div className="grid grid-cols-2 gap-px bg-border md:grid-cols-3 xl:grid-cols-6">
+          {KPIS.map((k) => {
+            const Icon = k.icon;
+            return (
+              <Link
+                key={k.label}
+                href={k.href}
+                className="group bg-surface-base px-4 py-4 transition hover:bg-surface-subtle"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-ink-muted">
+                    {k.label}
+                  </span>
+                  <Icon className="h-3.5 w-3.5 text-ink-faint transition group-hover:text-ink" />
+                </div>
+                <div className="mt-2.5 flex items-baseline gap-1">
+                  <span className="text-2xl font-black tabular-nums tracking-tight text-ink">
+                    {k.value}
+                  </span>
+                  <span className="text-xs font-medium text-ink-muted">{k.suffix}</span>
+                </div>
+                <div className="mt-1 flex items-center gap-1.5">
+                  {k.label === '측정 cron 상태' && (
+                    <span className="flex shrink-0 gap-1" title="측정 엔진: Gemini · Claude · ChatGPT">
+                      <span className="h-1.5 w-1.5 rounded-full bg-engine-gemini" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-engine-claude" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-engine-chatgpt" />
+                    </span>
+                  )}
+                  <span className="truncate text-[10px] text-ink-faint">{k.hint}</span>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
       </section>
 
-      {/* Round 92 (2026-06-28) — 정보 위계 재구성.
-          Tier 1: 즉시 행동 필요 (액션 권고 + 시장 점유 알림) — 2-column grid
-          Tier 2: 콘텐츠 분석 (Top 인용 + 구조 패턴)
-          Tier 3: 운영 차트 (5-tier / ranking / grounding)
-          Tier 4: 운영 리스트 (검수 대기 / AI 인용 / 신규 도메인) */}
-
-      {/* === Tier 1: 즉시 행동 필요 (좌: 액션 권고 / 우: 시장 진단) === */}
-      <div className="mt-6">
-        <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-status-danger" />
-          즉시 행동 필요
+      {/* === 01 지금 봐야 할 것 — 액션 권고 · 시장 점유 진단 · 신규 등장 도메인 === */}
+      <div className="mt-12">
+        <div className="flex items-baseline gap-3 border-b border-border pb-3">
+          <span className="font-mono text-[11px] font-black tracking-widest text-ink-faint">01</span>
+          <h2 className="text-[15px] font-black tracking-tight text-ink">지금 봐야 할 것</h2>
+          <span className="hidden text-[11px] text-ink-muted sm:inline">
+            액션 권고 · AI 시장 점유 진단 · 신규 등장 도메인
+          </span>
         </div>
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <div className="contents xl:block [&_section]:!mt-0">
+        <div className="mt-4 grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+          <div className="[&_section]:!mt-0">
             <ActionRecommendations
               keywordGrounding={d.keywordGrounding}
               pendingQueue={d.pendingQueue}
@@ -1103,45 +1127,8 @@ export default async function AdminDashboardPage({
               citations30d={d.citations30d}
               publishedThisMonth={d.publishedThisMonth}
             />
-            {/* Round 104 ④ — 좌측 빈 영역 채움: 측정·엔진 현황 (xl 2단에서만 노출) */}
-            <div className="mt-4 hidden xl:block">
-              <section className="card">
-                <header className="border-b border-border px-4 py-3">
-                  <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-                    <TrendingUp className="h-4 w-4 text-brand" />
-                    측정·엔진 현황
-                  </h2>
-                  <div className="mt-0.5 text-[11px] text-ink-muted">AI 인용 측정 파이프라인 상태</div>
-                </header>
-                <div className="grid grid-cols-3 divide-x divide-border border-b border-border">
-                  <div className="px-3 py-3 text-center">
-                    <div className="text-[10px] uppercase tracking-wider text-ink-muted">측정 cron</div>
-                    <div className="mt-1 text-sm font-bold text-ink">{cronStatusText}</div>
-                  </div>
-                  <div className="px-3 py-3 text-center">
-                    <div className="text-[10px] uppercase tracking-wider text-ink-muted">30일 인용</div>
-                    <div className="mt-1 text-sm font-bold text-ink">{(d.citations30d ?? 0).toLocaleString()}</div>
-                  </div>
-                  <div className="px-3 py-3 text-center">
-                    <div className="text-[10px] uppercase tracking-wider text-ink-muted">14일 비용</div>
-                    <div className="mt-1 text-sm font-bold text-ink">${d.cost14d.toFixed(2)}</div>
-                  </div>
-                </div>
-                <div className="px-4 py-3">
-                  <div className="mb-1.5 text-[10px] uppercase tracking-wider text-ink-muted">웹검색 측정 엔진</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    <span className="rounded px-2 py-0.5 text-[11px] font-bold bg-engine-gemini/10 text-engine-gemini">Gemini ✓</span>
-                    <span className="rounded px-2 py-0.5 text-[11px] font-bold bg-engine-claude/10 text-engine-claude">Claude ✓</span>
-                    <span className="rounded px-2 py-0.5 text-[11px] font-bold bg-engine-chatgpt/10 text-engine-chatgpt">ChatGPT ✓</span>
-                  </div>
-                  <div className="mt-2 text-[10px] text-ink-muted">
-                    3엔진 모두 웹검색으로 source URL 수집 — 도메인 인용 누적 중 (다음 cron부터 Claude/ChatGPT 경로 채워짐)
-                  </div>
-                </div>
-              </section>
-            </div>
           </div>
-          <div className="contents xl:block [&_section]:!mt-0">
+          <div className="[&_section]:!mt-0">
             <MarketShareDiagnosis
               domains={d.domainDistribution ?? []}
               medimapCitations={d.medimapDomainCitations ?? 0}
@@ -1150,55 +1137,51 @@ export default async function AdminDashboardPage({
             />
           </div>
         </div>
+        {/* 신규 등장 도메인 — 시장 인텔리전스 맥락으로 통합 (기존: 페이지 최하단 고아 배치) */}
+        <div className="mt-4 [&_section]:!mt-0">
+          <DashboardCharts
+            tierTrend={d.tierTrend}
+            clientRanking={d.clientRanking}
+            keywordGrounding={d.keywordGrounding}
+            newDomains={d.newDomains}
+            showTierAndRankingCharts={false}
+          />
+        </div>
       </div>
 
-      {/* === Tier 2: 콘텐츠 분석 (위서클 콘텐츠가 AI 에 자주 인용되도록) === */}
-      <div className="mt-8">
-        <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-brand" />
-          콘텐츠 경쟁력 분석
+      {/* === 02 성과 분석 — 측정 추이 · 콘텐츠 경쟁력 · 구조 패턴 · 파트너 리더보드 === */}
+      <div className="mt-12">
+        <div className="flex items-baseline gap-3 border-b border-border pb-3">
+          <span className="font-mono text-[11px] font-black tracking-widest text-ink-faint">02</span>
+          <h2 className="text-[15px] font-black tracking-tight text-ink">성과 분석</h2>
+          <span className="hidden text-[11px] text-ink-muted sm:inline">
+            측정 추이 · Top 인용 콘텐츠 · 구조 패턴 · 파트너 리더보드
+          </span>
         </div>
-        <div className="space-y-4 [&>section]:!mt-0">
+        <div className="mt-4 space-y-4 [&>section]:!mt-0 [&>*>section:first-child]:!mt-0">
+          <DashboardChartsTabbed
+            tierTrend={d.tierTrend}
+            clientRanking={d.clientRanking}
+            keywordGrounding={d.keywordGrounding}
+          />
           <ContentCompetitiveness contents={d.topContents ?? []} />
           <ContentPatternStats stats={d.structureStats} />
+          <PartnerLeaderboard />
         </div>
       </div>
 
-      {/* === Tier 2.5 (Round 109-A): 파트너별 AI 인용 리더보드 (영업 무기) === */}
-      <div className="mt-8">
-        <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-brand" />
-          파트너 성과 실측
-        </div>
-        <PartnerLeaderboard />
-      </div>
-
-      {/* === Tier 2.6 (Round 110-B/C): AI 크롤러 방문 + 카카오톡 유입 트래킹 === */}
-      <div className="mt-8">
-        <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-          유입·크롤 실측 (Round 110)
-        </div>
-        <div className="grid gap-4 xl:grid-cols-2">
-          <CrawlerLogWidget />
-          <KakaoFunnelWidget />
+      {/* === 03 운영 로그 — 검수 대기 · 최근 인용 · 크롤러/카카오 실측 === */}
+      <div className="mt-12">
+        <div className="flex items-baseline gap-3 border-b border-border pb-3">
+          <span className="font-mono text-[11px] font-black tracking-widest text-ink-faint">03</span>
+          <h2 className="text-[15px] font-black tracking-tight text-ink">운영 로그</h2>
+          <span className="hidden text-[11px] text-ink-muted sm:inline">
+            검수 대기 · 최근 AI 인용 · 유입 실측
+          </span>
         </div>
       </div>
 
-      {/* === Tier 3: 운영 차트 (탭 통합) === */}
-      <div className="mt-8">
-        <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-status-success" />
-          운영 차트 — 측정 추이
-        </div>
-        <DashboardChartsTabbed
-          tierTrend={d.tierTrend}
-          clientRanking={d.clientRanking}
-          keywordGrounding={d.keywordGrounding}
-        />
-      </div>
-
-      <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <section className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="card">
           <header className="flex items-center justify-between border-b border-border px-5 py-4">
             <h2 className="section-title">최근 검수 대기 (Top 3)</h2>
@@ -1300,26 +1283,17 @@ export default async function AdminDashboardPage({
         </div>
       </section>
 
-      {/* Round 39 — 클라이언트 selector + 기간 토글 + 사용자 지정 */}
-      <DashboardFilters
-        tenants={tenantsList}
-        currentTenantId={tenantId}
-        currentPeriod={isCustom ? 'custom' : String(periodDays)}
-        currentFrom={fromDate}
-        currentTo={toDate}
-      />
-
-      {/* Round 93 (2026-06-28) — 차트 3개는 Tier 3 의 DashboardChartsTabbed 로 이동.
-          여기서는 신규 등장 도메인만 표시. */}
-      <section className="mt-3">
-        <DashboardCharts
-          tierTrend={d.tierTrend}
-          clientRanking={d.clientRanking}
-          keywordGrounding={d.keywordGrounding}
-          newDomains={d.newDomains}
-          showTierAndRankingCharts={false}
-        />
-      </section>
+      {/* 유입·크롤 실측 — 데이터 누적 전이라 운영 로그 존 하단으로 격하 배치 (Round 119).
+          데이터가 쌓이면 02 성과 분석 존으로 승격 검토. */}
+      <div className="mt-4">
+        <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-ink-faint">
+          유입·크롤 실측 — 파이프라인 가동 중, 데이터 누적 대기
+        </div>
+        <div className="grid gap-4 xl:grid-cols-2">
+          <CrawlerLogWidget />
+          <KakaoFunnelWidget />
+        </div>
+      </div>
 
       {d.error && (
         <div className="mt-6 rounded-md border border-status-warningSoft bg-status-warningSoft/30 px-4 py-3 text-xs text-status-warning">
