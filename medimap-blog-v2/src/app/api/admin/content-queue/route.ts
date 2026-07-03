@@ -25,7 +25,8 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url);
   const status = url.searchParams.get('status') ?? 'pending';
-  const allowed = new Set(['pending', 'published', 'rejected']);
+  // Round 117 (2026-07-03): 'archived' 추가 — 게재 중단(soft delete) 탭/필터용
+  const allowed = new Set(['pending', 'published', 'rejected', 'archived']);
   if (!allowed.has(status)) {
     return NextResponse.json({ ok: false, error: 'invalid status' }, { status: 400 });
   }

@@ -10,6 +10,8 @@ import { showToast } from '@/lib/clientActions';
 import { cn } from '@/lib/cn';
 import type { ContentQuality } from '@/lib/contentQuality';
 import { PublishedTab } from '@/components/admin/PublishedTab';
+// Round 117-A (2026-07-03) — 검수 탭 empty state 즉시발행 그자리 모달
+import { ImmediatePublishModal } from '@/components/admin/ImmediatePublishModal';
 
 /** Round 81 — 구조 품질 점수 뱃지 (A/B/C/D + 점수, hover 시 부족 항목). */
 function QualityBadge({ quality, compact = false }: { quality: ContentQuality | null; compact?: boolean }) {
@@ -790,6 +792,8 @@ function PendingTab({
   onCopy: (q: QueueItem) => void;
 }) {
   const [filter, setFilter] = useState<ContentFilter>('all');
+  // Round 117-A — 즉시발행 그자리 모달 (기존 /admin/calendar 이동 대체)
+  const [showPublishModal, setShowPublishModal] = useState(false);
 
   const selfCount = items.filter(isSelfContent).length;
   const partnerCount = items.length - selfCount;
@@ -812,8 +816,9 @@ function PendingTab({
             지금 바로 특정 클라이언트의 콘텐츠를 만들고 싶다면 <span className="font-bold text-ink">&ldquo;즉시 발행&rdquo;</span> 을 눌러 주세요.
           </div>
         </div>
-        <a
-          href="/admin/calendar"
+        <button
+          type="button"
+          onClick={() => setShowPublishModal(true)}
           className="mt-2 inline-flex items-center gap-2 rounded-lg bg-ink px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-ink/90"
         >
           즉시 발행 → 클라이언트 선택
@@ -821,7 +826,10 @@ function PendingTab({
             <path stroke="currentColor" d="M7 17L17 7" />
             <path stroke="currentColor" d="M7 7h10v10" />
           </svg>
-        </a>
+        </button>
+        {showPublishModal && (
+          <ImmediatePublishModal onClose={() => setShowPublishModal(false)} />
+        )}
       </div>
     );
   }

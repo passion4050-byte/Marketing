@@ -88,6 +88,30 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     return NextResponse.json({ ok: true, action: 'reject' });
   }
 
+  // Round 117 (2026-07-03): archive — 게재 중단 (soft delete).
+  //   published → archived. published_at/slug/partner_category 는 보존 → unarchive 시 원복.
+  //   generated_contents.status 에 CHECK constraint 없음 확인 완료 → 'archived' 자유 사용.
+  if (action === 'archive') {
+    const { error } = await sb
+      .from('generated_contents')
+      .update({ status: 'archived', updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    await logAudit(req, sb, 'archive_content', `generated_contents:${id}`);
+    return NextResponse.json({ ok: true, action: 'archive' });
+  }
+
+  // unarchive — archived → published 복귀. 발행 메타(published_at 등)는 그대로 살아있음.
+  if (action === 'unarchive') {
+    const { error } = await sb
+      .from('generated_contents')
+      .update({ status: 'published', updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    await logAudit(req, sb, 'unarchive_content', `generated_contents:${id}`);
+    return NextResponse.json({ ok: true, action: 'unarchive' });
+  }
+
   // approve — 파트너 카테고리 결정
   const tenantInfo = (row as unknown as {
     tenants: { partner_slug: string | null; domain_category: string | null } | null;
