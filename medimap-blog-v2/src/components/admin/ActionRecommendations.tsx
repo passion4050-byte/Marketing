@@ -166,7 +166,8 @@ export function ActionRecommendations({
           실데이터 기반 자동 진단 — 우선순위 순
         </span>
       </header>
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+      {/* Round 121 — 액션 1건일 땐 풀폭 (md:grid-cols-2 고정 시 우측 절반이 비어 보임) */}
+      <div className={actions.length > 1 ? 'grid grid-cols-1 gap-2 md:grid-cols-2' : 'grid grid-cols-1 gap-2'}>
         {actions.map((a, i) => {
           const Icon = a.icon;
           const meta = SEV_META[a.severity];

@@ -26,6 +26,17 @@ interface SourceDomain {
   is_self?: boolean;
 }
 
+/**
+ * Round 121 (2026-07-03) — 도메인 정규화.
+ *   근본 원인: responses.source_domains 는 `www.modoodoc.com` 으로 저장되는데
+ *   대시보드 Top10 은 www. 를 뗀 `modoodoc.com` 을 넘겨 exact match 가 0건
+ *   → "세부 인용 URL이 아직 없습니다" 오탐. (실데이터: modoodoc 130건 전부 final_url 보유)
+ *   양쪽 모두 lowercase + www. 제거 후 비교.
+ */
+function normDomain(s: string | null | undefined): string {
+  return (s || '').trim().toLowerCase().replace(/^www\./, '');
+}
+
 function safePath(url: string): string {
   try {
     const u = new URL(url);
@@ -41,7 +52,7 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url);
   const tenantId = Number(url.searchParams.get('tenantId'));
-  const domain = (url.searchParams.get('domain') || '').trim().toLowerCase();
+  const domain = normDomain(url.searchParams.get('domain'));
   const days = Math.min(Math.max(Number(url.searchParams.get('days')) || 30, 1), 90);
 
   // domain 만 필수. tenantId 없으면 전사(global) 집계 — 홈 대시보드 도메인 Top10 용.
@@ -92,7 +103,7 @@ export async function GET(req: NextRequest) {
     (resps ?? []).forEach((r: { query_id: number; source_domains: SourceDomain[] | null }) => {
       const meta = qMeta.get(r.query_id);
       (r.source_domains ?? []).forEach((sd) => {
-        if (!sd || !sd.final_url || (sd.domain || '').toLowerCase() !== domain) return;
+        if (!sd || !sd.final_url || normDomain(sd.domain) !== domain) return;
         totalCites += 1;
         const key = sd.final_url;
         let entry = agg.get(key);

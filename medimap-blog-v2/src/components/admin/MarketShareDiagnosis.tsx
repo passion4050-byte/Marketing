@@ -97,6 +97,46 @@ export function MarketShareDiagnosis({
     }
   }
 
+  // Round 121 (2026-07-03) — 세부 인용 URL → 학습 파이프라인 직결.
+  //   URL 행의 "학습" 버튼: ① learn-from-url (analyze: fetch+패턴 분석)
+  //   → ② learn-from-url?save=true (learned_insights UPSERT, applied=true)
+  //   → 다음 cron 콘텐츠 생성 prompt 에 자동 주입 (기존 학습 인사이트 루프 재사용).
+  const [learnState, setLearnState] = useState<
+    Record<string, 'loading' | 'done' | 'error'>
+  >({});
+
+  async function learnUrl(p: PathRow, sourceDomain: string) {
+    const key = p.url;
+    if (learnState[key] === 'loading' || learnState[key] === 'done') return;
+    setLearnState((m) => ({ ...m, [key]: 'loading' }));
+    try {
+      const keyword = p.keywords[0] ?? null;
+      const r1 = await fetch('/api/admin/learn-from-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: p.url, keyword, source_domain: sourceDomain }),
+      });
+      const j1 = await r1.json().catch(() => null);
+      if (!r1.ok || !j1?.ok || !j1?.patterns) throw new Error(j1?.error ?? '분석 실패');
+      const r2 = await fetch('/api/admin/learn-from-url?save=true', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: p.url,
+          keyword,
+          patterns: j1.patterns,
+          source_domain: sourceDomain,
+          notes: `대시보드 도메인 Top10 에서 학습 (${sourceDomain}, ${p.cites}회 인용)`,
+        }),
+      });
+      const j2 = await r2.json().catch(() => null);
+      if (!r2.ok || !j2?.ok) throw new Error(j2?.error ?? '저장 실패');
+      setLearnState((m) => ({ ...m, [key]: 'done' }));
+    } catch {
+      setLearnState((m) => ({ ...m, [key]: 'error' }));
+    }
+  }
+
   return (
     <section className="card mt-6">
       <header className="border-b border-border px-4 py-3 md:px-5">
@@ -197,7 +237,7 @@ export function MarketShareDiagnosis({
                           <div className="text-[11px] text-status-danger">불러오기 실패: {ps.error}</div>
                         ) : !ps.paths || ps.paths.length === 0 ? (
                           <div className="text-[11px] text-ink-muted">
-                            세부 인용 URL이 아직 없습니다. (Gemini grounding 위주로 채워지며, Claude/OpenAI 는 다음 측정부터 누적)
+                            이 도메인은 세부 URL 없이 도메인 단위로만 인용이 수집됐습니다. (다음 측정 cron 부터 URL 누적)
                           </div>
                         ) : (
                           <div>
@@ -218,7 +258,39 @@ export function MarketShareDiagnosis({
                                     >
                                       {p.path}
                                     </a>
-                                    <span className="shrink-0 font-mono text-[11px] font-bold text-ink">{p.cites}회</span>
+                                    <span className="flex shrink-0 items-center gap-2">
+                                      <span className="font-mono text-[11px] font-bold text-ink">{p.cites}회</span>
+                                      {/* Round 121 — 이 URL 을 학습해 다음 콘텐츠 생성에 반영 */}
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          void learnUrl(p, d.domain);
+                                        }}
+                                        disabled={learnState[p.url] === 'loading' || learnState[p.url] === 'done'}
+                                        title="이 URL 의 구조·패턴을 분석해 learned_insights 에 저장 — 다음 cron 생성 prompt 에 자동 주입"
+                                        className={
+                                          learnState[p.url] === 'done'
+                                            ? 'inline-flex items-center gap-1 rounded border border-status-success/30 bg-status-successSoft px-1.5 py-0.5 text-[10px] font-bold text-status-success'
+                                            : learnState[p.url] === 'error'
+                                              ? 'inline-flex items-center gap-1 rounded border border-status-danger/30 bg-status-dangerSoft px-1.5 py-0.5 text-[10px] font-bold text-status-danger hover:opacity-80'
+                                              : 'inline-flex items-center gap-1 rounded border border-brand-200 bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold text-brand-700 transition hover:bg-brand-100 disabled:opacity-60'
+                                        }
+                                      >
+                                        {learnState[p.url] === 'loading' ? (
+                                          <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                        ) : (
+                                          <Sparkles className="h-2.5 w-2.5" />
+                                        )}
+                                        {learnState[p.url] === 'done'
+                                          ? '학습됨'
+                                          : learnState[p.url] === 'error'
+                                            ? '실패 · 재시도'
+                                            : learnState[p.url] === 'loading'
+                                              ? '분석 중'
+                                              : '학습'}
+                                      </button>
+                                    </span>
                                   </div>
                                   <div className="mt-1 flex flex-wrap items-center gap-1">
                                     {p.engines.map((e) => (
@@ -238,8 +310,15 @@ export function MarketShareDiagnosis({
                                 </li>
                               ))}
                             </ul>
-                            <div className="mt-2 text-[10px] text-ink-muted">
-                              💡 <strong>학습 포인트</strong> — 위 경로 글의 주제·구조를 우리 콘텐츠에 반영하면 같은 키워드에서 인용 확률↑ (①-c 자동학습 연결 예정)
+                            <div className="mt-2 flex flex-wrap items-center gap-x-2 text-[10px] text-ink-muted">
+                              💡 <strong>학습</strong> 버튼 — 해당 글의 구조·패턴을 분석해 저장하면 다음 cron 생성 prompt 에 자동 반영됩니다.
+                              <Link
+                                href="/admin/learned-insights"
+                                className="font-semibold text-brand-700 hover:underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                학습 인사이트 관리 →
+                              </Link>
                             </div>
                           </div>
                         )}
