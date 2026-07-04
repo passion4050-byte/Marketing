@@ -22,7 +22,7 @@ import type { TierTrendPoint, ClientRankingItem, KeywordGroundingItem } from './
 
 // Round 124-D — 레퍼런스 위계 팔레트 (DashboardCharts 와 동기화)
 const TIER_COLORS = {
-  t1: '#15B8A6', t3: '#E8A33D', t4: '#5D5FEF', t5: '#A5B4FC', noise: '#E2E8F0',
+  t1: '#15B8A6', t3: '#E8A33D', t4: '#7C3AED', t5: '#818CF8', noise: '#E2E8F0',
 };
 
 type Tab = 'tier' | 'ranking' | 'grounding';

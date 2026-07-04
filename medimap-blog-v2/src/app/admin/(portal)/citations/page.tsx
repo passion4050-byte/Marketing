@@ -91,8 +91,8 @@ const TIER_LABELS: Record<string, { label: string; color: string; short: string 
   T1: { label: '위서클 자체 ⭐', color: '#15B8A6', short: '위서클' },
   T2: { label: '클라이언트 자체', color: '#059669', short: '클라이언트' },
   T3: { label: '권위/공식', color: '#E8A33D', short: '권위' },
-  T4: { label: '의료 플랫폼', color: '#5D5FEF', short: '플랫폼' },
-  T5: { label: '기타 (경쟁사)', color: '#A5B4FC', short: '경쟁사' },
+  T4: { label: '의료 플랫폼', color: '#7C3AED', short: '플랫폼' },
+  T5: { label: '기타 (경쟁사)', color: '#818CF8', short: '경쟁사' },
 };
 
 export default function CitationsPage() {

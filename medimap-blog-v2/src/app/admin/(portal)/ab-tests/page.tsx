@@ -133,10 +133,10 @@ export default function AbTestsPage() {
                   <div className="mb-3 text-[11px] text-ink-muted">가설: {t.hypothesis}</div>
                 )}
 
-                {/* 변형 인용 비교 바 (A 회색 / B 브랜드) */}
+                {/* 변형 인용 비교 바 (A 회색 / B 아이리스 — Round 124-E: 순검정 바가 무거움) */}
                 <div className="mb-2 flex h-3 w-full overflow-hidden rounded-full bg-surface-subtle">
                   <div className="h-full bg-ink-muted/40" style={{ width: `${aPct}%` }} title={`A ${t.variant_a.citations}`} />
-                  <div className="h-full flex-1 bg-ink" title={`B ${t.variant_b.citations}`} />
+                  <div className="h-full flex-1 bg-iris" title={`B ${t.variant_b.citations}`} />
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

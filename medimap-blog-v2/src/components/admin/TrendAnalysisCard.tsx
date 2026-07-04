@@ -43,7 +43,9 @@ const MODE_LABEL: Record<Mode, string> = {
   engine: 'AI 엔진별 인용',
 };
 
-const PALETTE = ['#A855F7', '#F59E0B', '#EF4444', '#64748B', '#0EA5E9', '#EC4899'];
+// Round 124-E — 경쟁 도메인 라인: 원색 혼재(빨강/핑크/스카이) 제거 → 바이올렛·골드·slate
+// 계열 조화 (구분용 뮤트 로즈 1색만 허용)
+const PALETTE = ['#818CF8', '#E8A33D', '#7C3AED', '#64748B', '#E0708A', '#A5B4FC'];
 const ENGINE_LABELS: Record<string, string> = {
   claude: 'Claude',
   gemini: 'Gemini',
@@ -71,7 +73,7 @@ function lineStyleFor(name: string, i: number, clientLabel: string): { stroke: s
     return { stroke, strokeWidth: 2.25 };  // 클라이언트
   }
   // 기존 (single engine 모드)
-  if (name === '위서클 인용 현황') return { stroke: '#1B68FF', strokeWidth: 3 };
+  if (name === '위서클 인용 현황') return { stroke: '#0F766E', strokeWidth: 3 };
   if (name === clientLabel) return { stroke: '#15B8A6', strokeWidth: 2.5 };
   return { stroke: PALETTE[i % PALETTE.length], strokeWidth: 2 };
 }

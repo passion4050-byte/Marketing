@@ -66,8 +66,8 @@ type CompetitorData = {
 // Round 124-D — 통일 팔레트 (citations/dashboard 와 동기화: 골드·아이리스·페리윙클)
 const TIER_LABELS: Record<string, { label: string; color: string; short: string }> = {
   T3: { label: '권위/공식 사이트', color: '#E8A33D', short: '권위' },
-  T4: { label: '의료 플랫폼', color: '#5D5FEF', short: '플랫폼' },
-  T5: { label: '동종업계 경쟁사', color: '#A5B4FC', short: '경쟁' },
+  T4: { label: '의료 플랫폼', color: '#7C3AED', short: '플랫폼' },
+  T5: { label: '동종업계 경쟁사', color: '#818CF8', short: '경쟁' },
 };
 
 // Round 52 fix — business_model 에서 진료과목 키워드 추출 → "경쟁 모발이식 병원" 식으로 라벨 동적화.
