@@ -151,8 +151,8 @@ export function MarketShareDiagnosis({
 
       {/* Round 119-b: 근본 해결 가이드 리스트 삭제 (조치 전부 완료 — 사용자 요청).
           0건 상태만 한 줄 컴팩트 배지로 유지 — 색인·인용 누적 대기 중임을 표시. */}
+      {/* Round 124-B — 빨간 경고 → 뉴트럴 상태 라벨 (조치 완료·대기 상태라 위험 톤 불필요) */}
       {isCritical && (
-        {/* Round 124-B — 빨간 경고 → 뉴트럴 상태 라벨 (조치 완료·대기 상태라 위험 톤 불필요) */}
         <div className="flex items-center gap-2 border-b border-border bg-surface-subtle/60 px-4 py-2.5 md:px-5">
           <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 text-ink-muted" />
           <span className="text-[12px] font-bold text-ink">
