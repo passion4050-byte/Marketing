@@ -4715,7 +4715,30 @@ Round 104-c 사무실 세션에서 이미지 문제 조치됨 (`unsplash_client.
 - 의도적 유지: 엔진 시그니처 도트, status 시맨틱(진짜 알림), 카카오 옐로우, 차트 데이터 색
 - **패치 전달 프로토콜**: 대량 파일 스윕은 fresh clone python → `git diff` 패치 → Marketing 폴더에 저장 → 사용자 `git apply` (Edit 반복보다 안전·경제적. 검증: `git stash` 후 `apply --check`)
 
-### 다음 라운드 후보 (Round 124 세션 종료 시점)
+### Round 124-B~F (2026-07-04~05) — admin 색상 체계 확정 (사용자 피드백 반복 수렴)
+
+수렴 과정: 모노톤(밋밋) → 민트+골드(아직 밋밋) → 레퍼런스(바비톡 어드민) 위계 이식 → **비비드 바이올렛 확정**.
+
+**최종 색상 체계 (정본):**
+- **iris `#7C3AED`** (deep `#6D28D9` / soft `#F5F0FE`) — 인터랙션·포인트: 사이드바 그룹 라벨, 존 넘버 01/02/03, 필터 활성, primary 버튼, input focus, 진행바, A/B B변형 바. **tailwind 토큰 `iris`** — 값만 바꾸면 전역 전환
+- **민트 `#15B8A6`** — 자사 데이터 시맨틱 (위서클 시리즈, ⭐자사 배지, 학습 버튼, KPI 아이콘)
+- **골드 `gold` 토큰 `#E8A33D`/deep `#B87E1C`/soft `#FBF3E4`** — 권위/공식
+- **차트 5-tier 통일** (4곳: DashboardCharts/Tabbed·citations·competitors TIER): T1 민트 · T2 `#059669` · T3 골드 · T4 `#7C3AED` · T5 **`#818CF8` 인디고**(대량면적, 페리윙클 `#A5B4FC`는 "너무 은은" 반려) · noise `#E2E8F0`
+- TrendAnalysisCard 경쟁 라인 PALETTE: `['#818CF8','#E8A33D','#7C3AED','#64748B','#E0708A','#A5B4FC']`
+- 유지 시맨틱: p0 긴급 danger, 의료법 FAIL, 엔진 색(Gemini `#1B68FF` 등), 카카오 옐로우, 봇 시그니처
+- `.admin-scope` 오버라이드로 공용 클래스(btn-primary 등) admin 한정 iris — 퍼블릭 콘솔 brand 블루 불변
+
+**동반 수정**: 자사 위서클 시리즈의 brand 블루 잔재 4곳(리포트 바/라인·SaaS 라인·경쟁사 툴팁) 교체, A/B 순검정 바 → iris, **유튜브/영상 도메인 학습 버튼 → "영상 · 학습 비대상" 라벨** (HTML 구조 분석 비대상 + 봇 차단 — isVideoDomain: youtube/youtu.be/tv.naver).
+
+### 🔴 신규 함정 (Round 124 시리즈에서 확보)
+
+- **함정: JSX 주석 위치** — `{cond && ( {/* 주석 */} <div> )}` 처럼 표현식 괄호 안의 `{/* */}`는 문법 오류 (빌드 실패 실사고). JSX 주석은 자식 노드 위치에만.
+- **프로토콜: esbuild 사전 게이트** — JSX 파일 수정 후 push 전 `/tmp` clone에 수정 재현 → `npx esbuild --loader:.tsx=tsx <파일> --outfile=/dev/null`. 재현 스크립트가 assert 실패하면 게이트 결과 무효(원본 검증이 됨) — assert 통과 확인 필수.
+- **함정: PowerShell 5.1 인코딩** — 한글 포함 .ps1은 UTF-8 BOM 없으면 CP949로 읽혀 파싱 실패. 스크립트는 ASCII-only 메시지로.
+- **함정: 샌드박스→호스트 파일 전달** — bash로 마운트/outputs에 쓴 파일이 호스트에 안 닿을 수 있음 (이 세션에서 양쪽 다 불달 확인). **유일하게 신뢰 가능한 경로 = Write 도구의 호스트 직접 쓰기.** 대량 변경은 패치 파일보다 재현 스크립트(.ps1/python)를 Write로 생성하는 편이 안전.
+- **함정: replace_all 인덴트** — 같은 마크업이 인덴트만 다르게 2곳이면 replace_all이 1곳만 잡음. 치환 후 잔여 grep 필수.
+
+### 다음 라운드 후보 (Round 124-F 세션 종료 시점)
 
 - **Round 121-B 최종**: 학습 버튼 1회 클릭 → 다음 cron 글에서 prompt 실주입 확인 (GH Actions 로그 or 글 구조 변화)
 - **Round 118-B'**: RSS `content:encoded` 본문 포함 (네이버 권장 — 최신 20건만, 크기 제한 절충). 네이버 RSS 수집 상태 며칠 관찰 후 판단
