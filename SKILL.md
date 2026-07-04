@@ -4738,11 +4738,26 @@ Round 104-c 사무실 세션에서 이미지 문제 조치됨 (`unsplash_client.
 - **함정: 샌드박스→호스트 파일 전달** — bash로 마운트/outputs에 쓴 파일이 호스트에 안 닿을 수 있음 (이 세션에서 양쪽 다 불달 확인). **유일하게 신뢰 가능한 경로 = Write 도구의 호스트 직접 쓰기.** 대량 변경은 패치 파일보다 재현 스크립트(.ps1/python)를 Write로 생성하는 편이 안전.
 - **함정: replace_all 인덴트** — 같은 마크업이 인덴트만 다르게 2곳이면 replace_all이 1곳만 잡음. 치환 후 잔여 grep 필수.
 
-### 다음 라운드 후보 (Round 124-F 세션 종료 시점)
+### Round 125~125-B (2026-07-05) — 태깅 자가치유 + 이미지 다양화 + 로딩 스켈레톤
 
-- **Round 121-B 최종**: 학습 버튼 1회 클릭 → 다음 cron 글에서 prompt 실주입 확인 (GH Actions 로그 or 글 구조 변화)
-- **Round 118-B'**: RSS `content:encoded` 본문 포함 (네이버 권장 — 최신 20건만, 크기 제한 절충). 네이버 RSS 수집 상태 며칠 관찰 후 판단
-- **Round 124-B**: 사용자 스샷 기반 admin 잔여 노이즈 최종 점검 + 크롤러/카카오 위젯 데이터 유입 시 02존 승격
+- **파트너 태깅 자가치유**: A/B 아닌 일반 발행 2건(#176/#181)이 is_partner_content=false 로 새어 /with-partners 미노출 → SQL 즉시 백필 + **매 cron 시작 시 idempotent 자가치유 백필** (scheduler, 원인 추적 대신 구조적 해결) + silent `except: pass` 를 로그로 승격
+- **이미지 획일화 해소 1차**: R102 의 "clinic interior" 고정 쿼리가 원인 → 카테고리별 **컨셉 풀 5종**(매크로·정물·추상·아이소메트릭·공간) × keyword+title+섹션 해시 회전 (image_picker CONCEPT_POOLS/pick_concept)
+- **"클릭 안 먹히는 느낌"**: 원인 = 첫 방문 SSR+DB 콜드로 수 초 무반응 → `loading.tsx` 스켈레톤 (상세 2 + 루트 상속 1 + /blog·/with-partners 목록 전용) — 전 라우트 즉시 전환 피드백
+
+### Round 126~126-C (2026-07-05) — 신규 병원 미노출 + 한글 slug 404 + 이미지 맥락화
+
+- **126**: 신규 3개 안과가 `partner_slug=NULL` 등록 → /with-partners URL 부재 + 파트너 판정 스킵으로 영영 미노출. SQL 로 슬러그 부여(clearseoul/healingeye/gangnamyonsei) + 힐링안과 글 태깅 + **tenants POST 에 슬러그 자동 생성 폴백** (이름 영문+id)
+- **126-B**: 파트너 한글 slug 상세 404 — Next params 는 URL-encoded 인데 `getPartnerPost` 만 디코딩 없이 비교 (자사 getPostBySlug 는 디코딩 → /blog 는 정상이던 비대칭). decodeURIComponent 정합
+- **126-C — 이미지 생성 최종 체계 (우선순위)**: **① 글 맥락** — 커버는 Gemini 텍스트 1콜로 글 제목 부합 무인물 컨셉 생성(nano_banana `_generate_context_concept`, 인물 단어 검출 시 폐기→②), 본문은 H2 섹션 제목을 프롬프트 주제로 직접 주입 / **② tenant 진료과** — `_DOMAIN_CATEGORY_MAP` 정확 매핑 (scheduler 가 domain_category 관통 전달) / **③ 키워드 추론** — dental 의 단독 "교정" 제거·hair 최우선 (실사고: 모우림 "헤어라인교정" → 치아 이미지)
+- **커버 인물 반복 해소**: R108-c 무신사 인물 프롬프트 → 무인물 + 맥락 컨셉 (시네마틱 필름톤 유지)
+- 🔴 함정: **키워드 부분 문자열 카테고리 추론은 반드시 구체 단어로** ("교정"⊂"헤어라인교정") — 진료과 같은 상위 신호가 있으면 그걸 1순위로
+
+### 다음 라운드 후보 (Round 126-C 세션 종료 시점)
+
+- **Round 127**: 다음 cron 발행분 검증 3종 — ① 이미지가 글 맥락 부합하는지 (126-C 실효) ② 학습 인사이트 prompt 실주입 (121-B 최종) ③ 자가치유 백필 로그 (`scheduler.partner_tag_healed`)
+- **Round 127-B**: 모우림 #182 등 기존 어긋난 이미지 어드민 재생성 버튼으로 교체 (regenerate-image 가 새 컨셉 체계 쓰는지 확인 — v2 API 는 별도 구현이라 동기화 필요할 수 있음)
+- **Round 118-B'**: RSS `content:encoded` 본문 포함 (네이버 권장, 최신 20건 절충) — 수집 상태 관찰 후
+- **잔여**: 크롤러/카카오 위젯 데이터 유입 시 02존 승격 · 공개 사이트 첫 방문 속도 근본 개선(ISR 검토)
 - **Round 110-A**: 신규 AI 인용 감지 → 이메일 알림 자동화 (실전 GEO 효과 즉시 인지)
 - **Round 110-B**: 크롤러 로그 시각화 위젯 (GPTBot/Claudebot/PerplexityBot 방문 로그)
 - **Round 110-C**: UTM 카카오톡 유입 트래킹 대시보드 (Round 108-e CTA 통일 활용)
