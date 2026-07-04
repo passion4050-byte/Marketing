@@ -42,10 +42,11 @@ const config: Config = {
         // Round 124-D (2026-07-04) — admin 전용 인터랙션 액센트.
         // 레퍼런스 위계(다크 사이드바 + 단일 바이올렛 인터랙션) 이식 — 원 디자인시스템
         // Admin Primary #4F5DF8 퍼플 계열 복원. 퍼블릭 콘솔은 brand 블루 유지.
+        // Round 124-F — 사용자 확정 포인트: 키워드 grounding 차트의 비비드 바이올렛
         iris: {
-          DEFAULT: '#5D5FEF',
-          deep: '#4649D6',
-          soft: '#EEEFFD'
+          DEFAULT: '#7C3AED',
+          deep: '#6D28D9',
+          soft: '#F5F0FE'
         },
         // 권위/공식 시맨틱 — 골드 포인트 (별점·권위 소스)
         gold: {

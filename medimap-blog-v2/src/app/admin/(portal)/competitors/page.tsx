@@ -451,7 +451,7 @@ export default function CompetitorsPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5EBED" horizontal={false} />
                   <XAxis type="number" fontSize={10} stroke="#64748B" allowDecimals={false} />
                   <YAxis type="category" dataKey="domain" stroke="#64748B" width={150} interval={0} tick={<DomainTick />} />
-                  <Tooltip cursor={{ fill: '#1B68FF0A' }} content={<CompetitorBarTooltip />} />
+                  <Tooltip cursor={{ fill: '#7C3AED0F' }} content={<CompetitorBarTooltip />} />
                   <Bar dataKey="count" name="인용 횟수" maxBarSize={16} radius={[0, 3, 3, 0]}>
                     {data.competitor_top.slice(0, 10).map((d, i) => (
                       <Cell key={i} fill={TIER_LABELS[d.tier]?.color ?? '#94A3B8'} />

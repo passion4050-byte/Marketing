@@ -54,6 +54,13 @@ const ENGINE_LABEL: Record<string, string> = {
   gemini: 'Gemini', claude: 'Claude', openai: 'ChatGPT', perplexity: 'Perplexity',
 };
 
+// Round 124-F — 영상 플랫폼은 HTML 구조 학습(H2/표/이미지) 비대상 + 봇 차단으로
+// fetch 실패가 정상. 학습 버튼 대신 비대상 라벨 표시.
+function isVideoDomain(domain: string): boolean {
+  const d = (domain || '').toLowerCase();
+  return d.includes('youtube.com') || d.includes('youtu.be') || d.includes('tv.naver.com');
+}
+
 interface Props {
   domains: DomainRow[];
   medimapCitations: number; // medimap-blog 도메인 인용 (0 일 가능성 높음)
@@ -211,7 +218,7 @@ export function MarketShareDiagnosis({
                     </td>
                     <td className="px-3 py-2">
                       {d.isOwn ? (
-                        <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-bold text-ink">
+                        <span className="rounded bg-accent-soft/60 px-1.5 py-0.5 text-[10px] font-bold text-accent-deep">
                           ⭐ 자사
                         </span>
                       ) : d.isCompetitor ? (
@@ -261,7 +268,13 @@ export function MarketShareDiagnosis({
                                     </a>
                                     <span className="flex shrink-0 items-center gap-2">
                                       <span className="font-mono text-[11px] font-bold text-ink">{p.cites}회</span>
-                                      {/* Round 121 — 이 URL 을 학습해 다음 콘텐츠 생성에 반영 */}
+                                      {/* Round 121 — 이 URL 을 학습해 다음 콘텐츠 생성에 반영.
+                                          Round 124-F — 영상 도메인은 학습 비대상 라벨. */}
+                                      {isVideoDomain(d.domain) ? (
+                                        <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-semibold text-ink-faint">
+                                          영상 · 학습 비대상
+                                        </span>
+                                      ) : (
                                       <button
                                         type="button"
                                         onClick={(e) => {
@@ -291,6 +304,7 @@ export function MarketShareDiagnosis({
                                               ? '분석 중'
                                               : '학습'}
                                       </button>
+                                      )}
                                     </span>
                                   </div>
                                   <div className="mt-1 flex flex-wrap items-center gap-1">

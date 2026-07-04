@@ -165,7 +165,7 @@ export default function SaasTrackingPage() {
                   type="monotone"
                   dataKey="t1_share"
                   name="위서클 share"
-                  stroke="#1B68FF"
+                  stroke="#7C3AED"
                   strokeWidth={2.5}
                   dot={{ r: 3 }}
                 />
