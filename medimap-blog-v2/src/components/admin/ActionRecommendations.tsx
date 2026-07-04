@@ -33,7 +33,8 @@ type ActionItem = {
 
 const SEV_META: Record<Severity, { label: string; cls: string; bg: string }> = {
   p0: { label: '긴급', cls: 'text-status-danger', bg: 'border-status-danger/40 bg-status-danger/5' },
-  p1: { label: '이번 주', cls: 'text-status-warning', bg: 'border-status-warning/40 bg-status-warning/5' },
+  // Round 124-B — p1 노랑 톤다운 (p0 긴급의 danger 만 유채색 유지 — 진짜 알람만 색을 가짐)
+  p1: { label: '이번 주', cls: 'text-ink', bg: 'border-border-strong bg-surface-subtle/80' },
   p2: { label: '참고', cls: 'text-ink', bg: 'border-border-strong bg-surface-muted/60' },
 };
 

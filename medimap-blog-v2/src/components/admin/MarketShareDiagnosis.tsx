@@ -152,9 +152,10 @@ export function MarketShareDiagnosis({
       {/* Round 119-b: 근본 해결 가이드 리스트 삭제 (조치 전부 완료 — 사용자 요청).
           0건 상태만 한 줄 컴팩트 배지로 유지 — 색인·인용 누적 대기 중임을 표시. */}
       {isCritical && (
-        <div className="flex items-center gap-2 border-b border-status-danger/20 bg-status-danger/5 px-4 py-2.5 md:px-5">
-          <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 text-status-danger" />
-          <span className="text-[12px] font-bold text-status-danger">
+        {/* Round 124-B — 빨간 경고 → 뉴트럴 상태 라벨 (조치 완료·대기 상태라 위험 톤 불필요) */}
+        <div className="flex items-center gap-2 border-b border-border bg-surface-subtle/60 px-4 py-2.5 md:px-5">
+          <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 text-ink-muted" />
+          <span className="text-[12px] font-bold text-ink">
             위서클 도메인 AI 인용 0건 ({daysWindow}일)
           </span>
           <span className="hidden text-[11px] text-ink-muted sm:inline">
@@ -214,7 +215,7 @@ export function MarketShareDiagnosis({
                           ⭐ 자사
                         </span>
                       ) : d.isCompetitor ? (
-                        <span className="rounded bg-status-warningSoft px-1.5 py-0.5 text-[10px] font-bold text-status-warning">
+                        <span className="rounded border border-border bg-surface-muted px-1.5 py-0.5 text-[10px] font-bold text-ink-soft">
                           경쟁사
                         </span>
                       ) : (
@@ -329,7 +330,7 @@ export function MarketShareDiagnosis({
               );
             })}
             {/* 위서클 위치 명시 (rank 11 ~ 가상 row) */}
-            <tr className={isCritical ? 'border-t-2 border-status-danger/30 bg-status-danger/5' : 'border-t border-border bg-surface-subtle/60'}>
+            <tr className={isCritical ? 'border-t-2 border-ink/15 bg-surface-subtle/60' : 'border-t border-border bg-surface-subtle/60'}>
               <td className="px-3 py-2 font-mono text-[10px]">⭐</td>
               <td className="px-3 py-2">
                 <span className="text-sm font-bold text-ink">wecircle.co.kr</span>
@@ -341,7 +342,7 @@ export function MarketShareDiagnosis({
                 </span>
               </td>
               <td className="px-3 py-2 text-right">
-                <span className={isCritical ? 'font-mono text-sm font-bold text-status-danger' : 'font-mono text-sm font-bold text-ink'}>
+                <span className="font-mono text-sm font-bold text-ink">
                   {medimapCitations}
                 </span>
               </td>

@@ -20,8 +20,9 @@ import { BarChart3, Users, Target, ChevronDown, ChevronRight, ExternalLink } fro
 import { cn } from '@/lib/cn';
 import type { TierTrendPoint, ClientRankingItem, KeywordGroundingItem } from './DashboardCharts';
 
+// Round 124-B — 차분한 팔레트 (DashboardCharts 와 동기화: ink 앵커 + 민트 단일 액센트)
 const TIER_COLORS = {
-  t1: '#1B68FF', t3: '#15CBA8', t4: '#A855F7', t5: '#F59E0B', noise: '#94A3B8',
+  t1: '#0F172A', t3: '#15B8A6', t4: '#94A3B8', t5: '#64748B', noise: '#E2E8F0',
 };
 
 type Tab = 'tier' | 'ranking' | 'grounding';
@@ -220,7 +221,7 @@ export function DashboardChartsTabbed({ tierTrend, clientRanking, keywordGroundi
                     <tr key={c.tenant_name} className="border-t border-border">
                       <td className="py-1">{c.tenant_name}</td>
                       <td className="text-right font-mono text-ink">{c.t1}</td>
-                      <td className="text-right font-mono text-status-warning">{c.t5}</td>
+                      <td className="text-right font-mono text-ink-muted">{c.t5}</td>
                       <td className="text-right font-mono">{c.total}</td>
                     </tr>
                   ))}

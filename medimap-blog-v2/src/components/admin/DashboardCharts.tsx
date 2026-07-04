@@ -78,12 +78,15 @@ export type NewDomainItem = {
   tenants?: string[];         // Round 39 — 어느 클라이언트 측정에서
 };
 
+// Round 124-B (2026-07-04) — 차트 팔레트 차분화 (ink 모노톤 + 민트 단일 액센트).
+//   기존 블루/퍼플/앰버 5색이 대시보드 정신사나움의 주범 → 위서클(ink 앵커)과
+//   권위(민트)만 유채색, 나머지는 회색 단계로 후퇴.
 const TIER_COLORS = {
-  t1: '#1B68FF',      // 위서클 블루
-  t3: '#15CBA8',      // 권위 — 민트
-  t4: '#A855F7',      // 플랫폼 — 퍼플
-  t5: '#F59E0B',      // 외부/경쟁 — 앰버
-  noise: '#94A3B8',   // noise — 회색
+  t1: '#0F172A',      // 위서클 — ink (앵커)
+  t3: '#15B8A6',      // 권위 — 민트 (유일 액센트)
+  t4: '#94A3B8',      // 플랫폼 — 회색
+  t5: '#64748B',      // 외부/경쟁 — 진회색
+  noise: '#E2E8F0',   // noise — 최후경
 };
 
 export function DashboardCharts({
@@ -121,8 +124,8 @@ export function DashboardCharts({
 
       {/* Round 87 — drill-down 권고 배너 (3차트 위 공통) */}
       {showTierAndRankingCharts && (zeroGroundingKeywords.length > 0 || t5DominantClients.length > 0) && (
-        <section className="card border-status-warning/30 bg-status-warning/5 px-4 py-3 text-[11px] text-ink-soft md:px-5">
-          <div className="font-semibold text-status-warning">💡 차트 액션 권고</div>
+        <section className="card border-border-strong bg-surface-subtle/60 px-4 py-3 text-[11px] text-ink-soft md:px-5">
+          <div className="font-semibold text-ink">💡 차트 액션 권고</div>
           <div className="mt-1">
             {zeroGroundingKeywords.length > 0 && (
               <span>
@@ -344,7 +347,7 @@ export function DashboardCharts({
         <header className="border-b border-border px-4 py-3 md:px-5">
           <div className="flex items-center justify-between gap-2">
             <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-              <AlertCircle className="h-4 w-4 text-status-warning" />
+              <AlertCircle className="h-4 w-4 text-ink-muted" />
               신규 등장 도메인 (최근 7일) — 세부 인사이트
             </h2>
             {/* Round 42 A — 자동 분류 일괄 등록 버튼 */}

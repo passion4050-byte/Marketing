@@ -258,7 +258,7 @@ export function ContentCompetitiveness({ contents }: { contents: Content[] }) {
                         c.mentionsForKeyword >= 50 ? 'bg-status-successSoft text-status-success' :
                         c.mentionsForKeyword >= 10 ? 'bg-surface-muted text-ink' :
                         c.mentionsForKeyword > 0 ? 'bg-surface-subtle text-ink-soft' :
-                        'bg-status-warningSoft text-status-warning'
+                        'bg-surface-muted text-ink-faint'
                       )}>
                         {c.mentionsForKeyword}
                       </span>
