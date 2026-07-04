@@ -76,7 +76,7 @@ export function DashboardChartsTabbed({ tierTrend, clientRanking, keywordGroundi
                 className={cn(
                   'flex flex-shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition',
                   tab === t
-                    ? 'border-brand bg-brand text-white shadow-sm'
+                    ? 'border-ink bg-ink text-white shadow-sm'
                     : 'border-border bg-white text-ink-soft hover:bg-surface-subtle'
                 )}
               >
@@ -219,7 +219,7 @@ export function DashboardChartsTabbed({ tierTrend, clientRanking, keywordGroundi
                   {clientRanking.map((c) => (
                     <tr key={c.tenant_name} className="border-t border-border">
                       <td className="py-1">{c.tenant_name}</td>
-                      <td className="text-right font-mono text-brand-700">{c.t1}</td>
+                      <td className="text-right font-mono text-ink">{c.t1}</td>
                       <td className="text-right font-mono text-status-warning">{c.t5}</td>
                       <td className="text-right font-mono">{c.total}</td>
                     </tr>
@@ -249,10 +249,10 @@ export function DashboardChartsTabbed({ tierTrend, clientRanking, keywordGroundi
             )}
             <div className="mt-2 text-[10px] text-ink-muted">
               🔎 인용 <strong>세부 경로(어떤 URL 이 인용됐는지)</strong>는{' '}
-              <Link href="/admin/citations" className="font-semibold text-brand-700 hover:underline">
+              <Link href="/admin/citations" className="font-semibold text-ink hover:underline">
                 자사 인용 분석 <ExternalLink className="inline h-2 w-2" />
               </Link>{' '}·{' '}
-              <Link href="/admin/competitors" className="font-semibold text-brand-700 hover:underline">
+              <Link href="/admin/competitors" className="font-semibold text-ink hover:underline">
                 경쟁사 분석 <ExternalLink className="inline h-2 w-2" />
               </Link>{' '}및 홈 도메인 Top10 의 행을 클릭해 확인.
             </div>

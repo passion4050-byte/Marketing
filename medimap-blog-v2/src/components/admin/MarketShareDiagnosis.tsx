@@ -141,7 +141,7 @@ export function MarketShareDiagnosis({
     <section className="card mt-6">
       <header className="border-b border-border px-4 py-3 md:px-5">
         <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-          <Globe className="h-4 w-4 text-brand" />
+          <Globe className="h-4 w-4 text-ink-soft" />
           AI 시장 점유 진단 — 도메인 Top 10 ({daysWindow}일)
         </h2>
         <div className="mt-1 text-[11px] text-ink-muted">
@@ -202,7 +202,7 @@ export function MarketShareDiagnosis({
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-1 text-sm font-semibold text-ink hover:text-brand-700"
+                        className="inline-flex items-center gap-1 text-sm font-semibold text-ink hover:text-ink"
                       >
                         {d.domain || '(URL 파싱 실패)'}
                         {d.domain && <ExternalLink className="h-2.5 w-2.5 opacity-50" />}
@@ -210,7 +210,7 @@ export function MarketShareDiagnosis({
                     </td>
                     <td className="px-3 py-2">
                       {d.isOwn ? (
-                        <span className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">
+                        <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-bold text-ink">
                           ⭐ 자사
                         </span>
                       ) : d.isCompetitor ? (
@@ -227,7 +227,7 @@ export function MarketShareDiagnosis({
                     <td className="px-3 py-2 text-right font-mono text-xs">{share.toFixed(1)}%</td>
                   </tr>
                   {isOpen && (
-                    <tr className="bg-brand-50/30">
+                    <tr className="bg-surface-subtle/60">
                       <td colSpan={5} className="px-4 py-3">
                         {!ps || ps.loading ? (
                           <div className="flex items-center gap-2 text-[11px] text-ink-muted">
@@ -253,7 +253,7 @@ export function MarketShareDiagnosis({
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       onClick={(e) => e.stopPropagation()}
-                                      className="truncate font-mono text-[11px] text-brand-700 hover:underline"
+                                      className="truncate font-mono text-[11px] text-ink hover:underline"
                                       title={p.url}
                                     >
                                       {p.path}
@@ -274,7 +274,7 @@ export function MarketShareDiagnosis({
                                             ? 'inline-flex items-center gap-1 rounded border border-status-success/30 bg-status-successSoft px-1.5 py-0.5 text-[10px] font-bold text-status-success'
                                             : learnState[p.url] === 'error'
                                               ? 'inline-flex items-center gap-1 rounded border border-status-danger/30 bg-status-dangerSoft px-1.5 py-0.5 text-[10px] font-bold text-status-danger hover:opacity-80'
-                                              : 'inline-flex items-center gap-1 rounded border border-brand-200 bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold text-brand-700 transition hover:bg-brand-100 disabled:opacity-60'
+                                              : 'inline-flex items-center gap-1 rounded border border-border-strong bg-surface-muted px-1.5 py-0.5 text-[10px] font-bold text-ink transition hover:bg-surface-muted disabled:opacity-60'
                                         }
                                       >
                                         {learnState[p.url] === 'loading' ? (
@@ -314,7 +314,7 @@ export function MarketShareDiagnosis({
                               💡 <strong>학습</strong> 버튼 — 해당 글의 구조·패턴을 분석해 저장하면 다음 cron 생성 prompt 에 자동 반영됩니다.
                               <Link
                                 href="/admin/learned-insights"
-                                className="font-semibold text-brand-700 hover:underline"
+                                className="font-semibold text-ink hover:underline"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 학습 인사이트 관리 →
@@ -329,19 +329,19 @@ export function MarketShareDiagnosis({
               );
             })}
             {/* 위서클 위치 명시 (rank 11 ~ 가상 row) */}
-            <tr className={isCritical ? 'border-t-2 border-status-danger/30 bg-status-danger/5' : 'border-t border-border bg-brand-50/30'}>
+            <tr className={isCritical ? 'border-t-2 border-status-danger/30 bg-status-danger/5' : 'border-t border-border bg-surface-subtle/60'}>
               <td className="px-3 py-2 font-mono text-[10px]">⭐</td>
               <td className="px-3 py-2">
                 <span className="text-sm font-bold text-ink">wecircle.co.kr</span>
                 <span className="ml-2 text-[10px] text-ink-muted">(자사 블로그)</span>
               </td>
               <td className="px-3 py-2">
-                <span className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">
+                <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-bold text-ink">
                   ⭐ 자사
                 </span>
               </td>
               <td className="px-3 py-2 text-right">
-                <span className={isCritical ? 'font-mono text-sm font-bold text-status-danger' : 'font-mono text-sm font-bold text-brand-700'}>
+                <span className={isCritical ? 'font-mono text-sm font-bold text-status-danger' : 'font-mono text-sm font-bold text-ink'}>
                   {medimapCitations}
                 </span>
               </td>
@@ -352,9 +352,9 @@ export function MarketShareDiagnosis({
       </div>
 
       <div className="border-t border-border bg-surface-subtle/50 px-4 py-2 text-[10px] text-ink-muted md:px-5">
-        <Sparkles className="mr-1 inline h-2.5 w-2.5 text-brand" />
+        <Sparkles className="mr-1 inline h-2.5 w-2.5 text-ink-soft" />
         총 {totalCitations.toLocaleString()}건 source URL 중 분포 ·
-        <Link href="/admin/competitors" className="ml-1 font-semibold text-brand-700 hover:underline">
+        <Link href="/admin/competitors" className="ml-1 font-semibold text-ink hover:underline">
           경쟁사 분석 자세히 <ArrowRight className="inline h-2 w-2" />
         </Link>
       </div>

@@ -232,7 +232,7 @@ export default function ContentSettingsPage() {
           <div className="min-w-0 flex-1">
             <label className="text-sm font-semibold text-ink">{f.label}</label>
             <div className="mt-0.5 text-[11px] text-ink-muted">
-              <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[10px] text-brand-700">
+              <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[10px] text-ink">
                 {f.key}
               </code>
               {f.hint && <span className="ml-2">{f.hint}</span>}
@@ -255,7 +255,7 @@ export default function ContentSettingsPage() {
                   className={cn(
                     'cursor-pointer rounded-md border px-3 py-1.5 text-xs transition',
                     value === o.value
-                      ? 'border-brand bg-brand-50 font-semibold text-brand-700'
+                      ? 'border-ink bg-surface-muted font-semibold text-ink'
                       : 'border-border bg-surface-base text-ink-soft hover:bg-surface-subtle'
                   )}
                 >
@@ -318,7 +318,7 @@ export default function ContentSettingsPage() {
             className={cn(
               'inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold transition',
               dirty
-                ? 'bg-brand text-white hover:bg-brand-700'
+                ? 'bg-ink text-white hover:bg-ink/85'
                 : 'cursor-not-allowed bg-surface-subtle text-ink-faint'
             )}
           >
@@ -369,7 +369,7 @@ export default function ContentSettingsPage() {
         <div className="space-y-5">
           {GROUPS.map((g) => (
             <section key={g.group} className="card p-5">
-              <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-brand-700">
+              <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-ink">
                 {g.group}
               </h2>
               <div>{g.fields.map((f) => renderField(f))}</div>

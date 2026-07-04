@@ -120,8 +120,8 @@ export function ReportRangeSelector({
               }}
               className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
                 active
-                  ? 'border-brand bg-brand text-white shadow-sm'
-                  : 'border-border bg-white text-ink hover:border-brand-200 hover:bg-brand-50/50'
+                  ? 'border-ink bg-ink text-white shadow-sm'
+                  : 'border-border bg-white text-ink hover:border-border-strong hover:bg-surface-muted/60'
               }`}
             >
               {p.label}
@@ -136,8 +136,8 @@ export function ReportRangeSelector({
           onClick={() => setShowCustom((v) => !v)}
           className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
             showCustom || activeCode === 'custom'
-              ? 'border-brand bg-brand text-white shadow-sm'
-              : 'border-border bg-white text-ink hover:border-brand-200 hover:bg-brand-50/50'
+              ? 'border-ink bg-ink text-white shadow-sm'
+              : 'border-border bg-white text-ink hover:border-border-strong hover:bg-surface-muted/60'
           }`}
         >
           <Calendar size={12} strokeWidth={2} /> 커스텀
@@ -147,7 +147,7 @@ export function ReportRangeSelector({
             <Loader2 size={12} className="animate-spin" /> 로딩
           </span>
         )}
-        <span className="ml-auto rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-brand-700">
+        <span className="ml-auto rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-ink">
           현재: {activeLabel}
         </span>
       </div>

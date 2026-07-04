@@ -176,7 +176,7 @@ export default function ReportsListPage() {
               placeholder="검색 (이름·이메일)"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-44 rounded-md border border-border bg-surface-base py-1.5 pl-7 pr-2 text-[11px] focus:border-brand focus:outline-none"
+              className="w-44 rounded-md border border-border bg-surface-base py-1.5 pl-7 pr-2 text-[11px] focus:border-ink focus:outline-none"
             />
           </div>
           <select
@@ -217,10 +217,10 @@ export default function ReportsListPage() {
           {/* === 자사 (위서클) === */}
           {selfTenant && (
             <GroupCard
-              stripe="bg-brand"
+              stripe="bg-ink"
               header={
                 <>
-                  <span className="rounded bg-brand/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand">자사</span>
+                  <span className="rounded bg-ink/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink-soft">자사</span>
                   <h2 className="text-sm font-bold text-ink">위서클 (외부 발송 대상 아님)</h2>
                 </>
               }
@@ -232,7 +232,7 @@ export default function ReportsListPage() {
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
                   <div className="text-right">
-                    <div className="font-mono text-xl font-bold text-brand">{selfTenant.publish_count ?? 0}</div>
+                    <div className="font-mono text-xl font-bold text-ink-soft">{selfTenant.publish_count ?? 0}</div>
                     <div className="text-[9px] uppercase text-ink-muted">발행</div>
                   </div>
                   <Link href={`/admin/reports/${selfTenant.id}`} target="_blank"
@@ -319,7 +319,7 @@ export default function ReportsListPage() {
                               <button
                                 onClick={() => sendEmail(t.id)}
                                 disabled={sending === t.id}
-                                className="inline-flex items-center gap-1 rounded bg-brand px-2 py-1 text-[10px] font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+                                className="inline-flex items-center gap-1 rounded bg-ink px-2 py-1 text-[10px] font-semibold text-white hover:bg-ink/85 disabled:opacity-60"
                               >
                                 {sending === t.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
                                 발송

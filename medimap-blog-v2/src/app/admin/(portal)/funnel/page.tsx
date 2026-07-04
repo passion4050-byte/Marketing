@@ -157,7 +157,7 @@ export default async function FunnelPage() {
           <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-ink-muted">
             <Target className="h-3 w-3" /> 우리 멘션
           </div>
-          <div className="mt-1 text-2xl font-bold text-brand">{totals.mentions.toLocaleString()}</div>
+          <div className="mt-1 text-2xl font-bold text-ink-soft">{totals.mentions.toLocaleString()}</div>
           <div className="text-[10px] text-ink-muted">전환율 {overallCitationRate.toFixed(1)}%</div>
         </div>
         <div className="card card-pad">
@@ -215,7 +215,7 @@ export default async function FunnelPage() {
                     <td className="px-3 py-2.5 text-right font-mono text-xs text-ink-muted">
                       {r.measureQueries.toLocaleString()}
                     </td>
-                    <td className="px-3 py-2.5 text-right font-mono text-sm font-bold text-brand">
+                    <td className="px-3 py-2.5 text-right font-mono text-sm font-bold text-ink-soft">
                       {r.targetMentions.toLocaleString()}
                     </td>
                     <td className="px-3 py-2.5 text-right font-mono text-xs">

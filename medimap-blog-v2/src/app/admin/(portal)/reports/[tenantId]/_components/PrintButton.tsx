@@ -6,7 +6,7 @@ export function PrintButton() {
   return (
     <button
       onClick={() => window.print()}
-      className="inline-flex items-center gap-1.5 rounded-md bg-brand px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-brand-dark"
+      className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-ink/85"
     >
       <Printer className="h-3.5 w-3.5" />
       PDF 저장 / 인쇄

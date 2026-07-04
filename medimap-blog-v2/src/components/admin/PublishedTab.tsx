@@ -107,7 +107,7 @@ function FilterChip({
 }) {
   const activeCls =
     color === 'brand'
-      ? 'bg-brand text-white border-brand'
+      ? 'bg-ink text-white border-ink'
       : color === 'accent'
       ? 'bg-accent text-white border-accent'
       : color === 'muted'

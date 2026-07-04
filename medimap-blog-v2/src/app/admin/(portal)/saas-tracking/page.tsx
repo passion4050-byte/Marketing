@@ -63,7 +63,7 @@ export default function SaasTrackingPage() {
   if (loading) {
     return (
       <div className="px-4 py-6 md:px-8">
-        <Loader2 className="inline h-5 w-5 animate-spin text-brand" /> 로딩 중...
+        <Loader2 className="inline h-5 w-5 animate-spin text-ink-soft" /> 로딩 중...
       </div>
     );
   }
@@ -89,7 +89,7 @@ export default function SaasTrackingPage() {
       <header className="admin-page-header">
         <div>
           <h1 className="admin-page-title flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-brand" />
+            <Sparkles className="h-5 w-5 text-ink-soft" />
             GEO 최적화 관리
           </h1>
           <div className="admin-page-desc">
@@ -139,7 +139,7 @@ export default function SaasTrackingPage() {
       <section id="share-trend" className="card scroll-mt-20">
         <header className="border-b border-border px-4 py-3 md:px-5">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-            <TrendingUp className="h-4 w-4 text-brand" />
+            <TrendingUp className="h-4 w-4 text-ink-soft" />
             위서클 점유율 추이 (최근 30일)
           </h2>
           <div className="mt-1 text-[11px] text-ink-muted">
@@ -179,7 +179,7 @@ export default function SaasTrackingPage() {
       <section id="keyword-grounding" className="card scroll-mt-20">
         <header className="border-b border-border px-4 py-3 md:px-5">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-            <Target className="h-4 w-4 text-brand" />
+            <Target className="h-4 w-4 text-ink-soft" />
             SaaS 키워드별 grounding rate
           </h2>
           <div className="mt-1 text-[11px] text-ink-muted">
@@ -214,7 +214,7 @@ export default function SaasTrackingPage() {
                       <span
                         className={
                           k.rate >= 0.5
-                            ? 'font-bold text-brand'
+                            ? 'font-bold text-ink-soft'
                             : k.rate >= 0.2
                               ? 'text-ink'
                               : 'text-status-danger'
@@ -225,7 +225,7 @@ export default function SaasTrackingPage() {
                     </td>
                     <td className="px-3 py-2 text-right">
                       {k.t1 > 0 ? (
-                        <span className="rounded bg-brand-50 px-1.5 py-0.5 font-bold text-brand">
+                        <span className="rounded bg-surface-muted px-1.5 py-0.5 font-bold text-ink-soft">
                           {k.t1}
                         </span>
                       ) : (
@@ -244,7 +244,7 @@ export default function SaasTrackingPage() {
       <section id="competitor-saas" className="card scroll-mt-20">
         <header className="border-b border-border px-4 py-3 md:px-5">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-            <Sparkles className="h-4 w-4 text-brand" />
+            <Sparkles className="h-4 w-4 text-ink-soft" />
             경쟁 SaaS 도메인 자동 발견
           </h2>
           <div className="mt-1 text-[11px] text-ink-muted">
@@ -268,7 +268,7 @@ export default function SaasTrackingPage() {
                       className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-surface-subtle"
                     >
                       <span className="font-mono text-[12px]">{c.domain}</span>
-                      <span className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold text-brand">
+                      <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-bold text-ink-soft">
                         ×{c.count}
                       </span>
                     </button>
@@ -277,12 +277,12 @@ export default function SaasTrackingPage() {
                         <ul className="space-y-1">
                           {c.urls.map((url, i) => (
                             <li key={i} className="flex items-start gap-1.5">
-                              <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-brand" />
+                              <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-ink-soft" />
                               <a
                                 href={url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-[11px] text-brand-700 underline decoration-dotted hover:text-brand"
+                                className="text-[11px] text-ink underline decoration-dotted hover:text-ink"
                               >
                                 {decodeURIComponent(url).slice(0, 110)}
                                 {url.length > 110 && '…'}
@@ -322,9 +322,9 @@ function KpiCard({
     <>
       <div className="flex items-center justify-between gap-1">
         <div className="text-[11px] text-ink-muted">{label}</div>
-        {href && <span className="text-[10px] text-ink-faint transition group-hover:text-brand">↓ 자세히</span>}
+        {href && <span className="text-[10px] text-ink-faint transition group-hover:text-ink">↓ 자세히</span>}
       </div>
-      <div className={`mt-1 text-2xl font-bold ${highlight ? 'text-brand' : 'text-ink'}`}>
+      <div className={`mt-1 text-2xl font-bold ${highlight ? 'text-ink-soft' : 'text-ink'}`}>
         {value}
         {suffix && <span className="ml-1 text-sm font-normal text-ink-muted">{suffix}</span>}
       </div>
@@ -335,7 +335,7 @@ function KpiCard({
     return (
       <a
         href={href}
-        className="card card-pad group block cursor-pointer transition hover:border-brand/30 hover:shadow-sm"
+        className="card card-pad group block cursor-pointer transition hover:border-border-strong hover:shadow-sm"
       >
         {inner}
       </a>

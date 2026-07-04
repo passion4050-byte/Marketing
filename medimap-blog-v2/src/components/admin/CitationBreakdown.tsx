@@ -92,7 +92,7 @@ function CitationRow({ ct }: { ct: Citation }) {
     <div className="rounded-md border border-border bg-surface-base px-3 py-2">
       {/* 키워드 + 인용수 + 엔진 chip(클릭 필터) */}
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="rounded bg-brand-50 px-1.5 py-0.5 text-[11px] font-semibold text-brand-700">
+        <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[11px] font-semibold text-ink">
           {ct.keyword}
         </span>
         <span className="rounded bg-ink/5 px-1.5 py-0.5 text-[10px] font-bold text-ink-soft">
@@ -107,7 +107,7 @@ function CitationRow({ ct }: { ct: Citation }) {
               type="button"
               onClick={() => setSel(active ? null : e)}
               title={n > 0 ? `${e} 인용 URL ${n}개만 보기` : `${e}는 이 키워드에서 URL 미수집`}
-              className={`rounded transition ${active ? 'ring-2 ring-brand ring-offset-1' : 'opacity-80 hover:opacity-100'}`}
+              className={`rounded transition ${active ? 'ring-2 ring-ink/30 ring-offset-1' : 'opacity-80 hover:opacity-100'}`}
             >
               <EngineChip engine={e} count={n || undefined} />
             </button>
@@ -128,12 +128,12 @@ function CitationRow({ ct }: { ct: Citation }) {
         <ul className="mt-1.5 space-y-1">
           {shown.map((url, ui) => (
             <li key={ui} className="flex items-start gap-1.5">
-              <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-brand" />
+              <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-ink-soft" />
               <a
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="break-all text-[11px] text-brand-700 underline decoration-dotted hover:text-brand"
+                className="break-all text-[11px] text-ink underline decoration-dotted hover:text-ink"
               >
                 {decodeURIComponent(url).slice(0, 100)}
                 {url.length > 100 && '…'}

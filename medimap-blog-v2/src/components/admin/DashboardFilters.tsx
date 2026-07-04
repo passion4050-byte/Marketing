@@ -146,7 +146,7 @@ export function DashboardFilters({
             <button
               type="button"
               onClick={() => selectTenant(matchedTenant.id)}
-              className="rounded bg-brand px-2 py-1 text-[11px] font-semibold text-white"
+              className="rounded bg-ink px-2 py-1 text-[11px] font-semibold text-white"
             >
               적용
             </button>
@@ -167,7 +167,7 @@ export function DashboardFilters({
               className={cn(
                 'rounded-md border px-2.5 py-1 font-semibold transition',
                 currentPeriod === p
-                  ? 'border-brand bg-brand text-white'
+                  ? 'border-ink bg-ink text-white'
                   : 'border-border bg-surface-base text-ink-soft hover:bg-surface-soft'
               )}
             >
@@ -198,7 +198,7 @@ export function DashboardFilters({
             type="button"
             onClick={applyCustomRange}
             disabled={!fromDraft || !toDraft}
-            className="rounded bg-brand px-3 py-1 font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
+            className="rounded bg-ink px-3 py-1 font-semibold text-white hover:bg-ink/85 disabled:opacity-50"
           >
             적용
           </button>

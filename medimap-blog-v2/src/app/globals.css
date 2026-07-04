@@ -123,10 +123,33 @@ body {
     @apply mb-5 flex flex-wrap items-start justify-between gap-2;
   }
   .admin-page-title {
-    @apply text-xl font-bold text-ink md:text-2xl;
+    /* Round 124 — 위계 강화: 페이지 타이틀을 확실한 앵커로 (tasteskill: 타이포 위계 우선) */
+    @apply text-[22px] font-black tracking-[-0.02em] text-ink md:text-[26px];
   }
   .admin-page-desc {
     @apply mt-1 text-[12px] text-ink-muted md:text-sm;
+  }
+  /* Round 124 (2026-07-04) — admin ink 모노톤 스코프.
+     공용 클래스(.btn-primary/.chip-brand/.input-base 등)의 brand 블루는 퍼블릭
+     콘솔 페이지와 공유라 직접 수정 불가 → AdminShell 루트의 .admin-scope 로
+     admin 에서만 중화. tasteskill: 제네릭 SaaS 블루 제거, 단일 액센트 절제. */
+  .admin-scope .btn-primary {
+    @apply bg-ink hover:bg-ink/85 focus:ring-ink/25;
+  }
+  .admin-scope .chip-brand {
+    @apply bg-surface-muted text-ink-soft;
+  }
+  .admin-scope .input-base {
+    @apply focus:border-ink focus:ring-ink/10;
+  }
+  .admin-scope .progress-track {
+    @apply bg-surface-muted;
+  }
+  .admin-scope .progress-fill {
+    @apply bg-ink;
+  }
+  .admin-scope .sidebar-link {
+    @apply hover:bg-surface-muted hover:text-ink;
   }
   /* 모든 admin 표를 mobile-safe wrap. 컬럼 많아도 가로 스크롤 안 깨짐 */
   .admin-table-wrap {

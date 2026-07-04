@@ -77,7 +77,7 @@ export function DomainHistoryButton({ domain, label = '추이' }: { domain: stri
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <h3 className="flex items-center gap-1.5 text-base font-bold text-ink">
-                  <TrendingUp className="h-4 w-4 text-brand" />
+                  <TrendingUp className="h-4 w-4 text-ink-soft" />
                   도메인 인용 추이 (30일)
                 </h3>
                 <div className="mt-0.5 font-mono text-[11px] text-ink-muted">{domain}</div>
@@ -89,7 +89,7 @@ export function DomainHistoryButton({ domain, label = '추이' }: { domain: stri
 
             {loading && (
               <div className="flex h-40 items-center justify-center">
-                <Loader2 className="h-5 w-5 animate-spin text-brand" />
+                <Loader2 className="h-5 w-5 animate-spin text-ink-soft" />
               </div>
             )}
 
@@ -109,7 +109,7 @@ export function DomainHistoryButton({ domain, label = '추이' }: { domain: stri
                       <div className="mb-3 flex items-center gap-2 rounded border border-border bg-surface-soft px-3 py-2 text-[11px]">
                         <span
                           className={`rounded px-1.5 py-0.5 text-[10px] font-bold text-white ${
-                            data.classification.tier === 'T1' ? 'bg-brand'
+                            data.classification.tier === 'T1' ? 'bg-ink'
                             : data.classification.tier === 'T3' ? 'bg-status-warning'
                             : data.classification.tier === 'T4' ? 'bg-status-success'
                             : data.classification.tier === 'NOISE' ? 'bg-ink-muted'

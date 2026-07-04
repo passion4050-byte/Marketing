@@ -76,7 +76,7 @@ export default function AuditPage() {
                     'inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold',
                     a.action.includes('publish') ? 'bg-status-successSoft text-status-success' :
                     a.action.includes('delete') ? 'bg-status-dangerSoft text-status-danger' :
-                    'bg-brand-50 text-brand-700'
+                    'bg-surface-muted text-ink'
                   )}>{a.action}</span>
                 </td>
                 <td className="px-4 py-3 font-mono text-[11px] text-ink-soft">{a.resource ?? '—'}</td>

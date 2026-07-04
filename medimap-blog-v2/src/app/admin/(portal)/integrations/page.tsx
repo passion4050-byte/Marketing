@@ -78,7 +78,7 @@ export default function IntegrationsPage() {
         </div>
       </header>
 
-      <div className="card mb-4 border-l-4 border-brand bg-brand-50/40 p-4 text-xs text-brand-700">
+      <div className="card mb-4 border-l-4 border-ink bg-surface-muted/60 p-4 text-xs text-ink">
         <strong>YouTube 연동 안내:</strong> 각 클라이언트(병원)가 자기 채널에 OAuth 인증해야 합니다.
         access_token / refresh_token 은 Supabase 에 암호화 저장되며, 위서클은 영상 업로드 권한만 보유합니다.
         Google Cloud Console 에서 OAuth Client ID 발급 + 콜백 URL <code className="rounded bg-surface-base px-1 py-0.5">/api/admin/youtube/oauth/callback</code> 등록 필요.
@@ -91,7 +91,7 @@ export default function IntegrationsPage() {
           return (
             <div key={i.id} className="card flex items-start justify-between gap-4 p-5">
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-muted text-ink">
                   <Icon className="h-5 w-5" />
                 </div>
                 <div>
@@ -100,7 +100,7 @@ export default function IntegrationsPage() {
                     <span className={cn(
                       'inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold',
                       i.status === 'connected' ? 'bg-status-successSoft text-status-success' :
-                      i.status === 'available' ? 'bg-brand-50 text-brand-700' :
+                      i.status === 'available' ? 'bg-surface-muted text-ink' :
                       'bg-surface-muted text-ink-muted'
                     )}>
                       {i.status === 'connected' ? '연결됨' : i.status === 'available' ? '사용 가능' : '로드맵'}

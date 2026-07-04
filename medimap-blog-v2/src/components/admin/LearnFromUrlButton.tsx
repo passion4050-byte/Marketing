@@ -132,7 +132,7 @@ export function LearnFromUrlButton({
         type="button"
         onClick={open}
         disabled={loading}
-        className="inline-flex items-center gap-1 rounded border border-brand/30 bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand hover:bg-brand-100 disabled:opacity-50"
+        className="inline-flex items-center gap-1 rounded border border-border bg-surface-muted px-2 py-0.5 text-[10px] font-semibold text-ink-soft hover:bg-surface-muted disabled:opacity-50"
         title="이 URL 의 메타 구조 학습 → 콘텐츠 가이드에 반영"
       >
         {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
@@ -194,7 +194,7 @@ export function LearnFromUrlButton({
                           className={cn(
                             'rounded px-1.5 py-0.5 font-mono',
                             t === 'FAQPage' || ['MedicalProcedure', 'MedicalCondition', 'Hospital'].includes(t)
-                              ? 'bg-brand-50 text-brand'
+                              ? 'bg-surface-muted text-ink-soft'
                               : 'bg-surface-base text-ink-soft'
                           )}
                         >
@@ -241,7 +241,7 @@ export function LearnFromUrlButton({
                     className={cn(
                       'mt-2 rounded border px-3 py-1.5 text-[11px]',
                       savedMessage.startsWith('✓')
-                        ? 'border-brand/30 bg-brand-50 text-brand'
+                        ? 'border-border bg-surface-muted text-ink-soft'
                         : 'border-status-danger/30 bg-status-dangerSoft/40 text-status-danger'
                     )}
                   >
@@ -261,7 +261,7 @@ export function LearnFromUrlButton({
                   <button
                     onClick={save}
                     disabled={saving || !!savedMessage}
-                    className="inline-flex items-center gap-1 rounded bg-brand px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded bg-ink px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-ink/85 disabled:opacity-50"
                   >
                     {saving ? (
                       <Loader2 className="h-3 w-3 animate-spin" />

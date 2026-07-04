@@ -1185,7 +1185,7 @@ export default async function AdminDashboardPage({
             <h2 className="section-title">최근 검수 대기 (Top 3)</h2>
             <Link
               href="/admin/content-queue"
-              className="text-xs font-semibold text-brand-700 hover:underline"
+              className="text-xs font-semibold text-ink hover:underline"
             >
               전체 보기 <ArrowUpRight className="inline h-3 w-3" />
             </Link>
@@ -1235,7 +1235,7 @@ export default async function AdminDashboardPage({
             <h2 className="section-title">최근 AI 인용 (24h)</h2>
             <Link
               href="/admin/citations"
-              className="text-xs font-semibold text-brand-700 hover:underline"
+              className="text-xs font-semibold text-ink hover:underline"
             >
               전체 보기 <ArrowUpRight className="inline h-3 w-3" />
             </Link>

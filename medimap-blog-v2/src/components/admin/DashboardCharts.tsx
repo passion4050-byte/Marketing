@@ -145,12 +145,12 @@ export function DashboardCharts({
       <section className="card">
         <header className="border-b border-border px-4 py-3 md:px-5">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-            <BarChart3 className="h-4 w-4 text-brand" />
+            <BarChart3 className="h-4 w-4 text-ink-soft" />
             5-tier 점유율 추이 (30일)
           </h2>
           <div className="mt-1 text-[11px] text-ink-muted">
             위서클(T1) · 권위(T3) · 플랫폼(T4) · 외부/경쟁(T5) · noise 일자별 stacked.
-            <span className="ml-1 text-brand">T1 ↑ + T5 ↓</span> 가 가치 증명
+            <span className="ml-1 text-ink-soft">T1 ↑ + T5 ↓</span> 가 가치 증명
           </div>
         </header>
         <div className="p-2 md:p-4">
@@ -221,7 +221,7 @@ export function DashboardCharts({
       <section className="card">
         <header className="border-b border-border px-4 py-3 md:px-5">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-            <Users className="h-4 w-4 text-brand" />
+            <Users className="h-4 w-4 text-ink-soft" />
             클라이언트별 AI 인용 ranking (Top 5) — T1 vs 외부 stacked
           </h2>
           <div className="mt-1 text-[11px] text-ink-muted">
@@ -273,7 +273,7 @@ export function DashboardCharts({
       <section className="card">
         <header className="border-b border-border px-4 py-3 md:px-5">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-            <Target className="h-4 w-4 text-brand" />
+            <Target className="h-4 w-4 text-ink-soft" />
             Top 키워드 grounding rate
           </h2>
           <div className="mt-1 space-y-1 text-[11px] text-ink-muted">
@@ -357,7 +357,7 @@ export function DashboardCharts({
           </div>
           <div className="mt-1 text-[11px] text-ink-muted">
             지난 7일 첫 인용 외부 도메인 + <strong>어떤 키워드/콘텐츠</strong>로 등장했는지. 시장 변화 / 신규 경쟁사 / 인사이트 출처 감지.
-            <span className="ml-1 text-brand">자동 분류</span> 버튼으로 rule-based 매칭 도메인 일괄 등록 가능
+            <span className="ml-1 text-ink-soft">자동 분류</span> 버튼으로 rule-based 매칭 도메인 일괄 등록 가능
           </div>
         </header>
         <div className="p-2 md:p-4">
@@ -382,7 +382,7 @@ export function DashboardCharts({
                     </span>
                     <span className="flex-1 font-mono">{d.domain}</span>
                     <span className="text-[10px] text-ink-muted">첫 등장 {d.first_seen}</span>
-                    <span className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold text-brand">
+                    <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-bold text-ink-soft">
                       ×{d.occurrences}
                     </span>
                   </summary>
@@ -413,7 +413,7 @@ export function DashboardCharts({
                                 href={url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="font-mono text-brand-700 underline decoration-dotted hover:text-brand"
+                                className="font-mono text-ink underline decoration-dotted hover:text-ink"
                               >
                                 {decodeURIComponent(url).slice(0, 110)}
                                 {url.length > 110 && '…'}
@@ -426,7 +426,7 @@ export function DashboardCharts({
                     <div className="flex justify-end pt-1">
                       <a
                         href={`/admin/domain-classifications`}
-                        className="text-[10px] text-brand hover:underline"
+                        className="text-[10px] text-ink-soft hover:underline"
                       >
                         분류 사전에서 편집 →
                       </a>

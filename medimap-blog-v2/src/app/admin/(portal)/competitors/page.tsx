@@ -186,7 +186,7 @@ export default function CompetitorsPage() {
                 onClick={() => setDays(d)}
                 className={cn(
                   'rounded-md px-2.5 py-1 text-[11px] font-semibold transition',
-                  days === d ? 'bg-brand text-white' : 'text-ink-soft hover:bg-surface-subtle'
+                  days === d ? 'bg-ink text-white' : 'text-ink-soft hover:bg-surface-subtle'
                 )}
               >
                 {d}일
@@ -218,7 +218,7 @@ export default function CompetitorsPage() {
           <button
             type="button"
             onClick={() => setTenantDropdownOpen((v) => !v)}
-            className="flex w-full items-center justify-between rounded-lg border border-border bg-surface-base px-3 py-2 text-sm transition hover:border-brand-200"
+            className="flex w-full items-center justify-between rounded-lg border border-border bg-surface-base px-3 py-2 text-sm transition hover:border-border-strong"
           >
             <span className="font-semibold text-ink">{selectedName}</span>
             <ChevronDown className="h-4 w-4 text-ink-muted" />
@@ -233,7 +233,7 @@ export default function CompetitorsPage() {
                     placeholder="병원명 검색…"
                     value={tenantSearch}
                     onChange={(e) => setTenantSearch(e.target.value)}
-                    className="w-full rounded-md border border-border bg-surface-subtle py-1.5 pl-7 pr-2 text-xs focus:border-brand focus:outline-none"
+                    className="w-full rounded-md border border-border bg-surface-subtle py-1.5 pl-7 pr-2 text-xs focus:border-ink focus:outline-none"
                     autoFocus
                   />
                 </div>
@@ -248,7 +248,7 @@ export default function CompetitorsPage() {
                     }}
                     className={cn(
                       'flex w-full items-center justify-between px-3 py-2 text-xs hover:bg-surface-subtle',
-                      tenantId === null && 'bg-brand-50 font-semibold text-brand'
+                      tenantId === null && 'bg-surface-muted font-semibold text-ink-soft'
                     )}
                   >
                     <span>전체 보기</span>
@@ -265,7 +265,7 @@ export default function CompetitorsPage() {
                       }}
                       className={cn(
                         'flex w-full items-center justify-between px-3 py-2 text-xs hover:bg-surface-subtle',
-                        tenantId === t.id && 'bg-brand-50 font-semibold text-brand'
+                        tenantId === t.id && 'bg-surface-muted font-semibold text-ink-soft'
                       )}
                     >
                       <span>{t.name}</span>
@@ -278,8 +278,8 @@ export default function CompetitorsPage() {
           )}
         </div>
         {businessModel && (
-          <div className="mt-3 rounded-md bg-brand-50/40 px-3 py-2 text-[11px]">
-            <span className="font-semibold text-brand-700">비즈니스 모델:</span>{' '}
+          <div className="mt-3 rounded-md bg-surface-muted/60 px-3 py-2 text-[11px]">
+            <span className="font-semibold text-ink">비즈니스 모델:</span>{' '}
             <span className="text-ink-soft">{businessModel}</span>
             <div className="mt-1 text-[10px] text-ink-muted">
               ℹ️ 경쟁사 측정 — 매일 KST 07:00 자동 측정
@@ -332,7 +332,7 @@ export default function CompetitorsPage() {
                     <ul className="space-y-1.5">
                       {top3.map((c, i) => (
                         <li key={i} className="flex items-center justify-between gap-2 text-[11px]">
-                          <DomainLink domain={c.domain} className="truncate font-mono text-ink hover:text-brand hover:underline" />
+                          <DomainLink domain={c.domain} className="truncate font-mono text-ink hover:text-ink hover:underline" />
                           <span className="shrink-0 rounded bg-status-dangerSoft px-1.5 py-0.5 font-bold text-status-danger">
                             ×{c.count}
                           </span>
@@ -358,7 +358,7 @@ export default function CompetitorsPage() {
                     <ul className="space-y-1.5">
                       {t3.map((c, i) => (
                         <li key={i} className="flex items-center justify-between gap-2 text-[11px]">
-                          <DomainLink domain={c.domain} className="truncate font-mono text-ink hover:text-brand hover:underline" />
+                          <DomainLink domain={c.domain} className="truncate font-mono text-ink hover:text-ink hover:underline" />
                           <span className="shrink-0 rounded bg-status-warningSoft px-1.5 py-0.5 font-bold text-status-warning">
                             ×{c.count}
                           </span>
@@ -371,8 +371,8 @@ export default function CompetitorsPage() {
               </div>
 
               {/* 3. 액션 — 이번 주 권장 액션 */}
-              <div className="card card-pad border-l-4 border-l-brand">
-                <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-brand">
+              <div className="card card-pad border-l-4 border-l-ink">
+                <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-soft">
                   <span>✅ 이번 주 액션</span>
                 </div>
                 <ul className="space-y-1.5 text-[11px] text-ink-soft">
@@ -465,7 +465,7 @@ export default function CompetitorsPage() {
           <aside className="card card-pad">
             <h3 className="section-title mb-1">내 점유 현황</h3>
             <p className="mb-3 text-[11px] text-ink-muted">
-              AI가 답변에 인용한 출처 중 <strong className="text-brand">우리 편</strong>(위서클이 쓴 글 + 병원 사이트)이 차지하는 비율
+              AI가 답변에 인용한 출처 중 <strong className="text-ink-soft">우리 편</strong>(위서클이 쓴 글 + 병원 사이트)이 차지하는 비율
             </p>
             {(() => {
               const cs = data.client_status;
@@ -480,15 +480,15 @@ export default function CompetitorsPage() {
                   {/* 큰 점유율 + 우리 vs 경쟁사 스택 바 */}
                   <div>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-extrabold text-brand">{sharePct}%</span>
+                      <span className="text-3xl font-extrabold text-ink-soft">{sharePct}%</span>
                       <span className="text-[11px] text-ink-muted">우리 점유율</span>
                     </div>
                     <div className="mt-2 flex h-3 w-full overflow-hidden rounded-full bg-surface-subtle">
-                      <div className="h-full bg-brand" style={{ width: `${Math.min(100, sharePct)}%` }} />
+                      <div className="h-full bg-ink" style={{ width: `${Math.min(100, sharePct)}%` }} />
                       <div className="h-full flex-1 bg-ink-muted/30" />
                     </div>
                     <div className="mt-1 flex justify-between text-[10px]">
-                      <span className="font-semibold text-brand">우리 {ours}회</span>
+                      <span className="font-semibold text-ink-soft">우리 {ours}회</span>
                       <span className="text-ink-muted">경쟁사 {comp}회 · 전체 {total}회</span>
                     </div>
                   </div>
@@ -499,7 +499,7 @@ export default function CompetitorsPage() {
                         <div className="text-xs font-semibold text-ink">위서클 GEO 콘텐츠 ⭐</div>
                         <div className="text-[10px] text-ink-muted">우리가 발행한 글이 AI에 인용된 횟수</div>
                       </div>
-                      <span className="shrink-0 text-xl font-bold text-brand">{medimap}</span>
+                      <span className="shrink-0 text-xl font-bold text-ink-soft">{medimap}</span>
                     </div>
                     <div className="flex items-center justify-between rounded-lg bg-surface-subtle px-3 py-2">
                       <div className="min-w-0">
@@ -509,7 +509,7 @@ export default function CompetitorsPage() {
                       <span className="shrink-0 text-xl font-bold text-accent">{client}</span>
                     </div>
                   </div>
-                  <div className="rounded-lg bg-brand-50/50 px-3 py-2 text-[10px] leading-relaxed text-ink-soft">
+                  <div className="rounded-lg bg-surface-muted/60 px-3 py-2 text-[10px] leading-relaxed text-ink-soft">
                     💡 이 숫자가 오를수록 AI가 우리를 더 자주 추천한다는 뜻입니다. 왼쪽 <strong>경쟁사 Top10</strong> 막대와 비교해보세요.
                   </div>
                 </div>
@@ -595,7 +595,7 @@ export default function CompetitorsPage() {
                       { key: 'DIRECT', label: '직접 경쟁', color: 'bg-status-danger text-white border-status-danger' },
                       { key: 'INDIRECT', label: '간접', color: 'bg-status-warning text-white border-status-warning' },
                       { key: 'REFERENCE', label: '정보 출처', color: 'bg-status-success text-white border-status-success' },
-                      { key: 'TO_LEARN', label: '분석 대상', color: 'bg-brand text-white border-brand' },
+                      { key: 'TO_LEARN', label: '분석 대상', color: 'bg-ink text-white border-ink' },
                       { key: 'IGNORE', label: '무시', color: 'bg-ink-muted text-white border-ink-muted' },
                     ].map((opt) => (
                       <button
@@ -640,18 +640,18 @@ export default function CompetitorsPage() {
                       // Round 70 — 우리 병원(클라이언트) 강조 행 (순위 위치에 삽입)
                       if (c._client) {
                         return (
-                          <tr key={`client-${i}`} className="border-y-2 border-brand bg-brand-50/70">
+                          <tr key={`client-${i}`} className="border-y-2 border-ink bg-surface-muted/70">
                             <td className="px-2 py-2"></td>
                             <td className="px-3 py-2">
-                              <span className="font-semibold text-brand">⭐ {c.domain}</span>
-                              <span className="ml-1.5 rounded bg-brand px-1.5 py-0.5 text-[9px] font-bold text-white">우리 병원</span>
+                              <span className="font-semibold text-ink-soft">⭐ {c.domain}</span>
+                              <span className="ml-1.5 rounded bg-ink px-1.5 py-0.5 text-[9px] font-bold text-white">우리 병원</span>
                             </td>
                             <td className="px-2 py-2">
-                              <span className="inline-flex rounded-md bg-brand/15 px-1.5 py-0.5 text-[10px] font-bold text-brand">자사</span>
+                              <span className="inline-flex rounded-md bg-ink/10 px-1.5 py-0.5 text-[10px] font-bold text-ink-soft">자사</span>
                             </td>
-                            <td className="px-2 py-2 text-right font-mono font-bold text-brand">{c.count}</td>
+                            <td className="px-2 py-2 text-right font-mono font-bold text-ink-soft">{c.count}</td>
                             <td className="px-3 py-2">
-                              <div className="line-clamp-2 text-[11px] text-brand-700">
+                              <div className="line-clamp-2 text-[11px] text-ink">
                                 {c.keywords.length > 0 ? c.keywords.join(', ') : '인용된 키워드 없음'}
                               </div>
                             </td>
@@ -669,7 +669,7 @@ export default function CompetitorsPage() {
                               {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                             </td>
                             <td className="px-3 py-2 font-mono">
-                              <DomainLink domain={c.domain} className="text-ink hover:text-brand hover:underline" />
+                              <DomainLink domain={c.domain} className="text-ink hover:text-ink hover:underline" />
                             </td>
                             <td className="px-2 py-2">
                               <span
@@ -688,7 +688,7 @@ export default function CompetitorsPage() {
                             </td>
                           </tr>
                           {isOpen && (
-                            <tr key={`${c.domain}-expand`} className="bg-brand-50/40">
+                            <tr key={`${c.domain}-expand`} className="bg-surface-muted/60">
                               <td colSpan={5} className="px-4 py-3">
                                 <div className="mb-2 flex items-center justify-between gap-2">
                                   <div className="text-[11px] font-semibold text-ink-muted">
@@ -723,19 +723,19 @@ export default function CompetitorsPage() {
                   // Round 70 — 우리 병원 강조 카드 (순위 위치)
                   if (c._client) {
                     return (
-                      <div key={`m-client-${i}`} className="rounded-lg border-2 border-brand bg-brand-50/70 p-3">
+                      <div key={`m-client-${i}`} className="rounded-lg border-2 border-ink bg-surface-muted/70 p-3">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex min-w-0 items-center gap-1.5">
-                            <span className="truncate font-semibold text-brand">⭐ {c.domain}</span>
-                            <span className="shrink-0 rounded bg-brand px-1.5 py-0.5 text-[9px] font-bold text-white">우리 병원</span>
+                            <span className="truncate font-semibold text-ink-soft">⭐ {c.domain}</span>
+                            <span className="shrink-0 rounded bg-ink px-1.5 py-0.5 text-[9px] font-bold text-white">우리 병원</span>
                           </div>
                           <div className="shrink-0 text-right">
-                            <div className="font-mono text-[16px] font-bold text-brand">{c.count}</div>
-                            <div className="text-[9px] uppercase text-brand-700">우리 위치</div>
+                            <div className="font-mono text-[16px] font-bold text-ink-soft">{c.count}</div>
+                            <div className="text-[9px] uppercase text-ink">우리 위치</div>
                           </div>
                         </div>
                         {c.keywords.length > 0 && (
-                          <div className="mt-1.5 text-[10px] text-brand-700">{c.keywords.join(', ')}</div>
+                          <div className="mt-1.5 text-[10px] text-ink">{c.keywords.join(', ')}</div>
                         )}
                       </div>
                     );
@@ -784,7 +784,7 @@ export default function CompetitorsPage() {
 
                       {/* expand 내용 — Round 64 키워드별 인용 드릴다운 */}
                       {isOpen && (
-                        <div className="border-t border-border bg-brand-50/30 px-3 py-3">
+                        <div className="border-t border-border bg-surface-subtle/60 px-3 py-3">
                           <div className="mb-2 flex items-center justify-between gap-2">
                             <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
                               키워드별 인용 상세 ({c.citations.length})

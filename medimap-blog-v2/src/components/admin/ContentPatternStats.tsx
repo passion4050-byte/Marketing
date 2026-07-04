@@ -61,7 +61,7 @@ function MetricCell({
         </div>
         {topValue != null && (
           <div className="text-[10px] text-ink-muted">
-            Top: <span className="font-semibold text-brand">{topValue}{suffix}</span>
+            Top: <span className="font-semibold text-ink-soft">{topValue}{suffix}</span>
             {change && (
               <span className={change.isUp ? 'ml-1 font-bold text-status-success' : 'ml-1 font-bold text-status-warning'}>
                 ({change.value})
@@ -80,7 +80,7 @@ export function ContentPatternStats({ stats }: { stats: StructureStats }) {
       <section className="card mt-6">
         <header className="border-b border-border px-4 py-3 md:px-5">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-            <Lightbulb className="h-4 w-4 text-brand" />
+            <Lightbulb className="h-4 w-4 text-ink-soft" />
             콘텐츠 구조 패턴 분석
           </h2>
         </header>
@@ -107,11 +107,11 @@ export function ContentPatternStats({ stats }: { stats: StructureStats }) {
     <section className="card mt-6">
       <header className="border-b border-border px-4 py-3 md:px-5">
         <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-          <Lightbulb className="h-4 w-4 text-brand" />
+          <Lightbulb className="h-4 w-4 text-ink-soft" />
           콘텐츠 구조 패턴 분석 ({stats.totalCount}편 분석)
         </h2>
         <div className="mt-0.5 text-[11px] text-ink-muted">
-          전체 발행 평균 vs <strong className="text-brand-700">Top 20% 인용 콘텐츠</strong> 의 구조 비교 — 어떤 패턴이 효과적인지 자동 발견
+          전체 발행 평균 vs <strong className="text-ink">Top 20% 인용 콘텐츠</strong> 의 구조 비교 — 어떤 패턴이 효과적인지 자동 발견
         </div>
       </header>
 
@@ -150,11 +150,11 @@ export function ContentPatternStats({ stats }: { stats: StructureStats }) {
 
       {/* 자동 인사이트 — 차이가 의미 있을 때만 */}
       {insights.length > 0 && (
-        <div className="border-t border-border bg-brand-50/40 px-4 py-3 md:px-5">
+        <div className="border-t border-border bg-surface-muted/60 px-4 py-3 md:px-5">
           <div className="flex items-start gap-2 text-[12px] text-ink">
-            <Lightbulb className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-brand-700" />
+            <Lightbulb className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-ink" />
             <div className="flex-1">
-              <div className="font-semibold text-brand-700">🧠 자동 발견된 패턴</div>
+              <div className="font-semibold text-ink">🧠 자동 발견된 패턴</div>
               <ul className="ml-4 mt-1 list-disc space-y-0.5 text-[11px] text-ink-soft">
                 {insights.map((s, i) => <li key={i}>{s}</li>)}
               </ul>

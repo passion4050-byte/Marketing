@@ -123,7 +123,7 @@ export function ContentCompetitiveness({ contents }: { contents: Content[] }) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-              <Trophy className="h-4 w-4 text-brand" />
+              <Trophy className="h-4 w-4 text-ink-soft" />
               위서클 콘텐츠 경쟁력 — Top 인용 콘텐츠
             </h2>
             <div className="mt-0.5 text-[11px] text-ink-muted">
@@ -145,7 +145,7 @@ export function ContentCompetitiveness({ contents }: { contents: Content[] }) {
                   className={cn(
                     'rounded px-2 py-1 text-[11px] font-semibold transition',
                     categoryFilter === opt.v
-                      ? 'bg-brand text-white'
+                      ? 'bg-ink text-white'
                       : 'text-ink-soft hover:bg-surface-subtle'
                   )}
                 >
@@ -163,7 +163,7 @@ export function ContentCompetitiveness({ contents }: { contents: Content[] }) {
                   className={cn(
                     'rounded px-2 py-1 text-[11px] font-semibold transition',
                     daysFilter === d
-                      ? 'bg-brand text-white'
+                      ? 'bg-ink text-white'
                       : 'text-ink-soft hover:bg-surface-subtle'
                   )}
                 >
@@ -195,11 +195,11 @@ export function ContentCompetitiveness({ contents }: { contents: Content[] }) {
 
       {/* 자동 패턴 분석 */}
       {insights && (
-        <div className="border-b border-border bg-brand-50/40 px-4 py-3 text-[11px] text-ink-soft md:px-5">
+        <div className="border-b border-border bg-surface-muted/60 px-4 py-3 text-[11px] text-ink-soft md:px-5">
           <div className="flex items-start gap-2">
-            <Lightbulb className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-brand-700" />
+            <Lightbulb className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-ink" />
             <div className="flex-1">
-              <div className="font-semibold text-brand-700">자동 패턴 분석</div>
+              <div className="font-semibold text-ink">자동 패턴 분석</div>
               <div className="mt-1">
                 Top 10 콘텐츠 평균 인용 <strong>{insights.avgTopMentions}건</strong> vs 나머지 <strong>{insights.avgRestMentions}건</strong>
                 {insights.lift > 0 && (
@@ -256,7 +256,7 @@ export function ContentCompetitiveness({ contents }: { contents: Content[] }) {
                       <span className={cn(
                         'inline-flex min-w-[40px] justify-center rounded-md px-2 py-0.5 font-mono text-xs font-bold',
                         c.mentionsForKeyword >= 50 ? 'bg-status-successSoft text-status-success' :
-                        c.mentionsForKeyword >= 10 ? 'bg-brand-50 text-brand-700' :
+                        c.mentionsForKeyword >= 10 ? 'bg-surface-muted text-ink' :
                         c.mentionsForKeyword > 0 ? 'bg-surface-subtle text-ink-soft' :
                         'bg-status-warningSoft text-status-warning'
                       )}>
@@ -271,7 +271,7 @@ export function ContentCompetitiveness({ contents }: { contents: Content[] }) {
                         href={buildUrl(c)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-brand-700 hover:underline"
+                        className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-ink hover:underline"
                       >
                         <ExternalLink className="h-3 w-3" />
                       </Link>
@@ -290,7 +290,7 @@ export function ContentCompetitiveness({ contents }: { contents: Content[] }) {
           <button
             type="button"
             onClick={() => setShowAll((v) => !v)}
-            className="inline-flex items-center gap-1 rounded-md px-3 py-1 text-[11px] font-semibold text-brand-700 hover:bg-brand-50"
+            className="inline-flex items-center gap-1 rounded-md px-3 py-1 text-[11px] font-semibold text-ink hover:bg-surface-muted"
           >
             {showAll
               ? '접기'

@@ -177,7 +177,7 @@ export default async function CostPage() {
                 return (
                   <div key={d.date} className="flex flex-1 flex-col items-center gap-1">
                     <div
-                      className="w-full rounded-t bg-brand"
+                      className="w-full rounded-t bg-ink"
                       style={{ height: `${Math.max(pct, 2)}%` }}
                       title={`${d.date}: $${d.usd.toFixed(4)}`}
                     />

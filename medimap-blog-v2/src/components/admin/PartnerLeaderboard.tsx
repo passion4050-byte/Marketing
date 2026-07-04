@@ -74,7 +74,7 @@ export function PartnerLeaderboard() {
     <div className="rounded-2xl border border-border bg-surface-base p-6 shadow-soft">
       <div className="flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-brand">
+          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-ink-soft">
             <Sparkles size={12} /> Partner AI Citation Leaderboard
           </div>
           <h2 className="mt-2 text-xl font-extrabold tracking-tight text-ink">
@@ -85,7 +85,7 @@ export function PartnerLeaderboard() {
           </p>
         </div>
         <div className="text-right">
-          <div className="text-3xl font-black text-brand num">{data.total_mentions_30d}</div>
+          <div className="text-3xl font-black text-ink-soft num">{data.total_mentions_30d}</div>
           <div className="text-[10px] font-bold uppercase tracking-widest text-ink-subtle">
             총 인용 (30d)
           </div>
@@ -111,17 +111,17 @@ export function PartnerLeaderboard() {
             <div
               key={p.tenant_id}
               className={`relative overflow-hidden rounded-xl border p-3.5 transition ${
-                isTop ? 'border-brand-200 bg-brand-50/40' : 'border-border bg-white'
+                isTop ? 'border-border-strong bg-surface-muted/60' : 'border-border bg-white'
               }`}
             >
               {/* 배경 bar */}
               <div
-                className={`absolute inset-y-0 left-0 ${isTop ? 'bg-brand-100/40' : 'bg-surface-subtle/60'}`}
+                className={`absolute inset-y-0 left-0 ${isTop ? 'bg-surface-muted/40' : 'bg-surface-subtle/60'}`}
                 style={{ width: `${barPct}%` }}
               />
               <div className="relative flex items-center gap-4">
                 <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-black text-white ${
-                  isTop ? 'bg-brand shadow-md' : 'bg-slate-400'
+                  isTop ? 'bg-ink shadow-md' : 'bg-slate-400'
                 }`}>
                   {i + 1}
                 </div>
@@ -154,7 +154,7 @@ export function PartnerLeaderboard() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-2xl font-black text-brand num">{p.mentions_30d}</div>
+                  <div className="text-2xl font-black text-ink-soft num">{p.mentions_30d}</div>
                   <div className="text-[9px] font-bold uppercase tracking-wider text-ink-subtle">
                     30d 인용
                   </div>
@@ -166,7 +166,7 @@ export function PartnerLeaderboard() {
       </div>
 
       {top && top.mentions_30d > 0 && (
-        <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50/50 p-3 text-xs text-ink-soft">
+        <div className="mt-4 rounded-xl border border-border bg-surface-muted/60 p-3 text-xs text-ink-soft">
           🏆 <strong>{top.tenant_name}</strong> 이 30일간 <strong>{top.mentions_30d}회</strong> AI 인용으로 1위.{' '}
           {top.mentions_delta > 0 && `최근 7일 +${top.mentions_delta} 증가 추세.`}
         </div>

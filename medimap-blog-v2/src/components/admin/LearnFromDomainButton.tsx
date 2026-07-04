@@ -138,7 +138,7 @@ export function LearnFromDomainButton({
         type="button"
         onClick={run}
         disabled={loading || urls.length === 0}
-        className="inline-flex items-center gap-1.5 rounded-md border border-brand/30 bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand transition hover:bg-brand-100 disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-muted px-2.5 py-1 text-[11px] font-semibold text-ink-soft transition hover:bg-surface-muted disabled:opacity-50"
         title={`이 도메인의 ${urls.length}개 URL 일괄 분석 → 위서클 가이드 비교 진단`}
       >
         {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
@@ -229,7 +229,7 @@ export function LearnFromDomainButton({
                           className={cn(
                             'rounded px-1.5 py-0.5 font-mono',
                             t === 'FAQPage' || ['MedicalProcedure', 'MedicalCondition', 'Hospital', 'MedicalOrganization'].includes(t)
-                              ? 'bg-brand-50 text-brand'
+                              ? 'bg-surface-muted text-ink-soft'
                               : 'bg-surface-base text-ink-soft'
                           )}
                         >
@@ -242,8 +242,8 @@ export function LearnFromDomainButton({
 
                 {/* 진단 */}
                 {analysis.diagnosis && analysis.diagnosis.length > 0 && (
-                  <div className="mb-3 rounded border border-brand/20 bg-brand-50/40 px-3 py-2.5 text-[11px]">
-                    <div className="mb-1.5 flex items-center gap-1 font-semibold text-brand">
+                  <div className="mb-3 rounded border border-border bg-surface-muted/60 px-3 py-2.5 text-[11px]">
+                    <div className="mb-1.5 flex items-center gap-1 font-semibold text-ink-soft">
                       <Lightbulb className="h-3 w-3" />
                       진단 — 위서클 가이드 v3 비교
                     </div>
@@ -289,7 +289,7 @@ export function LearnFromDomainButton({
                     className={cn(
                       'mb-2 rounded border px-3 py-1.5 text-[11px]',
                       savedMessage.startsWith('✓')
-                        ? 'border-brand/30 bg-brand-50 text-brand'
+                        ? 'border-border bg-surface-muted text-ink-soft'
                         : 'border-status-danger/30 bg-status-dangerSoft/40 text-status-danger'
                     )}
                   >
@@ -309,7 +309,7 @@ export function LearnFromDomainButton({
                   <button
                     onClick={save}
                     disabled={saving || !!savedMessage}
-                    className="inline-flex items-center gap-1 rounded bg-brand px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded bg-ink px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-ink/85 disabled:opacity-50"
                   >
                     {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
                     가이드에 추가
@@ -343,11 +343,11 @@ function Metric({
     <div
       className={cn(
         'rounded border px-2 py-1.5',
-        highlight ? 'border-brand/30 bg-brand-50' : 'border-border bg-surface-base'
+        highlight ? 'border-border bg-surface-muted' : 'border-border bg-surface-base'
       )}
     >
       <div className="text-[10px] text-ink-muted">{label}</div>
-      <div className={cn('font-semibold', highlight ? 'text-brand' : 'text-ink')}>{value}</div>
+      <div className={cn('font-semibold', highlight ? 'text-ink-soft' : 'text-ink')}>{value}</div>
       {note && <div className="mt-0.5 text-[9px] text-ink-faint">{note}</div>}
     </div>
   );

@@ -33,17 +33,17 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-50 via-surface-base to-accent-soft">
+    <div className="min-h-screen bg-gradient-to-br from-surface-muted via-surface-base to-accent-soft">
       {/* === 상단 Brand + Value Proposition === */}
       <header className="px-6 pt-12 pb-6">
         <div className="mx-auto max-w-4xl">
-          <div className="flex items-center gap-2 text-brand-700">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-white shadow-card">
+          <div className="flex items-center gap-2 text-ink">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-ink text-white shadow-card">
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
               <div className="text-base font-bold text-ink">WECIRCLE GEO</div>
-              <div className="text-[10px] font-medium uppercase tracking-widest text-brand-700">
+              <div className="text-[10px] font-medium uppercase tracking-widest text-ink">
                 Hospital AI Optimization Platform
               </div>
             </div>
@@ -58,7 +58,7 @@ export default function AdminLoginPage() {
             AI 검색 시대, 병원 마케팅 게임이 바뀝니다.
           </h1>
           <p className="mt-4 text-base text-ink-soft sm:text-lg">
-            <span className="font-semibold text-brand-700">ChatGPT · Claude · Gemini · Perplexity</span>
+            <span className="font-semibold text-ink">ChatGPT · Claude · Gemini · Perplexity</span>
             가 당신의 병원을 추천하도록.
           </p>
           <p className="mt-2 text-sm text-ink-muted">
@@ -69,21 +69,21 @@ export default function AdminLoginPage() {
           {/* 소셜 프루프 — 신뢰 빌딩 */}
           <div className="mt-6 grid grid-cols-3 gap-3 sm:gap-4">
             <div className="rounded-2xl border border-border bg-surface-base px-4 py-3 shadow-card">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-brand-700">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
                 <Zap className="h-3.5 w-3.5" /> AI 인용
               </div>
               <div className="mt-1 text-2xl font-bold text-ink">28<span className="ml-1 text-xs font-medium text-ink-muted">회/월</span></div>
               <div className="text-[11px] text-ink-muted">파일럿 데이터</div>
             </div>
             <div className="rounded-2xl border border-border bg-surface-base px-4 py-3 shadow-card">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-brand-700">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
                 <Stethoscope className="h-3.5 w-3.5" /> 신규 문의
               </div>
               <div className="mt-1 text-2xl font-bold text-ink">11<span className="ml-1 text-xs font-medium text-ink-muted">명/월</span></div>
               <div className="text-[11px] text-ink-muted">AI 인용 → 전환</div>
             </div>
             <div className="rounded-2xl border border-border bg-surface-base px-4 py-3 shadow-card">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-brand-700">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
                 <BarChart3 className="h-3.5 w-3.5" /> 4 엔진
               </div>
               <div className="mt-1 text-2xl font-bold text-ink">100<span className="ml-1 text-xs font-medium text-ink-muted">%</span></div>
@@ -98,7 +98,7 @@ export default function AdminLoginPage() {
         <div className="mx-auto grid max-w-4xl gap-6 lg:grid-cols-[1fr_1fr]">
           {/* 좌: 기존 클라이언트 로그인 */}
           <div className="card p-6">
-            <div className="mb-1 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-brand-700">
+            <div className="mb-1 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-ink">
               <Lock className="h-3.5 w-3.5" />
               운영자 / 클라이언트
             </div>
@@ -107,7 +107,7 @@ export default function AdminLoginPage() {
             <form onSubmit={onSubmit} className="mt-5 space-y-3">
               <div>
                 <label className="mb-1 block text-xs font-semibold text-ink">비밀번호</label>
-                <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-base px-3 transition focus-within:border-brand">
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-base px-3 transition focus-within:border-ink">
                   <Lock className="h-4 w-4 text-ink-muted" />
                   <input
                     type="password"
@@ -133,7 +133,7 @@ export default function AdminLoginPage() {
           </div>
 
           {/* 우: 잠재 클라이언트 Lead — Recommended 강조 */}
-          <div className="relative card overflow-hidden border-2 border-brand bg-gradient-to-br from-brand to-brand-dark p-6 text-white shadow-card-lg">
+          <div className="relative card overflow-hidden border-2 border-ink bg-gradient-to-br from-ink to-ink p-6 text-white shadow-card-lg">
             <div className="absolute right-0 top-0 -translate-y-4 translate-x-8 opacity-10">
               <Sparkles className="h-32 w-32" />
             </div>
@@ -192,7 +192,7 @@ export default function AdminLoginPage() {
         <div className="mx-auto max-w-4xl">
           WECIRCLE GEO · Hospital AI Platform · © 2026
           <span className="mx-2">·</span>
-          <a href={KAKAO_CHANNEL} target="_blank" rel="noopener noreferrer" className="hover:text-brand-700">
+          <a href={KAKAO_CHANNEL} target="_blank" rel="noopener noreferrer" className="hover:text-ink">
             문의 채널
           </a>
           <span className="mx-2">·</span>

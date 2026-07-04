@@ -66,7 +66,7 @@ export function AutoClassifyButton({
         type="button"
         onClick={run}
         disabled={loading}
-        className="inline-flex items-center gap-1.5 rounded-md border border-brand/30 bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand transition hover:bg-brand-100 disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-muted px-2.5 py-1 text-[11px] font-semibold text-ink-soft transition hover:bg-surface-muted disabled:opacity-50"
         title="rule-based 자동 분류 — T1/T3/T4/NOISE 매칭 도메인 자동 등록 (is_active=false, 검토 후 활성화 필요)"
       >
         {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
@@ -85,7 +85,7 @@ export function AutoClassifyButton({
           >
             <div className="mb-3 flex items-center justify-between">
               <h3 className="flex items-center gap-1.5 text-base font-bold text-ink">
-                <Sparkles className="h-4 w-4 text-brand" />
+                <Sparkles className="h-4 w-4 text-ink-soft" />
                 자동 분류 결과
               </h3>
               <button onClick={() => setResult(null)} className="rounded p-1 hover:bg-surface-soft">
@@ -102,7 +102,7 @@ export function AutoClassifyButton({
             {result.ok && (
               <>
                 <div className="mb-3 flex gap-2 text-[11px]">
-                  <span className="rounded bg-brand-50 px-2 py-1 font-semibold text-brand">
+                  <span className="rounded bg-surface-muted px-2 py-1 font-semibold text-ink-soft">
                     후보 {result.total_candidates}
                   </span>
                   <span className="rounded bg-status-successSoft/40 px-2 py-1 font-semibold text-status-success">
@@ -116,7 +116,7 @@ export function AutoClassifyButton({
                 {result.added.length > 0 && (
                   <div className="mb-3">
                     <h4 className="mb-1 text-[12px] font-semibold text-ink">
-                      <CheckCircle className="mr-1 inline h-3 w-3 text-brand" />
+                      <CheckCircle className="mr-1 inline h-3 w-3 text-ink-soft" />
                       자동 등록됨 ({result.added.length}건 — is_active=false, 운영자 검토 후 활성화 필요)
                     </h4>
                     <ul className="space-y-1 rounded border border-border bg-surface-soft p-2 text-[11px]">
@@ -125,7 +125,7 @@ export function AutoClassifyButton({
                           <span
                             className={cn(
                               'rounded px-1.5 py-0.5 text-[10px] font-bold text-white shrink-0',
-                              a.tier === 'T1' ? 'bg-brand'
+                              a.tier === 'T1' ? 'bg-ink'
                               : a.tier === 'T3' ? 'bg-status-warning'
                               : a.tier === 'T4' ? 'bg-status-success'
                               : 'bg-ink-muted'
@@ -169,7 +169,7 @@ export function AutoClassifyButton({
                 )}
 
                 <div className="mt-3 text-[11px] text-ink-muted">
-                  💡 등록된 도메인은 <a href="/admin/domain-classifications" className="text-brand hover:underline">/admin/domain-classifications</a> 에서 검토 후 [활성] 토글
+                  💡 등록된 도메인은 <a href="/admin/domain-classifications" className="text-ink-soft hover:underline">/admin/domain-classifications</a> 에서 검토 후 [활성] 토글
                 </div>
               </>
             )}

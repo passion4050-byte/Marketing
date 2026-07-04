@@ -149,7 +149,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="flex min-h-screen bg-surface-subtle">
+    <div className="admin-scope flex min-h-screen bg-surface-subtle">
       {/* 데스크탑 사이드바 (md+) */}
       <aside className="sticky top-0 hidden h-screen w-[228px] shrink-0 flex-col border-r border-border bg-surface-subtle md:flex">
         {sidebarContent}

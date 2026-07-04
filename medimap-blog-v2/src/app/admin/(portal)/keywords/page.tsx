@@ -173,7 +173,7 @@ export default function KeywordsPage() {
               className={cn(
                 'rounded-md border px-2.5 py-1 font-semibold transition',
                 purposeFilter === opt.key
-                  ? 'border-brand bg-brand text-white'
+                  ? 'border-ink bg-ink text-white'
                   : 'border-border bg-surface-base text-ink-soft hover:bg-surface-soft'
               )}
             >
@@ -225,13 +225,13 @@ export default function KeywordsPage() {
                 <td className="px-4 py-3 text-sm font-semibold text-ink">
                   {r.text}
                   {r.is_saas_marketing && (
-                    <span className="ml-1 rounded bg-brand-50 px-1 py-0.5 text-[9px] font-bold text-brand">SaaS</span>
+                    <span className="ml-1 rounded bg-surface-muted px-1 py-0.5 text-[9px] font-bold text-ink-soft">SaaS</span>
                   )}
                 </td>
                 <td className="px-4 py-3">
                   <span className={cn(
                     'rounded px-1.5 py-0.5 text-[10px] font-bold',
-                    r.purpose === 'own' ? 'bg-brand-50 text-brand'
+                    r.purpose === 'own' ? 'bg-surface-muted text-ink-soft'
                     : r.purpose === 'competitor_landscape' ? 'bg-status-warningSoft text-status-warning'
                     : 'bg-surface-subtle text-ink-muted'
                   )}>
@@ -240,7 +240,7 @@ export default function KeywordsPage() {
                 </td>
                 <td className="px-4 py-3 text-xs">{r.tenant_name}</td>
                 <td className="px-4 py-3 text-xs">{r.category ?? '—'}</td>
-                <td className="px-4 py-3 text-xs font-mono text-brand-700">{r.target_brand ?? '—'}</td>
+                <td className="px-4 py-3 text-xs font-mono text-ink">{r.target_brand ?? '—'}</td>
                 <td className="px-4 py-3">
                   <button onClick={() => toggle(r)}
                     className={cn('chip-base px-2', r.is_active ? 'chip-success' : 'chip-neutral')}>

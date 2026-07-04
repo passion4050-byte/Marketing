@@ -70,7 +70,7 @@ export function HomepageAnalyzeButton({
           type="button"
           onClick={() => run('preview')}
           disabled={loading !== null || tenantId == null || tenantId === ''}
-          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-base px-2.5 py-1 text-[11px] font-semibold text-ink-soft transition hover:border-brand-200 hover:text-brand disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-base px-2.5 py-1 text-[11px] font-semibold text-ink-soft transition hover:border-border-strong hover:text-ink disabled:opacity-50"
           title="홈페이지에서 키워드만 추출 — 검수 후 수동 적용"
         >
           {loading === 'preview' ? (
@@ -84,7 +84,7 @@ export function HomepageAnalyzeButton({
           type="button"
           onClick={() => run('apply')}
           disabled={loading !== null || tenantId == null || tenantId === ''}
-          className="inline-flex items-center gap-1.5 rounded-md border border-brand/30 bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand transition hover:bg-brand-100 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-muted px-2.5 py-1 text-[11px] font-semibold text-ink-soft transition hover:bg-surface-muted disabled:opacity-50"
           title="키워드 추출 + business_model 자동 UPDATE + trigger 발동 (검수 없음)"
         >
           {loading === 'apply' ? (
@@ -103,7 +103,7 @@ export function HomepageAnalyzeButton({
       {loading && (
         <div className="mt-2 rounded-md border border-border bg-surface-soft px-3 py-2 text-[11px] text-ink-muted">
           <div className="flex items-center gap-1.5">
-            <Loader2 className="h-3 w-3 animate-spin text-brand" />
+            <Loader2 className="h-3 w-3 animate-spin text-ink-soft" />
             홈페이지 분석 중... (최대 30초 소요)
           </div>
           <div className="mt-1 text-[10px] text-ink-faint">
@@ -116,7 +116,7 @@ export function HomepageAnalyzeButton({
           className={cn(
             'mt-2 rounded-md border px-3 py-2 text-[11px]',
             result.ok
-              ? 'border-brand/20 bg-brand-50/40 text-ink-soft'
+              ? 'border-border bg-surface-muted/60 text-ink-soft'
               : 'border-status-danger/30 bg-status-dangerSoft/40 text-status-danger'
           )}
         >
@@ -153,7 +153,7 @@ export function HomepageAnalyzeButton({
                   추출 키워드 ({result.keywords.length}개)
                 </strong>
                 {result.applied && (
-                  <span className="rounded bg-brand text-white px-1.5 py-0.5 text-[10px] font-bold">
+                  <span className="rounded bg-ink text-white px-1.5 py-0.5 text-[10px] font-bold">
                     ✓ 자동 적용됨
                   </span>
                 )}
@@ -172,7 +172,7 @@ export function HomepageAnalyzeButton({
                 <button
                   type="button"
                   onClick={() => onApply(result.suggested_business_model!)}
-                  className="mt-2 inline-flex items-center gap-1 rounded bg-brand px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-brand-dark"
+                  className="mt-2 inline-flex items-center gap-1 rounded bg-ink px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-ink/85"
                 >
                   ✓ 이 키워드로 적용
                 </button>
@@ -184,7 +184,7 @@ export function HomepageAnalyzeButton({
                     href={result.fetched_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-0.5 font-mono text-brand hover:underline"
+                    className="inline-flex items-center gap-0.5 font-mono text-ink-soft hover:underline"
                   >
                     {result.fetched_url.length > 60
                       ? result.fetched_url.slice(0, 60) + '...'

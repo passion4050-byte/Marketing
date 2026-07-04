@@ -18,7 +18,7 @@ function QualityBadge({ quality, compact = false }: { quality: ContentQuality | 
   if (!quality) return null;
   const tone =
     quality.grade === 'A' ? 'bg-status-successSoft text-status-success'
-    : quality.grade === 'B' ? 'bg-brand-50 text-brand'
+    : quality.grade === 'B' ? 'bg-surface-muted text-ink-soft'
     : quality.grade === 'C' ? 'bg-status-warningSoft text-status-warning'
     : 'bg-status-dangerSoft text-status-danger';
   const tip = quality.missing.length
@@ -117,7 +117,7 @@ function CoverThumb({ src, alt, channel }: { src: string | null; alt: string; ch
     // Round 79 — FAQ(schema_org)는 이미지가 원래 없음 → 깨진 아이콘 대신 FAQ 표시
     if (channel === 'schema_org') {
       return (
-        <div className="flex h-16 w-24 flex-col items-center justify-center rounded-md border border-brand/20 bg-brand-50/40 text-brand">
+        <div className="flex h-16 w-24 flex-col items-center justify-center rounded-md border border-border bg-surface-muted/60 text-ink-soft">
           <MessageSquare className="h-4 w-4" />
           <span className="mt-0.5 text-[9px] font-bold">FAQ</span>
         </div>
@@ -451,29 +451,29 @@ export default function ContentManagementPage() {
           onClick={() => setTab('pending')}
           className={cn(
             'relative px-4 py-2.5 text-sm font-semibold transition',
-            tab === 'pending' ? 'text-brand' : 'text-ink-muted hover:text-ink'
+            tab === 'pending' ? 'text-ink-soft' : 'text-ink-muted hover:text-ink'
           )}
         >
           콘텐츠 검수
           <span className={cn(
             'ml-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[11px]',
-            tab === 'pending' ? 'bg-brand/15 text-brand' : 'bg-surface-subtle text-ink-muted'
+            tab === 'pending' ? 'bg-ink/10 text-ink-soft' : 'bg-surface-subtle text-ink-muted'
           )}>{pending.length}</span>
-          {tab === 'pending' && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-t bg-brand" />}
+          {tab === 'pending' && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-t bg-ink" />}
         </button>
         <button
           onClick={() => setTab('published')}
           className={cn(
             'relative px-4 py-2.5 text-sm font-semibold transition',
-            tab === 'published' ? 'text-brand' : 'text-ink-muted hover:text-ink'
+            tab === 'published' ? 'text-ink-soft' : 'text-ink-muted hover:text-ink'
           )}
         >
           콘텐츠 완료
           <span className={cn(
             'ml-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[11px]',
-            tab === 'published' ? 'bg-brand/15 text-brand' : 'bg-surface-subtle text-ink-muted'
+            tab === 'published' ? 'bg-ink/10 text-ink-soft' : 'bg-surface-subtle text-ink-muted'
           )}>{published.length}</span>
-          {tab === 'published' && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-t bg-brand" />}
+          {tab === 'published' && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-t bg-ink" />}
         </button>
       </div>
 
@@ -511,13 +511,13 @@ export default function ContentManagementPage() {
         >
           <div className="card relative w-full max-w-4xl max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             {/* Round 59 fix 5 — 좌측 4px stripe (자사/파트너 색상) */}
-            <div className={cn('absolute inset-y-0 left-0 w-1 z-10', previewIsSelf ? 'bg-brand' : 'bg-accent')} />
+            <div className={cn('absolute inset-y-0 left-0 w-1 z-10', previewIsSelf ? 'bg-ink' : 'bg-accent')} />
 
             {/* Sticky header — 자사/파트너 chip + 제목 + 닫기 */}
             <div className="sticky top-0 z-10 border-b border-border bg-surface-base px-6 py-4 pl-7">
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 {previewIsSelf ? (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-brand/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-ink/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink-soft">
                     🏢 자사 인사이트
                   </span>
                 ) : (
@@ -553,7 +553,7 @@ export default function ContentManagementPage() {
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
                     placeholder="제목"
-                    className="flex-1 rounded-md border border-border px-3 py-1.5 text-base font-bold text-ink focus:border-brand focus:outline-none"
+                    className="flex-1 rounded-md border border-border px-3 py-1.5 text-base font-bold text-ink focus:border-ink focus:outline-none"
                   />
                 ) : (
                   <h3 className="text-lg font-bold leading-tight text-ink">{preview.title || '(제목 없음)'}</h3>
@@ -603,7 +603,7 @@ export default function ContentManagementPage() {
                 {preview.live_url && (
                   <>
                     <span>·</span>
-                    <a href={preview.live_url} target="_blank" rel="noopener noreferrer" className="text-brand-700 hover:underline">
+                    <a href={preview.live_url} target="_blank" rel="noopener noreferrer" className="text-ink hover:underline">
                       라이브 URL ↗
                     </a>
                   </>
@@ -634,7 +634,7 @@ export default function ContentManagementPage() {
                   onChange={(e) => setEditBody(e.target.value)}
                   placeholder="본문 HTML"
                   rows={24}
-                  className="block w-full rounded-md border border-border bg-surface-subtle px-3 py-3 font-mono text-xs leading-relaxed text-ink focus:border-brand focus:outline-none"
+                  className="block w-full rounded-md border border-border bg-surface-subtle px-3 py-3 font-mono text-xs leading-relaxed text-ink focus:border-ink focus:outline-none"
                   spellCheck={false}
                 />
               ) : preview.body && (preview.body.includes('application/ld+json') || preview.body.trim().startsWith('{')) ? (
@@ -737,7 +737,7 @@ function FaqPreview({ body }: { body: string }) {
       {pairs.map((p, i) => (
         <div key={i} className="rounded-lg border border-border p-4">
           <div className="mb-1.5 flex gap-2 text-[15px] font-bold text-ink">
-            <span className="shrink-0 text-brand">Q.</span>
+            <span className="shrink-0 text-ink-soft">Q.</span>
             <span>{p.q}</span>
           </div>
           <div className="flex gap-2 text-[14px] leading-[1.8] text-ink-soft">
@@ -856,11 +856,11 @@ function PendingTab({
               key={String(q.id)}
               className={cn(
                 'card relative overflow-hidden transition hover:shadow-md',
-                isSelf ? 'border-brand/20' : 'border-accent/20'
+                isSelf ? 'border-border' : 'border-accent/20'
               )}
             >
               {/* 좌측 4px stripe — 한눈에 자사/파트너 구분 */}
-              <div className={cn('absolute inset-y-0 left-0 w-1', isSelf ? 'bg-brand' : 'bg-accent')} />
+              <div className={cn('absolute inset-y-0 left-0 w-1', isSelf ? 'bg-ink' : 'bg-accent')} />
 
               <div className="flex items-start gap-4 border-b border-border px-5 py-3 pl-6">
                 <CoverThumb src={q.cover_image_url} alt={q.cover_image_alt || q.title || 'cover'} channel={q.channel} />
@@ -868,7 +868,7 @@ function PendingTab({
                   <div className="flex flex-wrap items-center gap-2">
                     {/* Round 59 fix 5 — 자사/파트너 분기 chip (가장 prominent) */}
                     {isSelf ? (
-                      <span className="inline-flex items-center gap-1 rounded-md bg-brand/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-ink/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink-soft">
                         🏢 자사 인사이트
                       </span>
                     ) : (
@@ -912,10 +912,10 @@ function PendingTab({
               </div>
               <div className="flex items-center justify-between border-t border-border px-5 py-3 pl-6">
                 <div className="flex items-center gap-3">
-                  <button onClick={() => onPreview(q)} className="text-xs text-brand-700 hover:underline">
+                  <button onClick={() => onPreview(q)} className="text-xs text-ink hover:underline">
                     <FileText className="inline h-3.5 w-3.5" /> 본문 미리보기
                   </button>
-                  <button onClick={() => onCopy(q)} className="text-xs text-brand-700 hover:underline">
+                  <button onClick={() => onCopy(q)} className="text-xs text-ink hover:underline">
                     <ClipboardCopy className="inline h-3.5 w-3.5" /> 본문 복사
                     {q.cover_image_url && <span className="ml-1 text-[10px] text-ink-muted">(+이미지)</span>}
                   </button>
@@ -943,7 +943,7 @@ function FilterChip({
   active, onClick, color, label, count
 }: { active: boolean; onClick: () => void; color: 'ink' | 'brand' | 'accent'; label: string; count: number }) {
   const activeCls = color === 'brand'
-    ? 'bg-brand text-white border-brand'
+    ? 'bg-ink text-white border-ink'
     : color === 'accent'
       ? 'bg-accent text-white border-accent'
       : 'bg-ink text-white border-ink';

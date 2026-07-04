@@ -78,8 +78,8 @@ export default function AbTestsPage() {
         </button>
       </header>
 
-      <div className="mb-5 rounded-lg border border-border bg-brand-50/40 px-4 py-3 text-[12px] leading-relaxed text-ink-soft">
-        <strong className="text-brand">어떻게 동작하나요?</strong> 변형 <strong>A</strong>는 기존 방식으로,
+      <div className="mb-5 rounded-lg border border-border bg-surface-muted/60 px-4 py-3 text-[12px] leading-relaxed text-ink-soft">
+        <strong className="text-ink-soft">어떻게 동작하나요?</strong> 변형 <strong>A</strong>는 기존 방식으로,
         변형 <strong>B</strong>는 경쟁사 분석으로 학습한 개선점을 반영해 같은 키워드로 글을 만듭니다.
         두 글이 AI(ChatGPT·Perplexity·Gemini)에 <strong>인용된 횟수</strong>를 매일 자동으로 세어, 어떤 글쓰기 방식이 더 효과적인지 찾아냅니다.{' '}
         <span className="text-ink-muted">AI가 새 글을 발견·인용하기까지 시간이 걸려, 결과 막대는 보통 수 주 뒤부터 채워집니다.</span>
@@ -100,7 +100,7 @@ export default function AbTestsPage() {
           <div className="mx-auto mt-4 max-w-md rounded-lg border border-border bg-surface-soft/50 p-4 text-left text-[12px] text-ink-muted">
             <div className="mb-1.5 font-semibold text-ink-soft">A/B 테스트 시작하기</div>
             <ol className="list-decimal space-y-1 pl-5">
-              <li><a href="/admin/learned-insights" className="font-semibold text-brand hover:underline">학습 인사이트</a>에서 인사이트를 <b>[적용]</b> 토글</li>
+              <li><a href="/admin/learned-insights" className="font-semibold text-ink-soft hover:underline">학습 인사이트</a>에서 인사이트를 <b>[적용]</b> 토글</li>
               <li>GitHub Secret <code className="rounded bg-surface-base px-1 font-mono">LLM_PROVIDER</code> = <code className="rounded bg-surface-base px-1 font-mono">fallback</code> 확인</li>
               <li>GitHub Actions → <b>A/B auto-generate</b> 워크플로 Run</li>
             </ol>
@@ -136,7 +136,7 @@ export default function AbTestsPage() {
                 {/* 변형 인용 비교 바 (A 회색 / B 브랜드) */}
                 <div className="mb-2 flex h-3 w-full overflow-hidden rounded-full bg-surface-subtle">
                   <div className="h-full bg-ink-muted/40" style={{ width: `${aPct}%` }} title={`A ${t.variant_a.citations}`} />
-                  <div className="h-full flex-1 bg-brand" title={`B ${t.variant_b.citations}`} />
+                  <div className="h-full flex-1 bg-ink" title={`B ${t.variant_b.citations}`} />
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -148,11 +148,11 @@ export default function AbTestsPage() {
                       key={label}
                       className={cn(
                         'rounded-lg border px-3 py-2',
-                        isB ? 'border-brand/40 bg-brand-50/30' : 'border-border'
+                        isB ? 'border-border-strong bg-surface-subtle/60' : 'border-border'
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className={cn('text-[11px] font-bold', isB ? 'text-brand' : 'text-ink-soft')}>{label}</span>
+                        <span className={cn('text-[11px] font-bold', isB ? 'text-ink-soft' : 'text-ink-soft')}>{label}</span>
                         <span className="font-mono text-sm font-bold text-ink">
                           {v.citations}
                           <span className="ml-0.5 text-[10px] font-normal text-ink-muted">인용</span>
@@ -168,7 +168,7 @@ export default function AbTestsPage() {
                             href={v.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-0.5 text-brand-700 hover:underline"
+                            className="inline-flex items-center gap-0.5 text-ink hover:underline"
                           >
                             <ExternalLink className="h-2.5 w-2.5" /> 글 보기
                           </a>

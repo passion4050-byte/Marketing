@@ -126,7 +126,7 @@ export function TrendAnalysisCard({ tenantId, days = 30 }: { tenantId: number | 
     <section className="mb-6 card card-pad print:hidden">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-brand" />
+          <TrendingUp className="h-4 w-4 text-ink-soft" />
           <h2 className="section-title">추이 분석</h2>
           <span className="text-[10px] text-ink-muted">최근 {days}일 · AI 인용 흐름</span>
         </div>
@@ -134,7 +134,7 @@ export function TrendAnalysisCard({ tenantId, days = 30 }: { tenantId: number | 
           <select
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            className="rounded-lg border border-border bg-surface-base px-2.5 py-1.5 text-xs text-ink focus:border-brand focus:outline-none"
+            className="rounded-lg border border-border bg-surface-base px-2.5 py-1.5 text-xs text-ink focus:border-ink focus:outline-none"
           >
             <option value="">전체 키워드</option>
             {(data?.keywords ?? []).map((k) => (
@@ -149,7 +149,7 @@ export function TrendAnalysisCard({ tenantId, days = 30 }: { tenantId: number | 
             <select
               value={engine}
               onChange={(e) => setEngine(e.target.value)}
-              className="rounded-lg border border-brand-200 bg-brand-50/50 px-2.5 py-1.5 text-xs font-semibold text-brand-700 focus:border-brand focus:outline-none"
+              className="rounded-lg border border-border-strong bg-surface-muted/60 px-2.5 py-1.5 text-xs font-semibold text-ink focus:border-ink focus:outline-none"
             >
               <option value="__compare__">엔진별 비교 (3엔진 동시)</option>
               <option value="">전체 엔진 (합산)</option>
@@ -168,7 +168,7 @@ export function TrendAnalysisCard({ tenantId, days = 30 }: { tenantId: number | 
                 onClick={() => setMode(m)}
                 className={cn(
                   'rounded-md px-2.5 py-1 text-[11px] font-semibold transition',
-                  mode === m ? 'bg-brand text-white' : 'text-ink-soft hover:bg-surface-subtle'
+                  mode === m ? 'bg-ink text-white' : 'text-ink-soft hover:bg-surface-subtle'
                 )}
               >
                 {MODE_LABEL[m]}
@@ -180,9 +180,9 @@ export function TrendAnalysisCard({ tenantId, days = 30 }: { tenantId: number | 
 
       {/* 요약 스탯 */}
       <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <div className="rounded-lg bg-brand-50/50 px-3 py-2">
-          <div className="text-[10px] uppercase tracking-wider text-brand-700">위서클 인용 ⭐</div>
-          <div className="text-lg font-bold text-brand">{data?.summary.medimap_total ?? 0}</div>
+        <div className="rounded-lg bg-surface-muted/60 px-3 py-2">
+          <div className="text-[10px] uppercase tracking-wider text-ink">위서클 인용 ⭐</div>
+          <div className="text-lg font-bold text-ink-soft">{data?.summary.medimap_total ?? 0}</div>
         </div>
         <div className="rounded-lg px-3 py-2" style={{ backgroundColor: '#15B8A615' }}>
           <div className="truncate text-[10px] uppercase tracking-wider" style={{ color: '#0F766E' }} title={clientLabel}>

@@ -176,16 +176,16 @@ export default function TenantsPage() {
                   </td>
                   <td className="px-4 py-3 text-xs">{t.domain_category ?? '—'}</td>
                   <td className="px-4 py-3 text-xs">{t.region ?? '—'}</td>
-                  <td className="px-4 py-3 text-xs font-mono text-brand-700">{t.partner_slug ?? '—'}</td>
+                  <td className="px-4 py-3 text-xs font-mono text-ink">{t.partner_slug ?? '—'}</td>
                   <td className="px-4 py-3 text-right text-xs font-mono">{t.publish_count ?? 0}</td>
                   <td className="px-4 py-3 text-right text-xs font-mono">${Number(t.monthly_cost ?? 0).toFixed(2)}</td>
                   <td className="px-4 py-3"><span className={STATUS_CHIP[status].cls}>{STATUS_CHIP[status].label}</span></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => togglePause(t)} className="rounded-md p-1.5 text-ink-muted hover:bg-surface-base hover:text-brand-700" aria-label="일시정지/재개">
+                      <button onClick={() => togglePause(t)} className="rounded-md p-1.5 text-ink-muted hover:bg-surface-base hover:text-ink" aria-label="일시정지/재개">
                         {status === 'paused' ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
                       </button>
-                      <button onClick={() => openEdit(t)} className="rounded-md p-1.5 text-ink-muted hover:bg-surface-base hover:text-brand-700" aria-label="편집">
+                      <button onClick={() => openEdit(t)} className="rounded-md p-1.5 text-ink-muted hover:bg-surface-base hover:text-ink" aria-label="편집">
                         <Edit3 className="h-3.5 w-3.5" />
                       </button>
                       <button onClick={() => remove(t.id, t.name)} className="rounded-md p-1.5 text-ink-muted hover:bg-surface-base hover:text-status-danger" aria-label="삭제">
@@ -230,7 +230,7 @@ export default function TenantsPage() {
                 <div><span className="text-ink-muted">지역:</span> {t.region ?? '—'}</div>
                 <div className="col-span-2 truncate">
                   <span className="text-ink-muted">slug:</span>{' '}
-                  <span className="font-mono text-brand-700">{t.partner_slug ?? '—'}</span>
+                  <span className="font-mono text-ink">{t.partner_slug ?? '—'}</span>
                 </div>
                 <div><span className="text-ink-muted">발행:</span> {t.publish_count ?? 0}편</div>
                 <div><span className="text-ink-muted">월 비용:</span> ${Number(t.monthly_cost ?? 0).toFixed(2)}</div>
@@ -245,7 +245,7 @@ export default function TenantsPage() {
                 </button>
                 <button
                   onClick={() => openEdit(t)}
-                  className="inline-flex min-h-[36px] items-center gap-1 rounded-md border border-brand/30 bg-brand-50 px-2.5 text-[11px] font-semibold text-brand active:bg-brand-100"
+                  className="inline-flex min-h-[36px] items-center gap-1 rounded-md border border-border bg-surface-muted px-2.5 text-[11px] font-semibold text-ink-soft active:bg-surface-muted"
                 >
                   <Edit3 className="h-3 w-3" />편집
                 </button>

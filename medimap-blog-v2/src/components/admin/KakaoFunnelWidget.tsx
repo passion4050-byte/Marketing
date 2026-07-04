@@ -62,7 +62,7 @@ export function KakaoFunnelWidget() {
   if (!data || data.summary.total_30d === 0) {
     return (
       <div className="rounded-2xl border border-border bg-surface-base p-6">
-        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-brand">
+        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-ink-soft">
           <MessageCircle size={12} /> Kakao Funnel
         </div>
         <div className="mt-4 rounded-xl border border-dashed border-border bg-surface-subtle/40 p-8 text-center">
@@ -206,7 +206,7 @@ export function KakaoFunnelWidget() {
                   href={p.page_path}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="min-w-0 flex-1 truncate font-mono text-[11px] text-ink hover:text-brand"
+                  className="min-w-0 flex-1 truncate font-mono text-[11px] text-ink hover:text-ink"
                 >
                   {p.page_path}
                 </a>

@@ -224,7 +224,7 @@ export default function LearnedInsightsPage() {
               <button
                 onClick={saveBaseline}
                 disabled={baselineSaving}
-                className="inline-flex items-center gap-1 rounded bg-brand px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded bg-ink px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-ink/85 disabled:opacity-50"
               >
                 {baselineSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}저장
               </button>
@@ -278,14 +278,14 @@ export default function LearnedInsightsPage() {
       </section>
 
       {/* Round 96 — 자동 학습 안내 배너 */}
-      <section className="mb-4 rounded-lg border border-brand-200 bg-gradient-to-r from-brand-50/60 to-accent-50/40 px-4 py-3">
+      <section className="mb-4 rounded-lg border border-border-strong bg-gradient-to-r from-surface-muted/60 to-accent-50/40 px-4 py-3">
         <div className="flex items-start gap-2 text-[12px] text-ink-soft">
           <span className="text-base">🤖</span>
           <div className="flex-1">
-            <div className="font-semibold text-brand-700">자동 학습 패턴 사이클</div>
+            <div className="font-semibold text-ink">자동 학습 패턴 사이클</div>
             <div className="mt-0.5">
               매주 <strong>월요일 KST 08:00</strong>, 발행 콘텐츠 중 AI 인용 잘 받은 Top 20% 의 구조 패턴(H2/표/이미지/길이/FAQ)을 자동 분석 → 이 페이지에
-              <span className="mx-1 inline-flex items-center gap-0.5 rounded bg-gradient-to-r from-brand-50 to-accent-50 px-1.5 py-0.5 text-[10px] font-bold text-brand-700 ring-1 ring-brand-200">🤖 자동 발견 패턴</span>
+              <span className="mx-1 inline-flex items-center gap-0.5 rounded bg-gradient-to-r from-surface-muted to-accent-50 px-1.5 py-0.5 text-[10px] font-bold text-ink ring-1 ring-border-strong">🤖 자동 발견 패턴</span>
               라벨로 등록. <strong>[적용중]</strong> 토글 시 다음 cron 글 prompt 에 자동 주입.
             </div>
             <div className="mt-1 text-[10px] text-ink-muted">
@@ -342,7 +342,7 @@ export default function LearnedInsightsPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         {/* Round 96 — 자동 발견 패턴 chip (source_url 'internal://auto_pattern') */}
                         {it.source_url?.startsWith('internal://auto_pattern') && (
-                          <span className="inline-flex items-center gap-0.5 rounded bg-gradient-to-r from-brand-50 to-accent-50 px-2 py-0.5 text-[10px] font-bold text-brand-700 ring-1 ring-brand-200">
+                          <span className="inline-flex items-center gap-0.5 rounded bg-gradient-to-r from-surface-muted to-accent-50 px-2 py-0.5 text-[10px] font-bold text-ink ring-1 ring-border-strong">
                             🤖 자동 발견 패턴
                           </span>
                         )}
@@ -355,7 +355,7 @@ export default function LearnedInsightsPage() {
                           </span>
                         )}
                         {isDomain && (
-                          <span className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand">
+                          <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-semibold text-ink-soft">
                             도메인 {patterns.summary.urls_analyzed}개
                           </span>
                         )}
@@ -374,7 +374,7 @@ export default function LearnedInsightsPage() {
                       className={cn(
                         'rounded px-2.5 py-1 text-[11px] font-semibold',
                         it.applied
-                          ? 'bg-brand text-white hover:bg-brand-dark'
+                          ? 'bg-ink text-white hover:bg-ink/85'
                           : 'border border-border text-ink-soft hover:bg-surface-soft'
                       )}
                       title={it.applied ? '클릭하여 비활성화 (콘텐츠 주입 중단)' : '클릭하여 활성화 — 같은 진료과 병원 콘텐츠 생성에 즉시 주입'}
@@ -410,8 +410,8 @@ export default function LearnedInsightsPage() {
                           </div>
                           {/* 진단 */}
                           {patterns.diagnosis && patterns.diagnosis.length > 0 && (
-                            <div className="rounded border border-brand/20 bg-brand-50/40 px-3 py-2 text-[11px]">
-                              <div className="mb-1 font-semibold text-brand">진단</div>
+                            <div className="rounded border border-border bg-surface-muted/60 px-3 py-2 text-[11px]">
+                              <div className="mb-1 font-semibold text-ink-soft">진단</div>
                               <ul className="list-disc space-y-0.5 pl-4 text-ink-soft">
                                 {patterns.diagnosis.map((d, i) => (
                                   <li key={i}>{d}</li>
@@ -443,7 +443,7 @@ export default function LearnedInsightsPage() {
                                 setEditNotesId(it.id);
                                 setNotesDraft(it.notes ?? '');
                               }}
-                              className="text-[10px] text-brand hover:underline"
+                              className="text-[10px] text-ink-soft hover:underline"
                             >
                               편집
                             </button>
@@ -460,7 +460,7 @@ export default function LearnedInsightsPage() {
                             <div className="flex justify-end gap-1">
                               <button
                                 onClick={() => saveNotes(it.id)}
-                                className="rounded bg-brand px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-brand-dark"
+                                className="rounded bg-ink px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-ink/85"
                               >
                                 저장
                               </button>
@@ -485,7 +485,7 @@ export default function LearnedInsightsPage() {
                       {/* 메타 */}
                       <div className="flex items-center justify-between text-[10px] text-ink-faint">
                         <div>
-                          source: <a href={it.source_url} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">{it.source_url.slice(0, 60)}</a>
+                          source: <a href={it.source_url} target="_blank" rel="noopener noreferrer" className="text-ink-soft hover:underline">{it.source_url.slice(0, 60)}</a>
                           {it.applied_at && (
                             <span className="ml-2">· 적용: {new Date(it.applied_at).toLocaleString()}</span>
                           )}
@@ -510,7 +510,7 @@ export default function LearnedInsightsPage() {
       <section className="card">
         <header className="border-b border-border px-5 py-3">
           <h2 className="section-title">
-            <Sparkles className="mr-1 inline h-4 w-4 text-brand" />인사이트 주입 — 활성 (작동 중)
+            <Sparkles className="mr-1 inline h-4 w-4 text-ink-soft" />인사이트 주입 — 활성 (작동 중)
           </h2>
         </header>
         <div className="space-y-1.5 px-5 py-4 text-[12px] text-ink-soft">
@@ -523,7 +523,7 @@ export default function LearnedInsightsPage() {
             A/B 테스트에서는 변형 A(베이스라인)는 주입 <strong>생략</strong>, 변형 B만 주입해 인사이트 효과를 분리 측정합니다.
           </p>
           <p className="text-ink-muted">
-            연결: <code className="font-mono text-brand">generator.py</code> → <code className="font-mono text-brand">learned_insights_loader</code> + <code className="font-mono text-brand">applied_insights_loader</code> (Round 62/81).
+            연결: <code className="font-mono text-ink-soft">generator.py</code> → <code className="font-mono text-ink-soft">learned_insights_loader</code> + <code className="font-mono text-ink-soft">applied_insights_loader</code> (Round 62/81).
           </p>
         </div>
       </section>
@@ -544,11 +544,11 @@ function Metric({
     <div
       className={cn(
         'rounded border px-2 py-1.5',
-        highlight ? 'border-brand/30 bg-brand-50' : 'border-border bg-surface-base'
+        highlight ? 'border-border bg-surface-muted' : 'border-border bg-surface-base'
       )}
     >
       <div className="text-[10px] text-ink-muted">{label}</div>
-      <div className={cn('font-semibold', highlight ? 'text-brand' : 'text-ink')}>{value}</div>
+      <div className={cn('font-semibold', highlight ? 'text-ink-soft' : 'text-ink')}>{value}</div>
     </div>
   );
 }

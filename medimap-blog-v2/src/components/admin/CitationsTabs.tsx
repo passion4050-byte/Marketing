@@ -45,14 +45,14 @@ export function CitationsTabs() {
             className={cn(
               'group relative flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition',
               isActive
-                ? 'text-brand'
+                ? 'text-ink-soft'
                 : 'text-ink-muted hover:text-ink'
             )}
           >
             <Icon className="h-4 w-4" />
             <span>{t.label}</span>
             {isActive && (
-              <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-t bg-brand" />
+              <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-t bg-ink" />
             )}
           </Link>
         );

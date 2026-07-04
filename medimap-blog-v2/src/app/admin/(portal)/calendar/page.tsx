@@ -129,7 +129,7 @@ export default function ContentCalendarPage() {
             {WEEKDAYS.map((d, i) => (
               <div key={d} className={cn('px-2 py-2 text-center',
                 i === 0 && 'text-status-danger',
-                i === 6 && 'text-brand-700'
+                i === 6 && 'text-ink'
               )}>{d}</div>
             ))}
           </div>
@@ -150,16 +150,16 @@ export default function ContentCalendarPage() {
                   className={cn(
                     'group relative flex min-h-[88px] flex-col gap-1 border-b border-r border-border p-2 text-left transition',
                     !inMonth && 'bg-surface-subtle/50 text-ink-faint',
-                    inMonth && 'hover:bg-brand/5',
-                    isSelected && 'bg-brand/10 ring-2 ring-inset ring-brand'
+                    inMonth && 'hover:bg-surface-subtle',
+                    isSelected && 'bg-ink/5 ring-2 ring-inset ring-ink/30'
                   )}
                 >
                   <div className={cn(
                     'flex items-center justify-between text-xs font-semibold',
-                    isToday && 'text-brand'
+                    isToday && 'text-ink-soft'
                   )}>
                     <span className={cn(
-                      isToday && 'inline-flex h-5 w-5 items-center justify-center rounded-full bg-brand text-[11px] text-white'
+                      isToday && 'inline-flex h-5 w-5 items-center justify-center rounded-full bg-ink text-[11px] text-white'
                     )}>
                       {d.getDate()}
                     </span>
@@ -222,7 +222,7 @@ export default function ContentCalendarPage() {
               <button
                 key={it.id}
                 onClick={() => setPreview(it)}
-                className="block w-full rounded-lg border border-border bg-surface-base p-3 text-left transition hover:border-brand hover:shadow-card"
+                className="block w-full rounded-lg border border-border bg-surface-base p-3 text-left transition hover:border-border-strong hover:shadow-card"
               >
                 <div className="flex items-center gap-1.5">
                   <span className={cn(
@@ -232,7 +232,7 @@ export default function ContentCalendarPage() {
                     {it.status === 'published' ? '발행' : '검수'}
                   </span>
                   {it.partner_category && (
-                    <span className="text-[10px] font-semibold text-brand-700">
+                    <span className="text-[10px] font-semibold text-ink">
                       {PARTNER_CATEGORY_KO[it.partner_category] ?? it.partner_category}
                     </span>
                   )}
@@ -259,7 +259,7 @@ export default function ContentCalendarPage() {
                     href={preview.live_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-700"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-ink/85"
                     title={preview.live_url}
                   >
                     <ExternalLink className="h-3.5 w-3.5" /> 발행된 콘텐츠 보기

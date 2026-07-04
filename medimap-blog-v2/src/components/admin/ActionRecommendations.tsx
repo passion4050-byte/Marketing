@@ -34,7 +34,7 @@ type ActionItem = {
 const SEV_META: Record<Severity, { label: string; cls: string; bg: string }> = {
   p0: { label: '긴급', cls: 'text-status-danger', bg: 'border-status-danger/40 bg-status-danger/5' },
   p1: { label: '이번 주', cls: 'text-status-warning', bg: 'border-status-warning/40 bg-status-warning/5' },
-  p2: { label: '참고', cls: 'text-brand-700', bg: 'border-brand-200 bg-brand-50/40' },
+  p2: { label: '참고', cls: 'text-ink', bg: 'border-border-strong bg-surface-muted/60' },
 };
 
 export function ActionRecommendations({
@@ -188,7 +188,7 @@ export function ActionRecommendations({
                     <span className="text-sm font-semibold text-ink truncate">{a.title}</span>
                   </div>
                   <p className="mt-1 text-[11px] text-ink-soft">{a.detail}</p>
-                  <div className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700">
+                  <div className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-ink">
                     {a.cta} <ArrowRight className="h-3 w-3" />
                   </div>
                 </div>

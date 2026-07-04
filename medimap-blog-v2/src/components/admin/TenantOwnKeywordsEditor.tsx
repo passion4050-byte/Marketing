@@ -105,10 +105,10 @@ export function TenantOwnKeywordsEditor({
     <div className="rounded border border-border bg-surface-subtle px-3 py-3">
       <div className="mb-2 flex items-center justify-between">
         <label className="text-[11px] font-semibold text-ink">
-          <Tag className="mr-1 inline h-3 w-3 text-brand" />
+          <Tag className="mr-1 inline h-3 w-3 text-ink-soft" />
           자사 own 키워드 ({kws.length})
         </label>
-        {loading && <Loader2 className="h-3 w-3 animate-spin text-brand" />}
+        {loading && <Loader2 className="h-3 w-3 animate-spin text-ink-soft" />}
       </div>
       <div className="mb-2 text-[10px] text-ink-faint">
         비즈니스 모델 (위 — 콤마 split) 는 trigger 로 competitor 키워드 자동 생성. 여기 추가는 own 측정용 (예: "잠실 라식", "노안교정")
@@ -124,7 +124,7 @@ export function TenantOwnKeywordsEditor({
             key={k.id}
             className={`group inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] ${
               k.is_active
-                ? 'border-brand/30 bg-brand-50 text-brand'
+                ? 'border-border bg-surface-muted text-ink-soft'
                 : 'border-border bg-surface-base text-ink-muted'
             }`}
           >
@@ -167,7 +167,7 @@ export function TenantOwnKeywordsEditor({
           type="button"
           onClick={() => void add()}
           disabled={adding || !draft.trim()}
-          className="inline-flex items-center gap-0.5 rounded border border-brand/30 bg-brand px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
+          className="inline-flex items-center gap-0.5 rounded border border-border bg-ink px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-ink/85 disabled:opacity-50"
         >
           {adding ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
           추가

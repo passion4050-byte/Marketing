@@ -50,7 +50,7 @@ const LABEL_META: Record<string, { color: string; ko: string }> = {
   DIRECT:    { color: 'bg-status-danger text-white',  ko: '직접 경쟁' },
   INDIRECT:  { color: 'bg-status-warning text-white', ko: '간접 경쟁' },
   REFERENCE: { color: 'bg-status-success text-white', ko: '정보 출처' },
-  TO_LEARN:  { color: 'bg-brand text-white',          ko: '분석 대상' },
+  TO_LEARN:  { color: 'bg-ink text-white',          ko: '분석 대상' },
   IGNORE:    { color: 'bg-ink-muted text-white',      ko: '무시' },
 };
 
@@ -90,10 +90,10 @@ function ClientContextSelector({
       <header className="border-b border-border px-5 py-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="section-title">
-            <Users className="mr-1 inline h-4 w-4 text-brand" />
+            <Users className="mr-1 inline h-4 w-4 text-ink-soft" />
             클라이언트 컨텍스트 보기
           </h2>
-          {loading && <Loader2 className="h-3 w-3 animate-spin text-brand" />}
+          {loading && <Loader2 className="h-3 w-3 animate-spin text-ink-soft" />}
         </div>
         <div className="mt-1 text-[11px] text-ink-muted">
           <strong>분류 목록의 본질</strong> — 클라이언트사의 경쟁사 현황 분석 → 학습 → 위서클 콘텐츠 배포에 활용.
@@ -140,7 +140,7 @@ function ClientContextSelector({
                     }}
                     className={cn(
                       'block w-full px-3 py-1.5 text-left text-[12px] hover:bg-surface-subtle',
-                      selectedId === t.id && 'bg-brand-50 font-semibold text-brand'
+                      selectedId === t.id && 'bg-surface-muted font-semibold text-ink-soft'
                     )}
                   >
                     <div>{t.name}</div>
@@ -191,7 +191,7 @@ type ApiResponse = {
 };
 
 const TIER_META: Record<Classification['tier'], { label: string; color: string; icon: typeof ShieldCheck; desc: string }> = {
-  T1: { label: 'T1 위서클', color: 'bg-brand text-white', icon: ShieldCheck, desc: '위서클 SaaS 자체 도메인' },
+  T1: { label: 'T1 위서클', color: 'bg-ink text-white', icon: ShieldCheck, desc: '위서클 SaaS 자체 도메인' },
   T3: { label: 'T3 권위', color: 'bg-status-warning text-white', icon: Building2, desc: '종합병원·학회·의료매체' },
   T4: { label: 'T4 플랫폼', color: 'bg-status-success text-white', icon: Globe, desc: '의료 플랫폼 (모두닥·강남언니 등)' },
   NOISE: { label: 'NOISE', color: 'bg-ink-muted text-white', icon: AlertTriangle, desc: '검색·위키·블로그 — 카운트 제외' },
@@ -420,11 +420,11 @@ export default function DomainClassificationsPage() {
       </div>
 
       {/* Round 52 (2026-05-31) — 분류 사전이 왜 필요한지 + 5-tier 한 줄 설명 */}
-      <div className="card bg-brand-50/30 p-3 text-[11px] text-ink-soft">
-        <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-brand">왜 분류하는가?</div>
+      <div className="card bg-surface-subtle/60 p-3 text-[11px] text-ink-soft">
+        <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-ink-soft">왜 분류하는가?</div>
         <div className="leading-relaxed">
           AI 가 위서클 / 경쟁사 / 권위 사이트 중 어디를 인용하는지 자동 집계하려면 도메인을 5단계로 분류해야 합니다.
-          <strong className="text-brand-700"> T1</strong> 우리 자산 ·
+          <strong className="text-ink"> T1</strong> 우리 자산 ·
           <strong className="text-status-warning"> T3</strong> 종합병원·학회 (콘텐츠 톤 학습 대상) ·
           <strong className="text-status-info"> T4</strong> 의료 플랫폼 (인용 점유율 경쟁) ·
           <strong className="text-status-danger"> T5</strong> 동종업계 경쟁사 (직접 위협) ·
@@ -453,7 +453,7 @@ export default function DomainClassificationsPage() {
               onClick={() => setTierFilter(tierFilter === t ? 'ALL' : t)}
               className={cn(
                 'rounded-lg border p-3 text-left transition',
-                tierFilter === t ? 'border-brand bg-brand-50' : 'border-border bg-surface-base hover:bg-surface-soft'
+                tierFilter === t ? 'border-ink bg-surface-muted' : 'border-border bg-surface-base hover:bg-surface-soft'
               )}
             >
               <div className="flex items-center gap-2">
@@ -473,7 +473,7 @@ export default function DomainClassificationsPage() {
       <section className="card">
         <header className="border-b border-border px-5 py-3">
           <h2 className="section-title">
-            <Plus className="mr-1 inline h-4 w-4 text-brand" />신규 도메인 분류 추가
+            <Plus className="mr-1 inline h-4 w-4 text-ink-soft" />신규 도메인 분류 추가
           </h2>
           <div className="mt-1 text-[11px] text-ink-muted">
             T2 (클라이언트 자체) 는 동적 — 클라이언트 편집에서 additional_domains 로 추가. T5 는 default 라 별도 등록 불필요.
@@ -514,7 +514,7 @@ export default function DomainClassificationsPage() {
           <button
             onClick={add}
             disabled={adding || !newDomain.trim()}
-            className="inline-flex items-center justify-center gap-1 rounded bg-brand px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-brand-dark disabled:opacity-50 md:col-span-1"
+            className="inline-flex items-center justify-center gap-1 rounded bg-ink px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-ink/85 disabled:opacity-50 md:col-span-1"
           >
             {adding ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}추가
           </button>
@@ -531,7 +531,7 @@ export default function DomainClassificationsPage() {
             </h2>
             <div className="mt-1 text-[11px] text-ink-muted">
               이 클라이언트 키워드 측정에서 발견됐지만 글로벌 분류 사전에 없는 도메인 (T5 default).
-              <strong className="ml-1 text-brand">학습 분석</strong> 으로 위서클 콘텐츠 가이드에 반영
+              <strong className="ml-1 text-ink-soft">학습 분석</strong> 으로 위서클 콘텐츠 가이드에 반영
             </div>
           </header>
           <div className="admin-table-wrap">
@@ -577,7 +577,7 @@ export default function DomainClassificationsPage() {
                         <DomainHistoryButton domain={d.domain} />
                         <a
                           href={`/admin/competitors?tenantId=${contextTenantId}`}
-                          className="text-[10px] text-brand hover:underline"
+                          className="text-[10px] text-ink-soft hover:underline"
                         >
                           학습 →
                         </a>
@@ -647,8 +647,8 @@ export default function DomainClassificationsPage() {
                   <th className="px-3 py-2 text-left">비고</th>
                   {contextTenantId && (
                     <>
-                      <th className="px-3 py-2 text-right text-brand">인용 횟수</th>
-                      <th className="px-3 py-2 text-left text-brand">경쟁 라벨</th>
+                      <th className="px-3 py-2 text-right text-ink-soft">인용 횟수</th>
+                      <th className="px-3 py-2 text-left text-ink-soft">경쟁 라벨</th>
                     </>
                   )}
                   <th className="px-3 py-2 text-center">활성</th>
@@ -751,7 +751,7 @@ export default function DomainClassificationsPage() {
                           onClick={() => toggleActive(c)}
                           className={cn(
                             'rounded px-1.5 py-0.5 text-[10px] font-semibold',
-                            c.is_active ? 'bg-brand text-white' : 'border border-border text-ink-muted'
+                            c.is_active ? 'bg-ink text-white' : 'border border-border text-ink-muted'
                           )}
                         >
                           {c.is_active ? '활성' : '비활성'}
@@ -760,7 +760,7 @@ export default function DomainClassificationsPage() {
                       <td className="px-3 py-2 text-right">
                         {editing ? (
                           <div className="inline-flex items-center gap-1">
-                            <button onClick={saveEdit} className="rounded bg-brand px-1.5 py-0.5 text-[10px] text-white hover:bg-brand-dark">
+                            <button onClick={saveEdit} className="rounded bg-ink px-1.5 py-0.5 text-[10px] text-white hover:bg-ink/85">
                               <Save className="h-3 w-3" />
                             </button>
                             <button

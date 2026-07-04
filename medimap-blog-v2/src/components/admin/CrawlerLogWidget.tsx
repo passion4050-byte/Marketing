@@ -78,7 +78,7 @@ export function CrawlerLogWidget() {
   if (!data || data.summary.total_30d === 0) {
     return (
       <div className="rounded-2xl border border-border bg-surface-base p-6">
-        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-brand">
+        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-ink-soft">
           <Bot size={12} /> AI Crawler Radar
         </div>
         <div className="mt-4 rounded-xl border border-dashed border-border bg-surface-subtle/40 p-8 text-center">
@@ -102,7 +102,7 @@ export function CrawlerLogWidget() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-brand">
+          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-ink-soft">
             <Bot size={12} /> AI Crawler Radar
           </div>
           <h2 className="mt-2 text-xl font-extrabold tracking-tight text-ink">
@@ -113,7 +113,7 @@ export function CrawlerLogWidget() {
           </p>
         </div>
         <div className="text-right">
-          <div className="text-3xl font-black text-brand num">{summary.total_7d.toLocaleString()}</div>
+          <div className="text-3xl font-black text-ink-soft num">{summary.total_7d.toLocaleString()}</div>
           <div className="text-[10px] font-bold uppercase tracking-widest text-ink-subtle">
             7일 방문
           </div>
@@ -166,7 +166,7 @@ export function CrawlerLogWidget() {
             return (
               <div
                 key={d.date}
-                className="group relative flex-1 rounded-t-sm bg-gradient-to-t from-brand to-brand-400 transition-all hover:from-accent hover:to-accent-400"
+                className="group relative flex-1 rounded-t-sm bg-gradient-to-t from-ink to-ink/80 transition-all hover:from-accent hover:to-accent-400"
                 style={{
                   height: `${h}%`,
                   opacity: 0.5 + intensity * 0.5,
@@ -244,7 +244,7 @@ export function CrawlerLogWidget() {
                   href={p.path}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="min-w-0 flex-1 truncate font-mono text-[11px] text-ink hover:text-brand"
+                  className="min-w-0 flex-1 truncate font-mono text-[11px] text-ink hover:text-ink"
                   title={p.path}
                 >
                   {p.path}
@@ -252,7 +252,7 @@ export function CrawlerLogWidget() {
                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold text-white ${botMeta(p.top_bot).accent}`}>
                   {botMeta(p.top_bot).label}
                 </span>
-                <span className="w-10 shrink-0 text-right text-xs font-black text-brand num">
+                <span className="w-10 shrink-0 text-right text-xs font-black text-ink-soft num">
                   {p.hits}
                 </span>
               </div>
@@ -263,7 +263,7 @@ export function CrawlerLogWidget() {
 
       {/* Insight banner */}
       {summary.top_bot && (
-        <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50/50 p-3 text-xs text-ink-soft">
+        <div className="mt-4 rounded-xl border border-border bg-surface-muted/60 p-3 text-xs text-ink-soft">
           🤖 지난 7일간 <strong>{botMeta(summary.top_bot).label}</strong> 방문이 가장 많음.{' '}
           {summary.wow_delta > 0 && `이번 주 +${summary.wow_delta.toLocaleString()} 증가 — AI 인덱싱 활발.`}
           {summary.wow_delta < 0 && `이번 주 ${summary.wow_delta.toLocaleString()} 감소 — 콘텐츠 재발행 검토.`}
@@ -287,12 +287,12 @@ function KpiCard({
   highlight?: boolean;
 }) {
   return (
-    <div className={`rounded-xl border p-3 ${accent ? 'border-brand-200 bg-brand-50/30' : highlight ? 'border-accent/30 bg-accent-soft/40' : 'border-border bg-white'}`}>
+    <div className={`rounded-xl border p-3 ${accent ? 'border-border-strong bg-surface-subtle/60' : highlight ? 'border-accent/30 bg-accent-soft/40' : 'border-border bg-white'}`}>
       <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-ink-subtle">
         {icon}
         {label}
       </div>
-      <div className={`mt-1.5 text-lg font-black tracking-tight num ${accent ? 'text-brand' : 'text-ink'}`}>
+      <div className={`mt-1.5 text-lg font-black tracking-tight num ${accent ? 'text-ink-soft' : 'text-ink'}`}>
         {value}
       </div>
     </div>
