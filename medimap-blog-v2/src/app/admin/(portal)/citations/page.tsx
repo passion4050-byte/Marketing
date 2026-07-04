@@ -89,10 +89,10 @@ type CitationsData = {
 //   + slate 단계. 튀는 원색(블루/퍼플/앰버) 제거하되 단조로움 회피 — 유채색은 2계열만.
 const TIER_LABELS: Record<string, { label: string; color: string; short: string }> = {
   T1: { label: '위서클 자체 ⭐', color: '#15B8A6', short: '위서클' },
-  T2: { label: '클라이언트 자체', color: '#0F766E', short: '클라이언트' },
-  T3: { label: '권위/공식', color: '#D9A441', short: '권위' },
-  T4: { label: '의료 플랫폼', color: '#64748B', short: '플랫폼' },
-  T5: { label: '기타 (경쟁사)', color: '#94A3B8', short: '경쟁사' },
+  T2: { label: '클라이언트 자체', color: '#059669', short: '클라이언트' },
+  T3: { label: '권위/공식', color: '#E8A33D', short: '권위' },
+  T4: { label: '의료 플랫폼', color: '#5D5FEF', short: '플랫폼' },
+  T5: { label: '기타 (경쟁사)', color: '#A5B4FC', short: '경쟁사' },
 };
 
 export default function CitationsPage() {

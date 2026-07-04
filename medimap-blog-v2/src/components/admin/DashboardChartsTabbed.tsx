@@ -20,9 +20,9 @@ import { BarChart3, Users, Target, ChevronDown, ChevronRight, ExternalLink } fro
 import { cn } from '@/lib/cn';
 import type { TierTrendPoint, ClientRankingItem, KeywordGroundingItem } from './DashboardCharts';
 
-// Round 124-C — 조화 팔레트 (DashboardCharts 와 동기화: 민트 + 뮤트 골드 + slate)
+// Round 124-D — 레퍼런스 위계 팔레트 (DashboardCharts 와 동기화)
 const TIER_COLORS = {
-  t1: '#15B8A6', t3: '#D9A441', t4: '#64748B', t5: '#94A3B8', noise: '#E2E8F0',
+  t1: '#15B8A6', t3: '#E8A33D', t4: '#5D5FEF', t5: '#A5B4FC', noise: '#E2E8F0',
 };
 
 type Tab = 'tier' | 'ranking' | 'grounding';

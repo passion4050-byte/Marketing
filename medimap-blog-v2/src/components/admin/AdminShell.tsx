@@ -108,7 +108,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         {NAV.map((g) => (
           <div key={g.group} className="mb-5">
-            <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-ink-muted">
+            {/* Round 124-D — 그룹 라벨 iris (레퍼런스: 다크 사이드바의 바이올렛 그룹 라벨) */}
+            <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-iris">
               {g.group}
             </div>
             <ul className="space-y-0.5">

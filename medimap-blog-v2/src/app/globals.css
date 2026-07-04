@@ -133,20 +133,21 @@ body {
      공용 클래스(.btn-primary/.chip-brand/.input-base 등)의 brand 블루는 퍼블릭
      콘솔 페이지와 공유라 직접 수정 불가 → AdminShell 루트의 .admin-scope 로
      admin 에서만 중화. tasteskill: 제네릭 SaaS 블루 제거, 단일 액센트 절제. */
+  /* Round 124-D — 인터랙션 액센트 = iris (레퍼런스 위계: 바이올렛 단일 인터랙션 컬러) */
   .admin-scope .btn-primary {
-    @apply bg-ink hover:bg-ink/85 focus:ring-ink/25;
+    @apply bg-iris hover:bg-iris-deep focus:ring-iris/25;
   }
   .admin-scope .chip-brand {
     @apply bg-surface-muted text-ink-soft;
   }
   .admin-scope .input-base {
-    @apply focus:border-ink focus:ring-ink/10;
+    @apply focus:border-iris focus:ring-iris/15;
   }
   .admin-scope .progress-track {
     @apply bg-surface-muted;
   }
   .admin-scope .progress-fill {
-    @apply bg-ink;
+    @apply bg-iris;
   }
   .admin-scope .sidebar-link {
     @apply hover:bg-surface-muted hover:text-ink;

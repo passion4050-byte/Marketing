@@ -219,7 +219,7 @@ export function MarketShareDiagnosis({
                           경쟁사
                         </span>
                       ) : (
-                        <span className="text-[10px] text-ink-muted">권위/플랫폼</span>
+                        <span className="rounded bg-gold-soft px-1.5 py-0.5 text-[10px] font-bold text-gold-deep">권위/플랫폼</span>
                       )}
                     </td>
                     <td className="px-3 py-2 text-right font-mono text-sm font-bold text-ink">
