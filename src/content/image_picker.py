@@ -122,18 +122,35 @@ CONCEPT_POOLS: dict[str, list[str]] = {
 }
 
 
-def _concept_category(keyword: str) -> str:
+# Round 126-C (2026-07-05) — tenants.domain_category(진료과) 정확 매핑.
+#   키워드 추론보다 신뢰도 높은 1차 신호. 실사고: 모우림의원(모발이식) "헤어라인교정"
+#   글이 dental 키워드 "교정" 에 걸려 치아 이미지가 생성됨.
+_DOMAIN_CATEGORY_MAP: dict[str, str] = {
+    "안과": "eye", "피부과": "derma", "성형외과": "plastic", "치과": "dental",
+    "내과": "generic", "모발이식": "hair", "한방의원": "oriental", "한방": "oriental",
+    "자사인사이트": "marketing",
+}
+
+
+def _concept_category(keyword: str, domain_category: str | None = None) -> str:
+    # 1차: tenant 진료과 정확 매핑 (있으면 무조건 우선)
+    if domain_category:
+        mapped = _DOMAIN_CATEGORY_MAP.get(domain_category.strip())
+        if mapped:
+            return mapped
+    # 2차: 키워드 추론 — Round 126-C: hair 를 dental 보다 먼저 체크 + dental 의
+    # 단독 "교정" 제거("치아교정"으로 구체화). "헤어라인교정" 오분류 방지.
     k = (keyword or "").strip()
+    if any(kw in k for kw in ["모발", "탈모", "헤어", "두피", "비절개", "모낭"]):
+        return "hair"
     if any(kw in k for kw in ["안과", "라식", "라섹", "스마일", "시력", "백내장", "노안"]):
         return "eye"
     if any(kw in k for kw in ["피부", "여드름", "필러", "보톡스", "레이저", "스킨", "리쥬란", "울쎄라"]):
         return "derma"
-    if any(kw in k for kw in ["성형", "안면", "양악", "쌍꺼풀", "가슴", "코"]):
-        return "plastic"
-    if any(kw in k for kw in ["치과", "임플란트", "교정", "충치"]):
+    if any(kw in k for kw in ["치과", "임플란트", "치아교정", "충치", "치아"]):
         return "dental"
-    if any(kw in k for kw in ["모발", "탈모", "헤어"]):
-        return "hair"
+    if any(kw in k for kw in ["성형", "안면", "양악", "쌍꺼풀", "가슴"]):
+        return "plastic"
     if any(kw in k for kw in ["한방", "한의원", "한약", "다이어트 한약"]):
         return "oriental"
     if any(kw in k for kw in ["GEO", "AEO", "마케팅", "광고", "콘텐츠", "의료법", "병원", "SEO", "검색", "SaaS"]):
@@ -141,13 +158,16 @@ def _concept_category(keyword: str) -> str:
     return "generic"
 
 
-def pick_concept(keyword: str, salt: str = "") -> str:
-    """keyword 카테고리의 컨셉 풀에서 결정적(deterministic) 회전 선택.
+def pick_concept(keyword: str, salt: str = "", domain_category: str | None = None) -> str:
+    """카테고리 컨셉 풀에서 결정적(deterministic) 회전 선택.
 
+    domain_category(tenant 진료과)가 있으면 키워드 추론보다 우선.
     salt 에 title/섹션제목/인덱스를 섞으면 같은 키워드의 글·섹션끼리도
     서로 다른 비주얼 컨셉이 나온다.
     """
-    pool = CONCEPT_POOLS.get(_concept_category(keyword), CONCEPT_POOLS["generic"])
+    pool = CONCEPT_POOLS.get(
+        _concept_category(keyword, domain_category), CONCEPT_POOLS["generic"]
+    )
     h = int(hashlib.md5(f"{keyword}|{salt}".encode("utf-8")).hexdigest(), 16)
     return pool[h % len(pool)]
 
@@ -209,13 +229,22 @@ def keyword_to_unsplash_query(keyword: str) -> str:
     return _pool[_h % len(_pool)]
 
 
-def build_prompt(keyword: str, title: Optional[str] = None, *, realistic: bool = False) -> str:
+def build_prompt(
+    keyword: str,
+    title: Optional[str] = None,
+    *,
+    realistic: bool = False,
+    domain_category: Optional[str] = None,
+) -> str:
     """Pollinations prompt 빌더.
 
     Round 125-B — 고정 인테리어 템플릿 → 컨셉 풀 회전 (title 을 salt 로 사용해
     같은 키워드 글끼리도 다른 비주얼). 사람 배제 네거티브는 템플릿이 유지.
+    Round 126-C — domain_category(진료과) 우선 매핑.
     """
-    context = _people_free(pick_concept(keyword, salt=(title or "")))
+    context = _people_free(
+        pick_concept(keyword, salt=(title or ""), domain_category=domain_category)
+    )
     template = PROMPT_TEMPLATE_REALISTIC if realistic else PROMPT_TEMPLATE
     return template.format(context=context)
 
@@ -254,6 +283,7 @@ def generate_image_for_content(
     width: int = 1280,
     height: int = 720,
     is_self_tenant: bool = False,
+    domain_category: Optional[str] = None,
 ) -> Optional[dict]:
     """Cover 이미지 생성 + Supabase Storage 업로드.
 
@@ -278,7 +308,10 @@ def generate_image_for_content(
         if is_nano_banana_enabled():
             # 재시도 3회 (rate limit / 일시 실패 대응)
             for attempt in range(3):
-                nb = generate_nano_banana_image(keyword, title, is_self_tenant=is_self_tenant)
+                nb = generate_nano_banana_image(
+                    keyword, title,
+                    is_self_tenant=is_self_tenant, domain_category=domain_category,
+                )
                 if nb and nb.get("url"):
                     logger.info("Nano Banana cover 생성 성공 (attempt=%d): %s", attempt, nb["url"][:80])
                     return nb
@@ -338,7 +371,9 @@ def generate_image_for_content(
             logger.warning("Unsplash fallback failed: %s — try Pollinations", e)
         # Unsplash 실패 → Pollinations realistic fallback
 
-    prompt = build_prompt(keyword, title, realistic=is_self_tenant)
+    prompt = build_prompt(
+        keyword, title, realistic=is_self_tenant, domain_category=domain_category
+    )
     model = os.environ.get("POLLINATIONS_MODEL", "flux")
     # Round 73 — 모든 cover 1600x900 으로 통일 (품질 개선)
     width, height = 1600, 900
@@ -474,6 +509,7 @@ def generate_body_illustration_for_section(
     index: int,
     width: int = 1200,
     height: int = 630,
+    domain_category: Optional[str] = None,
 ) -> Optional[dict]:
     """본문 H2 섹션 1개당 일러스트 1장.
 
@@ -491,9 +527,13 @@ def generate_body_illustration_for_section(
     clean_heading = re.sub(r"[^\w가-힣\s]+", " ", section_heading).strip()
     # Round 125-B — 섹션 제목+인덱스를 salt 로 컨셉 회전: 한 글 안의 본문 이미지들이
     # 서로 다른 샷 타입(매크로/정물/추상/일러스트/공간)을 갖는다. 사람 배제 유지.
-    en_ctx = _people_free(pick_concept(keyword, salt=f"{clean_heading}:{index}"))
+    # Round 126-C — ① 섹션 헤딩을 주제로 직접 주입(글 맥락) ② 진료과 우선 매핑.
+    en_ctx = _people_free(
+        pick_concept(keyword, salt=f"{clean_heading}:{index}", domain_category=domain_category)
+    )
+    _topic = f", related to the article section '{clean_heading}'" if clean_heading else ""
     prompt = (
-        f"{en_ctx}, editorial magazine quality, soft natural light, fine detail, 8k, "
+        f"{en_ctx}{_topic}, editorial magazine quality, soft natural light, fine detail, 8k, "
         f"no people, no person, no face, no hands, no text, no logo"
     )
     model = os.environ.get("POLLINATIONS_MODEL", "flux")
@@ -533,6 +573,7 @@ def inject_body_illustrations(
     keyword: str,
     *,
     max_count: int = 4,
+    domain_category: Optional[str] = None,
 ) -> str:
     """본문 HTML 의 <h2> 직전에 figure 를 max_count 개까지 삽입.
 
@@ -566,7 +607,7 @@ def inject_body_illustrations(
         # 텍스트만 추출 (inner HTML 의 이모지/스타일은 보존)
         heading_text = re.sub(r"<[^>]+>", "", m.group(2)).strip()
         img = generate_body_illustration_for_section(
-            keyword, heading_text, index=k
+            keyword, heading_text, index=k, domain_category=domain_category
         )
         if not img:
             continue

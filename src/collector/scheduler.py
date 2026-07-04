@@ -540,7 +540,9 @@ def _generate_draft(
                 )
                 if is_enabled():
                     # Round 29: 자사 tenant 면 Unsplash 우선 + 실사 톤
+                    # Round 126-C: 진료과(domain_category)를 이미지 컨셉 매핑에 전달
                     _is_self_for_image = False
+                    _domcat_for_image = None
                     try:
                         from src.storage.models import Tenant as _TenantImg
                         _ti = s.get(_TenantImg, tenant_id)
@@ -548,6 +550,7 @@ def _generate_draft(
                             (getattr(_ti, "business_model", "") or "") == "self"
                             or (getattr(_ti, "partner_slug", "") or "") == "medimap-self"
                         )
+                        _domcat_for_image = getattr(_ti, "domain_category", None) if _ti else None
                     except Exception:  # noqa: BLE001
                         pass
                     # Round 82 fix: obj.title 은 ORM 미매핑 → AttributeError 가
@@ -564,7 +567,9 @@ def _generate_draft(
                     except Exception:
                         _title_for_img = ""
                     img = generate_image_for_content(
-                        keyword, _title_for_img, is_self_tenant=_is_self_for_image
+                        keyword, _title_for_img,
+                        is_self_tenant=_is_self_for_image,
+                        domain_category=_domcat_for_image,
                     )
                     if img:
                         from sqlalchemy import text as _sql_text
@@ -589,7 +594,8 @@ def _generate_draft(
                     body_count = settings.body_image_count() if settings else 2
                     if body_count > 0 and obj.body:
                         new_body = inject_body_illustrations(
-                            obj.body, keyword, max_count=body_count
+                            obj.body, keyword, max_count=body_count,
+                            domain_category=_domcat_for_image,
                         )
                         if new_body != obj.body:
                             from sqlalchemy import text as _sql_text2

@@ -66,47 +66,93 @@ def is_nano_banana_enabled() -> bool:
     return True
 
 
-def _build_korean_prompt(keyword: str, title: str | None = None, *, is_self_tenant: bool = False) -> str:
-    """Nano Banana 한국인 모델 프롬프트 (무신사 매거진 감도).
+def _generate_context_concept(
+    keyword: str,
+    title: str | None,
+    domain_category: str | None,
+    api_key: str,
+) -> Optional[str]:
+    """Round 126-C — 글 맥락 기반 커버 컨셉 (우선순위 ①).
 
-    Round 108-c (2026-07-03): 사용자 요구 = "감도 높은 실사, 무신사 매거진 스타일".
-    시네마틱 · 필름 톤 · 자연광 · 미니멀 공간 · 얕은 심도.
+    Gemini 텍스트 1콜로 글 제목·키워드·진료과에 부합하는 무인물 사진 컨셉을
+    영문 1문장으로 생성. 실패/타임아웃 시 None → 진료과 컨셉 풀 fallback (②).
+    비용: flash 텍스트 ~80토큰 — 무시 수준 (MAX_DAILY_USD 가드 내).
     """
-    from src.content.image_picker import keyword_to_english_context
-
-    en_ctx = keyword_to_english_context(keyword)
-    title_hint = f", concept: {title}" if title else ""
-
-    if is_self_tenant:
-        return (
-            f"High-end editorial magazine photography, Musinsa magazine aesthetic, "
-            f"cinematic lifestyle photography for a Korean medical/wellness feature. "
-            f"Korean (ethnically East Asian) medical professional and Korean patient "
-            f"in a modern minimalist Seoul clinic space, theme: {en_ctx}{title_hint}. "
-            f"All subjects clearly Korean (authentic East Asian features, NOT Western/Caucasian). "
-            f"Natural Korean skin tones, subtle makeup, natural expressions. "
-            f"Cinematic natural window light, warm film-like tone, moody atmosphere, "
-            f"minimalist interior with clean lines, wooden accents, off-white walls. "
-            f"Shot on 35mm film camera, shallow depth of field (f/1.8), 50mm lens, "
-            f"soft bokeh, editorial framing, magazine cover quality. "
-            f"Photorealistic (NOT illustration, NOT anime, NOT cartoon, NOT 3D render). "
-            f"8k UHD, sharp fine detail, high dynamic range, professional color grading, "
-            f"muted earth tones, sophisticated palette."
-            + _ANTI_TEXT_DIRECTIVE
+    ask = (
+        "You write photography art direction for a Korean medical blog.\n"
+        f"Article title: {title or keyword}\n"
+        f"Keyword: {keyword}\n"
+        f"Medical field: {domain_category or 'medical'}\n"
+        "Task: In ONE short English sentence (max 25 words), describe a cover "
+        "image concept that visually matches THIS article's specific topic.\n"
+        "Rules: absolutely no people, no faces, no hands, no body parts; "
+        "prefer objects, close-up details, tools, abstract concepts or still life; "
+        "must be relevant to the medical field above; no text in image.\n"
+        "Answer with the sentence only."
+    )
+    try:
+        r = httpx.post(
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"gemini-2.0-flash:generateContent?key={api_key}",
+            json={
+                "contents": [{"parts": [{"text": ask}]}],
+                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 80},
+            },
+            timeout=12,
         )
+        if r.status_code != 200:
+            return None
+        txt = (
+            r.json()
+            .get("candidates", [{}])[0]
+            .get("content", {})
+            .get("parts", [{}])[0]
+            .get("text", "")
+        )
+        txt = " ".join((txt or "").strip().split())
+        # 안전망: 인물 단어가 섞여 나오면 폐기 → 풀 fallback
+        if not txt or len(txt) < 12 or re.search(
+            r"\b(person|people|face|hand|doctor|patient|woman|man|portrait)\b",
+            txt, re.IGNORECASE,
+        ):
+            return None
+        return txt[:220]
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _build_korean_prompt(
+    keyword: str,
+    title: str | None = None,
+    *,
+    is_self_tenant: bool = False,
+    domain_category: str | None = None,
+    concept: str | None = None,
+) -> str:
+    """Nano Banana 커버 프롬프트 (무신사 매거진 감도 유지 + 맥락 컨셉).
+
+    Round 108-c: "감도 높은 실사, 무신사 매거진 스타일" — 시네마틱·필름톤 유지.
+    Round 126-C (2026-07-05): 사용자 지적 "실내+모델만 반복 = AI 티" →
+      우선순위 ① 글 맥락 컨셉(LLM 생성, concept 인자) ② 진료과 컨셉 풀
+      ③ 키워드 추론. 인물 장면 제거 (사물·디테일·개념 중심).
+    """
+    if not concept:
+        from src.content.image_picker import pick_concept
+        concept = pick_concept(keyword, salt=(title or ""), domain_category=domain_category)
+    title_hint = f", article topic: {title}" if title else ""
+
     return (
         f"High-end editorial magazine photography, Musinsa magazine aesthetic, "
-        f"cinematic lifestyle shot. "
-        f"Korean (ethnically East Asian) medical doctor with a Korean patient, "
-        f"theme: {en_ctx}{title_hint}. "
-        f"Both subjects clearly Korean (authentic East Asian features, NOT Western). "
-        f"Modern minimalist Korean clinic interior in Seoul, "
-        f"clean lines, warm neutral tones, natural daylight from side window. "
-        f"Cinematic film-like lighting, moody warm atmosphere, editorial composition. "
-        f"Shot on 35mm, 50mm lens, shallow depth of field, soft bokeh, "
-        f"professional DSLR quality, magazine editorial framing. "
-        f"Photorealistic (NOT illustration, NOT anime, NOT cartoon). "
-        f"8k UHD, sharp detail, sophisticated muted palette, high fidelity."
+        f"cinematic tone. Subject: {concept}{title_hint}. "
+        f"Cinematic natural window light, warm film-like tone, "
+        f"minimalist Korean aesthetic, clean composition. "
+        f"Shot on 35mm film camera, shallow depth of field, soft bokeh, "
+        f"editorial framing, magazine cover quality, "
+        f"8k UHD, sharp fine detail, professional color grading, "
+        f"muted sophisticated palette. "
+        f"No people, no person, no face, no hands, no body parts. "
+        f"If the subject describes an illustration, render it as a clean minimal "
+        f"illustration; otherwise photorealistic."
         + _ANTI_TEXT_DIRECTIVE
     )
 
@@ -202,6 +248,7 @@ def generate_nano_banana_image(
     title: Optional[str] = None,
     *,
     is_self_tenant: bool = False,
+    domain_category: Optional[str] = None,
 ) -> Optional[dict]:
     """Nano Banana 로 cover 이미지 생성 → Supabase Storage 업로드 → public URL 반환.
 
@@ -220,7 +267,14 @@ def generate_nano_banana_image(
     else:
         chain = _FALLBACK_CHAIN
 
-    prompt = _build_korean_prompt(keyword, title, is_self_tenant=is_self_tenant)
+    # Round 126-C — 우선순위 ① 글 맥락 컨셉 (Gemini 텍스트 1콜) → 실패 시 ② 진료과 풀
+    _ctx_concept = _generate_context_concept(keyword, title, domain_category, api_key)
+    if _ctx_concept:
+        logger.info("nano_banana.context_concept: %s", _ctx_concept[:100])
+    prompt = _build_korean_prompt(
+        keyword, title, is_self_tenant=is_self_tenant,
+        domain_category=domain_category, concept=_ctx_concept,
+    )
     logger.info("nano_banana.prompt_built: %s", prompt[:120])
 
     img_bytes: Optional[bytes] = None
