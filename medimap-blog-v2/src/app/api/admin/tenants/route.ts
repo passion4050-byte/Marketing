@@ -101,6 +101,27 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   await logAudit(req, sb, 'create_tenant', `tenants:${data.id}`, { diff: { after: data } });
 
+  // Round 126 (2026-07-05) — partner_slug 자동 폴백.
+  //   실사고: 신규 3개 병원이 partner_slug=NULL 로 등록돼 /with-partners URL 자체가
+  //   없어 글이 발행돼도 영영 미노출 + 발행 태깅(파트너 판정)도 스킵됐음.
+  //   등록 시 미입력이면 이름의 영문/숫자 + id 로 자동 생성 — 어드민에서 언제든
+  //   보기 좋은 슬러그로 수정 가능 (URL 은 색인 초기라 변경 무해).
+  if (!data.partner_slug && (body.business_model ?? '') !== 'self') {
+    const base = name
+      .replace(/[^a-zA-Z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .toLowerCase()
+      .slice(0, 24);
+    const autoSlug = base ? `${base}-${data.id}` : `partner-${data.id}`;
+    const { data: updated } = await sb
+      .from('tenants')
+      .update({ partner_slug: autoSlug })
+      .eq('id', data.id)
+      .select()
+      .single();
+    if (updated) Object.assign(data, updated);
+  }
+
   // Round 34 phase 4 (2026-05-30) — 신규 등록 시 홈페이지 자동 분석.
   // homepage URL 이 있고 business_model 이 비어있거나 분류 문자열이면 자동 호출.
   // 백그라운드 — await 안 함 (response 빨리 반환).
