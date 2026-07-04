@@ -269,8 +269,18 @@ export async function getPartnerPost(
   partnerSlug: string,
   postSlug: string,
 ): Promise<PartnerPost | null> {
+  // Round 126-B (2026-07-05) — 한글 slug 404 수정. Next dynamic route 의 params 는
+  // URL-encoded(%EC%8A%A4...) 로 들어오는데 여기만 디코딩 없이 비교해 한글 slug
+  // 파트너 글이 전부 404 였음 (posts.ts getPostBySlug 는 디코딩함 — 그래서
+  // 자사 /blog 한글 slug 는 정상). 동일 패턴으로 정합.
+  let decoded = postSlug;
+  try {
+    decoded = decodeURIComponent(postSlug);
+  } catch {
+    // malformed escape 시 raw 그대로
+  }
   const posts = await getPartnerPostsByPartner(category, partnerSlug);
-  return posts.find((p) => p.slug === postSlug) ?? null;
+  return posts.find((p) => p.slug === decoded || p.slug === postSlug) ?? null;
 }
 
 /** 카테고리에서 파트너 (tenant) 목록 — list 페이지 카드 그리드 */
