@@ -4684,11 +4684,42 @@ Round 104-c 사무실 세션에서 이미지 문제 조치됨 (`unsplash_client.
 - layout.tsx metadata alternates 에 RSS autodiscovery (`application/rss+xml: /rss.xml`) 추가.
 - **배포 후 사용자 액션**: 네이버 서치어드바이저 → 요청 → RSS 제출 → `https://wecircle.co.kr/rss.xml`
 
-### 다음 라운드 후보 (Round 122 세션 종료 시점)
+### Round 118-C (2026-07-04) — 사이트 제목 + Article 스키마
 
-- **Round 118-B**: /rss.xml 라우트 신규 (published+pass 필터 재사용, posts+partner 통합 50건) + 서치어드바이저 RSS 제출
-- **Round 118-C**: Article/BlogPosting JSON-LD 감사 + 사이트 제목 "테크 블로그" 리포지셔닝 (사용자 브랜딩 결정 후)
-- **Round 121-B**: 학습됨 URL 의 learned_insights 실주입 검증 (다음 cron 글에서 prompt 반영 확인) + 크롤러/카카오 위젯 데이터 첫 유입 시 02존 승격
+- 사이트 제목: "WECIRCLE 테크 블로그" → **"WECIRCLE 인사이트"** (layout.tsx title/OG — 의료 마케팅 포지셔닝 정합, 사용자 브랜딩 결정)
+- with-partners 글 JSON-LD: `MedicalWebPage` 단독 → **`["Article", "MedicalWebPage"]` 멀티타입** + dateModified. blog/[slug] 는 이미 Article (schema.ts)
+
+### Round 121-B (2026-07-04) — 학습 주입 갭 수정 (치명 버그)
+
+- **발견**: applied_insights_loader 는 `applied=true AND domain_category=eq.{진료과}` 로만 매칭하는데, R121 학습 버튼은 domain_category=NULL 로 저장 → **학습해도 prompt 에 영원히 주입 안 되던 상태**
+- 수정: learn-from-url `?save=true` 에서 **keyword → keywords.text → tenant → tenants.domain_category 서버 역추론** (tenant_id 도 함께). 프론트 무변경
+- 주입 체인 전체 감사 완료: 학습 버튼 → learned_insights(applied) → generator.py L595 `apply_insights=True` → `load_applied_insights_block(tenant_id)` → prompt references_block ✓
+- 잔여 검증: 다음 cron 글에서 실주입 확인 (학습 버튼 1회 클릭 후)
+
+### 측정 커버리지 진단 (2026-07-04, 팩트 기록)
+
+- **ChatGPT "수집 안 됨" = 버그 아님**: 측정 개시일 차이 — Gemini 6/4, Claude 6/16, **OpenAI 6/28**. 실패율 0% (쿼리=응답). 최근 7일은 270/254/254 로 3엔진 균등. 추이 차트 "부족" 은 30일 창에 GPT 데이터가 6일치뿐이라서 — 시간이 해결
+- **전 클라이언트(9) × 3엔진 측정 정상 가동** (전원 last_query 6/29~7/3). 멘션 0 은 수집 실패가 아니라 실제 미인용 — 부진 4곳: 밝은눈안과 부산·클리어서울·강남연세(인용 0)·힐링(신규). 인프라가 아니라 콘텐츠 성과 이슈
+
+### Round 123 (2026-07-04) — vercel.app → wecircle.co.kr 영구 리디렉션
+
+- next.config.js redirects 에 **host 조건** (`medimap-blog-phi.vercel.app`) → `https://wecircle.co.kr/:path` permanent. wecircle 접속·preview 배포엔 미발동, `/api/*` 제외(외부 훅 안전망), 쿼리스트링 보존
+- 라이브 검증: `/blog` → wecircle.co.kr/blog 308 확인. canonical+리디렉션+사이트맵+RSS+IndexNow 전 계층 wecircle 단일화 완성
+
+### Round 124 (2026-07-04) — admin 전 페이지 ink 모노톤 통일 (tasteskill)
+
+- 사용자 방향 확정: R119 의 ink 모노톤(사이드바 다크 필·KPI 스트립)이 정본 — 잔여 brand 블루·장식 레드가 "정신사나움" → **admin 한정 브랜드 블루 전면 제거**
+- 스윕: 42파일 408치환 (fresh clone python 스윕 → `round124-admin-tone.patch` → 사용자 `git apply`+push). 매핑: text-brand-7/800→ink, text-brand→ink-soft, bg-brand→ink, bg-brand-50→surface-muted, border/ring-brand→border/ink 계열, 그라데이션 from/to-brand→ink
+- **공용 CSS blue** (.btn-primary/.chip-brand/.input-base/progress/sidebar-link)는 퍼블릭 공유라 직접 수정 금지 → **`.admin-scope` 오버라이드** (AdminShell 루트 클래스). 퍼블릭 콘솔은 브랜드 블루 유지
+- admin-page-title 위계 강화 (22→26px font-black tracking-tight)
+- 의도적 유지: 엔진 시그니처 도트, status 시맨틱(진짜 알림), 카카오 옐로우, 차트 데이터 색
+- **패치 전달 프로토콜**: 대량 파일 스윕은 fresh clone python → `git diff` 패치 → Marketing 폴더에 저장 → 사용자 `git apply` (Edit 반복보다 안전·경제적. 검증: `git stash` 후 `apply --check`)
+
+### 다음 라운드 후보 (Round 124 세션 종료 시점)
+
+- **Round 121-B 최종**: 학습 버튼 1회 클릭 → 다음 cron 글에서 prompt 실주입 확인 (GH Actions 로그 or 글 구조 변화)
+- **Round 118-B'**: RSS `content:encoded` 본문 포함 (네이버 권장 — 최신 20건만, 크기 제한 절충). 네이버 RSS 수집 상태 며칠 관찰 후 판단
+- **Round 124-B**: 사용자 스샷 기반 admin 잔여 노이즈 최종 점검 + 크롤러/카카오 위젯 데이터 유입 시 02존 승격
 - **Round 110-A**: 신규 AI 인용 감지 → 이메일 알림 자동화 (실전 GEO 효과 즉시 인지)
 - **Round 110-B**: 크롤러 로그 시각화 위젯 (GPTBot/Claudebot/PerplexityBot 방문 로그)
 - **Round 110-C**: UTM 카카오톡 유입 트래킹 대시보드 (Round 108-e CTA 통일 활용)
