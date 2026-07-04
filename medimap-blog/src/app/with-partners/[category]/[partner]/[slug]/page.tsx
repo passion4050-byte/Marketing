@@ -87,10 +87,14 @@ export default async function PartnerPostPage({ params }: PageProps) {
 
   const ldJson = {
     "@context": "https://schema.org",
-    "@type": "MedicalWebPage",
+    // Round 118-C (2026-07-04) — Article 멀티타입 추가. MedicalWebPage 단독으로는
+    // 구글/AI 엔진의 기사형 리치결과·인용 대상에서 빠짐. 필수 필드(headline/
+    // datePublished/author/publisher/image)는 이미 충족.
+    "@type": ["Article", "MedicalWebPage"],
     headline: post.title,
     description: post.excerpt,
     datePublished: post.published_at,
+    dateModified: post.published_at,
     image: post.cover_image_url ? [post.cover_image_url] : undefined,
     author: { "@type": "Organization", name: post.tenant_name },
     publisher: {

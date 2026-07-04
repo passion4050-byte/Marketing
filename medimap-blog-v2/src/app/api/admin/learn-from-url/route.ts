@@ -202,6 +202,31 @@ export async function POST(req: NextRequest) {
     if (!body.patterns) {
       return NextResponse.json({ ok: false, error: 'patterns required when save=true' }, { status: 400 });
     }
+
+    // Round 121-B fix (2026-07-04): domain_category 자동 역추론.
+    //   applied_insights_loader 는 `applied=true AND domain_category=eq.{진료과}` 로만
+    //   매칭하므로 domain_category=NULL 인 인사이트는 prompt 에 절대 주입되지 않음.
+    //   대시보드 학습 버튼은 진료과를 모름 → keyword → keywords.text → tenant →
+    //   tenants.domain_category 로 서버가 역추론해 채운다 (tenant_id 도 함께).
+    let inferredCategory = body.domain_category ?? null;
+    let inferredTenantId = body.tenant_id ?? null;
+    if ((!inferredCategory || !inferredTenantId) && body.keyword) {
+      const { data: kwRow } = await sb
+        .from('keywords')
+        .select('tenant_id, tenants:tenant_id ( domain_category )')
+        .eq('text', body.keyword.trim())
+        .limit(1)
+        .maybeSingle();
+      if (kwRow) {
+        const t = (kwRow as unknown as {
+          tenant_id: number | null;
+          tenants: { domain_category: string | null } | null;
+        });
+        if (!inferredTenantId) inferredTenantId = t.tenant_id ?? null;
+        if (!inferredCategory) inferredCategory = t.tenants?.domain_category ?? null;
+      }
+    }
+
     const { error } = await sb
       .from('learned_insights')
       .upsert(
@@ -209,9 +234,9 @@ export async function POST(req: NextRequest) {
           source_url: url,
           source_domain: body.source_domain ?? null,
           source_tier: body.source_tier ?? null,
-          domain_category: body.domain_category ?? null,
+          domain_category: inferredCategory,
           keyword: body.keyword ?? null,
-          tenant_id: body.tenant_id ?? null,
+          tenant_id: inferredTenantId,
           patterns: body.patterns,
           notes: body.notes ?? null,
           applied: true,

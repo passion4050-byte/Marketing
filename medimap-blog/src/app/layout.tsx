@@ -10,7 +10,7 @@ import { siteConfig } from "@/lib/site";
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: `${siteConfig.name} 테크 블로그`,
+    default: `${siteConfig.name} 인사이트`,
     template: `%s · ${siteConfig.name}`,
   },
   description: siteConfig.description,
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     type: "website",
     locale: "ko_KR",
     siteName: siteConfig.name,
-    title: `${siteConfig.name} 테크 블로그`,
+    title: `${siteConfig.name} 인사이트`,
     description: siteConfig.description,
   },
   twitter: { card: "summary_large_image" },
