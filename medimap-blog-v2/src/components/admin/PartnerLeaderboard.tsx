@@ -29,7 +29,7 @@ interface Data {
 const ENGINE_COLORS: Record<string, string> = {
   gemini: 'bg-blue-100 text-blue-700',
   claude: 'bg-purple-100 text-purple-700',
-  openai: 'bg-emerald-100 text-emerald-700',
+  openai: 'bg-accent-soft text-accent-deep',
   perplexity: 'bg-orange-100 text-orange-700',
   unknown: 'bg-slate-100 text-slate-700',
 };
@@ -100,7 +100,7 @@ export function PartnerLeaderboard() {
           const barPct = (p.mentions_30d / maxMentions) * 100;
           const isTop = i === 0 && p.mentions_30d > 0;
           const deltaIcon =
-            p.mentions_delta > 0 ? <TrendingUp size={12} className="text-emerald-600" /> :
+            p.mentions_delta > 0 ? <TrendingUp size={12} className="text-accent" /> :
             p.mentions_delta < 0 ? <TrendingDown size={12} className="text-red-600" /> :
             <Minus size={12} className="text-ink-subtle" />;
           const deltaText = p.mentions_delta === 0 ? '변동 없음' :

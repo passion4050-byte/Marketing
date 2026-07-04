@@ -30,9 +30,9 @@ interface Data {
 }
 
 const BOT_META: Record<string, { label: string; color: string; accent: string }> = {
-  gptbot: { label: 'GPTBot', color: 'from-emerald-500 to-teal-500', accent: 'bg-emerald-500' },
-  'oai-searchbot': { label: 'OAI-SearchBot', color: 'from-emerald-400 to-cyan-500', accent: 'bg-emerald-400' },
-  'chatgpt-user': { label: 'ChatGPT-User', color: 'from-emerald-300 to-teal-400', accent: 'bg-emerald-300' },
+  gptbot: { label: 'GPTBot', color: 'from-status-success to-teal-500', accent: 'bg-status-success' },
+  'oai-searchbot': { label: 'OAI-SearchBot', color: 'from-accent to-cyan-500', accent: 'bg-accent' },
+  'chatgpt-user': { label: 'ChatGPT-User', color: 'from-accent/40 to-teal-400', accent: 'bg-accent/40' },
   claudebot: { label: 'ClaudeBot', color: 'from-purple-500 to-fuchsia-500', accent: 'bg-purple-500' },
   'claude-web': { label: 'Claude-Web', color: 'from-purple-400 to-pink-500', accent: 'bg-purple-400' },
   perplexitybot: { label: 'PerplexityBot', color: 'from-orange-500 to-amber-500', accent: 'bg-orange-500' },
@@ -94,7 +94,7 @@ export function CrawlerLogWidget() {
 
   const { summary, bots_30d, daily_30d, top_paths_30d } = data;
   const deltaSign = summary.wow_delta > 0 ? '+' : '';
-  const deltaColor = summary.wow_delta > 0 ? 'text-emerald-600' : summary.wow_delta < 0 ? 'text-red-600' : 'text-ink-subtle';
+  const deltaColor = summary.wow_delta > 0 ? 'text-accent' : summary.wow_delta < 0 ? 'text-red-600' : 'text-ink-subtle';
   const maxDaily = Math.max(...daily_30d.map(d => d.total), 1);
 
   return (
@@ -195,7 +195,7 @@ export function CrawlerLogWidget() {
             {bots_30d.slice(0, 8).map((b, i) => {
               const meta = botMeta(b.bot_name);
               const deltaIcon = b.hits_delta > 0
-                ? <TrendingUp size={11} className="text-emerald-600" />
+                ? <TrendingUp size={11} className="text-accent" />
                 : b.hits_delta < 0
                   ? <TrendingDown size={11} className="text-red-600" />
                   : <Minus size={11} className="text-ink-subtle" />;
@@ -287,7 +287,7 @@ function KpiCard({
   highlight?: boolean;
 }) {
   return (
-    <div className={`rounded-xl border p-3 ${accent ? 'border-brand-200 bg-brand-50/30' : highlight ? 'border-emerald-200 bg-emerald-50/40' : 'border-border bg-white'}`}>
+    <div className={`rounded-xl border p-3 ${accent ? 'border-brand-200 bg-brand-50/30' : highlight ? 'border-accent/30 bg-accent-soft/40' : 'border-border bg-white'}`}>
       <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-ink-subtle">
         {icon}
         {label}

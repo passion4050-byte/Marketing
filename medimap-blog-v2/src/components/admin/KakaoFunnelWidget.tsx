@@ -79,7 +79,7 @@ export function KakaoFunnelWidget() {
   const { summary, events_30d, daily_30d, top_pages_30d, top_campaigns_30d } = data;
   const maxDaily = Math.max(...daily_30d.map(d => d.total), 1);
   const deltaSign = summary.delta > 0 ? '+' : '';
-  const deltaColor = summary.delta > 0 ? 'text-emerald-600' : summary.delta < 0 ? 'text-red-600' : 'text-ink-subtle';
+  const deltaColor = summary.delta > 0 ? 'text-accent' : summary.delta < 0 ? 'text-red-600' : 'text-ink-subtle';
 
   return (
     <div className="rounded-2xl border border-border bg-gradient-to-br from-yellow-50/40 via-surface-base to-surface-base p-6 shadow-soft">
@@ -164,7 +164,7 @@ export function KakaoFunnelWidget() {
               const meta = eventMeta(e.event);
               const share = summary.total_30d > 0 ? (e.clicks_30d / summary.total_30d) * 100 : 0;
               const deltaIcon = e.delta > 0
-                ? <TrendingUp size={11} className="text-emerald-600" />
+                ? <TrendingUp size={11} className="text-accent" />
                 : e.delta < 0
                   ? <TrendingDown size={11} className="text-red-600" />
                   : <Minus size={11} className="text-ink-subtle" />;

@@ -118,17 +118,17 @@ export function ImmediatePublishModal({
         if (e.target === e.currentTarget && !submitting) onClose();
       }}
     >
-      <div className="w-full max-w-md overflow-hidden rounded-xl border border-stone-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-stone-200/70 px-5 py-3">
+      <div className="w-full max-w-md overflow-hidden rounded-xl border border-border bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-border px-5 py-3">
           <div className="flex items-center gap-2">
-            <Rocket className="h-4 w-4 text-emerald-700" />
-            <span className="text-sm font-black text-stone-900">즉시 발행</span>
+            <Rocket className="h-4 w-4 text-accent-deep" />
+            <span className="text-sm font-black text-ink">즉시 발행</span>
           </div>
           <button
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="rounded-md p-1.5 text-stone-500 transition hover:bg-stone-100 hover:text-stone-900"
+            className="rounded-md p-1.5 text-ink-muted transition hover:bg-surface-muted hover:text-ink"
             aria-label="닫기"
           >
             <X className="h-4 w-4" />
@@ -138,25 +138,25 @@ export function ImmediatePublishModal({
         {phase === 'form' ? (
           <>
             <div className="space-y-4 px-5 py-4">
-              <p className="text-xs leading-relaxed text-stone-500">
+              <p className="text-xs leading-relaxed text-ink-muted">
                 자동 cron 을 기다리지 않고 선택한 클라이언트의 콘텐츠를 지금 바로
                 생성합니다. 트리거 후 2~5분 뒤 검수 대기 큐에 등장합니다.
               </p>
 
               <div>
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-stone-500">
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-ink-muted">
                   클라이언트
                 </label>
                 {tenantsError ? (
-                  <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+                  <div className="rounded-md border border-status-danger/25 bg-status-dangerSoft/40 px-3 py-2 text-xs font-semibold text-status-danger">
                     {tenantsError}
                   </div>
                 ) : tenants === null ? (
-                  <div className="flex items-center gap-2 rounded-md border border-stone-200 bg-stone-50/50 px-3 py-2 text-xs text-stone-500">
+                  <div className="flex items-center gap-2 rounded-md border border-border bg-surface-subtle/60 px-3 py-2 text-xs text-ink-muted">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" /> 목록 불러오는 중…
                   </div>
                 ) : tenants.length === 0 ? (
-                  <div className="rounded-md border border-stone-200 bg-stone-50/50 px-3 py-2 text-xs text-stone-500">
+                  <div className="rounded-md border border-border bg-surface-subtle/60 px-3 py-2 text-xs text-ink-muted">
                     등록된 클라이언트가 없습니다. 클라이언트 관리에서 먼저 등록해
                     주세요.
                   </div>
@@ -166,7 +166,7 @@ export function ImmediatePublishModal({
                     onChange={(e) =>
                       setTenantId(e.target.value === '' ? '' : Number(e.target.value))
                     }
-                    className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:border-stone-900 focus:outline-none"
+                    className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm text-ink focus:border-ink focus:outline-none"
                   >
                     <option value="">— 선택 —</option>
                     {tenants.map((t) => (
@@ -180,24 +180,24 @@ export function ImmediatePublishModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-stone-500">
-                  키워드 <span className="font-medium normal-case text-stone-400">(선택)</span>
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-ink-muted">
+                  키워드 <span className="font-medium normal-case text-ink-faint">(선택)</span>
                 </label>
                 <input
                   value={keyword}
                   onChange={(e) => setKeyword(e.target.value)}
                   placeholder="비우면 키워드 풀에서 자동 선택"
-                  className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-stone-900 focus:outline-none"
+                  className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-ink focus:outline-none"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 border-t border-stone-200/70 bg-stone-50/40 px-5 py-3">
+            <div className="flex items-center justify-end gap-2 border-t border-border bg-surface-subtle/60 px-5 py-3">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={submitting}
-                className="rounded-md border border-stone-200 bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 transition hover:bg-stone-100 disabled:opacity-50"
+                className="rounded-md border border-border bg-white px-3 py-1.5 text-xs font-semibold text-ink-soft transition hover:bg-surface-muted disabled:opacity-50"
               >
                 취소
               </button>
@@ -205,7 +205,7 @@ export function ImmediatePublishModal({
                 type="button"
                 onClick={submit}
                 disabled={submitting || tenantId === ''}
-                className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-4 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md bg-accent-deep px-4 py-1.5 text-xs font-bold text-white transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {submitting ? (
                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -220,28 +220,28 @@ export function ImmediatePublishModal({
           <>
             <div className="space-y-3 px-5 py-5">
               {result?.ok ? (
-                <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3">
-                  <div className="text-sm font-bold text-emerald-800">
+                <div className="rounded-md border border-accent/30 bg-accent-soft/50 px-4 py-3">
+                  <div className="text-sm font-bold text-accent-deep">
                     트리거 완료
                   </div>
-                  <p className="mt-1 text-xs leading-relaxed text-emerald-700">
+                  <p className="mt-1 text-xs leading-relaxed text-accent-deep">
                     {result.message ??
                       '즉시 발행이 트리거되었습니다. 2~5분 후 검수 대기 큐를 새로고침해 주세요.'}
                   </p>
                 </div>
               ) : result?.needsManual ? (
-                <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
-                  <div className="text-sm font-bold text-amber-800">
+                <div className="rounded-md border border-status-warning/30 bg-status-warningSoft/40 px-4 py-3">
+                  <div className="text-sm font-bold text-status-warning">
                     수동 실행 필요
                   </div>
-                  <p className="mt-1 text-xs leading-relaxed text-amber-700">
+                  <p className="mt-1 text-xs leading-relaxed text-status-warning">
                     {result.message}
                   </p>
                 </div>
               ) : (
-                <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3">
-                  <div className="text-sm font-bold text-red-800">트리거 실패</div>
-                  <p className="mt-1 text-xs leading-relaxed text-red-700">
+                <div className="rounded-md border border-status-danger/25 bg-status-dangerSoft/40 px-4 py-3">
+                  <div className="text-sm font-bold text-status-danger">트리거 실패</div>
+                  <p className="mt-1 text-xs leading-relaxed text-status-danger">
                     {result?.error ?? result?.message ?? '알 수 없는 오류'}
                   </p>
                 </div>
@@ -251,19 +251,19 @@ export function ImmediatePublishModal({
                   href={result.workflowUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-stone-700 hover:text-stone-950 hover:underline"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-ink-soft hover:text-ink hover:underline"
                 >
                   GitHub Actions 워크플로 열기{' '}
                   <ExternalLink className="h-3 w-3" />
                 </a>
               )}
             </div>
-            <div className="flex items-center justify-end gap-2 border-t border-stone-200/70 bg-stone-50/40 px-5 py-3">
+            <div className="flex items-center justify-end gap-2 border-t border-border bg-surface-subtle/60 px-5 py-3">
               {!result?.ok && (
                 <button
                   type="button"
                   onClick={() => setPhase('form')}
-                  className="rounded-md border border-stone-200 bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 transition hover:bg-stone-100"
+                  className="rounded-md border border-border bg-white px-3 py-1.5 text-xs font-semibold text-ink-soft transition hover:bg-surface-muted"
                 >
                   다시 시도
                 </button>
@@ -271,7 +271,7 @@ export function ImmediatePublishModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-md bg-stone-900 px-4 py-1.5 text-xs font-bold text-white transition hover:bg-stone-700"
+                className="rounded-md bg-ink px-4 py-1.5 text-xs font-bold text-white transition hover:bg-ink-soft"
               >
                 닫기
               </button>

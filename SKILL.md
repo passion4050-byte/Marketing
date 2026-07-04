@@ -4641,10 +4641,48 @@ Round 104-c 사무실 세션에서 이미지 문제 조치됨 (`unsplash_client.
 - 가이드 문서: `docs/naver-searchadvisor-guide.md` — RSS 미구현(1순위 작업), 사이트맵 제출 확인, IndexNow 검증(키 파일 200 + scheduler 로그), Article JSON-LD 확인, 주간 색인 모니터링 루틴, 사이트 제목 "테크 블로그" 포지셔닝 스파링 포인트(브랜딩 결정 대기).
 - 팩트: 네이버는 IndexNow 공식 지원 — Round 82 의 api.indexnow.org 핑이 네이버 색인 통지를 커버.
 
-### 다음 라운드 후보 (Round 118 세션 종료 시점)
+### Round 119 (2026-07-03) — /admin 운영 대시보드 3존 재설계
+
+산발적 레이아웃 전면 재그룹핑. **design-only — fetchDashboardData/위젯 로직 무변경.**
+
+- 기간·클라이언트 필터: 페이지 최하단 → **헤더 바로 아래** (컨텍스트가 아래 전체에 적용)
+- KPI 6장 낱장 → **단일 통합 스트립** (`gap-px bg-border` 분할, text-2xl tabular). 중복이던 "측정·엔진 현황" 카드 삭제 — 엔진 3색 도트를 cron 셀에 흡수
+- 섹션 위계: 동일 라벨 5개 → **넘버링 존** `01 지금 봐야 할 것` / `02 성과 분석` / `03 운영 로그`, 존 간 mt-12 통일, `max-w-[1440px]` 중앙 정렬
+- 신규 등장 도메인: 최하단 고아 → 01존 좌측 스택 (119-b: 액션 권고 아래 — 우측 시장진단 표와 높이 균형)
+- 빈 위젯(크롤러/카카오): 03존 최하단 격하 + "데이터 누적 대기" 라벨
+- 근본 해결 4단계 안내 블록(조치 완료) 삭제 → 한 줄 컴팩트 배지
+- 운영 액션 권고 1건일 때 grid-cols-2 반쪽 빔 → 1건이면 풀폭 (121에서 수정)
+
+### Round 120 (2026-07-03) — 즉시발행 관통 완성 (403→422→성공)
+
+즉시발행 모달의 실패 2단 원인 순차 해소:
+
+1. **403** = GH fine-grained PAT 가 빈 토큰 (리포 미연결 + 권한 없음) → `Marketing` 리포 연결 + **Actions: Read and write** 설정으로 해소. 토큰 편집·저장 시 값 불변 → Vercel 재배포 불필요.
+2. **422** = Round 112 미완성 — API 는 `tenant_id` inputs 를 보내는데 `auto-publish.yml` 이 `workflow_dispatch: {}` (입력 정의 없음). **3단 관통 수정:**
+   - `auto-publish.yml`: inputs(tenant_id/keyword) 정의 + run step env `TARGET_TENANT_ID`/`TARGET_KEYWORD`
+   - `scripts/run_auto_content_once.py`: env 파싱 → `daily_auto_content_job(target_tenant_id=, target_keyword=)`
+   - `src/collector/scheduler.py`: **타깃 모드 신설** — 지정 tenant 1편만, 로테이션·plan 요일 필터 무시, 채널 blog_html 우선, `last_run_at` 미갱신 (일반 cron 로테이션 안 흔듦), 키워드 입력 우선·없으면 활성 키워드[0]
+3. 실검증: 힐링안과 "트리거 완료" 성공. GH Actions 로그의 `scheduler.target_run` 으로 타깃 모드 확인 가능.
+
+### Round 121 (2026-07-03) — 세부 인용 URL 복구 + URL별 학습 파이프라인
+
+- **핵심 버그 발견**: "세부 인용 URL이 아직 없습니다"는 데이터 부재가 아니라 **도메인 표기 불일치**. `responses.source_domains[].domain` 은 `www.modoodoc.com`, 대시보드 Top10 은 www. 제거값 전달, citation-paths API 는 exact match → 0건 오탐. **실데이터는 95% 보유** (Gemini 4,358 + Claude 1,030 + ChatGPT 136건 final_url).
+- 수정: citation-paths 에 `normDomain()` (lowercase + www. strip, 양쪽 적용) → 기존 5,500여 건 세부 URL 즉시 전부 개방. 새 측정 불필요.
+- **URL별 "학습" 버튼** (MarketShareDiagnosis 펼침 행): ① `POST /api/admin/learn-from-url` (analyze: fetch+패턴 분석) → ② `?save=true` (patterns 포함 learned_insights UPSERT, applied=true) → 다음 cron 생성 prompt 자동 주입 (기존 학습 루프 재사용). 상태: 분석 중/학습됨/실패·재시도. "학습 인사이트 관리 →" 링크.
+- **교훈: 도메인 비교는 반드시 정규화 후** — source_resolver SELF_DOMAINS 누락(함정 DM)과 같은 계열의 함정.
+
+### Round 122 (2026-07-03) — /admin 전면 색감·톤 통일 (토큰 정렬)
+
+- **감사 결과가 방향을 결정**: admin 20+ 페이지는 이미 토큰 체계(ink/brand/surface/status), 이탈은 소수 6파일 (AdminShell, PublishedTab, ImmediatePublishModal, CrawlerLog/Kakao/PartnerLeaderboard 일부) — Round 116~117 editorial 실험이 남긴 warm stone/emerald raw 클래스. CLAUDE.md 컨벤션(토큰만 사용, hex 금지)대로 **소수를 토큰으로 정렬** (다수를 stone 으로 바꾸는 건 컨벤션 위반 + 20파일 리스크).
+- 매핑: `stone-950/900→ink`, `800/700→ink-soft`, `600/500→ink-muted`, `400→ink-faint`, `200→border`, `100→surface-muted`, `50→surface-subtle`, `emerald-700→accent-deep`, `600→accent`, `500→status-success`, `100/50→accent-soft`, `amber→status-warning`, `red→status-danger`. AdminShell 의 raw hex `#FAFAF7` → `bg-surface-subtle`.
+- **의도적 유지 (시맨틱 컬러)**: KakaoFunnelWidget amber = 카카오 브랜드 옐로우, CrawlerLogWidget 봇별 시그니처 그라데이션, reports/[tenantId] 인쇄용 보고서(독립 문서).
+- 실행 기법: 클래스 문자열 replace_all Edit 스윕 (파일당 8~14건, 긴 패턴 먼저 — `stone-500` 을 `stone-50` 보다 먼저 치환).
+
+### 다음 라운드 후보 (Round 122 세션 종료 시점)
 
 - **Round 118-B**: /rss.xml 라우트 신규 (published+pass 필터 재사용, posts+partner 통합 50건) + 서치어드바이저 RSS 제출
-- **Round 118-C**: Article/BlogPosting JSON-LD 감사 + 사이트 제목 리포지셔닝 (사용자 브랜딩 결정 후)
+- **Round 118-C**: Article/BlogPosting JSON-LD 감사 + 사이트 제목 "테크 블로그" 리포지셔닝 (사용자 브랜딩 결정 후)
+- **Round 121-B**: 학습됨 URL 의 learned_insights 실주입 검증 (다음 cron 글에서 prompt 반영 확인) + 크롤러/카카오 위젯 데이터 첫 유입 시 02존 승격
 - **Round 110-A**: 신규 AI 인용 감지 → 이메일 알림 자동화 (실전 GEO 효과 즉시 인지)
 - **Round 110-B**: 크롤러 로그 시각화 위젯 (GPTBot/Claudebot/PerplexityBot 방문 로그)
 - **Round 110-C**: UTM 카카오톡 유입 트래킹 대시보드 (Round 108-e CTA 통일 활용)
