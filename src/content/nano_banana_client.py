@@ -87,7 +87,9 @@ def _generate_context_concept(
         "image concept that visually matches THIS article's specific topic.\n"
         "Rules: absolutely no people, no faces, no hands, no body parts; "
         "prefer objects, close-up details, tools, abstract concepts or still life; "
-        "must be relevant to the medical field above; no text in image.\n"
+        "must be relevant to the medical field above; no text in image; "
+        "make it visually striking and premium — cinematic editorial sensibility, "
+        "not a generic stock photo.\n"
         "Answer with the sentence only."
     )
     try:
@@ -139,11 +141,12 @@ def _build_korean_prompt(
     if not concept:
         from src.content.image_picker import pick_concept
         concept = pick_concept(keyword, salt=(title or ""), domain_category=domain_category)
-    title_hint = f", article topic: {title}" if title else ""
+    # Round 127 — 한글 title 을 프롬프트에 직접 넣지 않음 (이미지 속 깨진 글자 유발).
+    # 글 맥락은 _generate_context_concept(영문 컨셉)가 담당 — title 은 LLM 입력으로만.
 
     return (
         f"High-end editorial magazine photography, Musinsa magazine aesthetic, "
-        f"cinematic tone. Subject: {concept}{title_hint}. "
+        f"cinematic tone. Subject: {concept}. "
         f"Cinematic natural window light, warm film-like tone, "
         f"minimalist Korean aesthetic, clean composition. "
         f"Shot on 35mm film camera, shallow depth of field, soft bokeh, "

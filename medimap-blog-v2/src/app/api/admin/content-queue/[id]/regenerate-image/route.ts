@@ -38,13 +38,13 @@ const ANTI_TEXT_DIRECTIVE =
 //   (기존 R108-c 인물 프롬프트는 "실내+모델 반복 = AI 티" 사용자 지적으로 폐기)
 function buildKoreanPrompt(keyword: string, title: string | null, isSelfTenant: boolean): string {
   void isSelfTenant; // 시그니처 유지 (호출부 호환) — 무인물 통합으로 톤 분기 불필요
-  const titleHint = title ? `, article topic: ${title}` : '';
+  void title; // Round 127 — 한글 title 프롬프트 주입 금지 (이미지 속 깨진 글자 유발)
   const subject =
     `close-up details, still life objects, tools or abstract concept visuals ` +
     `that match the medical topic "${keyword}"`;
   return (
     `High-end editorial magazine photography, Musinsa magazine aesthetic, cinematic tone. ` +
-    `Subject: ${subject}${titleHint}. ` +
+    `Subject: ${subject}. ` +
     `Cinematic natural window light, warm film-like tone, minimalist Korean aesthetic, ` +
     `clean composition. Shot on 35mm film camera, shallow depth of field, soft bokeh, ` +
     `editorial framing, magazine cover quality, 8k UHD, sharp fine detail, ` +

@@ -528,13 +528,20 @@ def generate_body_illustration_for_section(
     # Round 125-B — 섹션 제목+인덱스를 salt 로 컨셉 회전: 한 글 안의 본문 이미지들이
     # 서로 다른 샷 타입(매크로/정물/추상/일러스트/공간)을 갖는다. 사람 배제 유지.
     # Round 126-C — ① 섹션 헤딩을 주제로 직접 주입(글 맥락) ② 진료과 우선 매핑.
+    # Round 127 (2026-07-05) — 한글 주입 금지: flux 는 프롬프트의 비라틴 문자를
+    # 이미지 속 글자로 렌더하려다 깨진 텍스트를 만든다 (#183 본문 실사고).
+    # 헤딩은 salt(회전)로만 쓰고, 맥락은 영문 컨셉 풀 + 진료과가 담당.
     en_ctx = _people_free(
         pick_concept(keyword, salt=f"{clean_heading}:{index}", domain_category=domain_category)
     )
-    _topic = f", related to the article section '{clean_heading}'" if clean_heading else ""
+    # Round 127-B — 사용자 요구 "반드시 감도 높은 연출": 본문도 커버(무신사 톤)와
+    # 동급 — 시네마틱 필름톤·무디 라이팅·프리미엄 그레이딩 (사진/일러스트 중립 표현).
     prompt = (
-        f"{en_ctx}{_topic}, editorial magazine quality, soft natural light, fine detail, 8k, "
-        f"no people, no person, no face, no hands, no text, no logo"
+        f"{en_ctx}, premium editorial magazine aesthetic, cinematic moody soft light, "
+        f"film-like professional color grading, sophisticated muted palette, "
+        f"shallow depth of field, ultra fine detail, 8k, gallery quality composition, "
+        f"absolutely no text, no letters, no typography, no writing, "
+        f"no people, no person, no face, no hands, no logo"
     )
     model = os.environ.get("POLLINATIONS_MODEL", "flux")
     seed = (abs(hash(keyword + clean_heading)) % (2**24)) + index
