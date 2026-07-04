@@ -24,6 +24,16 @@ const nextConfig = {
   // Migration 030 (Round 29) 으로 자사 6편 slug 영문화. 외부 공유된 옛 URL 의 AEO 손실 방지.
   async redirects() {
     return [
+      // Round 123 (2026-07-04) — vercel.app 기본 도메인 → wecircle.co.kr 영구(308) 리디렉션.
+      //   canonical 은 이미 wecircle 이지만, 실제 리디렉션까지 걸어 중복 색인·도메인 권위
+      //   분산을 차단. host 조건이라 wecircle.co.kr 및 preview 배포에는 발동하지 않음.
+      //   /api/* 는 제외 — 외부 훅/비콘이 vercel.app 호스트로 호출하는 경우 안전망.
+      {
+        source: "/:path((?!api/).*)",
+        has: [{ type: "host", value: "medimap-blog-phi.vercel.app" }],
+        destination: "https://wecircle.co.kr/:path",
+        permanent: true,
+      },
       { source: "/blog/의료-GEO-최적화-87", destination: "/blog/medical-geo-7-principles-87", permanent: true },
       { source: "/blog/의료법-광고-가이드라인-88", destination: "/blog/medical-law-advertising-guide-88", permanent: true },
       { source: "/blog/병원-마케팅-GEO-입문-89", destination: "/blog/hospital-marketing-geo-intro-89", permanent: true },
