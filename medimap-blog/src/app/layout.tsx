@@ -25,7 +25,11 @@ export const metadata: Metadata = {
   },
   twitter: { card: "summary_large_image" },
   robots: { index: true, follow: true },
-  alternates: { canonical: "/" },
+  // Round 118-B (2026-07-03) — RSS autodiscovery (/rss.xml, 네이버 서치어드바이저 제출용)
+  alternates: {
+    canonical: "/",
+    types: { "application/rss+xml": "/rss.xml" },
+  },
   formatDetection: { telephone: false },
   // Round 62 후속 (2026-06-20) — Google Search Console 소유권 확인 meta tag.
   // Round 108 후속 (2026-07-03) — 네이버 서치어드바이저 소유권 확인 추가.

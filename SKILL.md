@@ -4678,6 +4678,12 @@ Round 104-c 사무실 세션에서 이미지 문제 조치됨 (`unsplash_client.
 - **의도적 유지 (시맨틱 컬러)**: KakaoFunnelWidget amber = 카카오 브랜드 옐로우, CrawlerLogWidget 봇별 시그니처 그라데이션, reports/[tenantId] 인쇄용 보고서(독립 문서).
 - 실행 기법: 클래스 문자열 replace_all Edit 스윕 (파일당 8~14건, 긴 패턴 먼저 — `stone-500` 을 `stone-50` 보다 먼저 치환).
 
+### Round 118-B (2026-07-03) — /rss.xml RSS 2.0 피드
+
+- `medimap-blog/src/app/rss.xml/route.ts` 신규 — 자사(getAllPostsIncludingLegacy) + 파트너(getAllPartnerPosts) 통합 최신 50건. 두 헬퍼 모두 published+pass 필터 내장이라 archived/draft 자동 제외. sitemap 과 동일한 graceful degradation + revalidate 3600.
+- layout.tsx metadata alternates 에 RSS autodiscovery (`application/rss+xml: /rss.xml`) 추가.
+- **배포 후 사용자 액션**: 네이버 서치어드바이저 → 요청 → RSS 제출 → `https://wecircle.co.kr/rss.xml`
+
 ### 다음 라운드 후보 (Round 122 세션 종료 시점)
 
 - **Round 118-B**: /rss.xml 라우트 신규 (published+pass 필터 재사용, posts+partner 통합 50건) + 서치어드바이저 RSS 제출
