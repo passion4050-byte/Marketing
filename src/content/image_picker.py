@@ -44,26 +44,112 @@ KEYWORD_MAP: dict[str, str] = {
 }
 
 # Round 81 (2026-06-24) — 사람 제거. AI(flux)가 얼굴·손·몸을 자주 망가뜨려(찌그러짐·잘림)
-#   이미지 퀄리티가 떨어지던 핵심 원인. 깔끔한 병원 인테리어·장비·정물 중심으로 전환
-#   (AI 는 공간/사물은 잘 그림) + 강한 no-people 네거티브.
+#   이미지 퀄리티가 떨어지던 핵심 원인 + 강한 no-people 네거티브.
+# Round 125-B (2026-07-05) — 획일화 해소. 기존엔 모든 글이 "clinic interior" 로 수렴해
+#   "AI 가 쓴 글" 티가 남 (사용자 지적). 사람 배제 원칙은 유지하되 카테고리별
+#   컨셉 풀(매크로 디테일·정물·추상 컨셉·아이소메트릭 일러스트·인테리어)을
+#   keyword+title+섹션 해시로 회전 — 같은 병원 글끼리도 매번 다른 비주얼.
 PROMPT_TEMPLATE = (
-    "professional interior photography, modern bright Korean medical clinic, "
-    "theme: {context}, clean minimalist interior, medical equipment and furniture, "
-    "soft warm natural daylight, shallow depth of field, photorealistic, fine detail, "
-    "8k uhd, magazine quality, "
-    "empty room, no people, no person, no face, no hands, no text, no logo, no watermark"
+    "{context}, editorial magazine quality, soft natural light, fine detail, 8k uhd, "
+    "no people, no person, no face, no hands, no text, no logo, no watermark"
 )
 
-# Round 29 (2026-05-30): 자사 인사이트 실사 톤. Round 81 — 사람 제거(정물·인테리어 중심).
+# 자사 인사이트 — documentary 톤 한 겹 추가
 PROMPT_TEMPLATE_REALISTIC = (
-    "professional architectural editorial photography, "
-    "modern Seoul Korean medical clinic interior, theme: {context}, "
-    "clean bright minimalist space, medical equipment, furniture, documents and tablet on a desk, "
-    "natural daylight, documentary still-life, shot on DSLR, photorealistic, "
-    "shallow depth of field, ultra high resolution, sharp focus, fine detail, "
-    "professional color grading, 8k uhd, magazine editorial quality, "
-    "empty room, no people, no person, no face, no hands, no text, no logo, no watermark"
+    "{context}, documentary editorial photography, shot on DSLR, professional color grading, "
+    "sharp focus, fine detail, 8k uhd, magazine editorial quality, "
+    "no people, no person, no face, no hands, no text, no logo, no watermark"
 )
+
+# Round 125-B — 카테고리별 컨셉 풀 (전부 사람 없음 · 샷 타입 5종 회전)
+CONCEPT_POOLS: dict[str, list[str]] = {
+    "eye": [
+        "macro photography of a precision ophthalmic lens and optical examination equipment, cool clean tones",
+        "still life of eyeglasses, an eye test chart and a contact lens case on a bright white desk",
+        "abstract concept of clear vision, light rays focusing through a lens into sharp focus, soft bokeh background",
+        "minimal 3d isometric illustration of an eye examination device and vision chart, soft pastel colors",
+        "modern ophthalmology equipment room, clean panoramic interior, natural daylight",
+    ],
+    "derma": [
+        "macro photography of a skincare serum droplet and water texture on glass, soft studio light",
+        "still life of a dermatology laser handpiece and minimal cosmetic bottles on a clean counter",
+        "abstract smooth gradient texture resembling healthy glowing skin, warm beige tones",
+        "minimal 3d isometric illustration of skin layers diagram, soft pastel palette",
+        "bright dermatology clinic treatment room, clean minimal interior",
+    ],
+    "plastic": [
+        "still life of surgical precision instruments neatly arranged on a sterile tray, cool tones",
+        "abstract elegant curves and soft shadows, beauty aesthetic concept, warm beige tones",
+        "macro of measuring calipers and a face proportion sketch on a clean desk",
+        "minimal 3d isometric illustration of a medical consultation room, pastel colors",
+        "modern aesthetic clinic lounge, clean minimal interior, soft daylight",
+    ],
+    "dental": [
+        "macro photography of a dental mirror and instruments on a clean tray, cool tones",
+        "still life of clear dental aligners and a tooth model on a white desk",
+        "minimal 3d isometric illustration of a tooth with dental care icons, pastel colors",
+        "abstract clean white geometric shapes resembling healthy teeth, bright studio light",
+        "modern dental clinic treatment room, bright clean interior",
+    ],
+    "hair": [
+        "macro photography of healthy hair strands texture in soft golden light",
+        "still life of hair transplant precision instruments and a microscope on a tray",
+        "minimal 3d isometric illustration of hair follicle growth cycle, pastel colors",
+        "abstract flowing lines resembling smooth hair strands, warm elegant tones",
+        "modern hair clinic consultation room with scalp analysis equipment, clean interior",
+    ],
+    "oriental": [
+        "still life of korean herbal medicine ingredients in wooden bowls, warm natural light",
+        "macro photography of acupuncture needles and dried herbs on linen cloth, calm earthy tones",
+        "traditional korean medicine cabinet with small wooden drawers, warm cozy interior",
+        "minimal flat illustration of herbal leaves and a teapot, muted earth tones",
+        "abstract calm zen composition of smooth stones and herbs, soft daylight",
+    ],
+    "marketing": [
+        "close-up of an analytics dashboard with charts on a laptop screen, modern minimal desk scene",
+        "abstract data network visualization with glowing nodes and connections, deep navy background",
+        "still life of printed growth charts, a notebook and pen on a minimal desk, morning light",
+        "minimal 3d isometric illustration of a search engine result page and content blocks, soft colors",
+        "abstract upward growth graph made of light streaks, dark elegant background",
+    ],
+    "generic": [
+        "still life of a stethoscope and a medical chart on a clean desk, soft light",
+        "macro photography of laboratory glassware with soft window light, clean tones",
+        "minimal 3d isometric illustration of a modern clinic building, pastel colors",
+        "abstract calm gradient composition with a subtle medical motif, clean tones",
+        "modern medical clinic corridor, bright minimal interior",
+    ],
+}
+
+
+def _concept_category(keyword: str) -> str:
+    k = (keyword or "").strip()
+    if any(kw in k for kw in ["안과", "라식", "라섹", "스마일", "시력", "백내장", "노안"]):
+        return "eye"
+    if any(kw in k for kw in ["피부", "여드름", "필러", "보톡스", "레이저", "스킨", "리쥬란", "울쎄라"]):
+        return "derma"
+    if any(kw in k for kw in ["성형", "안면", "양악", "쌍꺼풀", "가슴", "코"]):
+        return "plastic"
+    if any(kw in k for kw in ["치과", "임플란트", "교정", "충치"]):
+        return "dental"
+    if any(kw in k for kw in ["모발", "탈모", "헤어"]):
+        return "hair"
+    if any(kw in k for kw in ["한방", "한의원", "한약", "다이어트 한약"]):
+        return "oriental"
+    if any(kw in k for kw in ["GEO", "AEO", "마케팅", "광고", "콘텐츠", "의료법", "병원", "SEO", "검색", "SaaS"]):
+        return "marketing"
+    return "generic"
+
+
+def pick_concept(keyword: str, salt: str = "") -> str:
+    """keyword 카테고리의 컨셉 풀에서 결정적(deterministic) 회전 선택.
+
+    salt 에 title/섹션제목/인덱스를 섞으면 같은 키워드의 글·섹션끼리도
+    서로 다른 비주얼 컨셉이 나온다.
+    """
+    pool = CONCEPT_POOLS.get(_concept_category(keyword), CONCEPT_POOLS["generic"])
+    h = int(hashlib.md5(f"{keyword}|{salt}".encode("utf-8")).hexdigest(), 16)
+    return pool[h % len(pool)]
 
 
 _PEOPLE_WORDS_RE = re.compile(
@@ -106,30 +192,30 @@ def keyword_to_unsplash_query(keyword: str) -> str:
     쿼리면 사람 대신 공간·기기가 매칭돼 인종 무관 (DALL-E 실패 fallback 안전망).
     """
     k = keyword.strip()
-    # 카테고리별 사람 없는 인테리어/장비 query (Round 102)
-    if any(kw in k for kw in ["안과", "라식", "라섹", "스마일", "시력", "백내장", "노안"]):
-        return "eye clinic interior equipment"
-    if any(kw in k for kw in ["피부", "여드름", "필러", "보톡스", "레이저", "스킨"]):
-        return "dermatology clinic modern interior"
-    if any(kw in k for kw in ["성형", "안면", "양악", "쌍꺼풀"]):
-        return "modern medical clinic interior minimal"
-    if any(kw in k for kw in ["치과", "임플란트", "교정", "충치"]):
-        return "dental clinic modern interior"
-    if any(kw in k for kw in ["모발", "탈모", "헤어"]):
-        return "medical clinic modern interior"
-    if any(kw in k for kw in ["한방", "한의원", "동안"]):
-        return "traditional medicine wooden interior"
-    if any(kw in k for kw in ["GEO", "AEO", "마케팅", "광고", "콘텐츠", "의료법", "병원", "SEO", "검색"]):
-        return "modern office desk laptop data"
-    return "modern medical clinic interior"
+    # Round 125-B — 인테리어 고정 → 카테고리별 query 풀 회전 (사람 없는 사물/개념 위주).
+    _pools = {
+        "eye": ["eyeglasses close up", "optometry equipment", "eye chart", "contact lens macro"],
+        "derma": ["skincare texture", "cosmetic serum bottle", "spa still life", "water droplet macro"],
+        "plastic": ["minimal medical instruments", "clean aesthetic still life", "modern clinic detail"],
+        "dental": ["dental tools", "tooth model", "dental clinic detail"],
+        "hair": ["hair texture close up", "microscope laboratory", "comb still life"],
+        "oriental": ["herbal medicine", "korean tea ceremony", "dried herbs wooden"],
+        "marketing": ["analytics dashboard laptop", "data chart desk", "growth graph"],
+        "generic": ["medical equipment detail", "stethoscope desk", "laboratory glassware"],
+    }
+    _cat = _concept_category(k)
+    _pool = _pools.get(_cat, _pools["generic"])
+    _h = int(hashlib.md5(k.encode("utf-8")).hexdigest(), 16)
+    return _pool[_h % len(_pool)]
 
 
 def build_prompt(keyword: str, title: Optional[str] = None, *, realistic: bool = False) -> str:
     """Pollinations prompt 빌더.
 
-    Round 29 — realistic=True 면 자사 인사이트용 실사 톤. False 면 파트너용 Pixar 톤.
+    Round 125-B — 고정 인테리어 템플릿 → 컨셉 풀 회전 (title 을 salt 로 사용해
+    같은 키워드 글끼리도 다른 비주얼). 사람 배제 네거티브는 템플릿이 유지.
     """
-    context = _people_free(keyword_to_english_context(keyword))  # Round 81 — 사람 제거
+    context = _people_free(pick_concept(keyword, salt=(title or "")))
     template = PROMPT_TEMPLATE_REALISTIC if realistic else PROMPT_TEMPLATE
     return template.format(context=context)
 
@@ -403,13 +489,12 @@ def generate_body_illustration_for_section(
 
     # 섹션 제목에서 이모지/특수문자 제거 (Pollinations prompt 정화)
     clean_heading = re.sub(r"[^\w가-힣\s]+", " ", section_heading).strip()
-    # Round 81 — 사람 제거. 깔끔한 병원 인테리어·장비 정물 (얼굴/손 왜곡 방지).
-    en_ctx = _people_free(keyword_to_english_context(keyword))
+    # Round 125-B — 섹션 제목+인덱스를 salt 로 컨셉 회전: 한 글 안의 본문 이미지들이
+    # 서로 다른 샷 타입(매크로/정물/추상/일러스트/공간)을 갖는다. 사람 배제 유지.
+    en_ctx = _people_free(pick_concept(keyword, salt=f"{clean_heading}:{index}"))
     prompt = (
-        f"professional interior photography, modern bright Korean medical clinic, "
-        f"theme: {en_ctx}, clean minimalist space, medical equipment and furniture, "
-        f"soft natural daylight, photorealistic, fine detail, shallow depth of field, 8k, "
-        f"empty room, no people, no person, no face, no hands, no text, no logo"
+        f"{en_ctx}, editorial magazine quality, soft natural light, fine detail, 8k, "
+        f"no people, no person, no face, no hands, no text, no logo"
     )
     model = os.environ.get("POLLINATIONS_MODEL", "flux")
     seed = (abs(hash(keyword + clean_heading)) % (2**24)) + index

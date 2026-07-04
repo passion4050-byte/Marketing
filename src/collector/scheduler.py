@@ -149,6 +149,39 @@ def daily_auto_content_job(
     summary = {"tenants": 0, "drafts": 0, "published": 0, "errors": 0}
     default_channels = ["schema_org", "blog_html", "naver_blog", "instagram"]
 
+    # Round 125 (2026-07-05) — 파트너 태깅 자가치유 백필.
+    #   개별 발행 시점 태깅(Round 82/86)이 예외로 조용히 빠지는 케이스가 실측 재발
+    #   (#176/#181 — published 인데 is_partner_content=false → /with-partners 미노출).
+    #   원인 추적 대신 구조적 해결: 매 cron 시작 시 누락분을 idempotent 하게 일괄 복구.
+    try:
+        from sqlalchemy import text as _sql_heal
+        with session_factory() as s:
+            _healed = s.execute(
+                _sql_heal(
+                    "UPDATE generated_contents gc SET "
+                    "is_partner_content = true, "
+                    "partner_category = COALESCE(NULLIF(gc.partner_category, ''), m.cat) "
+                    "FROM (SELECT t.id AS tid, CASE trim(t.domain_category) "
+                    "  WHEN '안과' THEN 'eyeclinic' WHEN '피부과' THEN 'derma' "
+                    "  WHEN '성형외과' THEN 'plastic' WHEN '치과' THEN 'dental' "
+                    "  WHEN '내과' THEN 'internal' WHEN '모발이식' THEN 'hair' "
+                    "  WHEN '한방의원' THEN 'oriental' WHEN '한방' THEN 'oriental' "
+                    "  ELSE NULL END AS cat "
+                    "  FROM tenants t WHERE t.partner_slug IS NOT NULL "
+                    "  AND lower(t.partner_slug) NOT IN ('medimap','medimap-self') "
+                    "  AND lower(COALESCE(t.business_model,'')) <> 'self') m "
+                    "WHERE gc.tenant_id = m.tid AND gc.status = 'published' "
+                    "AND gc.channel = 'blog_html' AND m.cat IS NOT NULL "
+                    "AND (gc.is_partner_content IS DISTINCT FROM true "
+                    "     OR gc.partner_category IS NULL)"
+                )
+            )
+            s.commit()
+            if _healed.rowcount:
+                logger.warning("scheduler.partner_tag_healed", n=_healed.rowcount)
+    except Exception as _heal_err:  # noqa: BLE001
+        logger.warning("scheduler.partner_tag_heal_failed", error=str(_heal_err))
+
     # Round 120 (2026-07-03) — admin 즉시발행 타깃 실행 (publish-now → workflow_dispatch).
     #   target_tenant_id 지정 시: 로테이션·plan 요일 필터 무시, 해당 tenant 1편만 생성.
     #   last_run_at 은 갱신하지 않음 — 일반 cron 로테이션 순서에 영향 주지 않기 위해.
@@ -485,9 +518,12 @@ def _generate_draft(
                         {"cat": _cat, "id": obj.id},
                     )
                     s.commit()
-            except Exception:
-                # 태깅 실패는 발행 차단 사유 아님 — 다음 cron 에서 재시도 가능
-                pass
+            except Exception as _tag_err:  # noqa: BLE001
+                # 태깅 실패는 발행 차단 사유 아님 — Round 125 자가치유 백필이 다음 cron 복구.
+                # silent pass 였던 것을 로그로 승격 (#176/#181 미스터리 재발 시 원인 추적용).
+                logger.warning(
+                    "scheduler.partner_tag_failed", content_id=obj.id, error=str(_tag_err)
+                )
 
         # 2026-05-24: blog_html 자동 발행 시 Pollinations.AI 일러스트 자동 첨부.
         # 2026-05-28 Round 22: cover 1장 + 본문 N장 (content_settings.image_count_total - 1).
