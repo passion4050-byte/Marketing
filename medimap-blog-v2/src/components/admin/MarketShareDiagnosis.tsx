@@ -275,7 +275,7 @@ export function MarketShareDiagnosis({
                                             ? 'inline-flex items-center gap-1 rounded border border-status-success/30 bg-status-successSoft px-1.5 py-0.5 text-[10px] font-bold text-status-success'
                                             : learnState[p.url] === 'error'
                                               ? 'inline-flex items-center gap-1 rounded border border-status-danger/30 bg-status-dangerSoft px-1.5 py-0.5 text-[10px] font-bold text-status-danger hover:opacity-80'
-                                              : 'inline-flex items-center gap-1 rounded border border-border-strong bg-surface-muted px-1.5 py-0.5 text-[10px] font-bold text-ink transition hover:bg-surface-muted disabled:opacity-60'
+                                              : 'inline-flex items-center gap-1 rounded border border-accent/30 bg-accent-soft/50 px-1.5 py-0.5 text-[10px] font-bold text-accent-deep transition hover:bg-accent-soft disabled:opacity-60'
                                         }
                                       >
                                         {learnState[p.url] === 'loading' ? (
@@ -337,7 +337,7 @@ export function MarketShareDiagnosis({
                 <span className="ml-2 text-[10px] text-ink-muted">(자사 블로그)</span>
               </td>
               <td className="px-3 py-2">
-                <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-bold text-ink">
+                <span className="rounded bg-accent-soft/60 px-1.5 py-0.5 text-[10px] font-bold text-accent-deep">
                   ⭐ 자사
                 </span>
               </td>

@@ -1085,7 +1085,7 @@ export default async function AdminDashboardPage({
                   <span className="text-[10px] font-bold uppercase tracking-widest text-ink-muted">
                     {k.label}
                   </span>
-                  <Icon className="h-3.5 w-3.5 text-ink-faint transition group-hover:text-ink" />
+                  <Icon className="h-3.5 w-3.5 text-accent-deep/70 transition group-hover:text-accent-deep" />
                 </div>
                 <div className="mt-2.5 flex items-baseline gap-1">
                   <span className="text-2xl font-black tabular-nums tracking-tight text-ink">
@@ -1112,7 +1112,7 @@ export default async function AdminDashboardPage({
       {/* === 01 지금 봐야 할 것 — 액션 권고 · 시장 점유 진단 · 신규 등장 도메인 === */}
       <div className="mt-12">
         <div className="flex items-baseline gap-3 border-b border-border pb-3">
-          <span className="font-mono text-[11px] font-black tracking-widest text-ink-faint">01</span>
+          <span className="font-mono text-[11px] font-black tracking-widest text-accent-deep">01</span>
           <h2 className="text-[15px] font-black tracking-tight text-ink">지금 봐야 할 것</h2>
           <span className="hidden text-[11px] text-ink-muted sm:inline">
             액션 권고 · AI 시장 점유 진단 · 신규 등장 도메인
@@ -1150,7 +1150,7 @@ export default async function AdminDashboardPage({
       {/* === 02 성과 분석 — 측정 추이 · 콘텐츠 경쟁력 · 구조 패턴 · 파트너 리더보드 === */}
       <div className="mt-12">
         <div className="flex items-baseline gap-3 border-b border-border pb-3">
-          <span className="font-mono text-[11px] font-black tracking-widest text-ink-faint">02</span>
+          <span className="font-mono text-[11px] font-black tracking-widest text-accent-deep">02</span>
           <h2 className="text-[15px] font-black tracking-tight text-ink">성과 분석</h2>
           <span className="hidden text-[11px] text-ink-muted sm:inline">
             측정 추이 · Top 인용 콘텐츠 · 구조 패턴 · 파트너 리더보드
@@ -1171,7 +1171,7 @@ export default async function AdminDashboardPage({
       {/* === 03 운영 로그 — 검수 대기 · 최근 인용 · 크롤러/카카오 실측 === */}
       <div className="mt-12">
         <div className="flex items-baseline gap-3 border-b border-border pb-3">
-          <span className="font-mono text-[11px] font-black tracking-widest text-ink-faint">03</span>
+          <span className="font-mono text-[11px] font-black tracking-widest text-accent-deep">03</span>
           <h2 className="text-[15px] font-black tracking-tight text-ink">운영 로그</h2>
           <span className="hidden text-[11px] text-ink-muted sm:inline">
             검수 대기 · 최근 AI 인용 · 유입 실측

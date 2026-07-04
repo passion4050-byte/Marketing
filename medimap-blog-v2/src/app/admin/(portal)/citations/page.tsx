@@ -85,11 +85,13 @@ type CitationsData = {
   }>;
 };
 
+// Round 124-C (2026-07-04) — 잉크 베이스 조화 팔레트: 민트(자사 계열) + 뮤트 골드(권위)
+//   + slate 단계. 튀는 원색(블루/퍼플/앰버) 제거하되 단조로움 회피 — 유채색은 2계열만.
 const TIER_LABELS: Record<string, { label: string; color: string; short: string }> = {
-  T1: { label: '위서클 자체 ⭐', color: '#1B68FF', short: '위서클' },
-  T2: { label: '클라이언트 자체', color: '#15B8A6', short: '클라이언트' },
-  T3: { label: '권위/공식', color: '#F59E0B', short: '권위' },
-  T4: { label: '의료 플랫폼', color: '#A855F7', short: '플랫폼' },
+  T1: { label: '위서클 자체 ⭐', color: '#15B8A6', short: '위서클' },
+  T2: { label: '클라이언트 자체', color: '#0F766E', short: '클라이언트' },
+  T3: { label: '권위/공식', color: '#D9A441', short: '권위' },
+  T4: { label: '의료 플랫폼', color: '#64748B', short: '플랫폼' },
   T5: { label: '기타 (경쟁사)', color: '#94A3B8', short: '경쟁사' },
 };
 
@@ -366,7 +368,7 @@ export default function CitationsPage() {
                     <XAxis dataKey="date" fontSize={10} stroke="#64748B" />
                     <YAxis fontSize={10} stroke="#64748B" allowDecimals={false} />
                     <Tooltip />
-                    <Line type="monotone" dataKey="count" name="Mention" stroke="#1B68FF" strokeWidth={2} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="count" name="Mention" stroke="#15B8A6" strokeWidth={2} dot={{ r: 3 }} />
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -434,7 +436,7 @@ export default function CitationsPage() {
                     <XAxis dataKey="date" fontSize={10} stroke="#64748B" />
                     <YAxis fontSize={10} stroke="#64748B" tickFormatter={(v: number) => `${v}%`} />
                     <Tooltip formatter={(v: number) => `${v}%`} />
-                    <Line type="monotone" dataKey="share_pct" name="위서클 share" stroke="#1B68FF" strokeWidth={2} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="share_pct" name="위서클 share" stroke="#15B8A6" strokeWidth={2} dot={{ r: 3 }} />
                   </LineChart>
                 </ResponsiveContainer>
               )}
