@@ -10,7 +10,8 @@ import {
 import { siteConfig, absoluteUrl } from "@/lib/site";
 
 // Round 111 v3 (2026-07-02) — Editorial partner page.
-export const dynamic = "force-dynamic";
+// Round 129 — SEO/CWV: force-dynamic → ISR 60s
+export const revalidate = 60;
 
 const CATEGORY_OVERLINE: Record<string, string> = {
   eyeclinic: "Ophthalmology",

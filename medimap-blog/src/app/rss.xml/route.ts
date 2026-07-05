@@ -21,6 +21,14 @@ interface FeedItem {
   link: string;
   description: string;
   dateIso: string;
+  /** Round 129 — content:encoded 용 본문 HTML (네이버 권장: 이미지 포함 전체 본문).
+   *  파트너 글만 헬퍼가 body 를 제공 — 크기 제한 고려해 최신 20건만 포함. */
+  html?: string;
+}
+
+function cdata(s: string): string {
+  // CDATA 종료 시퀀스 이스케이프
+  return `<![CDATA[${(s || "").replace(/\]\]>/g, "]]]]><![CDATA[>")}]]>`;
 }
 
 function esc(s: string): string {
@@ -62,6 +70,7 @@ async function safePartnerPosts(): Promise<FeedItem[]> {
       ),
       description: p.excerpt || "",
       dateIso: p.published_at,
+      html: p.body || undefined,
     }));
   } catch (err) {
     console.error("[rss] getAllPartnerPosts failed, omitting partner items:", err);
@@ -81,20 +90,27 @@ export async function GET() {
     .slice(0, 50);
 
   const now = new Date().toUTCString();
+  // Round 129 — 네이버 권장: 본문 전체(content:encoded) 제공. 피드 크기 제한을 고려해
+  // 최신 20건만 본문 포함 (파트너 글 — body 보유분), 나머지는 요약만.
+  const FULL_CONTENT_LIMIT = 20;
   const xmlItems = items
     .map(
-      (it) => `    <item>
+      (it, i) => `    <item>
       <title>${esc(it.title)}</title>
       <link>${esc(it.link)}</link>
       <guid isPermaLink="true">${esc(it.link)}</guid>
-      <description>${esc(it.description.slice(0, 300))}</description>
+      <description>${esc(it.description.slice(0, 300))}</description>${
+        it.html && i < FULL_CONTENT_LIMIT
+          ? `\n      <content:encoded>${cdata(it.html)}</content:encoded>`
+          : ""
+      }
       <pubDate>${toRfc822(it.dateIso)}</pubDate>
     </item>`,
     )
     .join("\n");
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>${esc(`${siteConfig.name} 인사이트`)}</title>
     <link>${esc(siteConfig.url)}</link>

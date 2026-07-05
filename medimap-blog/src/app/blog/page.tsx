@@ -8,7 +8,9 @@ import { getAllPosts, BLOG_CATEGORIES } from "@/lib/posts";
 
 // Round 111 v2 (2026-07-02) — Editorial magazine index. featured cover-forward hero,
 // magazine index list, hairline dividers, warm off-white palette, tabular nums.
-export const dynamic = "force-dynamic";
+// Round 129 (2026-07-05) — SEO/CWV: force-dynamic → ISR 60s (TTFB·크롤 효율.
+// 홈이 이미 revalidate=60 + DB 로 빌드 성공 중 — 빌드타임 hang 리스크 해소 확인).
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "위서클 인사이트",

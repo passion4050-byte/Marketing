@@ -13,7 +13,8 @@ import {
 import { absoluteUrl } from "@/lib/site";
 
 // Round 111 v3 (2026-07-02) — Editorial category index.
-export const dynamic = "force-dynamic";
+// Round 129 — SEO/CWV: force-dynamic → ISR 60s
+export const revalidate = 60;
 
 const CATEGORY_OVERLINE: Record<string, string> = {
   content_marketing: "Content Marketing",

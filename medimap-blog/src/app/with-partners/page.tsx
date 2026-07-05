@@ -7,7 +7,8 @@ import { siteConfig, absoluteUrl } from "@/lib/site";
 
 // Round 111 v2 (2026-07-02) — editorial magazine index. 3-col grid 폐기, numbered directory,
 // hairline dividers, cover image preview on hover, warm off-white palette, controlled scale.
-export const dynamic = "force-dynamic";
+// Round 129 — SEO/CWV: force-dynamic → ISR 60s
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "파트너 병원 콘텐츠 — 위서클",

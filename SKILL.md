@@ -4752,12 +4752,33 @@ Round 104-c 사무실 세션에서 이미지 문제 조치됨 (`unsplash_client.
 - **커버 인물 반복 해소**: R108-c 무신사 인물 프롬프트 → 무인물 + 맥락 컨셉 (시네마틱 필름톤 유지)
 - 🔴 함정: **키워드 부분 문자열 카테고리 추론은 반드시 구체 단어로** ("교정"⊂"헤어라인교정") — 진료과 같은 상위 신호가 있으면 그걸 1순위로
 
-### 다음 라운드 후보 (Round 126-C 세션 종료 시점)
+### Round 127 (2026-07-05) — 이미지 한글 주입 제거 + 감도 승격 + 재생성 동기화
 
-- **Round 127**: 다음 cron 발행분 검증 3종 — ① 이미지가 글 맥락 부합하는지 (126-C 실효) ② 학습 인사이트 prompt 실주입 (121-B 최종) ③ 자가치유 백필 로그 (`scheduler.partner_tag_healed`)
-- **Round 127-B**: 모우림 #182 등 기존 어긋난 이미지 어드민 재생성 버튼으로 교체 (regenerate-image 가 새 컨셉 체계 쓰는지 확인 — v2 API 는 별도 구현이라 동기화 필요할 수 있음)
-- **Round 118-B'**: RSS `content:encoded` 본문 포함 (네이버 권장, 최신 20건 절충) — 수집 상태 관찰 후
-- **잔여**: 크롤러/카카오 위젯 데이터 유입 시 02존 승격 · 공개 사이트 첫 방문 속도 근본 개선(ISR 검토)
+- **🔴 함정: 이미지 프롬프트에 한글 금지** — 126-C 에서 넣은 한글 제목·섹션 헤딩을 flux 가 그림 속 글자로 렌더 → #183 본문의 깨진 텍스트 실사고. 한글 주입 3곳 전부 제거 (파이썬 커버 title_hint · 본문 heading 문장 · v2 재생성 titleHint). **글 맥락은 영문으로만 전달** — LLM 컨셉 생성의 입력에는 한글 OK, 출력(프롬프트 주입)은 영문 문장
+- **감도 승격 (사용자 필수 요구)**: 본문 프롬프트를 커버(무신사 시네마틱)와 동급으로 — cinematic moody light · film-like grading · gallery composition. LLM 컨셉 지시에 "generic stock photo 금지" 명시
+- **v2 재생성 버튼 동기화**: `regenerate-image/route.ts` buildKoreanPrompt 가 R108-c 인물 프롬프트 그대로였음 (검수 화면 재생성 = 오늘 체계 우회 경로) → 무인물+맥락 체계로 교체. 커버/본문 공용 함수라 한 번에 해결
+- **검증 순서**: push → 검수 화면 재생성 버튼 재실행 → 무인물·무텍스트·진료과 맥락·감도 톤 확인 → 발행 승인
+
+### Round 128~130 (2026-07-05, 자율 작업) — 데이터 보정 + SEO 고도화 + 어드민 잔여
+
+**128 — 데이터 오염 보정 & 가드**
+- 🔴 실사고: 바를정(한방의원) domain_category 가 7/4 12:30 클라이언트 편집 저장 중 '기타' 로 덮임 (audit_logs 로 추적) → 학습 주입·이미지 컨셉·발행 카테고리 전부 어긋남. SQL 보정 + **tenants PATCH 에 domain_category 허용값 가드** (허용 목록 외 400)
+- 학습 인사이트 검증: 8건 전부 역추론 성공(121-B 실효 확인). #14 '기타' 보정, '라싣' 오타 키워드 인사이트 2건 '라식' 보정 (오타 키워드 자체는 이미 비활성)
+
+**129 — wecircle.co.kr SEO 고도화**
+- 스키마 감사: Organization/WebSite(홈)·BreadcrumbList(자사 전역) 완비 확인 — **with-partners 상세만 부재 → BreadcrumbList 추가** (홈>파트너>진료과>병원 4단, meta.ko 사용 주의: label 아님)
+- **RSS content:encoded**: 파트너 글 본문 전체 포함 (최신 20건, CDATA + ]]> 이스케이프, xmlns:content 선언). 자사 글은 PostMeta 매퍼가 body 드롭이라 보류 (매퍼 확장 트레이드오프 기록)
+- **ISR 전환**: 목록·상세 6페이지 force-dynamic → `revalidate = 60` (blog 허브/카테고리, with-partners 4계층). TTFB·크롤 효율 개선. 근거: 홈이 이미 revalidate 60 + DB 로 빌드 성공 = 과거 빌드타임 pooler hang(Round 12) 해소 확인. archived 반영 60s 캐비앗 동일
+
+**130 — 어드민 잔여**
+- INP 981ms (재생성 버튼): fetch 완료 후 대형 body 문자열 치환+setState 3개가 클릭 태스크에서 동기 실행 → `setTimeout(0)` 양보 (DOM img.src 는 즉시 반영이라 UX 동일)
+- 낡은 문구 현행화: "DALL-E 3 · 한국인 모델" → "글 맥락 컨셉 · 무인물" (커버/본문 재생성 버튼 3곳)
+
+### 다음 라운드 후보 (Round 130 세션 종료 시점)
+
+- **Round 131**: 다음 cron 발행분 검증 — ① 이미지 글 맥락·무한글·감도 (127 실효) ② 학습 인사이트 prompt 실주입 (GH Actions 로그) ③ ISR 전환 후 빌드·TTFB 정상 확인 ④ 자가치유 로그 (`scheduler.partner_tag_healed`)
+- **Round 131-B**: 모우림 #182 등 기존 어긋난 이미지 재생성 교체 (버튼이 새 체계로 동기화됨)
+- **잔여**: 자사 글 RSS 본문 포함 (PostMeta 매퍼 body 확장 트레이드오프) · 크롤러/카카오 위젯 데이터 유입 시 02존 승격
 - **Round 110-A**: 신규 AI 인용 감지 → 이메일 알림 자동화 (실전 GEO 효과 즉시 인지)
 - **Round 110-B**: 크롤러 로그 시각화 위젯 (GPTBot/Claudebot/PerplexityBot 방문 로그)
 - **Round 110-C**: UTM 카카오톡 유입 트래킹 대시보드 (Round 108-e CTA 통일 활용)

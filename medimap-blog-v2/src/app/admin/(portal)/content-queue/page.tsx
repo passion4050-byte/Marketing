@@ -156,7 +156,7 @@ function CoverHero({
   const [busy, setBusy] = useState(false);
   const regenerate = async () => {
     if (!contentId || busy) return;
-    if (!confirm('커버 이미지를 재생성할까요? (한국인 모델, 20~40초 소요)')) return;
+    if (!confirm('커버 이미지를 재생성할까요? (글 맥락 컨셉 · 무인물, 20~40초 소요)')) return;
     setBusy(true);
     try {
       const r = await fetch(`/api/admin/content-queue/${contentId}/regenerate-image`, {
@@ -182,7 +182,7 @@ function CoverHero({
     return (
       <div className="flex h-40 items-center justify-center border-b border-border bg-surface-subtle">
         <button onClick={regenerate} disabled={busy} className="btn-primary text-xs">
-          {busy ? '재생성 중… (20~40초)' : '🎨 커버 이미지 DALL-E 생성'}
+          {busy ? '재생성 중… (20~40초)' : '🎨 커버 이미지 생성'}
         </button>
       </div>
     );
@@ -201,7 +201,7 @@ function CoverHero({
           onClick={regenerate}
           disabled={busy}
           className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/70 px-3 py-1.5 text-xs font-semibold text-white shadow-lg backdrop-blur hover:bg-black/90 disabled:opacity-60"
-          title="DALL-E 3 로 커버 재생성 (한국인 모델)"
+          title="커버 재생성 (글 맥락 컨셉 · 무인물)"
         >
           {busy ? '⏳ 재생성 중…' : '🔄 커버 재생성'}
         </button>
@@ -261,7 +261,7 @@ function BodyWithImageRegen({
       btn.onclick = async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!confirm(`본문 ${targetIndex}번째 이미지를 DALL-E 3 로 재생성할까요? (한국인 모델, 20~40초 소요)`)) return;
+        if (!confirm(`본문 ${targetIndex}번째 이미지를 재생성할까요? (글 맥락 컨셉 · 무인물, 20~40초 소요)`)) return;
         btn.disabled = true;
         const orig = btn.textContent;
         btn.textContent = '⏳ 재생성 중…';
@@ -274,7 +274,9 @@ function BodyWithImageRegen({
           const j = await r.json().catch(() => ({}));
           if (r.ok && j?.url) {
             img.src = j.url;
-            onImgRegenerated(targetIndex, j.url);
+            // Round 130 — INP 981ms 수정: 상태 동기화(대형 body 문자열 치환 + setState 3개)를
+            // 다음 틱으로 양보. DOM(img.src)은 위에서 즉시 반영돼 UX 동일.
+            setTimeout(() => onImgRegenerated(targetIndex, j.url), 0);
             btn.textContent = '✅ 완료';
             setTimeout(() => {
               btn.textContent = orig;

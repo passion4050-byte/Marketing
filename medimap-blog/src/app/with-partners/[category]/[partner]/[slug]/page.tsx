@@ -4,9 +4,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCategoryMeta, getPartnerPost, getPartnerPostsByPartner } from "@/lib/partners";
 import { siteConfig, absoluteUrl } from "@/lib/site";
+// Round 129 (2026-07-05) — SEO: 파트너 글 BreadcrumbList (3단 경로 구조화)
+import { JsonLd } from "@/components/JsonLd";
+import { breadcrumbLd } from "@/lib/schema";
 
 // Round 12: force-dynamic 으로 빌드 시점 prerender 회피 + dynamicParams 자동 활성
-export const dynamic = 'force-dynamic';
+// Round 129 — blog/[slug] 와 대칭: ISR 60s (첫 요청 SSR 후 캐시. archived 반영
+//   최대 60s 지연은 기존 캐비앗과 동일 수용).
+export const revalidate = 60;
 
 interface PageProps {
   params: Promise<{ category: string; partner: string; slug: string }>;
@@ -108,6 +113,15 @@ export default async function PartnerPostPage({ params }: PageProps) {
   return (
     <main className="mx-auto w-full max-w-[860px] px-6 py-14 md:py-20 lg:px-10">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ldJson) }} />
+      {/* Round 129 — 3단 경로 BreadcrumbList (검색 결과 경로 표시 + 구조 신호) */}
+      <JsonLd
+        data={breadcrumbLd([
+          { name: "홈", href: "/" },
+          { name: "파트너 콘텐츠", href: "/with-partners" },
+          { name: meta.ko, href: `/with-partners/${category}` },
+          { name: post.tenant_name, href: `/with-partners/${category}/${partner}` },
+        ])}
+      />
 
       <nav className="flex items-center gap-3 border-b border-stone-300 pb-4 text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
         <span className="inline-block h-px w-6 bg-stone-400" />

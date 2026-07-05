@@ -27,11 +27,25 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
   if (!sb) return notConfigured();
   const { id } = await ctx.params;
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  // Round 128 (2026-07-05) — domain_category 유효값 가드.
+  //   실사고: 바를정(한방의원)이 편집 저장 중 '기타' 로 덮여 학습 인사이트 주입·
+  //   이미지 컨셉·발행 카테고리가 어긋남. 진료과는 시스템 전반의 매칭 키라
+  //   허용 목록 외 값은 거부 (오타·임의 텍스트 차단).
+  const VALID_CATEGORIES = new Set([
+    '안과', '피부과', '성형외과', '치과', '내과', '모발이식',
+    '한방의원', '한방', '자사인사이트', '기타',
+  ]);
   const payload: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(body)) {
     if (!ALLOWED_PATCH.has(k)) continue;
     // NOT NULL 컬럼은 빈/null 값으로 덮어쓰기 금지 — 무시
     if (NOT_NULL_PROTECT.has(k) && (v === '' || v == null)) continue;
+    if (k === 'domain_category' && typeof v === 'string' && !VALID_CATEGORIES.has(v.trim())) {
+      return NextResponse.json(
+        { ok: false, error: `domain_category 허용값 아님: ${v}` },
+        { status: 400 },
+      );
+    }
     payload[k] = v === '' ? null : v;
   }
   if (Object.keys(payload).length === 0) {

@@ -12,9 +12,8 @@ import {
 import { siteConfig, absoluteUrl } from "@/lib/site";
 
 // Round 111 v3 (2026-07-02) — Editorial category page. Off-white, hairline dividers.
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
-export const revalidate = 0;
+// Round 129 — SEO/CWV: force-dynamic → ISR 60s
+export const revalidate = 60;
 
 const CATEGORY_OVERLINE: Record<string, string> = {
   eyeclinic: "Ophthalmology",
