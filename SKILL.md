@@ -4802,3 +4802,20 @@ Round 104-c 사무실 세션에서 이미지 문제 조치됨 (`unsplash_client.
 
 **Round 132 후보**: 즉시발행 중복 가드 — 트리거 전 같은 tenant+keyword 의 published 존재 시 확인 모달(또는 24h 차단)
 
+### Round 131 (2026-07-06) — cron 발행분 검증 결과 (4종 + 발견 2건)
+
+- **① 이미지 신체계 실효 ✅**: #186(바를정·안면거상, 오늘 cron 발행) 라이브 육안 검증 — 커버 한약재 정물(글 맥락), 본문 3장 무한글·맥락 일치, 표 정상 렌더, 시네마틱 톤. 경미: 본문 1장에 손 클로즈업 → 인물단어 필터에 hand/fingers 미포함 (개선 후보)
+- **② 학습 사이클 ✅ + 운영 규칙 신설**: auto-pattern-learning(월 08:00 KST)이 AUTO 6건 생성 — **디폴트 applied=false, 주입은 applied=true 만** (learned_insights_loader). 세대교체 실행: 구 AUTO 7건(#6~12, 6/29) 은퇴 + 신규 6건(#23~28) 활성. 개선 후보: 신규 AUTO 배치 자동활성+구배치 자동은퇴
+- **③ ISR ✅**: 발행 당일 글·목록 즉시 반영, 로드 정상
+- **④ 🔴 자가치유 구조 갭**: 발행 경로가 3필드 태깅을 안 함 — 치유는 cron "시작" 시라 **당일 발행분은 다음 cron까지 /with-partners 미노출** (#186 실측 is_partner_content=false) → SQL 수동 치유(oriental). **Round 132 필수: 발행 직후 태깅 포함**
+- 참고: 치유 쿼리의 자사 제외 목록이 옛 slug('medimap','medimap-self')지만 `business_model='self'` 필터 + '기타'→NULL 매핑이 이중 방어 중 (코스메틱, 다음 스윕 때 'wecircle-self' 추가)
+- **131-B 확정**: #183 본문에 깨진 한글 이미지 1장 + 인물 모델컷 2장 라이브 잔존. 재생성 버튼은 검수 큐 카드에만 있고 완료 탭엔 없음 → 사용자 선택: 완료 탭에 버튼 추가 (아래 구현)
+
+### Round 131-B (2026-07-06) — 완료 탭 이미지 재생성 진입점 (글 비노출 없이 교체)
+
+- **설계**: 새 코드 최소화 — 검수 미리보기 모달이 이미 커버(CoverHero)+본문(BodyWithImageRegen) 재생성과 published 리스트 동기화(Round 107 hotfix 4의 setPublished)까지 지원 + 모달 푸터는 published 상태면 발행 버튼 없이 안내문만. **빠진 건 완료 탭 진입점뿐**
+- **수정 4곳**: ① PublishedTab lucide `ImagePlus` import ② props에 `onPreview?: (item: PublishedTabItem) => void` ③ 행 액션에 ImagePlus 버튼 (onPreview 있을 때만) ④ page.tsx `<PublishedTab items={published} onPreview={(it) => setPreview(it as QueueItem)} />` (PublishedTabItem은 QueueItem subset — 런타임 객체는 full QueueItem이라 cast 안전)
+- 🔴 **JSX 주석 함정 재발**: 삼항 분기 `) : ( <PublishedTab/> )` 괄호 안에 `{/* */}` 삽입 → esbuild "Expected )" — 게이트가 push 전에 잡음 (124-B와 동일 패턴, `//` 줄주석으로 교체). **게이트 프로토콜 유효성 실증 2회째**
+- esbuild 게이트: PublishedTab.tsx + page.tsx 둘 다 PASS
+- **사용법**: 어드민 → 콘텐츠 → 완료 탭 → 행의 ImagePlus 아이콘 → 모달에서 커버 "재생성" / 본문 각 이미지 hover "재생성" → 라이브 즉시 교체 (ISR 60s). #183 교체가 첫 실전 대상
+

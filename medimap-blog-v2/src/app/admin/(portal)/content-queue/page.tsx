@@ -494,7 +494,8 @@ export default function ContentManagementPage() {
           onCopy={copyBody}
         />
       ) : (
-        <PublishedTab items={published} />
+        // Round 131-B — onPreview: 발행 글 이미지 재생성 진입점 (모달이 published 리스트 동기화 지원)
+        <PublishedTab items={published} onPreview={(it) => setPreview(it as QueueItem)} />
       )}
 
       {/* === 본문 미리보기 + 인라인 편집 모달 === */}

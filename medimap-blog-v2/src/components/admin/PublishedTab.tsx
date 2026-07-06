@@ -28,6 +28,7 @@ import {
   ChevronRight,
   ExternalLink,
   Eye,
+  ImagePlus,
   Loader2,
   MessageSquare,
   Pencil,
@@ -287,7 +288,16 @@ function EditModal({
 /* PublishedTab 본체                                                    */
 /* ------------------------------------------------------------------ */
 
-export function PublishedTab({ items }: { items: PublishedTabItem[] }) {
+// Round 131-B (2026-07-06) — onPreview: 발행 글을 검수 미리보기 모달로 열어
+//   이미지 재생성(새 체계: 무인물·무한글·글 맥락)을 글 내리지 않고 실행.
+//   모달의 setPending/setPublished 동기화(Round 107 hotfix 4)가 published 리스트도 갱신함.
+export function PublishedTab({
+  items,
+  onPreview,
+}: {
+  items: PublishedTabItem[];
+  onPreview?: (item: PublishedTabItem) => void;
+}) {
   const [filter, setFilter] = useState<ContentFilter>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [page, setPage] = useState(1);
@@ -678,6 +688,18 @@ export function PublishedTab({ items }: { items: PublishedTabItem[] }) {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex items-center gap-1">
+                          {/* Round 131-B — 이미지 재생성: 검수 미리보기 모달 재사용 (글 비노출 없이 교체) */}
+                          {onPreview && (
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => onPreview(q)}
+                              title="미리보기 · 이미지 재생성 (커버/본문, 새 체계)"
+                              className="rounded-md border border-border bg-white p-1.5 text-ink-muted transition hover:bg-surface-muted hover:text-ink disabled:opacity-40"
+                            >
+                              <ImagePlus className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                           <button
                             type="button"
                             disabled={busy}
