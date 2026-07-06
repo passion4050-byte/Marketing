@@ -1,6 +1,6 @@
 ---
 name: geo-aeo-saas
-description: 메디맵 GEO/AEO SaaS — Done For You 모델 풀스택. (1) 클라이언트 SaaS 콘솔 medimap-blog-v2 (geo-v2-beta.vercel.app, 딥 티얼 #0E5A6B, /admin 13개 페이지, /admin/login 세일즈 랜딩, ADMIN_PASSWORD 가드, middleware 가드, noindex). (2) 콘텐츠 채널 medimap-blog (medimap-blog-phi.vercel.app, 메디맵 블루 #1B68FF, /with-partners 6 카테고리 hub, AI 크롤러 13종 노출). (3) 같은 Supabase DB (gifopyowyankfsfghhdi), 같은 GH Actions cron. (4) Round 90~101 — wecircle.co.kr 커스텀 도메인 + WECIRCLE 운영사 리브랜딩 (사업자 798-67-00527 주식회사 위서클) + 자동 학습 사이클 (learned_insights AUTO tier). 사용자가 '메디맵 GEO SaaS', 'wecircle', 'geo-v2-beta', 'with-partners', 'medimap-blog-phi', 'tenants CRUD', '카카오 채널 pf.kakao.com/_xnWQkG', 'BGN/TETE/모우림 파트너', 'Resend 보고서', 'Pollinations 일러스트', '안과/피부과/성형외과/치과/내과/모발이식 카테고리', '자동 학습 사이클', 'learned_insights' 같은 표현 쓰면 반드시 이 스킬을 사용한다. 같은 GitHub 레포 passion4050-byte/Marketing 의 medimap-blog/ + medimap-blog-v2/ 모노레포 통합 운영.
+description: 위서클(WECIRCLE · 구 메디맵) GEO/AEO SaaS — Done For You 모델 풀스택. (1) 클라이언트 SaaS 콘솔 medimap-blog-v2 (geo-v2-beta.vercel.app, 딥 티얼 #0E5A6B, /admin 13개 페이지, /admin/login 세일즈 랜딩, ADMIN_PASSWORD 가드, middleware 가드, noindex). (2) 콘텐츠 채널 medimap-blog (medimap-blog-phi.vercel.app, 메디맵 블루 #1B68FF, /with-partners 6 카테고리 hub, AI 크롤러 13종 노출). (3) 같은 Supabase DB (gifopyowyankfsfghhdi), 같은 GH Actions cron. (4) Round 90~101 — wecircle.co.kr 커스텀 도메인 + WECIRCLE 운영사 리브랜딩 (사업자 798-67-00527 주식회사 위서클) + 자동 학습 사이클 (learned_insights AUTO tier). 사용자가 '메디맵 GEO SaaS', 'wecircle', 'geo-v2-beta', 'with-partners', 'medimap-blog-phi', 'tenants CRUD', '카카오 채널 pf.kakao.com/_xnWQkG', 'BGN/TETE/모우림 파트너', 'Resend 보고서', 'Pollinations 일러스트', '안과/피부과/성형외과/치과/내과/모발이식 카테고리', '자동 학습 사이클', 'learned_insights' 같은 표현 쓰면 반드시 이 스킬을 사용한다. 같은 GitHub 레포 passion4050-byte/Marketing 의 medimap-blog/ + medimap-blog-v2/ 모노레포 통합 운영.
 ---
 
 # 🔴 Claude 가 무조건 지킬 규칙 (2026-06-20 사용자 명시)
@@ -14,7 +14,9 @@ description: 메디맵 GEO/AEO SaaS — Done For You 모델 풀스택. (1) 클�
 
 ---
 
-# 메디맵 GEO/AEO SaaS — 풀스택 통합 (2026-05-25)
+# 위서클(WECIRCLE · 구 메디맵) GEO/AEO SaaS — 풀스택 통합 (2026-05-25)
+
+> 2026-07-06 사용자 확정: 정식 명칭은 **위서클(WECIRCLE)**. 이어가기 트리거는 "위서클 작업 이어가기". 코드/폴더명(medimap-*)은 그대로.
 
 ## 무엇
 
@@ -4782,4 +4784,21 @@ Round 104-c 사무실 세션에서 이미지 문제 조치됨 (`unsplash_client.
 - **Round 110-A**: 신규 AI 인용 감지 → 이메일 알림 자동화 (실전 GEO 효과 즉시 인지)
 - **Round 110-B**: 크롤러 로그 시각화 위젯 (GPTBot/Claudebot/PerplexityBot 방문 로그)
 - **Round 110-C**: UTM 카카오톡 유입 트래킹 대시보드 (Round 108-e CTA 통일 활용)
+
+### Round 131-pre (2026-07-06) — 운영 정리: 중복 발행 archive + 발신자 위서클 리브랜딩
+
+**중복 발행 정리 (archive 기능 첫 실전 사용)**
+- 실사고: 모우림 "헤어라인교정" 3편 동시 라이브 (#182/#183/#184 — 7/4 즉시발행을 3회 실행한 결과). 같은 tenant+keyword 중복 = SEO/AEO 마이너스
+- 처리: #183(품질 A·새 커버)만 유지, #182·#184 SQL soft delete (`status='archived'`). 라이브 검증 — 상세 404 + mowoolim Archive "1 stories" 확인 (ISR 60s 내 반영)
+- 🔴 교훈: **즉시발행은 중복 가드가 없다** — 같은 키워드로 반복 실행하면 그대로 중복 발행됨 → Round 132 후보
+
+**이메일 발신자 MEDIMAP GEO → WECIRCLE GEO**
+- `RESEND_FROM` 은 코드 fallback 이 아니라 **Vercel `geo-v2` 프로젝트 환경변수**가 실효값 (citation-alerts / monthly-reports 발신 주체 = geo-v2 배포)
+- 실사고: medimap-blog(공개 블로그) 프로젝트에 변수를 잘못 추가 — GTM/PHONE/채널URL 변수가 보이면 그건 공개 블로그 프로젝트다. geo-v2 에서 `RESEND_FROM=WECIRCLE GEO <onboarding@resend.dev>` 수정 + Redeploy + citation-alerts workflow_dispatch 테스트로 확정
+- 캐비앗: 이미 수신된 메일의 발신자명은 불변 (발송 시점 박제). `onboarding@resend.dev` 는 가입자 본인에게만 발송 가능 — 클라이언트 발송 필요 시 Resend 에 wecircle.co.kr 도메인 verify 후 `alerts@wecircle.co.kr` 로 교체 (DNS 레코드 3개)
+- medimap-blog 에 잘못 추가된 RESEND_API_KEY/RESEND_FROM/CITATION_ALERT_EMAIL 3개는 미사용 — 사용자가 나중에 삭제 예정
+
+**명칭 확정**: 위서클(WECIRCLE) — 스킬 트리거/문서/보고 모두 위서클 기준, 코드 식별자·폴더명(medimap-*)은 유지
+
+**Round 132 후보**: 즉시발행 중복 가드 — 트리거 전 같은 tenant+keyword 의 published 존재 시 확인 모달(또는 24h 차단)
 
