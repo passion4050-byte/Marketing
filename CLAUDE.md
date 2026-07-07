@@ -16,6 +16,40 @@
 
 ---
 
+<!-- 모델 핸드오프 프로토콜 (2026-07-07) — Fable 5 세션 실사고에서 확립. 모든 모델(Sonnet/Opus/Haiku) 무조건 준수 -->
+## 🔴 모델 공통 작업 프로토콜
+
+### 세션 시작 루틴
+1. 새 기기/오랜만이면 사용자에게 `git pull` 먼저 안내
+2. `SKILL.md` 최신 Round 섹션 + "다음 라운드 후보" 읽고 착수 (또는 geo-snapshot 스킬 트리거)
+3. 코드 수정 전 Supabase MCP 로 관련 DB 실상태 확인 — 추측으로 고치지 말 것
+
+### 파일 시스템 진실 규칙 (🔴 함정 ED)
+- 호스트 파일 정본 = Read/Edit/Write 도구. Edit/Write 성공 = 파일 무결
+- 샌드박스 bash 의 wc/tail 불일치·NUL·중간 절단 = **마운트 동기화 지연일 뿐, 파일 손상 아님**. 특히 SKILL.md 같은 대형 파일은 편집 직후 마운트에 수십 초~무기한 미반영 가능 → 그럴 땐 /tmp 사본에 동일 편집을 파이썬으로 재적용(anchor assert 필수)해서 진행
+- 마운트에서 git commit/push 금지. **push 는 항상 사용자 로컬 터미널** — 완성된 한 줄 명령어 제공
+- 샌드박스 산출물을 사용자에게 줄 땐 Write 도구(호스트 경로) 또는 outputs 복사+present_files 만 신뢰. outputs 에 직접 zip 생성이 막히면(Operation not permitted) /tmp 에 만들고 cp
+
+### 빌드 게이트 (push 명령 제공 전 필수 — 실사고 2회 예방 실증)
+- .tsx/.ts 수정: 수정본 /tmp 사본 확보(마운트 동기화 확인 or 재적용) → `npx --yes esbuild --loader:.tsx=tsx <파일> --outfile=/dev/null` PASS 확인
+- .py 수정: `python3 -m py_compile <파일>`
+- 게이트 없이 push 명령 주는 것 금지
+
+### JSX 함정 (실사고 2회: 124-B, 131-B)
+- 삼항 `) : ( ... )` / `{cond && ( ... )}` 괄호 안에 `{/* */}` 주석 금지 → 빌드 실패. `//` 줄주석 또는 괄호 밖에 배치
+
+### 검증 원칙
+- 배포/DB 변경 후 라이브 URL(web_fetch) 또는 SQL 로 실측 확인 후 보고. "됐을 것" 금지 — 실측 없으면 "미검증" 명시
+- 발행 콘텐츠 검증 항목: 이미지(무인물·무한글·글 맥락·시네마틱 톤), 파트너 태깅 3필드, 의료법 통과, /with-partners 노출
+
+### 작은 모델(Sonnet/Haiku) 추가 규칙
+- 한 세션 라운드 1~2개만. 큰 편집은 세션 초반에
+- 여러 파일 수정 시 파일당 [수정→게이트] 완결 후 다음 파일 (일괄 수정 후 일괄 검증 금지)
+- 컨텍스트 절약: Grep head_limit≤50, Read offset/limit, SELECT 필요 컬럼만
+- 확신 없으면 SKILL.md 에서 해당 주제 선례를 먼저 Grep — 대부분의 함정은 이미 기록돼 있음
+
+---
+
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
