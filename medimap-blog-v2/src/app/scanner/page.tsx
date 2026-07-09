@@ -445,12 +445,18 @@ export default function ScannerPage() {
             <div className="inline-block rounded-full bg-brand-100 px-3 py-1 text-xs font-bold text-brand-700">
               종합 점수 {report.overallScore}점 · {report.grade}등급
             </div>
-            <h3 className="mt-3 text-lg font-bold text-ink">📄 정확한 우리 병원 지표 분석·개선안을 무료로 제공해 드립니다</h3>
-            <p className="mt-2 text-sm text-ink-soft">
-              우리 병원에 딱 맞는 <strong>정확한 지표 분석과 개선안</strong>을 무료로 제공해 드리기 위해 아래 정보를 남겨주세요.
-              7개 항목 상세 점수 + <strong>“무엇을·어떻게 고쳐야 하는지”</strong> + 의료광고법 리스크 상세를
-              위서클 의료 GEO 전문가가 정리해 드립니다. <strong className="text-brand">상담은 강요하지 않습니다.</strong>
+            <h3 className="mt-3 pr-6 text-xl font-extrabold leading-snug text-ink">
+              정확한 우리 병원 지표 분석·개선안을<br />무료로 제공해 드립니다
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-ink-muted">
+              아래 정보를 남겨주시면, 위서클 의료 GEO 전문가가 우리 병원에 맞춰 정리해 드립니다.
             </p>
+            <ul className="mt-4 space-y-2 rounded-xl bg-brand-tint-soft p-4 text-sm text-ink-soft">
+              <li className="flex items-start gap-2"><span className="mt-0.5 font-bold text-brand">✓</span> 7개 항목 상세 점수</li>
+              <li className="flex items-start gap-2"><span className="mt-0.5 font-bold text-brand">✓</span> 무엇을·어떻게 고쳐야 하는지 개선안</li>
+              <li className="flex items-start gap-2"><span className="mt-0.5 font-bold text-brand">✓</span> 의료광고법 리스크 상세 진단</li>
+            </ul>
+            <p className="mt-3 text-xs font-medium text-ink-muted">상담은 강요하지 않습니다 · 리포트만 받아보셔도 됩니다.</p>
             <form onSubmit={submitLead} className="mt-5 grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-xs font-semibold text-ink-soft">담당자 성함 *</label>
