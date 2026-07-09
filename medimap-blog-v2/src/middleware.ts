@@ -12,7 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export const config = {
-  matcher: ['/api/admin/:path*', '/admin/:path*']
+  matcher: ['/', '/api/admin/:path*', '/admin/:path*']
 };
 
 const ADMIN_COOKIE_NAME = 'medimap-admin-session';
@@ -22,6 +22,17 @@ const PUBLIC_PAGE_PATHS = ['/admin/login'];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // 마케팅 서브도메인(geo.wecircle.co.kr) 루트 → 무료 진단 스캐너로 rewrite.
+  const host = req.headers.get('host') ?? '';
+  if (host.startsWith('geo.wecircle.co.kr') && pathname === '/') {
+    return NextResponse.rewrite(new URL('/scanner', req.url));
+  }
+  // 그 외 '/' 는 admin 가드 대상이 아니므로 통과 (홈페이지 보호).
+  if (!pathname.startsWith('/admin') && !pathname.startsWith('/api/admin')) {
+    return NextResponse.next();
+  }
+
   const cookie = req.cookies.get(ADMIN_COOKIE_NAME)?.value;
   const isApi = pathname.startsWith('/api/admin');
 
