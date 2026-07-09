@@ -11,6 +11,7 @@ import {
   DollarSign,
   FileText,
   History,
+  Inbox,
   LayoutDashboard,
   LinkIcon,
   LogOut,
@@ -29,7 +30,7 @@ import { showToast } from '@/lib/clientActions';
 import { cn } from '@/lib/cn';
 
 // Round 84 (2026-06-28) — IA 재설계: 운영자 행동 빈도 기반 4그룹.
-//   ① 일상 운영(매일 봄, 4개) ② 측정·분석(주간 봄, 5개)
+//   ① 일상 운영(매일 봄, 4개) ② 측정·분석(주간 봄, 6개)
 //   ③ 설정(가끔 조정, 5개) ④ 시스템(거의 안 봄, 3개)
 // 이전: 운영 7 + 인사이트 7 + 시스템 3 = 운영 그룹 비대화 → 운영자가 핵심 4개 못 찾음.
 const NAV = [
@@ -40,6 +41,7 @@ const NAV = [
     { href: '/admin/ab-tests', label: 'A/B 테스트', icon: Beaker }
   ]},
   { group: '측정 · 분석', items: [
+    { href: '/admin/scanner-leads', label: '스캐너 리드', icon: Inbox },
     { href: '/admin/citations', label: 'AI 인용 추적', icon: Zap },
     { href: '/admin/saas-tracking', label: 'SaaS 시장 노출도', icon: Sparkles },
     { href: '/admin/funnel', label: 'Funnel · ROI', icon: LinkIcon },

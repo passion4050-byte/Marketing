@@ -2,14 +2,14 @@
  * /scanner — 무료 의료 GEO 진단 (공개 리드 깔때기 · 잠재고객 영업 앞문).
  *
  * 플로우: URL 입력 → 스캔 → [티저: 종합점수 + 의료법 리스크 + 잠긴 항목]
- *         → 리드 게이트 폼(담당자·병원·이메일·전화·문의) → 상세 리포트 언락.
- * 목적: 상세 결과를 리드 폼 뒤로 게이팅해 잠재고객 정보를 확보하되, '정확한 우리 병원 지표 분석·개선안을 무료 제공하기 위해' 프레이밍으로 설득.
+ *         + 리드 게이트 모달(담당자·병원·이메일·전화·문의) 자동 오픈 → 제출 → 상세 리포트 언락.
+ * 목적: 상세 결과를 리드 폼(모달) 뒤로 게이팅해 잠재고객 정보를 확보하되, '정확한 우리 병원 지표 분석·개선안을 무료 제공하기 위해' 프레이밍으로 설득.
  * 위서클 차별점: 의료광고법 리스크(위서클 단독). CTA = 카카오 오픈채팅 상담.
  */
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, Lock } from 'lucide-react';
+import { ChevronDown, Lock, X } from 'lucide-react';
 import type { ScanReport, ScanItem } from '@/lib/scanner/scan';
 
 const KAKAO = 'https://open.kakao.com/o/spyAz9Bi';
@@ -148,6 +148,7 @@ export default function ScannerPage() {
   const [report, setReport] = useState<ScanReport | null>(null);
   const [err, setErr] = useState('');
   const [unlocked, setUnlocked] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const [lName, setLName] = useState('');
   const [lOrg, setLOrg] = useState('');
@@ -159,7 +160,7 @@ export default function ScannerPage() {
 
   async function run(e: React.FormEvent) {
     e.preventDefault();
-    setErr(''); setReport(null); setUnlocked(false);
+    setErr(''); setReport(null); setUnlocked(false); setModalOpen(false);
     if (!url.trim()) { setErr('진단할 병원 홈페이지 URL 을 입력해 주세요.'); return; }
     setLoading(true);
     try {
@@ -176,6 +177,7 @@ export default function ScannerPage() {
         if (typeof document !== 'undefined') {
           setTimeout(() => document.getElementById('result')?.scrollIntoView({ behavior: 'smooth' }), 60);
         }
+        setTimeout(() => setModalOpen(true), 500);
       }
     } catch {
       setErr('네트워크 오류가 발생했습니다. 다시 시도해 주세요.');
@@ -204,7 +206,7 @@ export default function ScannerPage() {
         })
       });
       const data = await res.json();
-      if (data?.ok) { setUnlocked(true); }
+      if (data?.ok) { setUnlocked(true); setModalOpen(false); }
       else { setLErr(data?.error || '제출에 실패했습니다. 다시 시도해 주세요.'); }
     } catch {
       setLErr('네트워크 오류가 발생했습니다. 다시 시도해 주세요.');
@@ -257,7 +259,7 @@ export default function ScannerPage() {
         </div>
       </section>
 
-      {/* 티저 + 리드 게이트 */}
+      {/* 티저 (모달 뒤 배경) */}
       {report && !unlocked && (
         <section id="result" className="mx-auto max-w-3xl px-5 py-12">
           <div className="rounded-2xl border border-border bg-surface-subtle p-6 shadow-sm">
@@ -274,51 +276,19 @@ export default function ScannerPage() {
 
             <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
               AI 가시성 7개 항목 중 <span className="text-amber-900">{needFix}개</span>가 ‘개선 필요’로 나왔습니다.
-              어떤 항목인지, 무엇을 고쳐야 하는지는 아래에서 확인하세요.
+              어떤 항목인지, 무엇을 고쳐야 하는지는 상세 리포트에서 확인하세요.
             </div>
 
             <div className="mt-5 grid gap-2">
               {report.items.map((it) => <LockedItem key={it.key} item={it} />)}
             </div>
-          </div>
 
-          {/* 리드 게이트 폼 */}
-          <div className="mt-6 rounded-2xl border border-brand/30 bg-brand-tint-soft p-6">
-            <h3 className="text-lg font-bold text-ink">📄 정확한 우리 병원 지표 분석·개선안을 무료로 제공해 드립니다</h3>
-            <p className="mt-2 text-sm text-ink-soft">
-              우리 병원에 딱 맞는 <strong>정확한 지표 분석과 개선안</strong>을 무료로 제공해 드리기 위해 아래 정보를 남겨주세요.
-              7개 항목 상세 점수 + <strong>“무엇을·어떻게 고쳐야 하는지”</strong> + 의료광고법 리스크 상세를
-              위서클 의료 GEO 전문가가 정리해 드립니다. <strong className="text-brand">상담은 강요하지 않습니다.</strong>
-            </p>
-            <form onSubmit={submitLead} className="mt-5 grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-ink-soft">담당자 성함 *</label>
-                <input value={lName} onChange={(e) => setLName(e.target.value)} placeholder="홍길동" className="input-base" />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-ink-soft">병원 · 기관명 *</label>
-                <input value={lOrg} onChange={(e) => setLOrg(e.target.value)} placeholder="○○의원" className="input-base" />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-ink-soft">이메일 *</label>
-                <input value={lEmail} onChange={(e) => setLEmail(e.target.value)} placeholder="you@clinic.co.kr" type="email" className="input-base" />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-ink-soft">전화번호 *</label>
-                <input value={lPhone} onChange={(e) => setLPhone(e.target.value)} placeholder="010-0000-0000" inputMode="tel" className="input-base" />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-semibold text-ink-soft">문의 · 궁금한 점 (선택)</label>
-                <textarea value={lMsg} onChange={(e) => setLMsg(e.target.value)} rows={2} placeholder="예: 라식·라섹 키워드에서 AI 노출을 높이고 싶어요" className="input-base resize-none" />
-              </div>
-              <div className="sm:col-span-2">
-                <button type="submit" disabled={lLoading} className="btn-primary w-full py-3 text-base">
-                  {lLoading ? '리포트 준비 중…' : '상세 리포트 무료로 받기 →'}
-                </button>
-                {lErr && <p className="mt-2 text-sm text-rose-500">{lErr}</p>}
-                <p className="mt-2 text-center text-xs text-ink-faint">입력하신 정보는 리포트 발송·상담 목적으로만 사용됩니다.</p>
-              </div>
-            </form>
+            <div className="mt-6 text-center">
+              <button onClick={() => setModalOpen(true)} className="btn-primary inline-flex items-center gap-2 px-6 py-3 text-base">
+                <Lock className="h-4 w-4" /> 상세 리포트 무료로 받기 →
+              </button>
+              <p className="mt-2 text-xs text-ink-faint">7개 항목 상세 점수 + 맞춤 개선안 + 의료광고법 리스크 상세</p>
+            </div>
           </div>
         </section>
       )}
@@ -462,6 +432,57 @@ export default function ScannerPage() {
           </div>
         </div>
       </section>
+
+      {/* 리드 게이트 모달 */}
+      {report && !unlocked && modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+          <div className="absolute inset-0 bg-ink/60 backdrop-blur-sm" onClick={() => setModalOpen(false)} />
+          <div className="relative z-10 max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-surface-base p-6 shadow-2xl sm:rounded-2xl">
+            <button onClick={() => setModalOpen(false)} aria-label="닫기"
+              className="absolute right-4 top-4 text-ink-faint transition hover:text-ink">
+              <X className="h-5 w-5" />
+            </button>
+            <div className="inline-block rounded-full bg-brand-100 px-3 py-1 text-xs font-bold text-brand-700">
+              종합 점수 {report.overallScore}점 · {report.grade}등급
+            </div>
+            <h3 className="mt-3 text-lg font-bold text-ink">📄 정확한 우리 병원 지표 분석·개선안을 무료로 제공해 드립니다</h3>
+            <p className="mt-2 text-sm text-ink-soft">
+              우리 병원에 딱 맞는 <strong>정확한 지표 분석과 개선안</strong>을 무료로 제공해 드리기 위해 아래 정보를 남겨주세요.
+              7개 항목 상세 점수 + <strong>“무엇을·어떻게 고쳐야 하는지”</strong> + 의료광고법 리스크 상세를
+              위서클 의료 GEO 전문가가 정리해 드립니다. <strong className="text-brand">상담은 강요하지 않습니다.</strong>
+            </p>
+            <form onSubmit={submitLead} className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink-soft">담당자 성함 *</label>
+                <input value={lName} onChange={(e) => setLName(e.target.value)} placeholder="홍길동" className="input-base" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink-soft">병원 · 기관명 *</label>
+                <input value={lOrg} onChange={(e) => setLOrg(e.target.value)} placeholder="○○의원" className="input-base" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink-soft">이메일 *</label>
+                <input value={lEmail} onChange={(e) => setLEmail(e.target.value)} placeholder="you@clinic.co.kr" type="email" className="input-base" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink-soft">전화번호 *</label>
+                <input value={lPhone} onChange={(e) => setLPhone(e.target.value)} placeholder="010-0000-0000" inputMode="tel" className="input-base" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-xs font-semibold text-ink-soft">문의 · 궁금한 점 (선택)</label>
+                <textarea value={lMsg} onChange={(e) => setLMsg(e.target.value)} rows={2} placeholder="예: 라식·라섹 키워드에서 AI 노출을 높이고 싶어요" className="input-base resize-none" />
+              </div>
+              <div className="sm:col-span-2">
+                <button type="submit" disabled={lLoading} className="btn-primary w-full py-3 text-base">
+                  {lLoading ? '리포트 준비 중…' : '상세 리포트 무료로 받기 →'}
+                </button>
+                {lErr && <p className="mt-2 text-sm text-rose-500">{lErr}</p>}
+                <p className="mt-2 text-center text-xs text-ink-faint">입력하신 정보는 리포트 발송·상담 목적으로만 사용됩니다.</p>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
