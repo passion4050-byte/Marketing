@@ -47,6 +47,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'tenant not found' }, { status: 404 });
     }
 
+    // Round 132 (2026-07-09) — 중복 발행 가드.
+    //   실사고: 즉시발행 3회 반복 → 모우림 "헤어라인교정" 3편 중복(#182/183/184, 2편 archive 처리).
+    //   같은 키워드 published 존재(키워드 지정 시) 또는 24h 내 발행 존재(미지정 시) → 409.
+    //   body.force === true 로 명시 확인 시에만 통과.
+    const force = body.force === true;
+    if (!force) {
+      let dupQuery = sb
+        .from('generated_contents')
+        .select('id, keyword_text, created_at')
+        .eq('tenant_id', tenantId)
+        .eq('channel', 'blog_html')
+        .eq('status', 'published')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      dupQuery = keyword
+        ? dupQuery.eq('keyword_text', keyword)
+        : dupQuery.gte('created_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString());
+      const { data: dupRows } = await dupQuery;
+      const dup = dupRows?.[0];
+      if (dup) {
+        return NextResponse.json({
+          ok: false,
+          duplicate: true,
+          message: keyword
+            ? `"${keyword}" 키워드로 이미 발행된 글이 있습니다 (#${dup.id}, ${String(dup.created_at).slice(0, 10)}). 같은 키워드 중복 발행은 SEO/AEO 에 불리합니다.`
+            : `${tenant.name} 은(는) 최근 24시간 내 발행 글이 있습니다 (#${dup.id} "${dup.keyword_text}").`,
+          existing: dup,
+        }, { status: 409 });
+      }
+    }
+
     // 2. GH Actions dispatch
     const ghToken = process.env.GH_TOKEN;
     const ghRepo = process.env.GH_REPO ?? 'passion4050-byte/Marketing';

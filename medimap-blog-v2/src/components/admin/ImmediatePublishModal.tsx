@@ -84,15 +84,30 @@ export function ImmediatePublishModal({
     if (tenantId === '') return;
     setSubmitting(true);
     try {
-      const res = await fetch('/api/admin/publish-now', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tenantId,
-          ...(keyword.trim() ? { keyword: keyword.trim() } : {}),
-        }),
-      });
-      const json = (await res.json().catch(() => null)) as TriggerResult | null;
+      const doPost = (force: boolean) =>
+        fetch('/api/admin/publish-now', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tenantId,
+            ...(keyword.trim() ? { keyword: keyword.trim() } : {}),
+            ...(force ? { force: true } : {}),
+          }),
+        });
+      let res = await doPost(false);
+      let json = (await res.json().catch(() => null)) as
+        | (TriggerResult & { duplicate?: boolean; message?: string })
+        | null;
+      // Round 132 — 중복 발행 가드: 서버 409(duplicate) 면 사용자 확인 후 force 재시도
+      if (res.status === 409 && json?.duplicate) {
+        if (window.confirm(`${json.message ?? '중복 발행 감지'}\n\n그래도 발행할까요?`)) {
+          res = await doPost(true);
+          json = (await res.json().catch(() => null)) as TriggerResult | null;
+        } else {
+          setSubmitting(false);
+          return;
+        }
+      }
       const r: TriggerResult = json ?? {
         ok: false,
         error: `요청 실패 (HTTP ${res.status})`,

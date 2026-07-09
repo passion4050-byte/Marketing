@@ -114,7 +114,9 @@ def _generate_context_concept(
         txt = " ".join((txt or "").strip().split())
         # 안전망: 인물 단어가 섞여 나오면 폐기 → 풀 fallback
         if not txt or len(txt) < 12 or re.search(
-            r"\b(person|people|face|hand|doctor|patient|woman|man|portrait)\b",
+            # Round 132 — hands/fingers 등 신체 부분 단어 보강 (#186 본문 손 클로즈업 실측)
+            r"\b(person|people|face|faces|hand|hands|finger|fingers|palm|wrist|arm|arms"
+            r"|doctor|patient|woman|women|man|men|portrait|model|human)\b",
             txt, re.IGNORECASE,
         ):
             return None

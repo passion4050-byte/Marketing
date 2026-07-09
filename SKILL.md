@@ -4830,3 +4830,24 @@ Round 104-c 사무실 세션에서 이미지 문제 조치됨 (`unsplash_client.
 - **핸드오프 시점 상태**: Round 131-B 까지 코드 완성·게이트 통과·푸시 대기(또는 완료), #183 이미지 교체는 어드민 버튼 실행만 남음, DB 는 태깅 치유·학습 세대교체 반영 완료
 - **다음 작업 = Round 132**: ① 발행 직후 파트너 태깅 (당일 미노출 갭 근본 수정 — scheduler 발행 경로에 태깅 포함) ② 즉시발행 중복 가드 (같은 tenant+keyword published 존재 시 확인) ③ 이미지 인물 필터에 hand/fingers 추가 ④ 치유 쿼리 제외 목록에 'wecircle-self' 추가 (코스메틱)
 
+### Round 132 (2026-07-09) — 발행 직후 태깅 + 즉시발행 중복 가드 + 인물 필터 보강 (Fable 5 연장 세션)
+
+**① 발행 직후 태깅 (scheduler.py)**
+- Round 125 인라인 치유 블록 → 모듈 함수 `_heal_partner_tags(session_factory) -> int` 로 추출
+- 호출 3곳: 잡 시작(기존) + **타깃(즉시발행) 경로 return 직전** + **메인 로테이션 종료(auto_content_complete 직전)** → 당일 발행분이 다음 cron 을 기다리지 않고 /with-partners 즉시 노출
+- ④ 겸: 제외 목록 `('medimap','medimap-self','wecircle','wecircle-self')` 로 갱신 (business_model='self' 필터와 이중 방어)
+
+**② 즉시발행 중복 가드 (publish-now/route.ts + ImmediatePublishModal.tsx)**
+- 서버: force 아니면 — 키워드 지정 시 같은 tenant+keyword_text published 존재 / 미지정 시 24h 내 발행 존재 → **409 {duplicate:true, message, existing}**
+- 클라: 409+duplicate 면 `window.confirm(서버 message)` → 확인 시 `force:true` 재시도, 취소 시 중단. `doPost(force)` 클로저로 재사용
+- 근거 실사고: 모우림 3편 중복(#182/183/184)
+
+**③ 이미지 인물 필터 보강**
+- nano_banana `_generate_context_concept` 폐기 regex: hands/finger(s)/palm/wrist/arm(s)/faces/women/men/model/human 추가 (기존 단수 hand 만으론 "hands" 미검출)
+- image_picker 네거티브 프롬프트 3곳(PROMPT_TEMPLATE/REALISTIC/본문 시네마틱): "no fingers, no body parts" 추가
+
+**게이트**: scheduler.py·nano_banana_client.py·image_picker.py py_compile PASS, publish-now.ts·ImmediatePublishModal.tsx esbuild PASS
+- 🔴 함정 ED 변형 실측: 마운트가 편집 후 구버전+부분청크 혼재 상태로 고착 → **`git show HEAD:<path>` 로 클린 베이스 추출 후 파이썬 재적용(anchor assert)** 이 가장 빠른 우회 (fresh clone 불필요, 네트워크 불요)
+
+**검증 계획 (Round 133)**: 다음 즉시발행에서 ① 발행 직후 /with-partners 즉시 노출 ② 같은 키워드 재시도 시 confirm 등장 ③ 신규 이미지에 손/신체 미출현
+

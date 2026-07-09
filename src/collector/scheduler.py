@@ -125,6 +125,47 @@ def start_scheduler(session_factory) -> Any:
     return sched
 
 
+def _heal_partner_tags(session_factory) -> int:
+    """파트너 태깅 자가치유 백필 (idempotent) — Round 125 도입, Round 132 함수화.
+
+    발행 시점 태깅(Round 82/86)이 예외로 조용히 빠지는 케이스 실측(#176/#181/#186).
+    daily_auto_content_job 의 시작·종료 양쪽에서 호출 — 종료 호출이 당일 발행분의
+    /with-partners 즉시 노출을 보장한다. 제외 목록에 wecircle-self 추가 (Round 132).
+    """
+    try:
+        from sqlalchemy import text as _sql_heal
+        with session_factory() as s:
+            _healed = s.execute(
+                _sql_heal(
+                    "UPDATE generated_contents gc SET "
+                    "is_partner_content = true, "
+                    "partner_category = COALESCE(NULLIF(gc.partner_category, ''), m.cat) "
+                    "FROM (SELECT t.id AS tid, CASE trim(t.domain_category) "
+                    "  WHEN '안과' THEN 'eyeclinic' WHEN '피부과' THEN 'derma' "
+                    "  WHEN '성형외과' THEN 'plastic' WHEN '치과' THEN 'dental' "
+                    "  WHEN '내과' THEN 'internal' WHEN '모발이식' THEN 'hair' "
+                    "  WHEN '한방의원' THEN 'oriental' WHEN '한방' THEN 'oriental' "
+                    "  ELSE NULL END AS cat "
+                    "  FROM tenants t WHERE t.partner_slug IS NOT NULL "
+                    "  AND lower(t.partner_slug) NOT IN "
+                    "    ('medimap','medimap-self','wecircle','wecircle-self') "
+                    "  AND lower(COALESCE(t.business_model,'')) <> 'self') m "
+                    "WHERE gc.tenant_id = m.tid AND gc.status = 'published' "
+                    "AND gc.channel = 'blog_html' AND m.cat IS NOT NULL "
+                    "AND (gc.is_partner_content IS DISTINCT FROM true "
+                    "     OR gc.partner_category IS NULL)"
+                )
+            )
+            s.commit()
+            n = int(_healed.rowcount or 0)
+            if n:
+                logger.warning("scheduler.partner_tag_healed", n=n)
+            return n
+    except Exception as _heal_err:  # noqa: BLE001
+        logger.warning("scheduler.partner_tag_heal_failed", error=str(_heal_err))
+        return 0
+
+
 def daily_auto_content_job(
     session_factory,
     target_tenant_id: int | None = None,
@@ -149,38 +190,10 @@ def daily_auto_content_job(
     summary = {"tenants": 0, "drafts": 0, "published": 0, "errors": 0}
     default_channels = ["schema_org", "blog_html", "naver_blog", "instagram"]
 
-    # Round 125 (2026-07-05) — 파트너 태깅 자가치유 백필.
-    #   개별 발행 시점 태깅(Round 82/86)이 예외로 조용히 빠지는 케이스가 실측 재발
-    #   (#176/#181 — published 인데 is_partner_content=false → /with-partners 미노출).
-    #   원인 추적 대신 구조적 해결: 매 cron 시작 시 누락분을 idempotent 하게 일괄 복구.
-    try:
-        from sqlalchemy import text as _sql_heal
-        with session_factory() as s:
-            _healed = s.execute(
-                _sql_heal(
-                    "UPDATE generated_contents gc SET "
-                    "is_partner_content = true, "
-                    "partner_category = COALESCE(NULLIF(gc.partner_category, ''), m.cat) "
-                    "FROM (SELECT t.id AS tid, CASE trim(t.domain_category) "
-                    "  WHEN '안과' THEN 'eyeclinic' WHEN '피부과' THEN 'derma' "
-                    "  WHEN '성형외과' THEN 'plastic' WHEN '치과' THEN 'dental' "
-                    "  WHEN '내과' THEN 'internal' WHEN '모발이식' THEN 'hair' "
-                    "  WHEN '한방의원' THEN 'oriental' WHEN '한방' THEN 'oriental' "
-                    "  ELSE NULL END AS cat "
-                    "  FROM tenants t WHERE t.partner_slug IS NOT NULL "
-                    "  AND lower(t.partner_slug) NOT IN ('medimap','medimap-self') "
-                    "  AND lower(COALESCE(t.business_model,'')) <> 'self') m "
-                    "WHERE gc.tenant_id = m.tid AND gc.status = 'published' "
-                    "AND gc.channel = 'blog_html' AND m.cat IS NOT NULL "
-                    "AND (gc.is_partner_content IS DISTINCT FROM true "
-                    "     OR gc.partner_category IS NULL)"
-                )
-            )
-            s.commit()
-            if _healed.rowcount:
-                logger.warning("scheduler.partner_tag_healed", n=_healed.rowcount)
-    except Exception as _heal_err:  # noqa: BLE001
-        logger.warning("scheduler.partner_tag_heal_failed", error=str(_heal_err))
+    # Round 125 (2026-07-05) — 파트너 태깅 자가치유 백필 (시작 시).
+    # Round 132 (2026-07-09) — 함수화 + 잡 종료 시에도 호출: 당일 발행분이 다음 cron 까지
+    #   /with-partners 미노출되던 갭(#186 실측) 근본 해소.
+    _heal_partner_tags(session_factory)
 
     # Round 120 (2026-07-03) — admin 즉시발행 타깃 실행 (publish-now → workflow_dispatch).
     #   target_tenant_id 지정 시: 로테이션·plan 요일 필터 무시, 해당 tenant 1편만 생성.
@@ -241,6 +254,8 @@ def daily_auto_content_job(
                 error=str(e),
             )
             summary["errors"] += 1
+        # Round 132 — 즉시발행 직후 태깅 (당일 /with-partners 노출 보장)
+        _heal_partner_tags(session_factory)
         return summary
 
     # Round 28 (2026-05-30): 로테이션 정책
@@ -366,6 +381,9 @@ def daily_auto_content_job(
             if st_row is not None:
                 st_row.last_run_at = _dt.now(_tz.utc)
                 s.commit()
+
+    # Round 132 — 발행 직후 태깅 (당일 발행분 /with-partners 즉시 노출 보장)
+    _heal_partner_tags(session_factory)
 
     logger.info("scheduler.auto_content_complete", **summary)
     return summary

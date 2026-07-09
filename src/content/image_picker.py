@@ -51,14 +51,14 @@ KEYWORD_MAP: dict[str, str] = {
 #   keyword+title+섹션 해시로 회전 — 같은 병원 글끼리도 매번 다른 비주얼.
 PROMPT_TEMPLATE = (
     "{context}, editorial magazine quality, soft natural light, fine detail, 8k uhd, "
-    "no people, no person, no face, no hands, no text, no logo, no watermark"
+    "no people, no person, no face, no hands, no fingers, no body parts, no text, no logo, no watermark"
 )
 
 # 자사 인사이트 — documentary 톤 한 겹 추가
 PROMPT_TEMPLATE_REALISTIC = (
     "{context}, documentary editorial photography, shot on DSLR, professional color grading, "
     "sharp focus, fine detail, 8k uhd, magazine editorial quality, "
-    "no people, no person, no face, no hands, no text, no logo, no watermark"
+    "no people, no person, no face, no hands, no fingers, no body parts, no text, no logo, no watermark"
 )
 
 # Round 125-B — 카테고리별 컨셉 풀 (전부 사람 없음 · 샷 타입 5종 회전)
@@ -541,7 +541,7 @@ def generate_body_illustration_for_section(
         f"film-like professional color grading, sophisticated muted palette, "
         f"shallow depth of field, ultra fine detail, 8k, gallery quality composition, "
         f"absolutely no text, no letters, no typography, no writing, "
-        f"no people, no person, no face, no hands, no logo"
+        f"no people, no person, no face, no hands, no fingers, no body parts, no logo"
     )
     model = os.environ.get("POLLINATIONS_MODEL", "flux")
     seed = (abs(hash(keyword + clean_heading)) % (2**24)) + index
