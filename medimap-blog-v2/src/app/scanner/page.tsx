@@ -3,7 +3,7 @@
  *
  * 플로우: URL 입력 → 스캔 → [티저: 종합점수 + 의료법 리스크 + 잠긴 항목]
  *         → 리드 게이트 폼(담당자·병원·이메일·전화·문의) → 상세 리포트 언락.
- * 목적: 상세 결과를 리드 폼 뒤로 게이팅해 잠재고객 정보를 확보하되, 강요 아닌 '무료 상세 리포트 증정' 프레이밍으로 설득.
+ * 목적: 상세 결과를 리드 폼 뒤로 게이팅해 잠재고객 정보를 확보하되, '정확한 우리 병원 지표 분석·개선안을 무료 제공하기 위해' 프레이밍으로 설득.
  * 위서클 차별점: 의료광고법 리스크(위서클 단독). CTA = 카카오 오픈채팅 상담.
  */
 'use client';
@@ -284,10 +284,11 @@ export default function ScannerPage() {
 
           {/* 리드 게이트 폼 */}
           <div className="mt-6 rounded-2xl border border-brand/30 bg-brand-tint-soft p-6">
-            <h3 className="text-lg font-bold text-ink">📄 항목별 점수 + 맞춤 개선안, 무료로 보내드립니다</h3>
+            <h3 className="text-lg font-bold text-ink">📄 정확한 우리 병원 지표 분석·개선안을 무료로 제공해 드립니다</h3>
             <p className="mt-2 text-sm text-ink-soft">
-              7개 항목의 상세 점수와 <strong>“무엇을·어떻게 고쳐야 하는지”</strong> 개선안, 의료광고법 리스크 상세를
-              위서클 의료 GEO 전문가가 검토해 담당자님께 정리해 드립니다. <strong className="text-brand">상담은 강요하지 않습니다.</strong>
+              우리 병원에 딱 맞는 <strong>정확한 지표 분석과 개선안</strong>을 무료로 제공해 드리기 위해 아래 정보를 남겨주세요.
+              7개 항목 상세 점수 + <strong>“무엇을·어떻게 고쳐야 하는지”</strong> + 의료광고법 리스크 상세를
+              위서클 의료 GEO 전문가가 정리해 드립니다. <strong className="text-brand">상담은 강요하지 않습니다.</strong>
             </p>
             <form onSubmit={submitLead} className="mt-5 grid gap-3 sm:grid-cols-2">
               <div>
