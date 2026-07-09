@@ -50,13 +50,13 @@ export default function ScannerLeadsPage() {
     const lines = rows.map((l) => [
       fmt(l.created_at), l.name ?? '', l.org ?? '', l.email ?? '', l.phone ?? '',
       l.domain ?? l.url ?? '', l.overall_score ?? '', l.compliance_status ?? '',
-      (l.message ?? '').replace(/[\r\n,]+/g, ' '), l.lead_captured ? '상담리드' : '스캔'
+      (l.message ?? '').replace(/[\r\n,]+/g, ' '), l.lead_captured ? '문의' : '스캔'
     ].join(','));
     const csv = '﻿' + [head.join(','), ...lines].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `scanner-leads-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `client-inquiries-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
   }
@@ -65,8 +65,8 @@ export default function ScannerLeadsPage() {
     <div className="px-8 py-6">
       <header className="admin-page-header">
         <div>
-          <h1 className="admin-page-title">스캐너 리드 ({captured.length})</h1>
-          <p className="admin-page-desc">무료 GEO Scanner 상담 폼 제출 리드. 담당자·병원·연락처·진단 점수·문의를 한눈에.</p>
+          <h1 className="admin-page-title">클라이언트 문의 ({captured.length})</h1>
+          <p className="admin-page-desc">무료 GEO Scanner 상담 폼으로 들어온 클라이언트 문의. 담당자·병원·연락처·진단 점수·문의를 한눈에.</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={toCsv} className="btn-secondary text-xs">CSV 내보내기</button>
@@ -77,7 +77,7 @@ export default function ScannerLeadsPage() {
       <div className="mb-4 flex gap-2">
         <button onClick={() => setTab('captured')}
           className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${tab === 'captured' ? 'bg-brand text-white' : 'bg-surface-muted text-ink-soft'}`}>
-          상담 리드 ({captured.length})
+          문의 (폼 제출) ({captured.length})
         </button>
         <button onClick={() => setTab('all')}
           className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${tab === 'all' ? 'bg-brand text-white' : 'bg-surface-muted text-ink-soft'}`}>
@@ -93,7 +93,7 @@ export default function ScannerLeadsPage() {
 
       {!loading && rows.length === 0 && (
         <div className="card mb-4 px-5 py-6 text-sm text-ink-soft">
-          아직 {tab === 'captured' ? '상담 리드가' : '스캔 기록이'} 없습니다. geo.wecircle.co.kr 스캐너에서 진단·상담 폼이 제출되면 여기에 쌓입니다.
+          아직 {tab === 'captured' ? '클라이언트 문의가' : '스캔 기록이'} 없습니다. geo.wecircle.co.kr 스캐너에서 진단·상담 폼이 제출되면 여기에 쌓입니다.
         </div>
       )}
 

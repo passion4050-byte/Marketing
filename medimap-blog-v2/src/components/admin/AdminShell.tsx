@@ -41,7 +41,7 @@ const NAV = [
     { href: '/admin/ab-tests', label: 'A/B 테스트', icon: Beaker }
   ]},
   { group: '측정 · 분석', items: [
-    { href: '/admin/scanner-leads', label: '스캐너 리드', icon: Inbox },
+    { href: '/admin/scanner-leads', label: '클라이언트 문의', icon: Inbox },
     { href: '/admin/citations', label: 'AI 인용 추적', icon: Zap },
     { href: '/admin/saas-tracking', label: 'SaaS 시장 노출도', icon: Sparkles },
     { href: '/admin/funnel', label: 'Funnel · ROI', icon: LinkIcon },
