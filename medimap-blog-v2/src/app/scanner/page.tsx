@@ -104,6 +104,17 @@ export default function ScannerPage() {
 
   return (
     <main className="min-h-screen bg-surface-base">
+      {/* Brand header (사이드바 없는 잠재고객용 앞문) */}
+      <header className="sticky top-0 z-10 border-b border-border bg-surface-base/85 backdrop-blur">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3">
+          <a href="/scanner" className="flex items-baseline gap-2">
+            <span className="text-lg font-extrabold text-brand">WECIRCLE GEO</span>
+            <span className="hidden text-xs text-ink-muted sm:inline">의료 특화 AI 검색 최적화</span>
+          </a>
+          <a href="/data-feeding" className="text-sm font-semibold text-brand hover:underline">전문가 상담 →</a>
+        </div>
+      </header>
+
       {/* Hero + Form */}
       <section className="border-b border-border bg-gradient-to-b from-brand-tint-soft to-surface-base">
         <div className="mx-auto max-w-3xl px-5 py-14 text-center">
