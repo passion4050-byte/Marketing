@@ -1,8 +1,9 @@
 /**
- * /scanner — 무료 의료 GEO 진단 (공개 리드 깔때기 · 잠재고객용 영업 앞문).
+ * /scanner — 무료 의료 GEO 진단 (공개 리드 깔때기 · 잠재고객 영업 앞문).
  *
  * URL + 이메일 → AI 가시성 7항목 + 의료광고법 리스크 진단을 즉시 렌더.
  * 위서클 차별점: 7번 항목(의료광고법 리스크)은 일반 GEO 업체가 못 하는 진단.
+ * 설득 구조: 히어로 → 진단 → 왜 지금 → 환자 행동 변화 → 의료법 해자 → 7항목 → 실행 → CTA.
  */
 'use client';
 
@@ -73,6 +74,28 @@ function ItemCard({ item }: { item: ScanItem }) {
   );
 }
 
+const WHY_NOW = [
+  { big: '-25%', label: '2026년까지 전통 검색 트래픽 감소 전망', src: 'Gartner' },
+  { big: '1~2곳', label: 'AI 답변이 실제로 추천하는 병원 수 — 나머지는 노출 0' },
+  { big: '선점 효과', label: 'AI는 이미 학습한 출처를 계속 인용 — 초기 진입이 자리를 굳힙니다' }
+];
+
+const HOW_IT_WORKS = [
+  { n: '1', t: '무료 진단', d: '지금 이 페이지에서 AI 가시성 7항목 + 의료광고법 리스크 점수를 즉시 확인합니다.' },
+  { n: '2', t: '실행', d: 'AI가 인용하는 구조로 콘텐츠·스키마·엔티티·신뢰 신호를 의료광고법을 지키며 위서클이 직접 구축합니다.' },
+  { n: '3', t: '추적', d: 'ChatGPT·Gemini·Perplexity·Claude 4대 엔진의 인용 순위를 실시간 대시보드로 확인합니다.' }
+];
+
+const ITEMS_INFO: [string, string, string][] = [
+  ['🤖', 'AI 인용 가능성', 'AI 가 답변에 그대로 떼어 쓸 수 있는 구조인지'],
+  ['🏗️', '구조화 데이터', 'Schema.org·의료 스키마·FAQPage 적용도'],
+  ['⚙️', 'AI 크롤러 접근성', 'GPTBot·ClaudeBot·PerplexityBot 허용 + llms.txt'],
+  ['📋', 'E-E-A-T 전문성', '전문의·자격·감수 등 의료 신뢰 신호'],
+  ['📝', '콘텐츠 AI 친화도', 'FAQ·HowTo·비교·정의형 콘텐츠'],
+  ['🏆', '브랜드 권위·엔티티', 'title·OG·sameAs 엔티티 일관성'],
+  ['🛡️', '의료광고법 리스크', '위서클 단독 — 광고 표현의 의료법 위반 진단']
+];
+
 export default function ScannerPage() {
   const [url, setUrl] = useState('');
   const [email, setEmail] = useState('');
@@ -104,7 +127,7 @@ export default function ScannerPage() {
 
   return (
     <main className="min-h-screen bg-surface-base">
-      {/* Brand header (사이드바 없는 잠재고객용 앞문) */}
+      {/* Brand header */}
       <header className="sticky top-0 z-10 border-b border-border bg-surface-base/85 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3">
           <a href="/scanner" className="flex items-baseline gap-2">
@@ -116,7 +139,7 @@ export default function ScannerPage() {
       </header>
 
       {/* Hero + Form */}
-      <section className="border-b border-border bg-gradient-to-b from-brand-tint-soft to-surface-base">
+      <section id="scan" className="border-b border-border bg-gradient-to-b from-brand-tint-soft to-surface-base">
         <div className="mx-auto max-w-3xl px-5 py-14 text-center">
           <div className="mb-3 inline-block rounded-full bg-brand-100 px-3 py-1 text-xs font-bold text-brand-700">
             무료 · 2분 · AI 가시성 7항목 + 의료광고법 리스크
@@ -182,7 +205,6 @@ export default function ScannerPage() {
             <p className="mt-3 text-center text-xs text-ink-faint">항목을 눌러 상세 발견 사항·개선안을 확인하세요.</p>
           </div>
 
-          {/* CTA */}
           <div className="mt-6 rounded-2xl border border-brand/20 bg-brand-tint-soft p-6 text-center">
             <h3 className="text-lg font-bold text-ink">이 리포트를 실제 AI 인용으로 바꿔 드립니다</h3>
             <p className="mt-2 text-sm text-ink-muted">
@@ -194,24 +216,95 @@ export default function ScannerPage() {
         </section>
       )}
 
-      {/* 항목 설명 */}
-      <section className="mx-auto max-w-3xl px-5 pb-16">
-        <h3 className="text-center text-sm font-bold uppercase tracking-wider text-ink-muted">진단 7항목</h3>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {[
-            ['🤖', 'AI 인용 가능성', 'AI 가 답변에 그대로 떼어 쓸 수 있는 구조인지'],
-            ['🏗️', '구조화 데이터', 'Schema.org·의료 스키마·FAQPage 적용도'],
-            ['⚙️', 'AI 크롤러 접근성', 'GPTBot·ClaudeBot·PerplexityBot 허용 + llms.txt'],
-            ['📋', 'E-E-A-T 전문성', '전문의·자격·감수 등 의료 신뢰 신호'],
-            ['📝', '콘텐츠 AI 친화도', 'FAQ·HowTo·비교·정의형 콘텐츠'],
-            ['🏆', '브랜드 권위·엔티티', 'title·OG·sameAs 엔티티 일관성'],
-            ['🛡️', '의료광고법 리스크', '위서클 단독 — 광고 표현의 의료법 위반 진단']
-          ].map(([icon, label, desc]) => (
+      {/* 왜 지금인가 */}
+      <section className="border-b border-border bg-surface-subtle">
+        <div className="mx-auto max-w-4xl px-5 py-14">
+          <h2 className="text-center text-2xl font-extrabold text-ink">왜 지금 시작해야 하나</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-ink-muted">
+            검색이 AI로 옮겨가고 있습니다. AI 답변에는 병원 한두 곳만 인용됩니다 —
+            지금 자리를 못 잡으면, 그 자리를 경쟁 병원이 먼저 차지합니다.
+          </p>
+          <div className="mt-8 grid gap-4 sm:grid-cols-3">
+            {WHY_NOW.map((s) => (
+              <div key={s.label} className="rounded-2xl border border-border bg-surface-base p-6 text-center">
+                <div className="text-3xl font-extrabold text-brand">{s.big}</div>
+                <p className="mt-2 text-sm text-ink-soft">{s.label}</p>
+                {s.src && <p className="mt-2 text-xs text-ink-faint">출처: {s.src}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 환자 행동 변화 (문제 제기) */}
+      <section className="mx-auto max-w-3xl px-5 py-14">
+        <h2 className="text-2xl font-extrabold text-ink">환자는 이미 AI에게 병원을 묻고 있습니다</h2>
+        <p className="mt-4 text-base leading-relaxed text-ink-soft">
+          “강남 라식 잘하는 곳”, “허리디스크 병원 추천” — 환자들이 검색창 대신 ChatGPT·Perplexity에 묻기 시작했습니다.
+          문제는, AI가 대형·광고 집행 병원만 반복해서 인용하고 정작 실력 있는 전문 병원은 답변에서 통째로 빠진다는 것입니다.
+        </p>
+        <p className="mt-4 rounded-xl border-l-4 border-brand bg-brand-tint-soft p-4 text-base font-semibold text-ink">
+          AI 답변에 우리 병원이 없으면, 그 환자에게 우리는 존재하지 않는 병원입니다.
+        </p>
+      </section>
+
+      {/* 의료법 해자 (차별점) */}
+      <section className="border-y border-rose-200 bg-rose-50">
+        <div className="mx-auto max-w-3xl px-5 py-14">
+          <div className="inline-block rounded-full bg-brand px-3 py-1 text-xs font-bold text-white">위서클 단독</div>
+          <h2 className="mt-3 text-2xl font-extrabold text-ink">🛡️ 노출만 늘리면 오히려 위험합니다</h2>
+          <p className="mt-4 text-base leading-relaxed text-ink-soft">
+            AI에 많이 인용돼도, 광고 표현이 의료광고법을 위반하면 <strong>인용될수록 리스크가 커집니다</strong> —
+            심의·행정처분·환자 신뢰 손상으로 이어집니다. 일반 GEO 업체는 이 진단을 하지 않습니다.
+          </p>
+          <p className="mt-4 text-base leading-relaxed text-ink-soft">
+            위서클은 <strong className="text-brand">의료광고법 린터를 모든 콘텐츠 생성 경로에 강제하는 국내 유일의 의료 특화 GEO</strong>입니다.
+            AI에 인용되게 만들면서, 동시에 의료법을 지킵니다. 그래서 노출과 안전을 함께 가져갑니다.
+          </p>
+        </div>
+      </section>
+
+      {/* 진단 7항목 */}
+      <section className="mx-auto max-w-3xl px-5 py-14">
+        <h2 className="text-center text-2xl font-extrabold text-ink">무료 진단 7항목</h2>
+        <p className="mt-3 text-center text-sm text-ink-muted">AI 가시성 6항목 + 위서클만 보는 의료광고법 리스크 1항목</p>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          {ITEMS_INFO.map(([icon, label, desc]) => (
             <div key={label} className="rounded-xl border border-border bg-surface-subtle p-4">
               <div className="font-semibold text-ink">{icon} {label}</div>
               <p className="mt-1 text-sm text-ink-muted">{desc}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* 진단 다음: 실행 */}
+      <section className="border-t border-border bg-surface-subtle">
+        <div className="mx-auto max-w-4xl px-5 py-14">
+          <h2 className="text-center text-2xl font-extrabold text-ink">진단은 시작일 뿐 — 실제 AI 인용까지</h2>
+          <div className="mt-8 grid gap-4 sm:grid-cols-3">
+            {HOW_IT_WORKS.map((s) => (
+              <div key={s.n} className="rounded-2xl border border-border bg-surface-base p-6">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-sm font-bold text-white">{s.n}</div>
+                <div className="mt-3 font-bold text-ink">{s.t}</div>
+                <p className="mt-1 text-sm text-ink-muted">{s.d}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="bg-brand">
+        <div className="mx-auto max-w-3xl px-5 py-16 text-center">
+          <h2 className="text-2xl font-extrabold text-white sm:text-3xl">
+            AI는 지금도 환자에게 병원을 추천하고 있습니다.<br />그 답변에 우리 병원이 있나요?
+          </h2>
+          <p className="mt-4 text-sm text-white/80">URL 하나면 2분 안에 확인됩니다. 완전 무료 · 스팸 없음.</p>
+          <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <a href="#scan" className="inline-flex rounded-lg bg-white px-6 py-3 text-sm font-bold text-brand hover:bg-brand-tint-soft">무료 GEO 진단 시작 →</a>
+            <a href="/data-feeding" className="inline-flex rounded-lg border border-white/60 px-6 py-3 text-sm font-bold text-white hover:bg-white/10">전문가 상담 신청</a>
+          </div>
         </div>
       </section>
     </main>

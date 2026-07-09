@@ -23,10 +23,12 @@ const PUBLIC_PAGE_PATHS = ['/admin/login'];
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // 마케팅 서브도메인(geo.wecircle.co.kr) 루트 → 무료 진단 스캐너로 rewrite.
+  // 마케팅 서브도메인(geo.wecircle.co.kr) 루트 → 스캐너로 redirect.
+  // rewrite 가 아니라 redirect 를 쓰는 이유: 클라이언트 usePathname() 이 /scanner 를
+  // 인식해야 SidebarShell 이 콘솔 사이드바를 숨긴다(rewrite 는 주소가 / 로 남아 사이드바 노출).
   const host = req.headers.get('host') ?? '';
   if (host.startsWith('geo.wecircle.co.kr') && pathname === '/') {
-    return NextResponse.rewrite(new URL('/scanner', req.url));
+    return NextResponse.redirect(new URL('/scanner', req.url));
   }
   // 그 외 '/' 는 admin 가드 대상이 아니므로 통과 (홈페이지 보호).
   if (!pathname.startsWith('/admin') && !pathname.startsWith('/api/admin')) {
