@@ -41,19 +41,25 @@ def _slug(session, content_id) -> str | None:
 
 
 def _count_citations(session, slug: str | None) -> int:
-    """변형 URL(/blog/{slug}) 이 AI 응답 source 로 인용된 횟수."""
+    """변형 콘텐츠(slug)가 AI 응답에 출처로 인용된 횟수.
+
+    Round 138 (B 고도화) — 기존 버그: `%/blog/{slug}%` 만 매칭 → 파트너 콘텐츠
+    (`/with-partners/{cat}/{partner}/{slug}`) URL 은 영원히 0 으로 샘. 또 source_domains
+    만 보고 cited_urls 는 무시.
+    수정: 경로 접두사 무관하게 slug 를 source_domains + cited_urls 양쪽에서 매칭.
+    (slug 는 고유값이라 `%{slug}%` 오탐 위험 낮음.)
+    """
     if not slug:
         return 0
     row = session.execute(
         text(
             "SELECT count(*) FROM responses r "
-            "JOIN queries q ON q.id = r.query_id, "
-            "LATERAL jsonb_array_elements(r.source_domains) sd "
+            "JOIN queries q ON q.id = r.query_id "
             "WHERE q.engine <> 'stub' "
             "AND r.created_at >= now() - make_interval(days => :days) "
-            "AND sd->>'final_url' ILIKE :pat"
+            "AND (r.source_domains::text ILIKE :pat OR r.cited_urls::text ILIKE :pat)"
         ),
-        {"days": LOOKBACK_DAYS, "pat": f"%/blog/{slug}%"},
+        {"days": LOOKBACK_DAYS, "pat": f"%{slug}%"},
     ).fetchone()
     return int(row[0]) if row and row[0] is not None else 0
 

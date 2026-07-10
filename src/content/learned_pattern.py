@@ -103,12 +103,36 @@ def analyze_patterns(session_factory) -> dict:
         ).mappings().all()
         kw_map = {r["keyword"]: r["cnt"] for r in kw_mentions}
 
+        # Round 138 (C 고도화) — 성공 신호에 '출처 인용'(우리 콘텐츠가 AI 근거로 인용)을 결합.
+        #   브랜드 언급(kw_map)은 proxy일 뿐, GEO의 실지표는 출처 인용. 출처 인용이 있으면 크게
+        #   가중(×10)해 그 키워드 구조를 우선 학습. 아직 0이면 언급으로 자연 폴백(무회귀).
+        kw_source = s.execute(
+            text(
+                """
+                SELECT k.text AS keyword, COUNT(*) AS cnt
+                FROM keywords k
+                JOIN queries q ON q.keyword_id = k.id
+                JOIN responses r ON r.query_id = q.id
+                WHERE q.requested_at > NOW() - INTERVAL '30 days'
+                  AND (
+                    r.source_domains::text ILIKE '%wecircle%'
+                    OR r.source_domains::text ILIKE '%medimap%'
+                    OR r.cited_urls::text ILIKE '%wecircle%'
+                    OR r.cited_urls::text ILIKE '%medimap%'
+                  )
+                GROUP BY k.text
+                """
+            )
+        ).mappings().all()
+        src_map = {r["keyword"]: r["cnt"] for r in kw_source}
+
     # 메트릭 + mention proxy
     enriched = [
         {
             "id": r["id"],
             "metrics": _extract_metrics(r["body"]),
-            "mentions": kw_map.get(r["keyword_text"], 0),
+            # 결합 점수: 출처 인용 ×10(PMF 실지표) + 브랜드 언급(폴백). 필드명은 하위호환 유지.
+            "mentions": src_map.get(r["keyword_text"], 0) * 10 + kw_map.get(r["keyword_text"], 0),
             "category": r["domain_category"],
         }
         for r in rows
