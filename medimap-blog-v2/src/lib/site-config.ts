@@ -40,24 +40,7 @@ export const navGroups = [
     id: 'geo',
     label: 'GEO SaaS',
     items: [
-      { href: '/', icon: 'LayoutDashboard', label: '통합 대시보드 & AI 모니터링' },
-      { href: '/data-feeding', icon: 'Database', label: 'Data Feeding' },
-      { href: '/simulator', icon: 'MessageSquareDot', label: 'Simulator' }
+      { href: '/', icon: 'LayoutDashboard', label: 'AI 인용 현황 대시보드' }
     ]
-  },
-  {
-    id: 'distribute',
-    label: '콘텐츠 배포',
-    items: [
-      { href: '/ai-code', icon: 'Code2', label: 'AI 코드 (JSON-LD)' },
-      { href: '/faq', icon: 'FileText', label: 'FAQ & Q&A 텍스트' },
-      { href: '/blog', icon: 'BookOpenText', label: '블로그 콘텐츠' },
-      { href: '/video', icon: 'Clapperboard', label: '영상 스크립트' }
-    ]
-  },
-  {
-    id: 'admin',
-    label: 'Admin',
-    items: [{ href: '/admin/funnel', icon: 'Database', label: 'Funnel · ROI' }]
   }
 ] as const;
