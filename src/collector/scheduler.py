@@ -419,6 +419,8 @@ def _generate_draft(
     channel: str,
     *,
     auto_publish: bool = False,
+    lang: str = "ko",
+    market: str = "domestic",
 ) -> str:
     """1건 자동 생성. ``auto_publish=True`` + compliance_status='pass' 면 즉시 published.
 
@@ -457,6 +459,8 @@ def _generate_draft(
                 keyword=keyword,
                 save=True,
                 target_chars=blog_target_chars,
+                lang=lang,
+                market=market,
             )
         elif channel == "naver_blog":
             r = generate_naver_blog_content(s, tenant_id=tenant_id, keyword=keyword, save=True)

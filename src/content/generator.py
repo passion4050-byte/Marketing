@@ -524,6 +524,8 @@ def generate_blog_post(
     include_cta: bool = True,
     cta_utm_campaign: Optional[str] = None,
     apply_insights: bool = True,
+    lang: str = "ko",
+    market: str = "domestic",
 ) -> BlogResult:
     """키워드 + (선택) 참조 URL + (선택) 이미지 → SEO 친화적 블로그 post.
 
@@ -536,6 +538,24 @@ def generate_blog_post(
 
     check_daily_budget(session, tenant_id)
     _check_daily_usd_budget(session, tenant_id)
+
+    # Phase 3b — 해외(비 ko) 자동발행 언어분기.
+    #   국내(ko)는 완전 무변경. 해외는 LLM 에 네이티브 언어 생성 지시를 angle 로 주입
+    #   (provider 4곳 미변경 — angle 은 이미 user 프롬프트에 실림). transcreation=번역 아님.
+    if lang and lang != "ko":
+        _lang_name = {
+            "en": "English",
+            "ja": "Japanese (日本語)",
+            "zh-Hant": "Traditional Chinese (繁體中文)",
+            "zh-Hans": "Simplified Chinese (简体中文)",
+        }.get(lang, lang)
+        _lang_directive = (
+            f"OUTPUT LANGUAGE: Write the ENTIRE article natively in {_lang_name}, "
+            f"for foreign patients considering medical treatment in Korea. Do NOT use Korean. "
+            f"Localize tone, examples and culture for that audience (transcreation, not translation). "
+            f"Keep clinic and medical facts accurate; avoid unverified efficacy guarantees."
+        )
+        angle = _lang_directive + ("\n\n" + angle if angle else "")
 
     if provider is None:
         # Round 84 (2026-06-28) — LLM 라우팅 옵션 (b):
@@ -781,6 +801,8 @@ def generate_blog_post(
             tenant_id=tenant_id,
             keyword_text=keyword,
             channel="blog_html",
+            lang=lang,
+            market=market,
             body=body_html,
             raw_qa_pairs={
                 "title": last_post.title,

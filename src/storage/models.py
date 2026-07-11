@@ -132,6 +132,9 @@ class GeneratedContent(Base):
     # _map_blog_category() 자동 매핑이 DB UPDATE 에 반영되지 않던 버그 해결.
     # posts.ts BLOG_CATEGORY_SLUGS: content_marketing | ai_trend | hospital_marketing
     blog_category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    # Phase 3 — 콘텐츠 언어/시장 스코프 (자동발행 언어분기 + 대시보드 필터). 기존 ko/domestic.
+    lang: Mapped[str] = mapped_column(String(16), default="ko")
+    market: Mapped[str] = mapped_column(String(16), default="domestic")
 
     tenant: Mapped[Tenant] = relationship(back_populates="generated_contents")
 
