@@ -21,7 +21,7 @@ export default async function ZhClinicPartnerPage({ params }: Props) {
       title="合作诊所内容"
       subtitle={`介绍 ${partner} 的指南 — 由 WECIRCLE 发布、可被 AI 引用的外国患者内容。`}
       cards={cards}
-      hrefFor={(c) => `/zh/guides/${c.slug}`}
+      hrefFor={(c) => `/zh/clinics/${category}/${partner}/${c.slug}`}
       empty="暂无诊所内容。"
     />
   );

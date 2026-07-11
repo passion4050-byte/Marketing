@@ -21,7 +21,7 @@ export default async function EnClinicPartnerPage({ params }: Props) {
       title="Partner clinic content"
       subtitle={`Guides featuring ${partner} — AI-cited, foreigner-ready content published by WECIRCLE.`}
       cards={cards}
-      hrefFor={(c) => `/en/guides/${c.slug}`}
+      hrefFor={(c) => `/en/clinics/${category}/${partner}/${c.slug}`}
       empty="No clinic content yet."
     />
   );

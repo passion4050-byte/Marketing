@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getGuide } from "@/lib/guides";
 import { GuideArticle, type GuideLabels } from "@/components/GuideArticle";
 
@@ -47,5 +47,8 @@ export default async function ZhGuidePage({ params }: Props) {
   const { slug } = await params;
   const guide = await getGuide("zh-Hans", slug);
   if (!guide) notFound();
+  if (guide.is_partner && guide.partner_category && guide.partner_slug) {
+    redirect(`/zh/clinics/${guide.partner_category}/${guide.partner_slug}/${slug}`);
+  }
   return <GuideArticle guide={guide} langPath="zh" inLang="zh-Hans" labels={ZH_LABELS} />;
 }

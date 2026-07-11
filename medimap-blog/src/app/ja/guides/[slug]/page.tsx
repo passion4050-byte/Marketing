@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getGuide } from "@/lib/guides";
 import { GuideArticle, type GuideLabels } from "@/components/GuideArticle";
 
@@ -47,5 +47,8 @@ export default async function JaGuidePage({ params }: Props) {
   const { slug } = await params;
   const guide = await getGuide("ja", slug);
   if (!guide) notFound();
+  if (guide.is_partner && guide.partner_category && guide.partner_slug) {
+    redirect(`/ja/clinics/${guide.partner_category}/${guide.partner_slug}/${slug}`);
+  }
   return <GuideArticle guide={guide} langPath="ja" inLang="ja" labels={JA_LABELS} />;
 }

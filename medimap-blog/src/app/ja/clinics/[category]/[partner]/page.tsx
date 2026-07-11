@@ -21,7 +21,7 @@ export default async function JaClinicPartnerPage({ params }: Props) {
       title="提携クリニックのコンテンツ"
       subtitle={`${partner} を紹介するガイド — WECIRCLE が発信する、AIに引用される外国人向けコンテンツ。`}
       cards={cards}
-      hrefFor={(c) => `/ja/guides/${c.slug}`}
+      hrefFor={(c) => `/ja/clinics/${category}/${partner}/${c.slug}`}
       empty="クリニックのコンテンツはまだありません。"
     />
   );
