@@ -4851,3 +4851,36 @@ Round 104-c 사무실 세션에서 이미지 문제 조치됨 (`unsplash_client.
 
 **검증 계획 (Round 133)**: 다음 즉시발행에서 ① 발행 직후 /with-partners 즉시 노출 ② 같은 키워드 재시도 시 confirm 등장 ③ 신규 이미지에 손/신체 미출현
 
+---
+
+# Round 139 (2026-07-11) — 해외(EN/JA/ZH) 상품·측정·발행·대시보드 언어 통합
+
+> 상세 스냅샷: **geo-snapshot-260711**. 한 줄 요약: `tenant_products`(테넌트×market×lang)를 단일 진실원으로, 상품 신청이 **측정→CCS 대시보드→자동발행**을 언어별로 구동하는 파이프라인을 완성. 북극성 = **CCS(콘텐츠 인용 점유율)**.
+
+**해외 공개 UX 수정 (medimap-blog, wecircle.co.kr)**
+- 한글 "문의하기" 플로팅 `/en /ja /zh` 숨김(FloatingInquiryButton HIDE_ON). 언어토글 직관화: 헤더 네이티브 라벨(中文/日本語…) + 아티클 타이틀 인라인 pill(LanguageSwitcher variant="inline"). 가이드 커버 = 무텍스트 시네마틱 SVG(광학 모티프, data-URI). 루틴 문서 `.planning/localization-routine.md`(transcreation) + `cover-image-routine.md`.
+
+**측정 기획·검증 (`.planning/overseas-measurement-plan.md`)**
+- 실측 베이스라인: 국내 90일 9,116인용 중 **우리 CCS=0.04%**. 시장 지배 = youtube·hidoc·modoodoc·namu.wiki·경쟁병원 자사. 엔진 세트 = 국내와 동일(중화권 타깃=대만·홍콩·화교). 상품 단위 = **언어별 개별**.
+
+**Phase A (DB, live)**: `keywords`에 market/lang(백필 ko/domestic), `tenant_products`·`serp_rankings` 신설+RLS. RPC `citation_market(_days)` + `citation_market_trend(_days,_lang,_market)`(언어 스코프).
+
+**국내 CCS 자사판정 수정**: MarketShareDiagnosis/page.tsx의 자사 판정이 `medimap`만 봐서 wecircle 누락 → `wecircle` 추가(CCS 정확화). 커밋 d981ca3.
+
+**대시보드**: `CcsTrend`(SVG 추이 카드 + /api/admin/ccs-trend). **전역 `ScopeSelector`**(통합/국내/EN/JA/ZH, localStorage+CustomEvent) AdminShell 마운트 → CcsTrend·content-queue 구독(언어별 필터).
+
+**Phase C 상품관리**: `tenant_products` CRUD API(route+[id]) + `TenantProductsEditor`(클라이언트 편집 모달, 국내/해외 언어별 상품 추가·활성/정지·해지).
+
+**Phase 3 측정·발행 언어분기 (Python)**
+- `build_prompt(kw, idx, lang)` — 언어별 네이티브 측정 질의(ko 무변경).
+- `daily_measurement_job` — **active tenant_products 게이팅**(국내 ko 항상 측정=백워드 안전, 해외는 active 상품만).
+- `generate_blog_post(lang, market)` — 해외는 angle에 언어지시 주입(provider 4곳 무변경). GeneratedContent lang/market 태깅.
+- `_generate_draft(lang, market)` + rotation/target 루프 **키워드 lang/market 분기**(영어키워드 ko생성 리그레션 차단, 해외는 항상 draft).
+- Keyword·GeneratedContent 모델에 lang/market 매핑 추가.
+
+**시딩(live)**: tenant 12(위서클 self)에 활성 해외상품 3(en/ja/zh-Hant) + 해외 키워드 6(스마일라식·강남피부과 각 언어). 게이팅 6/6.
+
+**🔴 함정(재확인)**: ① 마운트 절단 반복 — 모든 편집 정본구조 esbuild/py_compile 독립검증으로 확정(호스트 무결). ② PowerShell `&&` 미지원 → 줄단위 실행, 커밋 메시지 특수문자·괄호 회피(따옴표 미종료 사고). ③ 코드 변경은 여러 배치 누적 → `git add -A` 일괄 푸시.
+
+**다음(검증 대기)**: 측정 cron 수동 트리거 → 해외 6키워드 실측 → 어드민 스코프 EN/JA/ZH에 CCS 노출 확인. QA = `.planning/QA-260711.md`.
+
