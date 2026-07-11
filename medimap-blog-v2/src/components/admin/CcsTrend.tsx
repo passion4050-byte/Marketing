@@ -1,14 +1,15 @@
 /**
- * CcsTrend — 일자별 CCS(콘텐츠 인용 점유율) 추이 라인 + 언어 스코프 토글.
+ * CcsTrend — 일자별 CCS(콘텐츠 인용 점유율) 추이 라인.
  *
  * 북극성 지표: AI 인용 시장에서 우리(wecircle) 콘텐츠의 점유율 추세.
- * 언어 토글(통합/국내KO/EN/JA/ZH)로 상품 언어별 데이터만 필터 — 예: EN 상품 병원은 EN 데이터만.
+ * 전역 언어 스코프(ScopeSelector) 를 구독 — 통합/국내/EN/JA/ZH 선택에 따라 데이터 필터.
  * /api/admin/ccs-trend?days=&lang= 에서 RPC(citation_market_trend) 결과 fetch → 경량 SVG(무외부의존).
  */
 'use client';
 
 import { useEffect, useState } from 'react';
 import { TrendingUp, Loader2 } from 'lucide-react';
+import { scopeToLang, readScope, SCOPE_EVENT } from '@/components/admin/ScopeSelector';
 
 interface Pt {
   day: string;
@@ -17,24 +18,35 @@ interface Pt {
   ccs_pct: number | string;
 }
 
-const SCOPES = [
-  { key: 'all', label: '통합', lang: '' },
-  { key: 'ko', label: '🇰🇷 국내', lang: 'ko' },
-  { key: 'en', label: 'EN', lang: 'en' },
-  { key: 'ja', label: 'JA', lang: 'ja' },
-  { key: 'zh', label: 'ZH', lang: 'zh-Hant' },
-] as const;
+const SCOPE_LABEL: Record<string, string> = {
+  all: '통합',
+  ko: '🇰🇷 국내',
+  en: 'EN',
+  ja: 'JA',
+  zh: 'ZH',
+};
 
 export function CcsTrend({ days = 30 }: { days?: number }) {
-  const [scope, setScope] = useState<string>('all');
+  const [scope, setScope] = useState('all');
   const [pts, setPts] = useState<Pt[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
+
+  // 전역 스코프 구독
+  useEffect(() => {
+    setScope(readScope());
+    const onEvt = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (typeof detail === 'string') setScope(detail);
+    };
+    window.addEventListener(SCOPE_EVENT, onEvt);
+    return () => window.removeEventListener(SCOPE_EVENT, onEvt);
+  }, []);
 
   useEffect(() => {
     let alive = true;
     setPts(null);
     setErr(null);
-    const langParam = SCOPES.find((s) => s.key === scope)?.lang ?? '';
+    const langParam = scopeToLang(scope);
     const qs = `days=${days}${langParam ? `&lang=${encodeURIComponent(langParam)}` : ''}`;
     fetch(`/api/admin/ccs-trend?${qs}`)
       .then((r) => r.json())
@@ -61,23 +73,9 @@ export function CcsTrend({ days = 30 }: { days?: number }) {
             AI 인용 시장에서 wecircle 콘텐츠가 차지하는 일자별 점유율 (북극성 지표)
           </div>
         </div>
-        {/* 언어 스코프 토글 — 상품 언어별 데이터만 */}
-        <div className="flex items-center gap-1 rounded-lg border border-border bg-surface-subtle p-0.5">
-          {SCOPES.map((s) => (
-            <button
-              key={s.key}
-              type="button"
-              onClick={() => setScope(s.key)}
-              className={
-                scope === s.key
-                  ? 'rounded-md bg-accent-deep px-2.5 py-1 text-[11px] font-bold text-white'
-                  : 'rounded-md px-2.5 py-1 text-[11px] font-semibold text-ink-muted transition hover:text-ink'
-              }
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
+        <span className="rounded-full border border-border bg-surface-subtle px-2.5 py-1 text-[11px] font-bold text-ink-soft">
+          스코프: {SCOPE_LABEL[scope] ?? scope}
+        </span>
       </header>
 
       {err ? (

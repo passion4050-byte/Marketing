@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { ScopeSelector } from '@/components/admin/ScopeSelector';
 import {
   Beaker,
   BookOpen,
@@ -205,7 +206,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* 메인 콘텐츠 — 모바일은 햄버거 헤더 높이만큼 padding-top */}
-      <main className="flex-1 min-w-0 pt-14 md:pt-0">{children}</main>
+      <main className="flex-1 min-w-0 pt-14 md:pt-0">
+        {/* 전역 언어 스코프 바 — 어드민 전역 통합/국내/EN/JA/ZH 컨텍스트 */}
+        <div className="sticky top-0 z-20 hidden items-center justify-end gap-3 border-b border-border bg-surface-subtle/95 px-6 py-2 backdrop-blur md:flex">
+          <ScopeSelector />
+        </div>
+        {children}
+      </main>
     </div>
   );
 }
