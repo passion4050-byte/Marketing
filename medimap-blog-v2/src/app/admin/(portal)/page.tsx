@@ -24,6 +24,7 @@ import { PartnerLeaderboard } from '@/components/admin/PartnerLeaderboard';
 import { CrawlerLogWidget } from '@/components/admin/CrawlerLogWidget';
 import { KakaoFunnelWidget } from '@/components/admin/KakaoFunnelWidget';
 import { ContentPatternStats } from '@/components/admin/ContentPatternStats';
+import { CcsTrend } from '@/components/admin/CcsTrend';
 import { DashboardChartsTabbed } from '@/components/admin/DashboardChartsTabbed';
 import type {
   TierTrendPoint,
@@ -1145,6 +1146,9 @@ export default async function AdminDashboardPage({
               daysWindow={30}
             />
           </div>
+        </div>
+        <div className="mt-4">
+          <CcsTrend days={periodDays} />
         </div>
       </div>
 
