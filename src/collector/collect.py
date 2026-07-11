@@ -49,13 +49,32 @@ class CollectionResult:
     failures: list[str] = field(default_factory=list)
 
 
-def build_prompt(keyword_text: str, sample_index: int) -> str:
-    """엔진에게 보낼 프롬프트. 같은 키워드 + 다른 sample_index 면 응답 변형 유도."""
+# Phase 3 — 언어별 측정 프롬프트. keyword.lang 로 해당 언어 네이티브 질의를 던져야
+# 그 언어권 AI 답변/인용 시장을 정확히 측정. 기본 ko (기존 국내 동작 그대로 보존).
+_PROMPT_LABEL = {
+    "ko": "키워드",
+    "en": "Keyword",
+    "ja": "キーワード",
+    "zh-Hant": "關鍵詞",
+    "zh-Hans": "关键词",
+}
+_PROMPT_INTRO = {
+    "ko": "위 키워드에 대한 정보를 한국어로 정리해 주세요. 추천되는 의료기관/병원이 있다면 자연스럽게 언급하고, 사실에 기반해 답변하세요.",
+    "en": "Summarize information about the keyword above in English. If there are recommended clinics/hospitals in Korea, mention them naturally, and answer based on facts.",
+    "ja": "上記のキーワードについて日本語で情報をまとめてください。おすすめの韓国の医療機関・クリニックがあれば自然に挙げ、事実に基づいて回答してください。",
+    "zh-Hant": "請以繁體中文整理上述關鍵詞的資訊。若有推薦的韓國醫療機構/診所，請自然地提及，並依事實回答。",
+    "zh-Hans": "请以简体中文整理上述关键词的信息。如有推荐的韩国医疗机构/诊所，请自然地提及，并基于事实回答。",
+}
+
+
+def build_prompt(keyword_text: str, sample_index: int, lang: str = "ko") -> str:
+    """엔진에게 보낼 프롬프트. lang 별 네이티브 질의. 같은 키워드 + 다른 sample_index 면 응답 변형 유도."""
+    label = _PROMPT_LABEL.get(lang, _PROMPT_LABEL["ko"])
+    intro = _PROMPT_INTRO.get(lang, _PROMPT_INTRO["ko"])
     return (
-        f"키워드: {keyword_text}\n"
+        f"{label}: {keyword_text}\n"
         f"sample_index: {sample_index}\n"
-        "위 키워드에 대한 정보를 한국어로 정리해 주세요. 추천되는 의료기관/병원이 있다면 자연스럽게 언급하고, "
-        "사실에 기반해 답변하세요."
+        f"{intro}"
     )
 
 
@@ -156,7 +175,7 @@ async def collect_for_keyword(
 
             # round-robin engine 선택
             current_engine = engines[idx % len(engines)]
-            prompt = build_prompt(keyword_text, idx)
+            prompt = build_prompt(keyword_text, idx, getattr(keyword, "lang", "ko") or "ko")
             projected = _estimate_query_cost(current_engine.name, prompt)
 
             # 비용 가드 — 초과 시 stop flag 세팅

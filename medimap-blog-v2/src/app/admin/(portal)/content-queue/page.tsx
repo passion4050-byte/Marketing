@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { readScope, SCOPE_EVENT, scopeToLang } from '@/components/admin/ScopeSelector';
 import Link from 'next/link';
 import {
   AlertTriangle, Check, ClipboardCopy, Edit3, ExternalLink, Eye, FileText,
@@ -336,6 +337,19 @@ export default function ContentManagementPage() {
   const [preview, setPreview] = useState<QueueItem | null>(null);
   // Round 138+ — 국내/해외 콘텐츠 필터 (market)
   const [market, setMarket] = useState<'' | 'domestic' | 'overseas'>('');
+  // Phase C 2b — 전역 언어 스코프 구독: scope → market+lang 자동 설정
+  const [lang, setLang] = useState<string>('');
+  useEffect(() => {
+    const apply = (scope: string) => {
+      if (scope === 'ko') { setMarket('domestic'); setLang('ko'); }
+      else if (scope === 'en' || scope === 'ja' || scope === 'zh') { setMarket('overseas'); setLang(scopeToLang(scope) ?? ''); }
+      else { setMarket(''); setLang(''); }
+    };
+    apply(readScope());
+    const onEvt = (e: Event) => { const d = (e as CustomEvent).detail; if (typeof d === 'string') apply(d); };
+    window.addEventListener(SCOPE_EVENT, onEvt);
+    return () => window.removeEventListener(SCOPE_EVENT, onEvt);
+  }, []);
   // Round 18 (2026-05-28): 미리보기 모달 안 인라인 편집 모드
   const [editing, setEditing] = useState<boolean>(false);
   const [editTitle, setEditTitle] = useState<string>('');
@@ -346,8 +360,9 @@ export default function ContentManagementPage() {
     setLoading(true);
     try {
       const mq = market ? `&market=${market}` : '';
+      const lq = lang ? `&lang=${encodeURIComponent(lang)}` : '';
       const fetchOne = async (status: TabKey) => {
-        const res = await fetch(`/api/admin/content-queue?status=${status}${mq}`, { cache: 'no-store' });
+        const res = await fetch(`/api/admin/content-queue?status=${status}${mq}${lq}`, { cache: 'no-store' });
         const data = await res.json();
         if (!res.ok || !data.ok) throw new Error(data.error ?? 'fetch failed');
         return (data.items ?? []) as QueueItem[];
@@ -359,7 +374,7 @@ export default function ContentManagementPage() {
     } finally {
       setLoading(false);
     }
-  }, [market]);
+  }, [market, lang]);
 
   useEffect(() => { void load('both'); }, [load]);
 

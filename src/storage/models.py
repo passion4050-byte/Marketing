@@ -81,6 +81,9 @@ class Keyword(Base):
     category: Mapped[str] = mapped_column(String(100), default="")
     target_brand: Mapped[str] = mapped_column(String(200), default="")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Phase A — 측정 언어/시장 스코프. 기존 행은 ko/domestic (측정 언어분기 구동).
+    lang: Mapped[str] = mapped_column(String(16), default="ko")
+    market: Mapped[str] = mapped_column(String(16), default="domestic")
 
     tenant: Mapped[Tenant] = relationship(back_populates="keywords")
 
