@@ -45,15 +45,17 @@ export async function getGuide(lang: string, slug: string): Promise<Guide | null
   const sql = getSql();
   if (!sql) return null;
   try {
-    const rows = await sql<Array<Record<string, unknown>>>`
-      SELECT slug, title, excerpt, body, raw_qa_pairs, lang, published_at
-      FROM generated_contents
-      WHERE lang = ${lang}
-        AND market = 'overseas'
-        AND slug = ${slug}
-        AND status = 'published'
-        AND compliance_status = 'pass'
-      LIMIT 1`;
+    const rows = await sql.unsafe<Array<Record<string, unknown>>>(
+      `SELECT slug, title, excerpt, body, raw_qa_pairs, lang, published_at
+       FROM generated_contents
+       WHERE lang = $1
+         AND market = 'overseas'
+         AND slug = $2
+         AND status = 'published'
+         AND compliance_status = 'pass'
+       LIMIT 1`,
+      [lang, slug]
+    );
     const r = rows[0];
     if (!r) return null;
     return {
@@ -74,15 +76,17 @@ export async function getGuides(lang: string): Promise<GuideCard[]> {
   const sql = getSql();
   if (!sql) return [];
   try {
-    const rows = await sql<Array<Record<string, unknown>>>`
-      SELECT slug, title, excerpt
-      FROM generated_contents
-      WHERE lang = ${lang}
-        AND market = 'overseas'
-        AND status = 'published'
-        AND compliance_status = 'pass'
-      ORDER BY COALESCE(published_at, created_at) DESC
-      LIMIT 200`;
+    const rows = await sql.unsafe<Array<Record<string, unknown>>>(
+      `SELECT slug, title, excerpt
+       FROM generated_contents
+       WHERE lang = $1
+         AND market = 'overseas'
+         AND status = 'published'
+         AND compliance_status = 'pass'
+       ORDER BY COALESCE(published_at, created_at) DESC
+       LIMIT 200`,
+      [lang]
+    );
     return rows.map((r) => ({
       slug: String(r.slug),
       title: String(r.title ?? ""),
