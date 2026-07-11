@@ -25,6 +25,7 @@ import { CrawlerLogWidget } from '@/components/admin/CrawlerLogWidget';
 import { KakaoFunnelWidget } from '@/components/admin/KakaoFunnelWidget';
 import { ContentPatternStats } from '@/components/admin/ContentPatternStats';
 import { CcsTrend } from '@/components/admin/CcsTrend';
+import { CitationProof } from '@/components/admin/CitationProof';
 import { DashboardChartsTabbed } from '@/components/admin/DashboardChartsTabbed';
 import type {
   TierTrendPoint,
@@ -1149,6 +1150,9 @@ export default async function AdminDashboardPage({
         </div>
         <div className="mt-4">
           <CcsTrend days={periodDays} />
+        </div>
+        <div className="mt-4">
+          <CitationProof />
         </div>
       </div>
 
