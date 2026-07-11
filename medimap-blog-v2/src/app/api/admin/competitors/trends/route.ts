@@ -28,6 +28,23 @@ function extractDomain(url: string | null): string | null {
 
 type Dim = { series: string[]; data: Array<Record<string, number | string>> };
 
+// 🔴 Round 138+ — PostgREST 기본 1000행 한도 우회. 30일 queries/responses 는 수천 건이라
+//   단일 select 면 오래된 1000건만 와서 최근 날짜(07-02 이후)가 통째로 잘림(추이차트 하드컷 버그).
+//   range 페이지네이션으로 전량 로드.
+async function fetchAll<T>(
+  make: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>
+): Promise<T[]> {
+  const PAGE = 1000;
+  const out: T[] = [];
+  for (let from = 0; from < 200000; from += PAGE) {
+    const { data, error } = await make(from, from + PAGE - 1);
+    if (error || !data || data.length === 0) break;
+    out.push(...data);
+    if (data.length < PAGE) break;
+  }
+  return out;
+}
+
 export async function GET(req: Request) {
   const sb = getServerClient();
   if (!sb) return NextResponse.json({ ok: false, error: 'supabase not configured' }, { status: 503 });
@@ -110,14 +127,20 @@ export async function GET(req: Request) {
     if (!keywordFilter || text === keywordFilter) targetKwIds.add(id);
   });
 
-  // queries
-  let queriesQuery = sb
-    .from('queries')
-    .select('id, tenant_id, keyword_id, engine')
-    .neq('engine', 'stub')
-    .gte('requested_at', cutoff);
-  if (tenantIdFilter) queriesQuery = queriesQuery.eq('tenant_id', tenantIdFilter);
-  const { data: queries } = await queriesQuery;
+  // queries — 페이지네이션(1000행 한도 우회)
+  const queries = await fetchAll<{ id: number; tenant_id: number; keyword_id: number; engine: string }>(
+    (from, to) => {
+      let q = sb
+        .from('queries')
+        .select('id, tenant_id, keyword_id, engine')
+        .neq('engine', 'stub')
+        .gte('requested_at', cutoff)
+        .order('id')
+        .range(from, to);
+      if (tenantIdFilter) q = q.eq('tenant_id', tenantIdFilter);
+      return q;
+    }
+  );
   const qMeta = new Map<number, { tenant: number; engine: string }>();
   const enginesAvailable = new Set<string>();
   (queries ?? []).forEach((q: { id: number; tenant_id: number; keyword_id: number; engine: string }) => {
@@ -134,20 +157,31 @@ export async function GET(req: Request) {
   //   source_domains=NULL 이라 차트에서 사라짐. Gemini 만 grounding metadata 로 URL 노출,
   //   Claude/OpenAI 는 응답 텍스트에 URL 안 줌. 결과: 화면에서 Claude/OpenAI = 0 표시.
   //   fix: NULL 도 포함해 가져온 후, NULL 인 경우 mentions 테이블의 brand 기반으로 fallback.
-  const { data: respRows } = await sb
-    .from('responses')
-    .select('id, query_id, source_domains, created_at')
-    .gte('created_at', cutoff);
-  const filtered = (respRows ?? []).filter((r: { query_id: number }) => validQ.has(r.query_id));
+  const respRows = await fetchAll<{
+    id: number;
+    query_id: number;
+    source_domains: Array<{ domain: string; final_url: string | null }> | null;
+    created_at: string;
+  }>((from, to) =>
+    sb
+      .from('responses')
+      .select('id, query_id, source_domains, created_at')
+      .gte('created_at', cutoff)
+      .order('id')
+      .range(from, to)
+  );
+  const filtered = respRows.filter((r: { query_id: number }) => validQ.has(r.query_id));
 
   // 함정 DC fix — source_domains 가 없는 response 는 mentions 테이블로 fallback
   const responseIds = filtered.map((r: { id: number }) => r.id);
   const mentionMap = new Map<number, Array<{ brand: string; is_target: boolean; is_competitor: boolean }>>();
-  if (responseIds.length > 0) {
+  // responseIds 가 수천 개일 수 있어 .in() 을 200개씩 청크로 (URL 길이 + 1000행 한도 회피)
+  for (let i = 0; i < responseIds.length; i += 200) {
+    const chunk = responseIds.slice(i, i + 200);
     const { data: mRows } = await sb
       .from('mentions')
       .select('response_id, brand, is_target, is_competitor')
-      .in('response_id', responseIds);
+      .in('response_id', chunk);
     (mRows ?? []).forEach((m: { response_id: number; brand: string; is_target: boolean; is_competitor: boolean }) => {
       if (!mentionMap.has(m.response_id)) mentionMap.set(m.response_id, []);
       mentionMap.get(m.response_id)!.push({
