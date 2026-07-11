@@ -5,6 +5,7 @@ import { Edit3, Loader2, Pause, Play, Plus, Trash2, X } from 'lucide-react';
 import { showToast } from '@/lib/clientActions';
 import { HomepageAnalyzeButton } from '@/components/admin/HomepageAnalyzeButton';
 import { TenantOwnKeywordsEditor } from '@/components/admin/TenantOwnKeywordsEditor';
+import { TenantProductsEditor } from '@/components/admin/TenantProductsEditor';
 
 type TenantStatus = 'active' | 'paused' | 'trial';
 
@@ -312,6 +313,11 @@ export default function TenantsPage() {
               <TenantOwnKeywordsEditor
                 tenantId={typeof (editing as SbTenant)?.id === 'number' ? (editing as SbTenant).id as number : undefined}
                 defaultCategory={draft.domain_category ?? null}
+              />
+
+              {/* Phase C — 클라이언트별 상품(국내/해외 언어별) 신청·관리 (tenant_products SoT) */}
+              <TenantProductsEditor
+                tenantId={typeof (editing as SbTenant)?.id === 'number' ? (editing as SbTenant).id as number : undefined}
               />
 
               <Field label="주소" placeholder="서울 송파구 ..."
