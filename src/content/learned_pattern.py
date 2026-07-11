@@ -281,6 +281,13 @@ def upsert_auto_pattern_insight(
 
     with session_factory() as s:
         try:
+            # Round 138+ (② 학습 루프 완결) — 자동패턴은 진료과 무관 '전역 구조 가이드'.
+            #   기존엔 domain_category=null + applied=false 로 등록 → 로더(진료과 일치 요구)가
+            #   영원히 주입 안 함(구멍). 수정: 이전 자동패턴 행 dedup 후 applied=true 로 등록하고,
+            #   로더가 null(전역) 자동패턴도 포함하도록 함께 수정(applied_insights_loader.py).
+            s.execute(
+                text("DELETE FROM learned_insights WHERE source_url = 'internal://auto_pattern'")
+            )
             row = s.execute(
                 text(
                     """
@@ -289,7 +296,7 @@ def upsert_auto_pattern_insight(
                          patterns, notes, applied, created_at)
                     VALUES
                         ('internal://auto_pattern', 'internal', 'AUTO', :dom,
-                         CAST(:patterns_json AS jsonb), :notes, false, NOW())
+                         CAST(:patterns_json AS jsonb), :notes, true, NOW())
                     RETURNING id
                     """
                 ),

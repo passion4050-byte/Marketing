@@ -50,11 +50,13 @@ def load_applied_insights_block(tenant_id: int, max_count: int = 5) -> Optional[
             if not category:
                 return None
             # 2) 같은 진료과의 적용된(applied) 인사이트
+            # Round 138+ (② 학습 루프 완결) — 같은 진료과 인사이트 + 전역(null) 자동패턴 인사이트.
+            #   자동패턴은 진료과 무관 구조 가이드라 domain_category=null → OR 조건으로 포함.
             r = client.get(
                 f"{SUPABASE_URL}/rest/v1/learned_insights",
                 params={
                     "applied": "eq.true",
-                    "domain_category": f"eq.{category}",
+                    "or": f"(domain_category.eq.{category},domain_category.is.null)",
                     "select": "id,source_domain,keyword,patterns,notes",
                     "limit": str(max_count),
                 },
