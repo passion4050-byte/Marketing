@@ -91,9 +91,12 @@ export async function GET(req: Request) {
 
   // 키워드 (자사는 own, 그 외는 competitor_landscape)
   let kwQuery = sb.from('keywords').select('id, text, tenant_id').eq('is_active', true);
+  // Round 138+ (A 수정) — 기존엔 비자사 차트가 competitor_landscape(3일 주기 측정)만 집계 →
+  //   그 사이 날짜가 0으로 비어 "07-04부터 안 보임" 발생. own(자사 브랜드) 키워드는 매일 측정되고
+  //   그 응답에도 경쟁사 출처 인용이 담기므로 함께 포함해 차트를 일별로 채운다.
   kwQuery = isSelfTenant
     ? kwQuery.or('purpose.eq.own,purpose.is.null')
-    : kwQuery.eq('purpose', 'competitor_landscape');
+    : kwQuery.or('purpose.eq.competitor_landscape,purpose.eq.own,purpose.is.null');
   if (tenantIdFilter) kwQuery = kwQuery.eq('tenant_id', tenantIdFilter);
   const { data: landscapeKeywords } = await kwQuery;
   const kwTextById = new Map<number, string>();

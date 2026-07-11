@@ -18,7 +18,7 @@ on:
   schedule:
     # 주 2회 — 매주 월 21:00 UTC (화 06:00 KST), 목 21:00 UTC (금 06:00 KST)
     # 자사 측정(매일 22:00 UTC) 보다 1시간 일찍 끝나도록 배치
-    - cron: '0 21 * * 1,4'
+    - cron: '0 21 * * *'   # Round 138+ (C) — 월·목 주2회 → 매일. 차트 일별 공백 해소. 비용은 MAX_DAILY_USD 캡.
   workflow_dispatch:
     inputs:
       engine_mode:
