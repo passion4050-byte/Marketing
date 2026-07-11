@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
   const sp = new URL(req.url).searchParams;
   const tenant = sp.get('tenant');
   const lang = sp.get('lang');
+  const onlySelf = sp.get('only_self') === '1' || sp.get('only_self') === 'true';
   const limit = Math.min(50, Math.max(1, Number(sp.get('limit') ?? '12') || 12));
 
   const sb = getServerClient();
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
     _tenant: tenant ? Number(tenant) : null,
     _lang: lang || null,
     _limit: limit,
+    _only_self: onlySelf,
   });
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
