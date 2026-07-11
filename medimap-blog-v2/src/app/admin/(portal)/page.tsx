@@ -903,7 +903,8 @@ async function fetchDashboardData(opts: {
         if (!dom) return;
         domainCount.set(dom, (domainCount.get(dom) ?? 0) + 1);
         totalCount++;
-        if (dom.includes('medimap')) medimapCount++;
+        // CCS 정확도: 자사 콘텐츠 = wecircle(현 도메인) + medimap/medi-map(구 도메인) 모두 카운트
+        if (dom.includes('wecircle') || dom.includes('medimap') || dom.includes('medi-map')) medimapCount++;
       });
     });
 
@@ -912,7 +913,7 @@ async function fetchDashboardData(opts: {
     const AUTHORITY = new Set(['namu.wiki', 'youtube.com', 'modoodoc.com', 'hidoc.co.kr', 'news.hidoc.co.kr', 'v.daum.net', 'edu.donga.com', 'news.naver.com']);
     domainDistribution = Array.from(domainCount.entries())
       .map(([domain, citations]) => {
-        const isOwn = domain.includes('medimap') || domain.includes('medi-map');
+        const isOwn = domain.includes('wecircle') || domain.includes('medimap') || domain.includes('medi-map');
         const isAuth = AUTHORITY.has(domain);
         const isCompetitor =
           !isOwn && !isAuth &&
