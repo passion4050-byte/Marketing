@@ -342,7 +342,7 @@ export default function ContentManagementPage() {
   useEffect(() => {
     const apply = (scope: string) => {
       if (scope === 'ko') { setMarket('domestic'); setLang('ko'); }
-      else if (scope === 'en' || scope === 'ja' || scope === 'zh') { setMarket('overseas'); setLang(scopeToLang(scope) ?? ''); }
+      else if (scope === 'en' || scope === 'ja' || scope === 'zh') { setMarket('overseas'); setLang(scope === 'zh' ? 'zh-Hans' : (scopeToLang(scope) ?? '')); }
       else { setMarket(''); setLang(''); }
     };
     apply(readScope());
