@@ -28,6 +28,7 @@ const NAV = [
   { href: "/en#how", label: "How it works" },
   { href: "/en#specialties", label: "Specialties" },
   { href: "/en#proof", label: "Proof" },
+  { href: "/en/blog", label: "Blog" },
   { href: "/en/guides/smile-lasik-in-korea", label: "Sample" },
 ];
 

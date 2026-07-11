@@ -19,6 +19,7 @@ export const metadata: Metadata = {
 const NAV = [
   { href: "/zh#how", label: "运作方式" },
   { href: "/zh#specialties", label: "科室" },
+  { href: "/zh/blog", label: "博客" },
   { href: "/zh/guides/smile-lasik-in-korea", label: "样本" },
 ];
 

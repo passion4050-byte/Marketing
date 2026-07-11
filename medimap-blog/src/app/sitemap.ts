@@ -6,7 +6,7 @@ import {
   type PartnerPost,
 } from "@/lib/partners";
 import { absoluteUrl } from "@/lib/site";
-import { getGuides } from "@/lib/guides";
+import { getOverseasCards } from "@/lib/guides";
 
 // Round 12 (2026-05-26): sitemap.ts 는 Next.js metadata route — `dynamic` export
 //   가 webpack metadata-route-loader 와 충돌해 빌드 fail. 다시 revalidate=60 으로
@@ -89,23 +89,42 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  // 해외(overseas) — 홈 + 가이드 (en/ja/zh)
+  // 해외(overseas) — 홈 + 블로그 인덱스 + 클리닉 허브 + 콘텐츠 상세(canonical URL)
+  //   파트너 콘텐츠는 canonical 이 /{lang}/clinics/{cat}/{partner}/{slug} (guides 는 301 리다이렉트),
+  //   비파트너(블로그)는 /{lang}/guides/{slug}. 국내 2단 구조를 해외에도 그대로 반영.
+  const OVERSEAS_LANGS: Array<{ code: "en" | "ja" | "zh"; db: string }> = [
+    { code: "en", db: "en" },
+    { code: "ja", db: "ja" },
+    { code: "zh", db: "zh-Hans" },
+  ];
   const overseasStatic: MetadataRoute.Sitemap = [
-    { url: absoluteUrl("/en"), lastModified: now, changeFrequency: "weekly", priority: 0.8 },
-    { url: absoluteUrl("/ja"), lastModified: now, changeFrequency: "weekly", priority: 0.8 },
-    { url: absoluteUrl("/zh"), lastModified: now, changeFrequency: "weekly", priority: 0.8 },
+    ...OVERSEAS_LANGS.flatMap((l) => [
+      { url: absoluteUrl(`/${l.code}`), lastModified: now, changeFrequency: "weekly" as const, priority: 0.8 },
+      { url: absoluteUrl(`/${l.code}/blog`), lastModified: now, changeFrequency: "daily" as const, priority: 0.8 },
+    ]),
     { url: absoluteUrl("/en/guides/best-skin-clinics-in-gangnam"), lastModified: now, changeFrequency: "weekly", priority: 0.8 },
   ];
-  const [enG, jaG, zhG] = await Promise.all([
-    getGuides("en").catch(() => []),
-    getGuides("ja").catch(() => []),
-    getGuides("zh-Hans").catch(() => []),
-  ]);
-  const overseasGuides: MetadataRoute.Sitemap = [
-    ...enG.map((g) => ({ url: absoluteUrl(`/en/guides/${g.slug}`), lastModified: now, changeFrequency: "weekly" as const, priority: 0.8 })),
-    ...jaG.map((g) => ({ url: absoluteUrl(`/ja/guides/${g.slug}`), lastModified: now, changeFrequency: "weekly" as const, priority: 0.8 })),
-    ...zhG.map((g) => ({ url: absoluteUrl(`/zh/guides/${g.slug}`), lastModified: now, changeFrequency: "weekly" as const, priority: 0.8 })),
-  ];
+
+  const overseasCardsByLang = await Promise.all(
+    OVERSEAS_LANGS.map((l) => getOverseasCards(l.db).catch(() => [])),
+  );
+  const overseasHubSeen = new Set<string>();
+  const overseasHubs: MetadataRoute.Sitemap = [];
+  const overseasDetails: MetadataRoute.Sitemap = [];
+  OVERSEAS_LANGS.forEach((l, i) => {
+    for (const c of overseasCardsByLang[i]) {
+      if (c.is_partner && c.partner_category && c.partner_slug) {
+        const hub = `/${l.code}/clinics/${c.partner_category}/${c.partner_slug}`;
+        if (!overseasHubSeen.has(hub)) {
+          overseasHubSeen.add(hub);
+          overseasHubs.push({ url: absoluteUrl(hub), lastModified: now, changeFrequency: "weekly", priority: 0.7 });
+        }
+        overseasDetails.push({ url: absoluteUrl(`${hub}/${c.slug}`), lastModified: now, changeFrequency: "weekly", priority: 0.8 });
+      } else {
+        overseasDetails.push({ url: absoluteUrl(`/${l.code}/guides/${c.slug}`), lastModified: now, changeFrequency: "weekly", priority: 0.8 });
+      }
+    }
+  });
 
   return [
     ...staticPages,
@@ -114,6 +133,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...partnerListPages,
     ...partnerPostPages,
     ...overseasStatic,
-    ...overseasGuides,
+    ...overseasHubs,
+    ...overseasDetails,
   ];
 }
