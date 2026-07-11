@@ -45,6 +45,7 @@ import {
 import { cn } from '@/lib/cn';
 import { CitationsTabs } from '@/components/admin/CitationsTabs';
 import { CitationBreakdown, DomainTick, DomainLink, type Citation } from '@/components/admin/CitationBreakdown';
+import { useListView, PageBar, SearchBox } from '@/components/admin/ListView';
 
 type TenantOption = { id: number; name: string; is_self: boolean };
 
@@ -129,6 +130,14 @@ export default function CitationsPage() {
   const [modalKeyword, setModalKeyword] = useState<string | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
   const [modalResponses, setModalResponses] = useState<KeywordResponseDetail[]>([]);
+  const keywordLv = useListView(data?.keyword_breakdown ?? [], {
+    size: 15,
+    search: (k, q) => k.keyword.toLowerCase().includes(q),
+  });
+  const compLv = useListView(data?.competitor_breakdown ?? [], {
+    size: 15,
+    search: (c, q) => c.domain.toLowerCase().includes(q),
+  });
 
   const load = async () => {
     setLoading(true);
@@ -453,6 +462,11 @@ export default function CitationsPage() {
                   {selectedName} 의 키워드별 mention + source 카운트
                 </div>
               </header>
+              {data.keyword_breakdown.length > 0 && (
+                <div className="px-5 pt-3">
+                  <SearchBox lv={keywordLv} placeholder="키워드 검색" />
+                </div>
+              )}
               {data.keyword_breakdown.length === 0 ? (
                 <div className="px-5 py-8 text-center text-sm text-ink-muted">
                   아직 측정된 키워드 없음
@@ -471,7 +485,7 @@ export default function CitationsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {data.keyword_breakdown.map((k, i) => (
+                      {keywordLv.view.map((k, i) => (
                         <tr
                           key={i}
                           className="cursor-pointer border-t border-border hover:bg-surface-muted/60"
@@ -492,6 +506,11 @@ export default function CitationsPage() {
                   </table>
                 </div>
               )}
+              {keywordLv.total > 0 && (
+                <div className="px-5 pb-4">
+                  <PageBar lv={keywordLv} />
+                </div>
+              )}
             </div>
 
             {/* 경쟁사/플랫폼 도메인 분석 — URL drill-down */}
@@ -510,6 +529,11 @@ export default function CitationsPage() {
                   채움률은 다를 수 있으며(Gemini 가 가장 높음), 매일 KST 07:00 cron 으로 누적됩니다.
                 </div>
               </header>
+              {data.competitor_breakdown.length > 0 && (
+                <div className="px-5 pt-3">
+                  <SearchBox lv={compLv} placeholder="도메인 검색" />
+                </div>
+              )}
               {data.competitor_breakdown.length === 0 ? (
                 <div className="px-5 py-8 text-center text-sm text-ink-muted">
                   아직 측정된 출처 없음
@@ -527,7 +551,7 @@ export default function CitationsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {data.competitor_breakdown.slice(0, 15).map((c, i) => {
+                      {compLv.view.map((c, i) => {
                         const isOpen = expandedDomain === c.domain;
                         return (
                           <>
@@ -577,6 +601,11 @@ export default function CitationsPage() {
                       })}
                     </tbody>
                   </table>
+                </div>
+              )}
+              {compLv.total > 0 && (
+                <div className="px-5 pb-4">
+                  <PageBar lv={compLv} />
                 </div>
               )}
             </div>

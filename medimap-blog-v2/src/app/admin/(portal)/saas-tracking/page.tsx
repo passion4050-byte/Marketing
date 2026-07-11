@@ -23,6 +23,7 @@ import {
   YAxis,
 } from 'recharts';
 import { Sparkles, Target, TrendingUp, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
+import { useListView, PageBar, SearchBox } from '@/components/admin/ListView';
 
 type ApiResponse = {
   ok: boolean;
@@ -41,6 +42,14 @@ export default function SaasTrackingPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ApiResponse | null>(null);
   const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
+  const groundLv = useListView(data?.keyword_grounding ?? [], {
+    size: 15,
+    search: (k, q) => k.keyword.toLowerCase().includes(q),
+  });
+  const domainLv = useListView(data?.competitor_domains ?? [], {
+    size: 20,
+    search: (c, q) => c.domain.toLowerCase().includes(q),
+  });
 
   useEffect(() => {
     fetch('/api/admin/saas-tracking')
@@ -186,6 +195,11 @@ export default function SaasTrackingPage() {
             각 키워드 측정 시 AI 가 출처 URL 명시하는 비율 + 위서클 T1 카운트
           </div>
         </header>
+        {data.keyword_grounding.length > 0 && (
+          <div className="px-4 pt-3 md:px-5">
+            <SearchBox lv={groundLv} placeholder="키워드 검색" />
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-xs">
             <thead className="bg-surface-subtle text-[10px] font-bold uppercase tracking-wider text-ink-muted">
@@ -205,7 +219,7 @@ export default function SaasTrackingPage() {
                   </td>
                 </tr>
               ) : (
-                data.keyword_grounding.map((k) => (
+                groundLv.view.map((k) => (
                   <tr key={k.keyword} className="border-t border-border">
                     <td className="px-3 py-2 font-semibold">{k.keyword}</td>
                     <td className="px-3 py-2 text-right">{k.queries}</td>
@@ -238,6 +252,11 @@ export default function SaasTrackingPage() {
             </tbody>
           </table>
         </div>
+        {groundLv.total > 0 && (
+          <div className="px-4 pb-4 md:px-5">
+            <PageBar lv={groundLv} />
+          </div>
+        )}
       </section>
 
       {/* 경쟁 SaaS 도메인 ranking */}
@@ -251,6 +270,11 @@ export default function SaasTrackingPage() {
             위서클 SaaS 와 같은 카테고리 키워드에서 AI 가 인용한 외부 도메인 — 잠재 경쟁자 / 인사이트 출처
           </div>
         </header>
+        {data.competitor_domains.length > 0 && (
+          <div className="px-3 pt-3 md:px-4">
+            <SearchBox lv={domainLv} placeholder="도메인 검색" />
+          </div>
+        )}
         <div className="p-2 md:p-4">
           {data.competitor_domains.length === 0 ? (
             <div className="flex h-24 items-center justify-center text-[12px] text-ink-muted">
@@ -258,7 +282,7 @@ export default function SaasTrackingPage() {
             </div>
           ) : (
             <ul className="space-y-1.5">
-              {data.competitor_domains.map((c) => {
+              {domainLv.view.map((c) => {
                 const isOpen = expandedDomain === c.domain;
                 return (
                   <li key={c.domain} className="rounded border border-border">
@@ -298,6 +322,11 @@ export default function SaasTrackingPage() {
             </ul>
           )}
         </div>
+        {domainLv.total > 0 && (
+          <div className="px-3 pb-4 md:px-4">
+            <PageBar lv={domainLv} />
+          </div>
+        )}
       </section>
     </div>
   );

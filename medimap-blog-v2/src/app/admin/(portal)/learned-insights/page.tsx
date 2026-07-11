@@ -26,6 +26,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { useListView, PageBar, SearchBox } from '@/components/admin/ListView';
 
 type Baseline = {
   title_length: number;
@@ -183,6 +184,13 @@ export default function LearnedInsightsPage() {
   };
 
   const appliedCount = insights.filter((i) => i.applied).length;
+  const lv = useListView(insights, {
+    size: 20,
+    search: (it, q) =>
+      (it.source_domain ?? it.source_url ?? '').toLowerCase().includes(q) ||
+      (it.keyword ?? '').toLowerCase().includes(q) ||
+      (it.domain_category ?? '').toLowerCase().includes(q),
+  });
 
   return (
     <div className="space-y-5">
@@ -304,6 +312,12 @@ export default function LearnedInsightsPage() {
           </div>
         </header>
 
+        {!loading && insights.length > 0 && (
+          <div className="px-5 pt-3">
+            <SearchBox lv={lv} placeholder="도메인·키워드·진료과 검색" />
+          </div>
+        )}
+
         {error && (
           <div className="m-5 rounded border border-status-danger/30 bg-status-dangerSoft/40 px-3 py-2 text-[11px] text-status-danger">
             <AlertTriangle className="mr-1 inline h-3 w-3" />
@@ -323,7 +337,7 @@ export default function LearnedInsightsPage() {
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {insights.map((it) => {
+            {lv.view.map((it) => {
               const open = expandedId === it.id;
               const patterns = it.patterns as DomainPatterns;
               const isDomain = patterns?.scope === 'domain';
@@ -502,6 +516,11 @@ export default function LearnedInsightsPage() {
                 </div>
               );
             })}
+          </div>
+        )}
+        {!loading && lv.total > 0 && (
+          <div className="px-5 pb-4">
+            <PageBar lv={lv} />
           </div>
         )}
       </section>
