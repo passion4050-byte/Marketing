@@ -163,7 +163,7 @@ export default async function PartnerPostPage({ params }: PageProps) {
       )}
 
       <article
-        className="prose prose-stone max-w-none prose-headings:tracking-tight prose-headings:text-stone-950 prose-a:text-stone-900"
+        className="prose-medimap max-w-none"
         dangerouslySetInnerHTML={{
           __html: stripReferenceSection(stripFirstH1IfMatchesTitle(post.body, post.title)),
         }}
