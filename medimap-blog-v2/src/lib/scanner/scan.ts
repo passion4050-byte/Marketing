@@ -36,8 +36,10 @@ export interface ScanReport {
   error?: string;
 }
 
+// 🔴 봇 식별 UA(WecircleGeoScanner)는 다수 병원 홈페이지(WordPress/카페24 등)의
+//    보안플러그인/WAF 에 403 차단됨(실측: dearchungdam.com). 실제 브라우저 UA 로 공개 페이지 접근성 확보.
 const UA =
-  'Mozilla/5.0 (compatible; WecircleGeoScanner/1.0; +https://geo-v2-beta.vercel.app/scanner)';
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
 
 function normalizeUrl(raw: string): { url: string; origin: string; domain: string } | null {
   let s = (raw || '').trim();
@@ -52,12 +54,16 @@ function normalizeUrl(raw: string): { url: string; origin: string; domain: strin
   }
 }
 
-async function fetchText(url: string, timeoutMs = 10000): Promise<string | null> {
+async function fetchText(url: string, timeoutMs = 15000): Promise<string | null> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(url, {
-      headers: { 'User-Agent': UA, Accept: 'text/html,text/plain,*/*' },
+      headers: {
+        'User-Agent': UA,
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8'
+      },
       signal: ctrl.signal,
       redirect: 'follow'
     });
