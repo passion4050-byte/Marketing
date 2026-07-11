@@ -379,8 +379,28 @@ def daily_auto_content_job(
                 .order_by(Keyword.id)
                 .all()
             )
-            # Phase 3b — 키워드별 lang/market 동반 로드. 해외 키워드는 그 언어로 생성.
-            #   (국내 ko 키워드는 기존과 동일. 영어 키워드를 ko로 쓰던 리그레션 차단.)
+            # Phase 3b — 발행 게이팅: 클라이언트가 '언어별 상품(tenant_products)'을 활성화한
+            #   시장·언어에 한해서만 해외 콘텐츠 자동발행. (국내 ko 는 기존대로 항상 발행.)
+            #   국내 파이프라인과 동일 엔진 + 조건부(상품 선택 항목만).
+            from sqlalchemy import text as _sql_text
+            try:
+                _pr = s.execute(
+                    _sql_text(
+                        "SELECT market, lang FROM tenant_products "
+                        "WHERE tenant_id = :tid AND status = 'active'"
+                    ),
+                    {"tid": tenant_id},
+                ).fetchall()
+                _active_products = {(r[0], r[1]) for r in _pr}
+            except Exception:  # pragma: no cover
+                _active_products = set()
+
+            def _publish_ok(lang: str, market: str) -> bool:
+                if market == "domestic" or lang == "ko":
+                    return True
+                return (market, lang) in _active_products
+
+            # 키워드별 lang/market 동반 로드 + 발행 게이팅. 해외 키워드는 그 언어로 생성.
             kw_rows = [
                 (
                     k.text,
@@ -388,6 +408,10 @@ def daily_auto_content_job(
                     (getattr(k, "market", "domestic") or "domestic"),
                 )
                 for k in kws
+                if _publish_ok(
+                    (getattr(k, "lang", "ko") or "ko"),
+                    (getattr(k, "market", "domestic") or "domestic"),
+                )
             ]
         if not kw_rows:
             continue
