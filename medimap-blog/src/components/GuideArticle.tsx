@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { JsonLd } from "@/components/JsonLd";
 import { ContactButtons } from "@/components/ContactButtons";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { siteConfig } from "@/lib/site";
 import type { Guide } from "@/lib/guides";
 
@@ -79,11 +80,17 @@ export function GuideArticle({
       <h1 className="text-3xl font-black leading-tight tracking-tight text-stone-950 md:text-5xl">
         {guide.title}
       </h1>
-      {guide.published_at && (
-        <p className="mt-3 text-sm text-stone-500">
-          {labels.updated} {new Date(guide.published_at).toISOString().slice(0, 10)}
-        </p>
-      )}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        {guide.published_at ? (
+          <p className="text-sm text-stone-500">
+            {labels.updated} {new Date(guide.published_at).toISOString().slice(0, 10)}
+          </p>
+        ) : (
+          <span />
+        )}
+        {/* 이 글의 다른 언어 버전으로 바로 이동 — 타이틀 영역 인라인 스위처 */}
+        <LanguageSwitcher variant="inline" />
+      </div>
 
       {guide.cover_image_url && (
         // eslint-disable-next-line @next/next/no-img-element

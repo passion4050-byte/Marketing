@@ -34,14 +34,26 @@ function targetPath(pathname: string, code: LangCode): string {
   return code === "ko" ? "/" : `/${code}`;
 }
 
-export function LanguageSwitcher({ variant = "light" }: { variant?: "light" | "dark" }) {
+function useCurLang(pathname: string): LangCode {
+  const m = pathname.match(/^\/(en|ja|zh)(\/.*)?$/);
+  return m ? (m[1] as LangCode) : "ko";
+}
+
+/**
+ * variant:
+ *   - "light" | "dark": 헤더/푸터용 드롭다운. 트리거에 네이티브 라벨(中文/日本語…)을 노출해
+ *     외국인 방문자가 "언어 전환"임을 직관적으로 인지하도록 함.
+ *   - "inline": 아티클 타이틀 영역용. 4개 언어를 pill 로 나란히 노출(드롭다운 없이 한 번에).
+ */
+export function LanguageSwitcher({
+  variant = "light",
+}: {
+  variant?: "light" | "dark" | "inline";
+}) {
   const pathname = usePathname() || "/";
+  const curLang = useCurLang(pathname);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-
-  const m = pathname.match(/^\/(en|ja|zh)(\/.*)?$/);
-  const curLang: LangCode = m ? (m[1] as LangCode) : "ko";
-  const current = LANGS.find((l) => l.code === curLang) ?? LANGS[0];
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
@@ -51,10 +63,39 @@ export function LanguageSwitcher({ variant = "light" }: { variant?: "light" | "d
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
+  // 아티클 타이틀 영역 — pill 나열형(가장 직관적)
+  if (variant === "inline") {
+    return (
+      <div className="flex flex-wrap items-center gap-1.5" aria-label="Language">
+        <Globe className="mr-0.5 h-3.5 w-3.5 text-stone-400" />
+        {LANGS.map((l) => {
+          const active = l.code === curLang;
+          return (
+            <Link
+              key={l.code}
+              href={targetPath(pathname, l.code)}
+              lang={l.code}
+              hrefLang={l.code === "zh" ? "zh-Hans" : l.code}
+              aria-current={active ? "true" : undefined}
+              className={`rounded-full px-2.5 py-1 text-[12px] font-semibold transition ${
+                active
+                  ? "bg-[#1B68FF] text-white"
+                  : "border border-stone-300 text-stone-600 hover:border-[#1B68FF] hover:text-[#1B68FF]"
+              }`}
+            >
+              {l.label}
+            </Link>
+          );
+        })}
+      </div>
+    );
+  }
+
+  const current = LANGS.find((l) => l.code === curLang) ?? LANGS[0];
   const trigger =
     variant === "dark"
       ? "border-white/25 text-white/90 hover:bg-white/10"
-      : "border-stone-300 text-stone-600 hover:bg-stone-100";
+      : "border-stone-300 text-stone-700 hover:bg-stone-100";
 
   return (
     <div className="relative" ref={ref}>
@@ -66,7 +107,7 @@ export function LanguageSwitcher({ variant = "light" }: { variant?: "light" | "d
         className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${trigger}`}
       >
         <Globe className="h-3.5 w-3.5" />
-        {current.short}
+        {current.label}
         <ChevronDown className={`h-3 w-3 transition ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (

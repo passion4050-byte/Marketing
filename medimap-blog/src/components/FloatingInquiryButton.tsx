@@ -12,6 +12,10 @@ const HIDE_ON: ((p: string) => boolean)[] = [
   (p) => p.startsWith("/admin"),
   (p) => p.startsWith("/client"),
   (p) => p === "/contact",
+  // 해외(en/ja/zh)는 자체 WhatsApp·LINE CTA 사용 — 한글 카카오 플로팅 숨김
+  (p) => p.startsWith("/en"),
+  (p) => p.startsWith("/ja"),
+  (p) => p.startsWith("/zh"),
 ];
 
 export function FloatingInquiryButton() {
