@@ -134,7 +134,7 @@ export async function getOverseasCards(
       "g.status = 'published'",
       "g.compliance_status = 'pass'",
     ];
-    const params: unknown[] = [lang];
+    const params: string[] = [lang];
     if (opts.kind === "blog") where.push("g.is_partner_content = false");
     if (opts.kind === "clinic") where.push("g.is_partner_content = true");
     if (opts.category) {
