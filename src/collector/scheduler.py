@@ -235,8 +235,17 @@ def daily_auto_content_job(
                 list(st.channels) if (st is not None and st.channels) else list(default_channels)
             )
             auto_publish = bool(getattr(st, "auto_publish", False)) if st is not None else False
+            _tgt_lang, _tgt_market = "ko", "domestic"  # Phase 3b — 기본 국내
             if target_keyword:
                 keyword_text = target_keyword.strip()
+                _row = (
+                    s.query(_Kw)
+                    .filter(_Kw.tenant_id == target_tenant_id, _Kw.text == keyword_text)
+                    .first()
+                )
+                if _row is not None:
+                    _tgt_lang = getattr(_row, "lang", "ko") or "ko"
+                    _tgt_market = getattr(_row, "market", "domestic") or "domestic"
             else:
                 kws = (
                     s.query(_Kw)
@@ -251,6 +260,8 @@ def daily_auto_content_job(
                     summary["errors"] += 1
                     return summary
                 keyword_text = kws[0].text
+                _tgt_lang = getattr(kws[0], "lang", "ko") or "ko"
+                _tgt_market = getattr(kws[0], "market", "domestic") or "domestic"
         channel = "blog_html" if "blog_html" in channels else channels[0]
         summary["tenants"] = 1
         logger.info(
@@ -263,7 +274,8 @@ def daily_auto_content_job(
         try:
             final_status = _generate_draft(
                 session_factory, target_tenant_id, keyword_text, channel,
-                auto_publish=auto_publish,
+                auto_publish=(auto_publish and _tgt_market == "domestic"),
+                lang=_tgt_lang, market=_tgt_market,
             )
             if final_status == "published":
                 summary["published"] += 1
@@ -367,19 +379,30 @@ def daily_auto_content_job(
                 .order_by(Keyword.id)
                 .all()
             )
-            keyword_texts = [k.text for k in kws]
-        if not keyword_texts:
+            # Phase 3b — 키워드별 lang/market 동반 로드. 해외 키워드는 그 언어로 생성.
+            #   (국내 ko 키워드는 기존과 동일. 영어 키워드를 ko로 쓰던 리그레션 차단.)
+            kw_rows = [
+                (
+                    k.text,
+                    (getattr(k, "lang", "ko") or "ko"),
+                    (getattr(k, "market", "domestic") or "domestic"),
+                )
+                for k in kws
+            ]
+        if not kw_rows:
             continue
 
         summary["tenants"] += 1
         ch_cycle = channels or default_channels
         for i in range(daily_count):
-            keyword_text = keyword_texts[i % len(keyword_texts)]
+            keyword_text, kw_lang, kw_market = kw_rows[i % len(kw_rows)]
             channel = ch_cycle[i % len(ch_cycle)]
             try:
                 final_status = _generate_draft(
                     session_factory, tenant_id, keyword_text, channel,
-                    auto_publish=auto_publish,
+                    # 해외는 항상 draft 로(검수 후 수동 발행) — 첫 해외 발행 안전장치
+                    auto_publish=(auto_publish and kw_market == "domestic"),
+                    lang=kw_lang, market=kw_market,
                 )
                 if final_status == "published":
                     summary["published"] += 1
