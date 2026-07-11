@@ -15,8 +15,11 @@ export const siteConfig = {
   shortlinkBase:
     process.env.NEXT_PUBLIC_SHORTLINK_BASE || "https://wecircle.co.kr/r",
   contact: {
-    // Round 108-e (2026-07-03) — wecircle 오픈카톡 상담 채널
+    // Round 108-e (2026-07-03) — wecircle 오픈카톡 상담 채널 (국내용)
     kakao: "https://open.kakao.com/o/spyAz9Bi",
+    // 해외(en/ja/zh)용 상담 채널 — 실제 링크는 Vercel env 로 주입(추후 제공). 미설정 시 placeholder.
+    whatsapp: process.env.NEXT_PUBLIC_WHATSAPP || "https://wa.me/",
+    line: process.env.NEXT_PUBLIC_LINE || "https://line.me/",
     naverPlace: "https://map.naver.com/p/search/%EB%A9%94%EB%94%94%EB%A7%B5/place/1091694610?c=15.00,0,0,0,dh&placePath=/home?bk_query=%EB%A9%94%EB%94%94%EB%A7%B5&entry=bmp&from=map&fromPanelNum=2&timestamp=202605242051&locale=ko&svcName=map_pcv5&searchText=%EB%A9%94%EB%94%94%EB%A7%B5",
     phone: process.env.NEXT_PUBLIC_PHONE || "02-0000-0000",
     medimapMain: "https://medi-map.co.kr",

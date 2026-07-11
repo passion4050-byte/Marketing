@@ -6,6 +6,7 @@ import {
   type PartnerPost,
 } from "@/lib/partners";
 import { absoluteUrl } from "@/lib/site";
+import { getGuides } from "@/lib/guides";
 
 // Round 12 (2026-05-26): sitemap.ts 는 Next.js metadata route — `dynamic` export
 //   가 webpack metadata-route-loader 와 충돌해 빌드 fail. 다시 revalidate=60 으로
@@ -88,11 +89,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
+  // 해외(overseas) — 홈 + 가이드 (en/ja/zh)
+  const overseasStatic: MetadataRoute.Sitemap = [
+    { url: absoluteUrl("/en"), lastModified: now, changeFrequency: "weekly", priority: 0.8 },
+    { url: absoluteUrl("/ja"), lastModified: now, changeFrequency: "weekly", priority: 0.8 },
+    { url: absoluteUrl("/zh"), lastModified: now, changeFrequency: "weekly", priority: 0.8 },
+    { url: absoluteUrl("/en/guides/best-skin-clinics-in-gangnam"), lastModified: now, changeFrequency: "weekly", priority: 0.8 },
+  ];
+  const [enG, jaG, zhG] = await Promise.all([
+    getGuides("en").catch(() => []),
+    getGuides("ja").catch(() => []),
+    getGuides("zh-Hans").catch(() => []),
+  ]);
+  const overseasGuides: MetadataRoute.Sitemap = [
+    ...enG.map((g) => ({ url: absoluteUrl(`/en/guides/${g.slug}`), lastModified: now, changeFrequency: "weekly" as const, priority: 0.8 })),
+    ...jaG.map((g) => ({ url: absoluteUrl(`/ja/guides/${g.slug}`), lastModified: now, changeFrequency: "weekly" as const, priority: 0.8 })),
+    ...zhG.map((g) => ({ url: absoluteUrl(`/zh/guides/${g.slug}`), lastModified: now, changeFrequency: "weekly" as const, priority: 0.8 })),
+  ];
+
   return [
     ...staticPages,
     ...partnerCategoryPages,
     ...postPages,
     ...partnerListPages,
     ...partnerPostPages,
+    ...overseasStatic,
+    ...overseasGuides,
   ];
 }

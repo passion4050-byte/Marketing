@@ -334,6 +334,8 @@ export default function ContentManagementPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<QueueItem['id'] | null>(null);
   const [preview, setPreview] = useState<QueueItem | null>(null);
+  // Round 138+ — 국내/해외 콘텐츠 필터 (market)
+  const [market, setMarket] = useState<'' | 'domestic' | 'overseas'>('');
   // Round 18 (2026-05-28): 미리보기 모달 안 인라인 편집 모드
   const [editing, setEditing] = useState<boolean>(false);
   const [editTitle, setEditTitle] = useState<string>('');
@@ -343,8 +345,9 @@ export default function ContentManagementPage() {
   const load = useCallback(async (which: TabKey | 'both' = 'both') => {
     setLoading(true);
     try {
+      const mq = market ? `&market=${market}` : '';
       const fetchOne = async (status: TabKey) => {
-        const res = await fetch(`/api/admin/content-queue?status=${status}`, { cache: 'no-store' });
+        const res = await fetch(`/api/admin/content-queue?status=${status}${mq}`, { cache: 'no-store' });
         const data = await res.json();
         if (!res.ok || !data.ok) throw new Error(data.error ?? 'fetch failed');
         return (data.items ?? []) as QueueItem[];
@@ -356,7 +359,7 @@ export default function ContentManagementPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [market]);
 
   useEffect(() => { void load('both'); }, [load]);
 
@@ -444,7 +447,19 @@ export default function ContentManagementPage() {
           <h1 className="admin-page-title">콘텐츠 관리</h1>
           <p className="admin-page-desc">검수 대기 + 발행 완료 콘텐츠를 편집하고 AI 인용 효과를 확인합니다</p>
         </div>
-        <button onClick={() => void load('both')} className="btn-secondary text-xs">새로고침</button>
+        <div className="flex items-center gap-2">
+          <select
+            value={market}
+            onChange={(e) => setMarket(e.target.value as '' | 'domestic' | 'overseas')}
+            className="h-8 rounded-lg border border-border bg-surface-base px-2 text-xs text-ink-soft"
+            aria-label="시장 필터"
+          >
+            <option value="">국내+해외 전체</option>
+            <option value="domestic">🇰🇷 국내 (한국어)</option>
+            <option value="overseas">🌏 해외 (en·ja·zh)</option>
+          </select>
+          <button onClick={() => void load('both')} className="btn-secondary text-xs">새로고침</button>
+        </div>
       </header>
 
       {/* === 탭 헤더 === */}

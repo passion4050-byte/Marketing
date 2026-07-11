@@ -1,0 +1,99 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { Globe, Check, ChevronDown } from "lucide-react";
+
+const LANGS = [
+  { code: "ko", label: "한국어", short: "KO" },
+  { code: "en", label: "English", short: "EN" },
+  { code: "ja", label: "日本語", short: "JA" },
+  { code: "zh", label: "中文", short: "ZH" },
+] as const;
+
+type LangCode = (typeof LANGS)[number]["code"];
+
+/**
+ * 현재 경로를 기준으로 각 언어의 대응 URL을 계산.
+ *   - 해외 가이드 `/{lang}/guides/{slug}` 는 같은 slug 로 언어 교체(ko 는 대응 가이드 없음 → 홈).
+ *   - 홈/기타 해외 페이지 → 해당 언어 홈.
+ *   - 국내(prefix 없음) → 해외는 각 언어 홈, ko 는 현재 경로 유지.
+ */
+function targetPath(pathname: string, code: LangCode): string {
+  const m = pathname.match(/^\/(en|ja|zh)(\/.*)?$/);
+  const curLang: LangCode = m ? (m[1] as LangCode) : "ko";
+  const rest = m ? m[2] || "" : "";
+  if (code === curLang) return pathname;
+
+  // 해외 가이드는 같은 slug 로 언어만 교체
+  if (rest.startsWith("/guides/")) {
+    return code === "ko" ? "/" : `/${code}${rest}`;
+  }
+  // 그 외: 각 언어 홈 (ko 는 루트)
+  return code === "ko" ? "/" : `/${code}`;
+}
+
+export function LanguageSwitcher({ variant = "light" }: { variant?: "light" | "dark" }) {
+  const pathname = usePathname() || "/";
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const m = pathname.match(/^\/(en|ja|zh)(\/.*)?$/);
+  const curLang: LangCode = m ? (m[1] as LangCode) : "ko";
+  const current = LANGS.find((l) => l.code === curLang) ?? LANGS[0];
+
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  const trigger =
+    variant === "dark"
+      ? "border-white/25 text-white/90 hover:bg-white/10"
+      : "border-stone-300 text-stone-600 hover:bg-stone-100";
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${trigger}`}
+      >
+        <Globe className="h-3.5 w-3.5" />
+        {current.short}
+        <ChevronDown className={`h-3 w-3 transition ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div
+          role="listbox"
+          className="absolute right-0 z-50 mt-2 w-40 overflow-hidden rounded-xl border border-stone-200 bg-white py-1 shadow-lg"
+        >
+          {LANGS.map((l) => {
+            const active = l.code === curLang;
+            return (
+              <Link
+                key={l.code}
+                href={targetPath(pathname, l.code)}
+                onClick={() => setOpen(false)}
+                className={`flex items-center justify-between px-3 py-2 text-sm transition hover:bg-stone-50 ${
+                  active ? "font-bold text-stone-900" : "text-stone-600"
+                }`}
+                lang={l.code}
+                hrefLang={l.code === "zh" ? "zh-Hans" : l.code}
+              >
+                {l.label}
+                {active && <Check className="h-3.5 w-3.5 text-[#1B68FF]" />}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

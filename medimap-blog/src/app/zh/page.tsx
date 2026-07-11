@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { siteConfig } from "@/lib/site";
+import { ContactButtons } from "@/components/ContactButtons";
 
 export const metadata: Metadata = {
   title: "让ChatGPT、Perplexity、Gemini引用您的韩国诊所",
@@ -9,7 +9,6 @@ export const metadata: Metadata = {
   alternates: { canonical: "/zh" },
 };
 
-const KAKAO = siteConfig.contact.kakao;
 const SPECIALTIES = ["皮肤科・医美", "整形外科（鼻・眼・轮廓）", "视力矫正（SMILE・LASIK）", "植发（FUE）", "牙科（种植牙）", "体检・抗衰老"];
 
 export default function ZhHome() {
@@ -27,10 +26,8 @@ export default function ZhHome() {
           <p className="mt-6 max-w-2xl text-lg leading-relaxed text-stone-600">
             患者不再翻十条链接，而是询问ChatGPT、Perplexity和Gemini。WECIRCLE发布英语、日语、中文内容，让您在Google排名靠前，并<strong className="text-stone-900">被AI引用</strong>——而且我们计量每一次引用。
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <a href={KAKAO} target="_blank" rel="noopener noreferrer" className="rounded-full bg-[#1B68FF] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#1550cc]">
-              预约免费咨询 →
-            </a>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <ContactButtons waLabel="预约咨询" />
             <Link href="/zh/guides/smile-lasik-in-korea" className="rounded-full border border-stone-300 px-6 py-3 text-sm font-bold text-stone-800 transition hover:border-stone-900">
               查看样本
             </Link>
@@ -59,7 +56,7 @@ export default function ZhHome() {
         <div className="rounded-3xl bg-stone-950 px-8 py-14 text-center text-white md:px-16">
           <h2 className="text-3xl font-black tracking-tight md:text-4xl">成为AI推荐的诊所。</h2>
           <p className="mx-auto mt-4 max-w-xl text-stone-300">20分钟通话，我们将展示目前哪些竞争对手正被AI引用。</p>
-          <a href={KAKAO} target="_blank" rel="noopener noreferrer" className="mt-8 inline-block rounded-full bg-[#1B68FF] px-8 py-4 text-sm font-bold text-white transition hover:bg-[#1550cc]">预约免费咨询 →</a>
+          <ContactButtons waLabel="预约咨询" size="lg" className="mt-8 justify-center" />
         </div>
       </section>
     </>

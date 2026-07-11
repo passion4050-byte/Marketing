@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { JsonLd } from "@/components/JsonLd";
+import { ContactButtons } from "@/components/ContactButtons";
 import { siteConfig } from "@/lib/site";
 import type { Guide } from "@/lib/guides";
 
@@ -28,7 +29,6 @@ export function GuideArticle({
   labels: GuideLabels;
 }) {
   const base = `${siteConfig.url}/${langPath}/guides/${guide.slug}`;
-  const KAKAO = siteConfig.contact.kakao;
 
   const articleLd = {
     "@context": "https://schema.org",
@@ -117,14 +117,7 @@ export function GuideArticle({
       <div className="mt-14 rounded-2xl bg-stone-950 px-6 py-10 text-center text-white">
         <h2 className="text-2xl font-black">{labels.ctaTitle}</h2>
         <p className="mx-auto mt-3 max-w-md text-sm text-stone-300">{labels.ctaBody}</p>
-        <a
-          href={KAKAO}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-6 inline-block rounded-full bg-[#1B68FF] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#1550cc]"
-        >
-          {labels.ctaBtn}
-        </a>
+        <ContactButtons waLabel={labels.ctaBtn} className="mt-6 justify-center" />
       </div>
     </article>
   );

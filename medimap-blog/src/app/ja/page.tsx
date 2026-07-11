@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { siteConfig } from "@/lib/site";
+import { ContactButtons } from "@/components/ContactButtons";
 
 export const metadata: Metadata = {
   title: "韓国クリニックをChatGPT・Perplexity・Geminiに引用させる",
@@ -9,7 +9,6 @@ export const metadata: Metadata = {
   alternates: { canonical: "/ja" },
 };
 
-const KAKAO = siteConfig.contact.kakao;
 const SPECIALTIES = ["皮膚科・美容皮膚", "美容外科（鼻・目・輪郭）", "視力矯正（SMILE・LASIK）", "植毛（FUE）", "歯科（インプラント）", "健康診断・アンチエイジング"];
 
 export default function JaHome() {
@@ -27,10 +26,8 @@ export default function JaHome() {
           <p className="mt-6 max-w-2xl text-lg leading-relaxed text-stone-600">
             患者はもう10件のリンクをスクロールしません。ChatGPT・Perplexity・Geminiに聞きます。WECIRCLEは英語・日本語・中国語のコンテンツを発信し、Googleで上位表示され、<strong className="text-stone-900">AIに引用される</strong>ようにします。そして、その引用を計測します。
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <a href={KAKAO} target="_blank" rel="noopener noreferrer" className="rounded-full bg-[#1B68FF] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#1550cc]">
-              無料相談を予約 →
-            </a>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <ContactButtons waLabel="相談する" />
             <Link href="/ja/guides/smile-lasik-in-korea" className="rounded-full border border-stone-300 px-6 py-3 text-sm font-bold text-stone-800 transition hover:border-stone-900">
               サンプルを見る
             </Link>
@@ -59,7 +56,7 @@ export default function JaHome() {
         <div className="rounded-3xl bg-stone-950 px-8 py-14 text-center text-white md:px-16">
           <h2 className="text-3xl font-black tracking-tight md:text-4xl">AIに選ばれるクリニックへ。</h2>
           <p className="mx-auto mt-4 max-w-xl text-stone-300">20分の相談で、今どの競合がAIに引用されているかをお見せします。</p>
-          <a href={KAKAO} target="_blank" rel="noopener noreferrer" className="mt-8 inline-block rounded-full bg-[#1B68FF] px-8 py-4 text-sm font-bold text-white transition hover:bg-[#1550cc]">無料相談を予約 →</a>
+          <ContactButtons waLabel="相談する" size="lg" className="mt-8 justify-center" />
         </div>
       </section>
     </>

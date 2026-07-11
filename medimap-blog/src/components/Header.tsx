@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { siteConfig, navItems } from "@/lib/site";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 /**
  * Round 111 v3 (2026-07-02) — Editorial masthead style header.
@@ -50,6 +51,7 @@ export function Header() {
               {item.label}
             </Link>
           ))}
+          <LanguageSwitcher />
           <span className="mx-3 h-4 w-px bg-stone-300" aria-hidden />
           <Link
             href={siteConfig.contact.kakao}

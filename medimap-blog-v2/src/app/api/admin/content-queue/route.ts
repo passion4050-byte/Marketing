@@ -42,16 +42,27 @@ export async function GET(req: NextRequest) {
   // → 별도 query 로 분리. tenants 가 없어도 generated_contents 는 항상 반환.
   // 진단: debug-env endpoint 의 단순 query 는 1건 반환 / content-queue 는 0건 반환
   //       → tenants embed 가 차이의 원인.
-  const query = sb
+  // 해외 콘텐츠 필터 (Round 138+): market=domestic|overseas, lang=ko|en|ja|zh-Hans
+  const marketFilter = url.searchParams.get('market'); // null = 전체
+  const langFilter = url.searchParams.get('lang'); // null = 전체
+
+  let query = sb
     .from('generated_contents')
     .select(`
       id, tenant_id, channel, keyword_text, body, title, excerpt, slug,
       status, compliance_status, compliance_report, llm_provider,
       cover_image_url, cover_image_alt,
-      is_partner_content, partner_category, blog_category,
+      is_partner_content, partner_category, blog_category, lang, market,
       created_at, updated_at, published_at
     `)
     .in('status', statusFilter);
+
+  if (marketFilter === 'domestic' || marketFilter === 'overseas') {
+    query = query.eq('market', marketFilter);
+  }
+  if (langFilter) {
+    query = query.eq('lang', langFilter);
+  }
 
   // Round 25 (2026-05-29): is_partner_content=true 필터 제거.
   // 자사 인사이트 글(tenant=메디맵, is_partner_content=false) 도 콘텐츠 완료 탭에

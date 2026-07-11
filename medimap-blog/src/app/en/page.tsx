@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd } from "@/components/JsonLd";
+import { ContactButtons } from "@/components/ContactButtons";
 import { siteConfig } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -9,8 +10,6 @@ export const metadata: Metadata = {
     "Foreign patients now ask AI for the best clinics in Korea. WECIRCLE publishes English, Japanese & Chinese GEO/AEO content that ranks on Google and gets your clinic cited by AI — measured, not guessed.",
   alternates: { canonical: "/en" },
 };
-
-const KAKAO = siteConfig.contact.kakao;
 
 const STEPS = [
   {
@@ -93,15 +92,8 @@ export default function EnHomePage() {
             <strong className="text-stone-900">and gets your clinic cited by AI</strong> — and we
             measure every mention.
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <a
-              href={KAKAO}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-full bg-[#1B68FF] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#1550cc]"
-            >
-              Book a strategy call →
-            </a>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <ContactButtons waLabel="Book a call" />
             <Link
               href="/en/guides/best-skin-clinics-in-gangnam"
               className="rounded-full border border-stone-300 px-6 py-3 text-sm font-bold text-stone-800 transition hover:border-stone-900"
@@ -215,14 +207,7 @@ export default function EnHomePage() {
             Book a 20-minute call. We&apos;ll show you which competitors AI cites today for your
             treatments — and how we make it you.
           </p>
-          <a
-            href={KAKAO}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-8 inline-block rounded-full bg-[#1B68FF] px-8 py-4 text-sm font-bold text-white transition hover:bg-[#1550cc]"
-          >
-            Book a strategy call →
-          </a>
+          <ContactButtons waLabel="Book a call" size="lg" className="mt-8 justify-center" />
         </div>
       </section>
     </>
