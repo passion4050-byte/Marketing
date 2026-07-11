@@ -17,7 +17,12 @@ export function PublicChrome({
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const isPortal = (pathname?.startsWith("/admin") || pathname?.startsWith("/client")) ?? false;
+  // /en (해외 영문 버전)은 자체 영문 header/footer(/en/layout.tsx)를 쓰므로 한국어 크롬 숨김.
+  const isPortal =
+    (pathname?.startsWith("/admin") ||
+      pathname?.startsWith("/client") ||
+      pathname?.startsWith("/en")) ??
+    false;
   return (
     <>
       {!isPortal && header}
