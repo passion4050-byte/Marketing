@@ -11,12 +11,12 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const guide = await getGuide("en", slug);
-  if (!guide) return { title: "Guide — WECIRCLE Global" };
+  const guide = await getGuide("ja", slug);
+  if (!guide) return { title: "ガイド — WECIRCLE Global" };
   return {
     title: guide.title,
     description: guide.excerpt ?? undefined,
-    alternates: { canonical: `/en/guides/${slug}` },
+    alternates: { canonical: `/ja/guides/${slug}` },
     openGraph: {
       type: "article",
       title: guide.title,
@@ -26,19 +26,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-const EN_LABELS: GuideLabels = {
-  guides: "Guides",
-  faq: "Frequently asked questions",
-  updated: "Updated",
-  ctaTitle: "Want your clinic featured & cited by AI?",
+const JA_LABELS: GuideLabels = {
+  guides: "ガイド",
+  faq: "よくある質問",
+  updated: "更新日",
+  ctaTitle: "あなたのクリニックをAIに引用させませんか？",
   ctaBody:
-    "This is the kind of guide WECIRCLE publishes so ChatGPT, Perplexity and Gemini recommend partner clinics to foreign patients.",
-  ctaBtn: "Talk to WECIRCLE →",
+    "これはWECIRCLEが発信するガイドの一例です。ChatGPT・Perplexity・Geminiが外国人患者に提携クリニックを推薦するよう設計しています。",
+  ctaBtn: "WECIRCLEに相談 →",
 };
 
-export default async function EnGuidePage({ params }: Props) {
+export default async function JaGuidePage({ params }: Props) {
   const { slug } = await params;
-  const guide = await getGuide("en", slug);
+  const guide = await getGuide("ja", slug);
   if (!guide) notFound();
-  return <GuideArticle guide={guide} langPath="en" inLang="en" labels={EN_LABELS} />;
+  return <GuideArticle guide={guide} langPath="ja" inLang="ja" labels={JA_LABELS} />;
 }

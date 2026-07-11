@@ -18,6 +18,8 @@ export interface Guide {
   faq: GuideFaq[];
   lang: string;
   published_at: string | null;
+  cover_image_url: string | null;
+  cover_image_alt: string | null;
 }
 
 export interface GuideCard {
@@ -46,7 +48,7 @@ export async function getGuide(lang: string, slug: string): Promise<Guide | null
   if (!sql) return null;
   try {
     const rows = await sql.unsafe<Array<Record<string, unknown>>>(
-      `SELECT slug, title, excerpt, body, raw_qa_pairs, lang, published_at
+      `SELECT slug, title, excerpt, body, raw_qa_pairs, lang, published_at, cover_image_url, cover_image_alt
        FROM generated_contents
        WHERE lang = $1
          AND market = 'overseas'
@@ -66,6 +68,8 @@ export async function getGuide(lang: string, slug: string): Promise<Guide | null
       faq: normFaq(r.raw_qa_pairs),
       lang: String(r.lang ?? lang),
       published_at: r.published_at ? String(r.published_at) : null,
+      cover_image_url: (r.cover_image_url as string) ?? null,
+      cover_image_alt: (r.cover_image_alt as string) ?? null,
     };
   } catch {
     return null;

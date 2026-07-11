@@ -11,12 +11,12 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const guide = await getGuide("en", slug);
-  if (!guide) return { title: "Guide — WECIRCLE Global" };
+  const guide = await getGuide("zh-Hans", slug);
+  if (!guide) return { title: "指南 — WECIRCLE Global" };
   return {
     title: guide.title,
     description: guide.excerpt ?? undefined,
-    alternates: { canonical: `/en/guides/${slug}` },
+    alternates: { canonical: `/zh/guides/${slug}` },
     openGraph: {
       type: "article",
       title: guide.title,
@@ -26,19 +26,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-const EN_LABELS: GuideLabels = {
-  guides: "Guides",
-  faq: "Frequently asked questions",
-  updated: "Updated",
-  ctaTitle: "Want your clinic featured & cited by AI?",
+const ZH_LABELS: GuideLabels = {
+  guides: "指南",
+  faq: "常见问题",
+  updated: "更新于",
+  ctaTitle: "想让您的诊所被AI引用吗？",
   ctaBody:
-    "This is the kind of guide WECIRCLE publishes so ChatGPT, Perplexity and Gemini recommend partner clinics to foreign patients.",
-  ctaBtn: "Talk to WECIRCLE →",
+    "这是WECIRCLE发布的指南示例。我们让ChatGPT、Perplexity和Gemini向外国患者推荐合作诊所。",
+  ctaBtn: "联系 WECIRCLE →",
 };
 
-export default async function EnGuidePage({ params }: Props) {
+export default async function ZhGuidePage({ params }: Props) {
   const { slug } = await params;
-  const guide = await getGuide("en", slug);
+  const guide = await getGuide("zh-Hans", slug);
   if (!guide) notFound();
-  return <GuideArticle guide={guide} langPath="en" inLang="en" labels={EN_LABELS} />;
+  return <GuideArticle guide={guide} langPath="zh" inLang="zh-Hans" labels={ZH_LABELS} />;
 }

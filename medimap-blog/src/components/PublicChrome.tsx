@@ -21,7 +21,9 @@ export function PublicChrome({
   const isPortal =
     (pathname?.startsWith("/admin") ||
       pathname?.startsWith("/client") ||
-      pathname?.startsWith("/en")) ??
+      pathname?.startsWith("/en") ||
+      pathname?.startsWith("/ja") ||
+      pathname?.startsWith("/zh")) ??
     false;
   return (
     <>
