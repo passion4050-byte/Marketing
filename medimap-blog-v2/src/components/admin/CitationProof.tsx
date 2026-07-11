@@ -72,14 +72,24 @@ export function CitationProof() {
     return () => window.removeEventListener(SCOPE_EVENT, onEvt);
   }, []);
 
+  // 병원 드롭다운 = "이 스코프에서 측정 데이터가 실제로 있는 병원"만.
+  // 데이터 없는 병원을 고르면 무조건 공백이라 혼란을 주므로 애초에 안 보여준다.
   useEffect(() => {
-    fetch('/api/admin/tenants', { cache: 'no-store' })
+    const langParam = scopeToLang(scope);
+    const qs = new URLSearchParams();
+    if (langParam) qs.set('lang', langParam);
+    fetch(`/api/admin/citation-proof-tenants?${qs.toString()}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then((j) => {
-        if (j?.ok) setTenants((j.tenants ?? []).map((t: { id: number; name: string }) => ({ id: t.id, name: t.name })));
+        const list: Array<{ id: number; name: string }> = j?.ok
+          ? (j.tenants ?? []).map((t: { id: number; name: string }) => ({ id: t.id, name: t.name }))
+          : [];
+        setTenants(list);
+        // 스코프가 바뀌어 현재 선택 병원이 새 목록에 없으면 '전체 병원'으로 리셋.
+        setTenant((cur) => (cur && !list.some((t) => String(t.id) === cur) ? '' : cur));
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => setTenants([]));
+  }, [scope]);
 
   const load = useCallback(async () => {
     setItems(null);
@@ -110,10 +120,10 @@ export function CitationProof() {
         <div>
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
             <Quote className="h-4 w-4 text-ink-soft" />
-            AI 인용 증거 — 실제 답변 캡처
+            AI 인용 내용 — 실제 답변 캡처
           </h2>
           <div className="mt-1 text-[11px] text-ink-muted">
-            AI 가 실제로 답한 원문에서 병원이 언급된 순간 — 원장 미팅용 증거 카드
+            AI 가 실제로 답한 원문에서 병원이 언급된 순간
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -167,8 +177,10 @@ export function CitationProof() {
       ) : items.length === 0 ? (
         <div className="px-5 py-10 text-center text-xs text-ink-muted">
           {onlySelf
-            ? '아직 AI 가 우리(위서클) 콘텐츠를 출처로 인용한 답변이 없습니다 — 이게 바로 우리가 만들려는 것(콘텐츠 발행·최적화로 여기를 채웁니다).'
-            : '이 조건에서 아직 인용 증거가 없습니다. (측정 cron 누적 후 표시)'}
+            ? '아직 AI 가 우리(위서클) 콘텐츠를 출처로 인용한 답변이 없습니다.'
+            : tenants.length === 0 && scopeToLang(scope)
+              ? '이 언어(스코프)의 AI 인용 측정 데이터가 아직 없습니다 — 측정 cron 누적 후 표시됩니다.'
+              : '이 조건에서 아직 인용 증거가 없습니다. (측정 cron 누적 후 표시)'}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2">

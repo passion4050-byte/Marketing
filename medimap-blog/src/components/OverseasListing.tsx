@@ -41,7 +41,7 @@ export function OverseasListing({
                   src={c.cover_image_url}
                   alt={c.title}
                   className="aspect-[16/9] w-full object-cover"
-                  loading="lazy"
+                  decoding="async"
                 />
               )}
               <div className="flex flex-1 flex-col p-5">
