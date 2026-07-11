@@ -9,7 +9,7 @@
  *   - [📄 우리 콘텐츠 출처만] AI가 우리(위서클) 콘텐츠를 근거로 답했다(제품의 진짜 목표·현재 희소).
  * chatgpt.com 캡처가 아니라 DB 원본 답변 → 항상 재현·ToS 무관.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BadgeCheck, FileText, Loader2, Quote, ChevronDown, ChevronRight } from 'lucide-react';
 import { readScope, SCOPE_EVENT, scopeToLang } from '@/components/admin/ScopeSelector';
 
@@ -91,7 +91,9 @@ export function CitationProof() {
       .catch(() => setTenants([]));
   }, [scope]);
 
+  const reqSeq = useRef(0);
   const load = useCallback(async () => {
+    const seq = ++reqSeq.current;
     setItems(null);
     setErr(null);
     const langParam = scopeToLang(scope);
@@ -103,9 +105,11 @@ export function CitationProof() {
     try {
       const r = await fetch(`/api/admin/citation-proof?${qs.toString()}`, { cache: 'no-store' });
       const j = await r.json();
+      if (seq !== reqSeq.current) return; // 스코프/필터가 그새 바뀜 — stale 응답 무시
       if (!r.ok || !j.ok) throw new Error(j.error || '불러오기 실패');
       setItems(j.items ?? []);
     } catch (e) {
+      if (seq !== reqSeq.current) return;
       setErr(e instanceof Error ? e.message : '오류');
     }
   }, [scope, tenant, onlySelf]);

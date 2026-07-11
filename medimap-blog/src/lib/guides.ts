@@ -201,3 +201,42 @@ export async function getClinicContent(
     return null;
   }
 }
+
+// ── /{lang}/clinics 통합 인덱스: 콘텐츠 있는 파트너 병원 목록 ──
+
+export interface OverseasPartner {
+  partner_category: string;
+  partner_slug: string;
+  name: string;
+  count: number;
+  cover_image_url: string | null;
+}
+
+/** 해당 언어에 파트너 콘텐츠가 실제로 있는 병원만 (대표 커버·건수 포함). */
+export async function getOverseasPartners(lang: string): Promise<OverseasPartner[]> {
+  const sql = getSql();
+  if (!sql) return [];
+  try {
+    const rows = await sql.unsafe<Array<Record<string, unknown>>>(
+      `SELECT g.partner_category, t.partner_slug, t.name,
+              count(*) AS cnt,
+              (array_agg(g.cover_image_url ORDER BY COALESCE(g.published_at, g.created_at) DESC))[1] AS cover_image_url
+       FROM generated_contents g JOIN tenants t ON t.id = g.tenant_id
+       WHERE g.lang = $1 AND g.market = 'overseas' AND g.status = 'published'
+         AND g.compliance_status = 'pass' AND g.is_partner_content = true
+         AND g.partner_category IS NOT NULL AND t.partner_slug IS NOT NULL
+       GROUP BY g.partner_category, t.partner_slug, t.name
+       ORDER BY cnt DESC`,
+      [lang]
+    );
+    return rows.map((r) => ({
+      partner_category: String(r.partner_category),
+      partner_slug: String(r.partner_slug),
+      name: String(r.name ?? r.partner_slug),
+      count: Number(r.cnt ?? 0),
+      cover_image_url: (r.cover_image_url as string) ?? null,
+    }));
+  } catch {
+    return [];
+  }
+}

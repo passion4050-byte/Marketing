@@ -101,6 +101,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...OVERSEAS_LANGS.flatMap((l) => [
       { url: absoluteUrl(`/${l.code}`), lastModified: now, changeFrequency: "weekly" as const, priority: 0.8 },
       { url: absoluteUrl(`/${l.code}/blog`), lastModified: now, changeFrequency: "daily" as const, priority: 0.8 },
+      { url: absoluteUrl(`/${l.code}/clinics`), lastModified: now, changeFrequency: "daily" as const, priority: 0.8 },
     ]),
     { url: absoluteUrl("/en/guides/best-skin-clinics-in-gangnam"), lastModified: now, changeFrequency: "weekly", priority: 0.8 },
   ];
