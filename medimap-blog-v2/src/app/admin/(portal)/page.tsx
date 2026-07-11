@@ -18,8 +18,8 @@ import Link from 'next/link';
 import { getServerClient } from '@/lib/supabase';
 import { cn } from '@/lib/cn';
 import { ActionRecommendations } from '@/components/admin/ActionRecommendations';
-import { ContentCompetitiveness } from '@/components/admin/ContentCompetitiveness';
-import { MarketShareDiagnosis } from '@/components/admin/MarketShareDiagnosis';
+import { ContentCompetitivenessScoped } from '@/components/admin/ContentCompetitivenessScoped';
+import { MarketShareDiagnosisScoped } from '@/components/admin/MarketShareDiagnosisScoped';
 import { PartnerLeaderboard } from '@/components/admin/PartnerLeaderboard';
 import { CrawlerLogWidget } from '@/components/admin/CrawlerLogWidget';
 import { KakaoFunnelWidget } from '@/components/admin/KakaoFunnelWidget';
@@ -1140,10 +1140,10 @@ export default async function AdminDashboardPage({
             />
           </div>
           <div className="[&_section]:!mt-0">
-            <MarketShareDiagnosis
-              domains={d.domainDistribution ?? []}
-              medimapCitations={d.medimapDomainCitations ?? 0}
-              totalCitations={d.totalDomainCitations ?? 0}
+            <MarketShareDiagnosisScoped
+              initialDomains={d.domainDistribution ?? []}
+              initialMedimap={d.medimapDomainCitations ?? 0}
+              initialTotal={d.totalDomainCitations ?? 0}
               daysWindow={30}
             />
           </div>
@@ -1171,7 +1171,7 @@ export default async function AdminDashboardPage({
             clientRanking={d.clientRanking}
             keywordGrounding={d.keywordGrounding}
           />
-          <ContentCompetitiveness contents={d.topContents ?? []} />
+          <ContentCompetitivenessScoped initialContents={d.topContents ?? []} />
           <ContentPatternStats stats={d.structureStats} />
           <PartnerLeaderboard />
         </div>
