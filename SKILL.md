@@ -4853,6 +4853,13 @@ Round 104-c 사무실 세션에서 이미지 문제 조치됨 (`unsplash_client.
 
 ---
 
+## 📌 Round 133~140 이후 — 일자별 스냅샷으로 이관
+이 누적본은 Round 132(2026-07-09)까지. 이후 세션 컨텍스트는 `.claude/skills/geo-snapshot/geoYYMMDD.md`(설치 스킬 `geo-snapshot-YYMMDD`)에 있음:
+- **geo260709 / geo260710** — Round 133~138 (스캐너 영업 앞문, 실측 대시보드 교체, 출처 인용 북극성 지표, 콘텐츠 밀도 루틴, PostgREST 1000행 한도 근본수정, 어드민 페이지네이션).
+- **geo260712 (최신)** — Round 139~140. 해외(EN/JA/ZH) 브랜치 + 전수조사. 🔴 최대 교훈: **esbuild 게이트는 타입 못 잡음** — `guides.ts unknown[]` 타입에러가 해외 라우트 배포를 막았고 esbuild는 통과시킴. 빌드-크리티컬 타입변경은 격리 `tsc` 또는 Vercel 빌드 Ready로 실측할 것. 그 외 해외 카드 커버 lazy 버그, 어드민 스코프 카드 연동(citation_proof_tenants·market_share_domains·top_cited_contents RPC), `/{lang}/clinics` 인덱스, ja/zh 404, sitemap canonical.
+
+---
+
 # Round 139 (2026-07-11) — 해외(EN/JA/ZH) 상품·측정·발행·대시보드 언어 통합
 
 > 상세 스냅샷: **geo-snapshot-260711**. 한 줄 요약: `tenant_products`(테넌트×market×lang)를 단일 진실원으로, 상품 신청이 **측정→CCS 대시보드→자동발행**을 언어별로 구동하는 파이프라인을 완성. 북극성 = **CCS(콘텐츠 인용 점유율)**.
