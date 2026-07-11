@@ -47,7 +47,30 @@ def daily_measurement_job(session_factory) -> dict:
     summary = {"keywords": 0, "success": 0, "failed": 0, "mentions": 0}
 
     with session_factory() as s:
-        active_keywords = s.query(Keyword).filter(Keyword.is_active == True).all()  # noqa: E712
+        # Phase 3b — active 상품(tenant_products) 기준 게이팅.
+        #   ⚠️ 백워드 안전: tenant_products 미도입(행 0) 상태에서 국내 측정이 멈추면 안 됨.
+        #   규칙: 국내(market=domestic 또는 lang=ko)는 항상 측정(legacy).
+        #         해외(lang!=ko)는 active tenant_product 있는 (tenant,market,lang) 만 측정(비용통제).
+        from sqlalchemy import text as _sql_text
+        try:
+            _prod_rows = s.execute(_sql_text(
+                "SELECT tenant_id, market, lang FROM tenant_products WHERE status = 'active'"
+            )).fetchall()
+            active_products = {(r[0], r[1], r[2]) for r in _prod_rows}
+        except Exception:  # pragma: no cover — 테이블 부재 등
+            active_products = set()
+
+        def _measure_ok(k) -> bool:
+            lang = (getattr(k, "lang", "ko") or "ko")
+            market = (getattr(k, "market", "domestic") or "domestic")
+            if market == "domestic" or lang == "ko":
+                return True
+            return (k.tenant_id, market, lang) in active_products
+
+        active_keywords = [
+            k for k in s.query(Keyword).filter(Keyword.is_active == True).all()  # noqa: E712
+            if _measure_ok(k)
+        ]
         # detach — 다음 with 블록에서 expire 될까봐 dict 로 dump
         kw_data = [(k.id, k.tenant_id, k.text, k.target_brand) for k in active_keywords]
 
