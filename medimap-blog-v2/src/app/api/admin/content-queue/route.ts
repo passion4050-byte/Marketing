@@ -94,11 +94,15 @@ export async function GET(req: NextRequest) {
   const items = (data ?? []).map((r: Row) => {
     const t = tenantMap.get(r.tenant_id) ?? null;
     // Round 25 (2026-05-29): 자사 글은 /blog/{slug} 로, 파트너 글은 /with-partners/.../{slug} 로 live_url 생성
+    // 해외(market=overseas)는 /{lang}/guides/{slug} 로 렌더(getGuide, channel 무관). zh-Hans/Hant → /zh.
+    const langPath = r.lang === 'zh-Hans' || r.lang === 'zh-Hant' ? 'zh' : r.lang;
     const liveUrl =
       r.status === 'published' && r.slug
-        ? r.is_partner_content && r.partner_category && t?.partner_slug
-          ? `${PUBLIC_BLOG_BASE}/with-partners/${r.partner_category}/${t.partner_slug}/${r.slug}`
-          : `${PUBLIC_BLOG_BASE}/blog/${r.slug}`
+        ? r.market === 'overseas'
+          ? `${PUBLIC_BLOG_BASE}/${langPath}/guides/${r.slug}`
+          : r.is_partner_content && r.partner_category && t?.partner_slug
+            ? `${PUBLIC_BLOG_BASE}/with-partners/${r.partner_category}/${t.partner_slug}/${r.slug}`
+            : `${PUBLIC_BLOG_BASE}/blog/${r.slug}`
         : null;
     return {
       id: r.id,
