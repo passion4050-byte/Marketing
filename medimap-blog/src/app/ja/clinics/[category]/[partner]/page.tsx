@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getOverseasCards } from "@/lib/guides";
 import { OverseasListing } from "@/components/OverseasListing";
+import { OverseasClinicSchema } from "@/components/OverseasClinicSchema";
 
 export const revalidate = 60;
 
@@ -17,6 +18,8 @@ export default async function JaClinicPartnerPage({ params }: Props) {
   const { category, partner } = await params;
   const cards = await getOverseasCards("ja", { kind: "clinic", category, partner });
   return (
+    <>
+    <OverseasClinicSchema partnerSlug={partner} lang="ja" />
     <OverseasListing
       title="提携クリニックのコンテンツ"
       subtitle={`${partner} を紹介するガイド — WECIRCLE が発信する、AIに引用される外国人向けコンテンツ。`}
@@ -24,5 +27,6 @@ export default async function JaClinicPartnerPage({ params }: Props) {
       hrefFor={(c) => `/ja/clinics/${category}/${partner}/${c.slug}`}
       empty="クリニックのコンテンツはまだありません。"
     />
+    </>
   );
 }

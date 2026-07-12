@@ -265,3 +265,41 @@ export async function getOverseasPartners(lang: string): Promise<OverseasPartner
     return [];
   }
 }
+
+// ── 파트너 병원 엔티티 정보 (MedicalClinic 스키마용) ──
+
+export interface PartnerClinicInfo {
+  name: string;
+  homepage: string | null;
+  address: string | null;
+  region: string | null;
+  phone: string | null;
+  domain_category: string | null;
+  partner_slug: string;
+}
+
+/** partner_slug 로 병원 엔티티 메타 조회 (구조화 데이터·상세용). */
+export async function getPartnerBySlug(slug: string): Promise<PartnerClinicInfo | null> {
+  const sql = getSql();
+  if (!sql) return null;
+  try {
+    const rows = await sql.unsafe<Array<Record<string, unknown>>>(
+      `SELECT name, homepage, address, region, phone, domain_category, partner_slug
+       FROM tenants WHERE partner_slug = $1 LIMIT 1`,
+      [slug]
+    );
+    const r = rows[0];
+    if (!r) return null;
+    return {
+      name: String(r.name ?? slug),
+      homepage: (r.homepage as string) ?? null,
+      address: (r.address as string) ?? null,
+      region: (r.region as string) ?? null,
+      phone: (r.phone as string) ?? null,
+      domain_category: (r.domain_category as string) ?? null,
+      partner_slug: String(r.partner_slug ?? slug),
+    };
+  } catch {
+    return null;
+  }
+}
