@@ -136,6 +136,15 @@ async function fetchDashboardData(opts: {
   const kwLang = scopeToKeywordLang(scope);
   const contentLang = scopeToContentLang(scope);
 
+  // 스코프가 언어별이면 해당 lang 의 keyword_id 집합을 미리 계산.
+  // 모든 측정(mentions/queries) 패널에 `.in('keyword_id', langKwIds)` 로 연쇄 필터.
+  // (빈 배열이면 해당 언어 데이터 없음 → 패널 빈 값. null = 통합, 필터 없음.)
+  let langKwIds: number[] | null = null;
+  if (kwLang) {
+    const { data: kwRows } = await sb.from('keywords').select('id').eq('lang', kwLang);
+    langKwIds = (kwRows ?? []).map((k: { id: number }) => k.id);
+  }
+
   // 1. 활성 클라이언트 — 자사 제외 tenants 카운트
   const { count: clientCount } = await sb
     .from('tenants')
@@ -249,12 +258,14 @@ async function fetchDashboardData(opts: {
   }
 
   // 5. 최근 검수 대기 Top 3 — draft/pending top 3 + tenant 이름 (fix 12 패턴: 별도 fetch)
-  const { data: draftRows } = await sb
+  let draftQ = sb
     .from('generated_contents')
     .select('id, tenant_id, title, keyword_text, llm_provider, compliance_status')
     .in('status', ['draft', 'pending'])
     .order('created_at', { ascending: false })
     .limit(3);
+  if (contentLang) draftQ = draftQ.eq('lang', contentLang);
+  const { data: draftRows } = await draftQ;
 
   const tenantIds = Array.from(
     new Set((draftRows ?? []).map((r: DraftRow) => r.tenant_id).filter((x) => x != null))
@@ -294,7 +305,7 @@ async function fetchDashboardData(opts: {
       .gte('created_at', yesterday)
       .eq('is_target', true)
       .order('created_at', { ascending: false })
-      .limit(3);
+      .limit(langKwIds ? 60 : 3);
     if (mentions && mentions.length > 0) {
       const respIds = Array.from(new Set(mentions.map((m: { response_id: number }) => m.response_id)));
       const { data: responses } = await sb
@@ -307,30 +318,39 @@ async function fetchDashboardData(opts: {
       const queryIds = Array.from(new Set(Array.from(respMap.values())));
       const { data: queries } = await sb
         .from('queries')
-        .select('id, prompt, engine')
+        .select('id, prompt, engine, keyword_id')
         .in('id', queryIds);
-      const queryMap = new Map<number, { prompt: string; engine: string }>(
-        (queries ?? []).map((q: { id: number; prompt: string; engine: string }) => [
+      const queryMap = new Map<number, { prompt: string; engine: string; keyword_id: number }>(
+        (queries ?? []).map((q: { id: number; prompt: string; engine: string; keyword_id: number }) => [
           q.id,
-          { prompt: q.prompt, engine: q.engine },
+          { prompt: q.prompt, engine: q.engine, keyword_id: q.keyword_id },
         ])
       );
-      recentCitations = mentions.map((m: {
-        id: number;
-        response_id: number;
-        tenant_id: number;
-        created_at: string;
-      }) => {
-        const qid = respMap.get(m.response_id);
-        const qInfo = qid ? queryMap.get(qid) : undefined;
-        return {
-          id: String(m.id),
-          query: qInfo?.prompt ?? '(query 미발견)',
-          tenantName: tenantMap.get(m.tenant_id) ?? '(unknown)',
-          engine: qInfo?.engine ?? '?',
-          citedAt: m.created_at,
-        };
-      });
+      const langKwSet = langKwIds ? new Set(langKwIds) : null;
+      recentCitations = mentions
+        .filter((m: { response_id: number }) => {
+          if (!langKwSet) return true;
+          const qid = respMap.get(m.response_id);
+          const kwId = qid ? queryMap.get(qid)?.keyword_id : undefined;
+          return kwId != null && langKwSet.has(kwId);
+        })
+        .slice(0, 3)
+        .map((m: {
+          id: number;
+          response_id: number;
+          tenant_id: number;
+          created_at: string;
+        }) => {
+          const qid = respMap.get(m.response_id);
+          const qInfo = qid ? queryMap.get(qid) : undefined;
+          return {
+            id: String(m.id),
+            query: qInfo?.prompt ?? '(query 미발견)',
+            tenantName: tenantMap.get(m.tenant_id) ?? '(unknown)',
+            engine: qInfo?.engine ?? '?',
+            citedAt: m.created_at,
+          };
+        });
     }
   } catch {
     // mentions/queries query 실패 시 빈 list (graceful)
@@ -373,6 +393,7 @@ async function fetchDashboardData(opts: {
         .in('id', queryIdSet)
         .neq('engine', 'stub');
       if (tenantId) qq = qq.eq('tenant_id', tenantId);
+      if (langKwIds) qq = qq.in('keyword_id', langKwIds);
       const { data: queryRows } = await qq;
       (queryRows ?? []).forEach((q: { id: number; tenant_id: number }) => {
         queryTenantMap.set(q.id, q.tenant_id);
@@ -486,6 +507,7 @@ async function fetchDashboardData(opts: {
       .neq('engine', 'stub')
       .gte('requested_at', thirtyDaysAgo);
     if (tenantId) qa = qa.eq('tenant_id', tenantId);
+    if (langKwIds) qa = qa.in('keyword_id', langKwIds);
     const { data: queriesAll } = await qa;
     const queryIdToKw = new Map<number, { keyword_id: number; tenant_id: number }>();
     (queriesAll ?? []).forEach((q: { id: number; keyword_id: number; tenant_id: number }) => {
@@ -593,6 +615,7 @@ async function fetchDashboardData(opts: {
         .in('id', recentQueryIds)
         .neq('engine', 'stub');
       if (tenantId) qd = qd.eq('tenant_id', tenantId);
+      if (langKwIds) qd = qd.in('keyword_id', langKwIds);
       const { data: qrows } = await qd;
       (qrows ?? []).forEach((q: { id: number; tenant_id: number; keyword_id: number }) => {
         queryDetailMap.set(q.id, { tenant_id: q.tenant_id, keyword_id: q.keyword_id });
@@ -702,7 +725,7 @@ async function fetchDashboardData(opts: {
   }> = [];
   try {
     const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: pubContents } = await sb
+    let pubQ2 = sb
       .from('generated_contents')
       .select('id, title, slug, tenant_id, published_at, keyword_text, is_partner_content, partner_category')
       .eq('status', 'published')
@@ -710,6 +733,8 @@ async function fetchDashboardData(opts: {
       .gte('published_at', since30)
       .order('published_at', { ascending: false })
       .limit(50);
+    if (contentLang) pubQ2 = pubQ2.eq('lang', contentLang);
+    const { data: pubContents } = await pubQ2;
     const pubList = (pubContents ?? []) as Array<{
       id: number; title: string; slug: string; tenant_id: number;
       published_at: string; keyword_text: string;
@@ -812,13 +837,15 @@ async function fetchDashboardData(opts: {
   };
   try {
     // 발행 콘텐츠 body 가져와서 구조 카운트 (server-side regex)
-    const { data: bodies } = await sb
+    let bodiesQ = sb
       .from('generated_contents')
       .select('id, body, keyword_text')
       .eq('status', 'published')
       .eq('channel', 'blog_html')
       .not('body', 'is', null)
       .limit(200);
+    if (contentLang) bodiesQ = bodiesQ.eq('lang', contentLang);
+    const { data: bodies } = await bodiesQ;
     const list = (bodies ?? []) as Array<{ id: number; body: string; keyword_text: string }>;
     if (list.length > 0) {
       const countMatches = (text: string, re: RegExp) => (text.match(re) || []).length;
