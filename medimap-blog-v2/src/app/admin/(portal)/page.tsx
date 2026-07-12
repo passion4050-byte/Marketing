@@ -16,6 +16,7 @@ import nextDynamic from 'next/dynamic';
 import { ArrowUpRight, ClipboardCheck, DollarSign, Users, Zap, FileText, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { getServerClient } from '@/lib/supabase';
+import { getScopeServer, scopeToKeywordLang, scopeToContentLang } from '@/lib/scope';
 import { cn } from '@/lib/cn';
 import { ActionRecommendations } from '@/components/admin/ActionRecommendations';
 import { ContentCompetitivenessScoped } from '@/components/admin/ContentCompetitivenessScoped';
@@ -129,6 +130,12 @@ async function fetchDashboardData(opts: {
     };
   }
 
+  // 언어 스코프 (쿠키). scope≠all 이면 KPI 를 언어별로 필터.
+  // 측정=keywords.lang(zh-Hant) / 콘텐츠=generated_contents.lang(zh-Hans) 분리.
+  const scope = getScopeServer();
+  const kwLang = scopeToKeywordLang(scope);
+  const contentLang = scopeToContentLang(scope);
+
   // 1. 활성 클라이언트 — 자사 제외 tenants 카운트
   const { count: clientCount } = await sb
     .from('tenants')
@@ -136,11 +143,13 @@ async function fetchDashboardData(opts: {
     .neq('business_model', 'self')
     .neq('partner_slug', 'medimap-self');
 
-  // 2. 검수 대기 — draft + pending COUNT
-  const { count: pendingCount } = await sb
+  // 2. 검수 대기 — draft + pending COUNT (스코프: 콘텐츠 lang)
+  let pendingQ = sb
     .from('generated_contents')
     .select('id', { count: 'exact', head: true })
     .in('status', ['draft', 'pending']);
+  if (contentLang) pendingQ = pendingQ.eq('lang', contentLang);
+  const { count: pendingCount } = await pendingQ;
 
   // 3. LLM 비용 — llm_call_logs 합산 (오늘·어제·최근 14일 3-tier)
   // Round 116 Phase 5 (2026-07-02): 오늘 값만 노출 시 cron 미실행 시간대 $0.00 착시.
@@ -180,13 +189,18 @@ async function fetchDashboardData(opts: {
   // is_target=true 인 mention 만 카운트 (위서클 또는 자사 tenant 가 직접 mentioned).
   let citations24h = 0;
   try {
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { count: mentionCount } = await sb
-      .from('mentions')
-      .select('id', { count: 'exact', head: true })
-      .gte('created_at', yesterday)
-      .eq('is_target', true);
-    citations24h = mentionCount ?? 0;
+    if (kwLang) {
+      const { data: c24 } = await sb.rpc('citation_count', { _hours: 24, _kw_lang: kwLang });
+      citations24h = Number(c24) || 0;
+    } else {
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count: mentionCount } = await sb
+        .from('mentions')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', yesterday)
+        .eq('is_target', true);
+      citations24h = mentionCount ?? 0;
+    }
   } catch {
     // mentions 테이블 query 실패 시 0 표시 (graceful)
   }
@@ -196,23 +210,30 @@ async function fetchDashboardData(opts: {
   let publishedThisMonth = 0;
   let lastCronAt: string | null = null;
   try {
-    const cutoff30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const { count: c30 } = await sb
-      .from('mentions')
-      .select('id', { count: 'exact', head: true })
-      .gte('created_at', cutoff30)
-      .eq('is_target', true);
-    citations30d = c30 ?? 0;
+    if (kwLang) {
+      const { data: c30r } = await sb.rpc('citation_count', { _hours: 720, _kw_lang: kwLang });
+      citations30d = Number(c30r) || 0;
+    } else {
+      const cutoff30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const { count: c30 } = await sb
+        .from('mentions')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', cutoff30)
+        .eq('is_target', true);
+      citations30d = c30 ?? 0;
+    }
 
     const startOfMonth = new Date();
     startOfMonth.setUTCDate(1);
     startOfMonth.setUTCHours(0, 0, 0, 0);
-    const { count: pubM } = await sb
+    let pubQ = sb
       .from('generated_contents')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'published')
       .eq('channel', 'blog_html')
       .gte('published_at', startOfMonth.toISOString());
+    if (contentLang) pubQ = pubQ.eq('lang', contentLang);
+    const { count: pubM } = await pubQ;
     publishedThisMonth = pubM ?? 0;
 
     // 측정 cron 마지막 성공 시각 (운영자 헬스 체크)
