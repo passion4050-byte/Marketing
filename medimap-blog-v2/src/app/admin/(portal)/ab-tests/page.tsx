@@ -19,6 +19,8 @@ type Variant = {
   content_status: string | null;
   citations: number;
   mentions: number;
+  aeo: number | null;
+  aeoGrade: string | null;
 };
 type AbTest = {
   id: number;
@@ -163,6 +165,14 @@ export default function AbTestsPage() {
                       </div>
                       <div className="mt-0.5 flex items-center gap-2 text-[10px] text-ink-muted">
                         <span>{v.content_status ?? '미생성'}</span>
+                        {v.aeo != null && (
+                          <span
+                            className="rounded bg-accent-soft px-1 font-semibold text-accent-deep"
+                            title="AEO 콘텐츠 점수 — AI 인용에 유리한 구조 정도(리서치 기반). 인용수와 병기해 원인 설명."
+                          >
+                            AEO {v.aeo}{v.aeoGrade ? `·${v.aeoGrade}` : ''}
+                          </span>
+                        )}
                         {v.url && (
                           <a
                             href={v.url}

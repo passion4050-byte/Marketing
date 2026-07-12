@@ -6,6 +6,7 @@
  */
 import { NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
+import { scoreAeo } from '@/lib/aeoScore';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,6 +37,9 @@ type ContentRow = {
   tenant_id: number | null;
   is_partner_content: boolean | null;
   partner_category: string | null;
+  body: string | null;
+  raw_qa_pairs: unknown;
+  published_at: string | null;
 };
 
 // Round 102: wecircle.co.kr 커스텀 도메인 (이전 medimap-blog-phi.vercel.app)
@@ -64,7 +68,7 @@ export async function GET() {
     // is_partner_content + partner_category 추가 SELECT.
     const { data: contents } = await sb
       .from('generated_contents')
-      .select('id, title, slug, status, tenant_id, is_partner_content, partner_category')
+      .select('id, title, slug, status, tenant_id, is_partner_content, partner_category, body, raw_qa_pairs, published_at')
       .in('id', contentIds);
     ((contents ?? []) as ContentRow[]).forEach((c) => contentMap.set(c.id, c));
   }
@@ -80,6 +84,21 @@ export async function GET() {
 
   const variant = (cid: number | null, citations: number, mentions: number) => {
     const c = cid != null ? contentMap.get(cid) : undefined;
+    // AEO 점수 — 콘텐츠 구조가 AI 인용에 얼마나 유리한지(리서치 기반). 인용수와 병기해 원인 설명.
+    let aeo: number | null = null;
+    let aeoGrade: string | null = null;
+    if (c?.body) {
+      const faqCount = Array.isArray(c.raw_qa_pairs) ? c.raw_qa_pairs.length : 0;
+      const r = scoreAeo({
+        body: c.body,
+        faqCount,
+        publishedAt: c.published_at,
+        hasFaqSchema: faqCount > 0,
+        hasMedicalSchema: c.is_partner_content === true,
+      });
+      aeo = r.score;
+      aeoGrade = r.grade;
+    }
     // Round 86 — URL 분기: partner 글이면 /with-partners/{cat}/{partner_slug}/{slug}, 아니면 /blog/{slug}
     let url: string | null = null;
     if (c?.slug) {
@@ -101,6 +120,8 @@ export async function GET() {
       content_status: c?.status ?? null,
       citations,
       mentions,
+      aeo,
+      aeoGrade,
     };
   };
 
