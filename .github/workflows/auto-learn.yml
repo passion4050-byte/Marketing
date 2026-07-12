@@ -1,0 +1,51 @@
+name: Auto-learn cited competitor references (weekly Mon 08:00 UTC = 17:00 KST)
+
+on:
+  schedule:
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+    inputs:
+      days:
+        description: '집계 기간(일)'
+        type: string
+        default: '30'
+      topN:
+        description: '학습할 top 경쟁사 도메인 수'
+        type: string
+        default: '3'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auto-learn
+  cancel-in-progress: false
+
+jobs:
+  learn:
+    name: Auto-learn top cited competitor references
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify secrets
+        run: |
+          if [ -z "${{ secrets.VERCEL_PROD_URL }}" ]; then
+            echo "::error::VERCEL_PROD_URL 미설정"; exit 1
+          fi
+          if [ -z "${{ secrets.CRON_SECRET }}" ]; then
+            echo "::error::CRON_SECRET 미설정"; exit 1
+          fi
+      - name: Call auto-learn endpoint
+        env:
+          VERCEL_URL: ${{ secrets.VERCEL_PROD_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DAYS: ${{ inputs.days }}
+          TOPN: ${{ inputs.topN }}
+        run: |
+          DAYS="${DAYS:-30}"; TOPN="${TOPN:-3}"
+          echo "auto-learn: days=$DAYS topN=$TOPN"
+          RESP=$(curl -sS -X POST "$VERCEL_URL/api/admin/auto-learn" \
+            -H "Content-Type: application/json" \
+            -d "{\"cronSecret\":\"$CRON_SECRET\",\"days\":$DAYS,\"topN\":$TOPN}")
+          echo "$RESP"
+          echo "$RESP" | grep -q '"ok":true' || { echo "::error::auto-learn 실패"; exit 1; }
