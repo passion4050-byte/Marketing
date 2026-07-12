@@ -8,10 +8,69 @@
  * to: tenant.email 우선 (Round 48), fallback ADMIN_EMAIL
  */
 import { NextRequest, NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { getServerClient } from '@/lib/supabase';
+import { scoreAeo } from '@/lib/aeoScore';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+/** 리포트용 tenant 실측 지표 — 30일 발행수 · AI 인용수 · 평균 AEO 점수 · Top 인용 콘텐츠. */
+export interface ReportMetrics {
+  published30d: number;
+  citations30d: number;
+  avgAeo: number | null;
+  topContent: { title: string; aeo: number } | null;
+}
+
+async function computeReportMetrics(
+  sb: SupabaseClient,
+  tenantId: string | number
+): Promise<ReportMetrics> {
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  // 발행 콘텐츠(30일) + body → AEO 점수
+  const { data: contents } = await sb
+    .from('generated_contents')
+    .select('title, body, raw_qa_pairs, published_at')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'published')
+    .eq('channel', 'blog_html')
+    .gte('published_at', since);
+  const list = (contents ?? []) as Array<{
+    title: string | null;
+    body: string | null;
+    raw_qa_pairs: unknown;
+    published_at: string | null;
+  }>;
+  let aeoSum = 0;
+  let top: { title: string; aeo: number } | null = null;
+  for (const c of list) {
+    const faqCount = Array.isArray(c.raw_qa_pairs) ? c.raw_qa_pairs.length : 0;
+    const r = scoreAeo({
+      body: c.body ?? '',
+      faqCount,
+      publishedAt: c.published_at,
+      hasFaqSchema: faqCount > 0,
+      hasMedicalSchema: true,
+    });
+    aeoSum += r.score;
+    if (!top || r.score > top.aeo) top = { title: c.title ?? '(제목 없음)', aeo: r.score };
+  }
+  const avgAeo = list.length > 0 ? Math.round(aeoSum / list.length) : null;
+  // AI 인용수(30일, is_target)
+  const { count: citations } = await sb
+    .from('mentions')
+    .select('id', { count: 'exact', head: true })
+    .eq('tenant_id', tenantId)
+    .eq('is_target', true)
+    .gte('created_at', since);
+  return {
+    published30d: list.length,
+    citations30d: citations ?? 0,
+    avgAeo,
+    topContent: top,
+  };
+}
 
 async function sendOne(opts: {
   tenantId: string | number;
@@ -22,6 +81,7 @@ async function sendOne(opts: {
   range?: string;
   from?: string;
   to?: string;
+  metrics?: ReportMetrics;
 }): Promise<{ ok: boolean; to?: string; reportUrl: string; resend?: unknown; stub?: boolean; error?: string }> {
   const key = process.env.RESEND_API_KEY;
   const fromAddr = process.env.RESEND_FROM ?? 'WECIRCLE GEO <reports@medimap.team>';
@@ -37,6 +97,25 @@ async function sendOne(opts: {
   const _isRolling = opts.period.includes('최근 30일');
   const _periodShort = _isRolling ? '최근 30일' : '이번 달';
   const subject = `[WECIRCLE GEO] ${opts.period} 월간 AI 검색 노출 보고서 — ${opts.tenantName}`;
+  const m = opts.metrics;
+  const metricsBlock = m
+    ? `
+  <div style="display:flex;gap:8px;margin:16px 0">
+    <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px 6px;text-align:center">
+      <div style="font-size:22px;font-weight:800;color:#1B68FF">${m.citations30d}</div>
+      <div style="font-size:11px;color:#64748B">AI 인용 (30일)</div>
+    </div>
+    <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px 6px;text-align:center">
+      <div style="font-size:22px;font-weight:800;color:#0F172A">${m.published30d}</div>
+      <div style="font-size:11px;color:#64748B">발행 콘텐츠</div>
+    </div>
+    <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px 6px;text-align:center">
+      <div style="font-size:22px;font-weight:800;color:#15CBA8">${m.avgAeo ?? '-'}${m.avgAeo != null ? '점' : ''}</div>
+      <div style="font-size:11px;color:#64748B">평균 AEO 점수</div>
+    </div>
+  </div>
+  ${m.topContent ? `<p style="font-size:12px;color:#334155;margin:0 0 12px">🏆 최고 AEO 콘텐츠: <b>${m.topContent.title}</b> (${m.topContent.aeo}점)</p>` : ''}`
+    : '';
   const html = `
 <div style="font-family:'Noto Sans KR',sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0F172A">
   <div style="border-bottom:2px solid #1B68FF;padding-bottom:12px;margin-bottom:20px">
@@ -46,6 +125,7 @@ async function sendOne(opts: {
   </div>
   <p style="font-size:14px;line-height:1.6">안녕하세요, ${opts.tenantName} 운영진 여러분.</p>
   <p style="font-size:14px;line-height:1.6">${_periodShort} 4대 AI 엔진 (Gemini · Claude · Perplexity · OpenAI) 의 grounding 데이터 기반 월간 보고서가 준비되었습니다.</p>
+  ${metricsBlock}
   <p style="font-size:14px;line-height:1.6">보고서에는 다음 내용이 포함됩니다:</p>
   <ul style="font-size:13px;line-height:1.7;color:#334155">
     <li>${_periodShort} AI 검색 인용 횟수 + 위서클 도메인 점유율 (전월 대비)</li>
@@ -130,12 +210,14 @@ export async function POST(req: NextRequest) {
     const results: Array<Awaited<ReturnType<typeof sendOne>> & { tenantId: number; tenantName: string }> = [];
     for (const t of tenants ?? []) {
       const tt = t as { id: number; name: string; email: string };
+      const metrics = await computeReportMetrics(sb, tt.id);
       const r = await sendOne({
         tenantId: tt.id,
         tenantName: tt.name,
         toEmail: tt.email,
         period,
         origin,
+        metrics,
       });
       results.push({ tenantId: tt.id, tenantName: tt.name, ...r });
     }
@@ -171,6 +253,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const metrics = sb ? await computeReportMetrics(sb, body.tenantId) : undefined;
   const r = await sendOne({
     tenantId: body.tenantId,
     tenantName,
@@ -180,6 +263,7 @@ export async function POST(req: NextRequest) {
     range: body.range,
     from: body.from,
     to: body.to,
+    metrics,
   });
   return NextResponse.json(r);
 }
