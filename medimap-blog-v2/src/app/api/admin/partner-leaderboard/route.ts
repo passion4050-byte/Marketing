@@ -28,9 +28,61 @@ import { getServerClient } from '@/lib/supabase';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: Request) {
   const sb = getServerClient();
   if (!sb) return NextResponse.json({ error: 'Supabase client 없음' }, { status: 500 });
+
+  // 언어 스코프: scope≠all 이면 partner_leaderboard RPC 경로.
+  // (all 은 아래 기존 JS 집계 유지 → 무회귀. zh 이원화: 측정=zh-Hant, 콘텐츠=zh-Hans.)
+  const scope = new URL(req.url).searchParams.get('scope') || 'all';
+  if (scope !== 'all') {
+    const kwLang =
+      scope === 'ko' ? 'ko' : scope === 'en' ? 'en' : scope === 'ja' ? 'ja' : scope === 'zh' ? 'zh-Hant' : null;
+    const contentLang =
+      scope === 'ko' ? 'ko' : scope === 'en' ? 'en' : scope === 'ja' ? 'ja' : scope === 'zh' ? 'zh-Hans' : null;
+    const { data: rpcRows, error: rpcErr } = await sb.rpc('partner_leaderboard', {
+      _days: 30,
+      _kw_lang: kwLang,
+      _content_lang: contentLang,
+    });
+    if (rpcErr) {
+      return NextResponse.json({
+        partners: [],
+        total_mentions_30d: 0,
+        total_mentions_7d: 0,
+        error: rpcErr.message,
+      });
+    }
+    type RpcRow = {
+      tenant_id: number;
+      tenant_name: string | null;
+      domain_category: string | null;
+      partner_slug: string | null;
+      mentions_30d: number | string;
+      mentions_7d: number | string;
+      mentions_delta: number | string;
+      published_contents: number | string;
+      engines: Record<string, number> | null;
+      last_mention: string | null;
+    };
+    const scopedPartners = ((rpcRows ?? []) as RpcRow[]).map((r) => ({
+      tenant_id: r.tenant_id,
+      tenant_name: r.tenant_name ?? '(unknown)',
+      domain_category: r.domain_category,
+      partner_slug: r.partner_slug,
+      mentions_30d: Number(r.mentions_30d) || 0,
+      mentions_7d: Number(r.mentions_7d) || 0,
+      mentions_delta: Number(r.mentions_delta) || 0,
+      published_contents: Number(r.published_contents) || 0,
+      engines: r.engines ?? {},
+      last_mention: r.last_mention,
+    }));
+    return NextResponse.json({
+      partners: scopedPartners,
+      total_mentions_30d: scopedPartners.reduce((s, p) => s + p.mentions_30d, 0),
+      total_mentions_7d: scopedPartners.reduce((s, p) => s + p.mentions_7d, 0),
+    });
+  }
 
   // 30일 / 7일 시점 기준
   const now = new Date();

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react';
+import { readScope, SCOPE_EVENT } from './ScopeSelector';
 
 /**
  * Round 109-A (2026-07-03) — 파트너 병원별 30일 AI 인용 리더보드.
@@ -37,14 +38,29 @@ const ENGINE_COLORS: Record<string, string> = {
 export function PartnerLeaderboard() {
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
+  const [scope, setScope] = useState('all');
 
+  // 스코프 구독 (localStorage + 이벤트) — 다른 스코프 컴포넌트와 동일 패턴.
   useEffect(() => {
-    fetch('/api/admin/partner-leaderboard')
+    setScope(readScope());
+    const onEvt = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (typeof detail === 'string') setScope(detail);
+    };
+    window.addEventListener(SCOPE_EVENT, onEvt);
+    return () => window.removeEventListener(SCOPE_EVENT, onEvt);
+  }, []);
+
+  // 스코프별 리더보드 재요청 (all=전체, 그 외=언어별 RPC 경로).
+  useEffect(() => {
+    setLoading(true);
+    const qs = scope && scope !== 'all' ? `?scope=${encodeURIComponent(scope)}` : '';
+    fetch(`/api/admin/partner-leaderboard${qs}`)
       .then((r) => r.json())
       .then((j) => setData(j))
       .catch(() => setData(null))
       .finally(() => setLoading(false));
-  }, []);
+  }, [scope]);
 
   if (loading) {
     return (
