@@ -92,6 +92,16 @@ export async function GET(req: Request) {
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
   const classifierSets = await loadClassifierSets();
 
+  // 언어 스코프 (keywords.lang). scope≠all 이면 lang keyword_id 로 키워드/쿼리 필터.
+  const scopeParam = url.searchParams.get('scope') || 'all';
+  const kwLang =
+    scopeParam === 'ko' ? 'ko' : scopeParam === 'en' ? 'en' : scopeParam === 'ja' ? 'ja' : scopeParam === 'zh' ? 'zh-Hant' : null;
+  let langKwIds: number[] | null = null;
+  if (kwLang) {
+    const { data: lkw } = await sb.from('keywords').select('id').eq('lang', kwLang);
+    langKwIds = (lkw ?? []).map((k: { id: number }) => k.id);
+  }
+
   // 2. 경쟁 추적 키워드 추출.
   //    Round 68 — 자사(메디맵 self) 선택 시 'own' 키워드로 경쟁사 데이터 표시.
   //    (메디맵은 competitor_landscape 키워드가 없고 own 키워드 응답에 경쟁사가 잡힘)
@@ -104,6 +114,7 @@ export async function GET(req: Request) {
     ? landscapeKwQuery.or('purpose.eq.own,purpose.is.null')
     : landscapeKwQuery.eq('purpose', 'competitor_landscape');
   if (tenantIdFilter) landscapeKwQuery = landscapeKwQuery.eq('tenant_id', tenantIdFilter);
+  if (langKwIds) landscapeKwQuery = landscapeKwQuery.in('id', langKwIds);
   const { data: landscapeKeywords } = await landscapeKwQuery;
   const landscapeKwIds = new Set(
     (landscapeKeywords ?? []).map((k: { id: number }) => k.id)
@@ -120,6 +131,7 @@ export async function GET(req: Request) {
     .neq('engine', 'stub')  // Round 36 fix 2 — production 측정만, stub 시드 제외
     .gte('requested_at', cutoff);
   if (tenantIdFilter) queriesQuery = queriesQuery.eq('tenant_id', tenantIdFilter);
+  if (langKwIds) queriesQuery = queriesQuery.in('keyword_id', langKwIds);
   const { data: queries } = await queriesQuery;
   const queryKeywordMap = new Map<number, number>();
   const queryEngineMap = new Map<number, string>();  // Round 64 — query → 엔진

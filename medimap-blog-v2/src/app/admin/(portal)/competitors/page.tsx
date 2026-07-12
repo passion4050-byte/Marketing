@@ -11,7 +11,8 @@
  */
 'use client';
 
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
+import { readScope, SCOPE_EVENT } from '@/components/admin/ScopeSelector';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Bar,
@@ -114,8 +115,12 @@ export default function CompetitorsPage() {
   const [labelFilter, setLabelFilter] = useState<string | null>(null);
   // Round 75 — 기간 필터 (일수)
   const [days, setDays] = useState(30);
+  // 언어 스코프 (헤더 ScopeSelector 동기화) + race 가드 seq
+  const [scope, setScope] = useState('all');
+  const reqSeq = useRef(0);
 
   const load = async () => {
+    const seq = ++reqSeq.current;
     setLoading(true);
     setError(null);
     try {
@@ -124,22 +129,35 @@ export default function CompetitorsPage() {
       if (tenantId) params.set('tenantId', String(tenantId));
       if (labelFilter) params.set('label', labelFilter);
       params.set('days', String(days));
+      if (scope && scope !== 'all') params.set('scope', scope);
       const url = `/api/admin/competitors${params.toString() ? '?' + params.toString() : ''}`;
       const res = await fetch(url, { cache: 'no-store' });
       const json = await res.json();
+      if (seq !== reqSeq.current) return; // stale 응답 무시 (scope 전환 race 방지)
       if (!res.ok || !json.ok) throw new Error(json.error ?? 'fetch failed');
       setData(json);
     } catch (e) {
-      setError((e as Error).message);
+      if (seq === reqSeq.current) setError((e as Error).message);
     } finally {
-      setLoading(false);
+      if (seq === reqSeq.current) setLoading(false);
     }
   };
 
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId, labelFilter, days]);
+  }, [tenantId, labelFilter, days, scope]);
+
+  // 헤더 언어 스코프 구독 → scope 변경 시 재요청.
+  useEffect(() => {
+    setScope(readScope());
+    const onEvt = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (typeof detail === 'string') setScope(detail);
+    };
+    window.addEventListener(SCOPE_EVENT, onEvt);
+    return () => window.removeEventListener(SCOPE_EVENT, onEvt);
+  }, []);
 
   const tenants = data?.tenants ?? [];
   const selectedName = data?.selected_tenant?.name ?? '전체 클라이언트';
