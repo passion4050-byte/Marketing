@@ -8,6 +8,7 @@
  * 예: EN 상품 병원 담당 시 EN 선택 → 어드민 지표가 EN 데이터만 표시.
  */
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Globe } from 'lucide-react';
 
 export const SCOPE_KEY = 'wc_admin_scope';
@@ -69,6 +70,7 @@ export function readScope(): string {
 
 export function ScopeSelector() {
   const [scope, setScope] = useState('all');
+  const router = useRouter();
 
   useEffect(() => {
     setScope(readScope());
@@ -88,7 +90,16 @@ export function ScopeSelector() {
     } catch {
       /* ignore */
     }
+    // 서버 컴포넌트가 스코프를 읽도록 쿠키에도 기록 → SSR 페이지 스코프 인지.
+    try {
+      document.cookie = `${SCOPE_KEY}=${k}; path=/; max-age=31536000; SameSite=Lax`;
+    } catch {
+      /* ignore */
+    }
+    // 클라이언트 스코프 컴포넌트(localStorage 구독) 동기화
     window.dispatchEvent(new CustomEvent(SCOPE_EVENT, { detail: k }));
+    // SSR 데이터(쿠키 기반)를 새 스코프로 재요청
+    router.refresh();
   };
 
   return (
