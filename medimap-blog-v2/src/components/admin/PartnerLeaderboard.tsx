@@ -52,14 +52,26 @@ export function PartnerLeaderboard() {
   }, []);
 
   // 스코프별 리더보드 재요청 (all=전체, 그 외=언어별 RPC 경로).
+  // cancelled 가드: scope 전환 시 이전(느린 all) 응답이 새(빠른 scoped) 응답을
+  // 덮어쓰는 race 방지 — stale 응답 무시.
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     const qs = scope && scope !== 'all' ? `?scope=${encodeURIComponent(scope)}` : '';
     fetch(`/api/admin/partner-leaderboard${qs}`)
       .then((r) => r.json())
-      .then((j) => setData(j))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
+      .then((j) => {
+        if (!cancelled) setData(j);
+      })
+      .catch(() => {
+        if (!cancelled) setData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [scope]);
 
   if (loading) {
