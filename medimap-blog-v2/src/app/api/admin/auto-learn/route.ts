@@ -18,6 +18,19 @@ export const dynamic = 'force-dynamic';
 
 type SourceDomain = { domain?: string; final_url?: string | null; is_self?: boolean };
 
+// 일반 플랫폼·미디어·포털·디렉토리 — 경쟁 "병원 콘텐츠"가 아니므로 학습 제외.
+const PLATFORM_BLOCKLIST = [
+  'youtube.com', 'google.com', 'namu.wiki', 'wikipedia.org', 'wikitree.co.kr',
+  'naver.com', 'daum.net', 'kakao.com', 'tistory.com', 'brunch.co.kr',
+  'facebook.com', 'instagram.com', 'twitter.com', 'x.com', 'threads.net',
+  'modoodoc.com', 'goodoc.co.kr', 'ddocdoc.com', // 병원 디렉토리/집계
+  'hidoc.co.kr', 'kormedi.com', 'health.chosun.com', 'news.', 'yna.co.kr', 'chosun.com',
+  'joongang.co.kr', 'donga.com', 'hankyung.com', 'mk.co.kr',
+];
+function isPlatform(d: string): boolean {
+  return PLATFORM_BLOCKLIST.some((p) => d === p || d.endsWith('.' + p) || d.includes(p));
+}
+
 export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as {
     cronSecret?: string;
@@ -50,6 +63,7 @@ export async function POST(req: NextRequest) {
     for (const sd of r.source_domains ?? []) {
       if (!sd?.domain || sd.is_self) continue;
       const d = sd.domain.toLowerCase().replace(/^www\./, '');
+      if (isPlatform(d)) continue; // 플랫폼·미디어·디렉토리 제외 → 경쟁 병원 사이트만
       if (!agg.has(d)) agg.set(d, { count: 0, urls: new Set<string>() });
       const e = agg.get(d)!;
       e.count++;
