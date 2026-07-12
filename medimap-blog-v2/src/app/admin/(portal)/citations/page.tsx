@@ -15,7 +15,8 @@
  */
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { readScope, SCOPE_EVENT } from '@/components/admin/ScopeSelector';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Bar,
@@ -126,6 +127,9 @@ export default function CitationsPage() {
   const [tenantDropdownOpen, setTenantDropdownOpen] = useState(false);
   // Round 75 — 기간 필터 (일수)
   const [days, setDays] = useState(30);
+  // 언어 스코프 (헤더 ScopeSelector 와 동기화) + race 가드용 seq
+  const [scope, setScope] = useState('all');
+  const reqSeq = useRef(0);
   // 키워드 클릭 → modal
   const [modalKeyword, setModalKeyword] = useState<string | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
@@ -140,27 +144,41 @@ export default function CitationsPage() {
   });
 
   const load = async () => {
+    const seq = ++reqSeq.current;
     setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams();
       if (tenantId) params.set('tenantId', String(tenantId));
       params.set('days', String(days));
+      if (scope && scope !== 'all') params.set('scope', scope);
       const res = await fetch(`/api/admin/citations?${params.toString()}`, { cache: 'no-store' });
       const json = await res.json();
+      if (seq !== reqSeq.current) return; // stale 응답 무시 (scope 전환 race 방지)
       if (!res.ok || !json.ok) throw new Error(json.error ?? 'fetch failed');
       setData(json);
     } catch (e) {
-      setError((e as Error).message);
+      if (seq === reqSeq.current) setError((e as Error).message);
     } finally {
-      setLoading(false);
+      if (seq === reqSeq.current) setLoading(false);
     }
   };
 
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId, days]);
+  }, [tenantId, days, scope]);
+
+  // 헤더 언어 스코프 구독 → scope 변경 시 재요청.
+  useEffect(() => {
+    setScope(readScope());
+    const onEvt = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (typeof detail === 'string') setScope(detail);
+    };
+    window.addEventListener(SCOPE_EVENT, onEvt);
+    return () => window.removeEventListener(SCOPE_EVENT, onEvt);
+  }, []);
 
   const totalMentions = useMemo(
     () => (data ? data.mention_trend.reduce((s, d) => s + d.count, 0) : 0),

@@ -53,6 +53,17 @@ export async function GET(req: Request) {
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
   const classifierSets = await loadClassifierSets();
 
+  // 언어 스코프 (keywords.lang). scope≠all 이면 해당 lang keyword_id 집합으로
+  // ownKwQuery/queriesQuery 를 걸어 도메인·키워드·경쟁사·인용률 전 지표를 필터.
+  const scopeParam = url.searchParams.get('scope') || 'all';
+  const kwLang =
+    scopeParam === 'ko' ? 'ko' : scopeParam === 'en' ? 'en' : scopeParam === 'ja' ? 'ja' : scopeParam === 'zh' ? 'zh-Hant' : null;
+  let langKwIds: number[] | null = null;
+  if (kwLang) {
+    const { data: lkw } = await sb.from('keywords').select('id').eq('lang', kwLang);
+    langKwIds = (lkw ?? []).map((k: { id: number }) => k.id);
+  }
+
   // 1. 전체 tenants (selector 용)
   // Round 36 (2026-05-31): additional_domains 도 함께 가져와 T2 분류에 사용.
   const { data: tenantsAll } = await sb
@@ -86,28 +97,16 @@ export async function GET(req: Request) {
     ? tenantDomainsMap.get(tenantIdFilter) ?? null
     : null;
 
-  // 2. mentions trend — tenant 필터 적용
+  // 2. mentions — tenant 필터. 언어 스코프 시 respRows/validQueryIds 계산 후 필터(아래).
   let mentionsQuery = sb
     .from('mentions')
-    .select('created_at, tenant_id, is_target')
+    .select('created_at, tenant_id, is_target, response_id')
     .gte('created_at', cutoff)
     .eq('is_target', true);
   if (tenantIdFilter) {
     mentionsQuery = mentionsQuery.eq('tenant_id', tenantIdFilter);
   }
   const { data: mentionRows } = await mentionsQuery;
-  const mentionByDate = new Map<string, number>();
-  (mentionRows ?? []).forEach((m: { created_at: string }) => {
-    const date = m.created_at.slice(0, 10);
-    mentionByDate.set(date, (mentionByDate.get(date) ?? 0) + 1);
-  });
-  const today = new Date();
-  const mentionTrend: Array<{ date: string; count: number }> = [];
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
-    const ds = d.toISOString().slice(0, 10);
-    mentionTrend.push({ date: ds.slice(5), count: mentionByDate.get(ds) ?? 0 });
-  }
 
   // Round 34 phase 2 — purpose='own' 키워드만 (자사 추적 페이지)
   // competitor_landscape 키워드 (BGN '라식', '라섹' 등) 는 별도 /admin/competitors 페이지에서 표시.
@@ -117,6 +116,7 @@ export async function GET(req: Request) {
     .or('purpose.eq.own,purpose.is.null') // null 도 자사로 (기존 데이터 호환)
     .eq('is_active', true);
   if (tenantIdFilter) ownKwQuery = ownKwQuery.eq('tenant_id', tenantIdFilter);
+  if (langKwIds) ownKwQuery = ownKwQuery.in('id', langKwIds);
   const { data: ownKeywords } = await ownKwQuery;
   const ownKwIds = new Set(
     (ownKeywords ?? []).map((k: { id: number }) => k.id)
@@ -132,6 +132,7 @@ export async function GET(req: Request) {
   if (tenantIdFilter) {
     queriesQuery = queriesQuery.eq('tenant_id', tenantIdFilter);
   }
+  if (langKwIds) queriesQuery = queriesQuery.in('keyword_id', langKwIds);
   const { data: queriesRows } = await queriesQuery;
   const queryTenantMap = new Map<number, number>();
   const queryKeywordMap = new Map<number, number>();
@@ -164,6 +165,28 @@ export async function GET(req: Request) {
   const filteredResp = (respRows ?? []).filter(
     (r: { query_id: number }) => validQueryIds.has(r.query_id)
   );
+
+  // mention trend 집계 — 언어 스코프 시 respRows→query 로 lang 쿼리 소속 mention 만 카운트.
+  const respToQueryIdForTrend = new Map<number, number>();
+  (respRows ?? []).forEach((r: { id: number; query_id: number }) => {
+    respToQueryIdForTrend.set(r.id, r.query_id);
+  });
+  const mentionByDate = new Map<string, number>();
+  (mentionRows ?? []).forEach((m: { created_at: string; response_id: number | null }) => {
+    if (langKwIds) {
+      const qid = m.response_id != null ? respToQueryIdForTrend.get(m.response_id) : undefined;
+      if (qid == null || !validQueryIds.has(qid)) return;
+    }
+    const date = m.created_at.slice(0, 10);
+    mentionByDate.set(date, (mentionByDate.get(date) ?? 0) + 1);
+  });
+  const today = new Date();
+  const mentionTrend: Array<{ date: string; count: number }> = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
+    const ds = d.toISOString().slice(0, 10);
+    mentionTrend.push({ date: ds.slice(5), count: mentionByDate.get(ds) ?? 0 });
+  }
 
   // 집계 변수
   const tierCount = { T1: 0, T2: 0, T3: 0, T4: 0, T5: 0 };
