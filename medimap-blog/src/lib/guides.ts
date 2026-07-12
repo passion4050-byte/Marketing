@@ -212,6 +212,27 @@ export interface OverseasPartner {
   cover_image_url: string | null;
 }
 
+/**
+ * 파트너 병원의 언어별 표시명 — 실제 발행 콘텐츠 표기 기준.
+ * 매핑 없으면 한국어 t.name 으로 폴백(무회귀).
+ */
+const OVERSEAS_PARTNER_DISPLAY: Record<string, Record<string, string>> = {
+  dear: {
+    en: "Cheongdam Dear Clinic",
+    ja: "清潭ディア医院",
+    "zh-Hans": "清潭Dear医院",
+  },
+};
+
+/** partner_slug + lang → 표시명(폴백: 한국어 name). */
+export function overseasPartnerName(
+  partnerSlug: string,
+  lang: string,
+  fallback: string
+): string {
+  return OVERSEAS_PARTNER_DISPLAY[partnerSlug]?.[lang] ?? fallback;
+}
+
 /** 해당 언어에 파트너 콘텐츠가 실제로 있는 병원만 (대표 커버·건수 포함). */
 export async function getOverseasPartners(lang: string): Promise<OverseasPartner[]> {
   const sql = getSql();
@@ -232,7 +253,11 @@ export async function getOverseasPartners(lang: string): Promise<OverseasPartner
     return rows.map((r) => ({
       partner_category: String(r.partner_category),
       partner_slug: String(r.partner_slug),
-      name: String(r.name ?? r.partner_slug),
+      name: overseasPartnerName(
+        String(r.partner_slug),
+        lang,
+        String(r.name ?? r.partner_slug)
+      ),
       count: Number(r.cnt ?? 0),
       cover_image_url: (r.cover_image_url as string) ?? null,
     }));
