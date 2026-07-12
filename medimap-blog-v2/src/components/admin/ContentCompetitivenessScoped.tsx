@@ -7,7 +7,7 @@
  */
 import { useEffect, useState } from 'react';
 import { ContentCompetitiveness } from './ContentCompetitiveness';
-import { readScope, SCOPE_EVENT, scopeToLang } from './ScopeSelector';
+import { readScope, SCOPE_EVENT, scopeToContentLang } from './ScopeSelector';
 
 interface Content {
   id: number;
@@ -45,7 +45,7 @@ export function ContentCompetitivenessScoped({
       setContents(initialContents);
       return;
     }
-    const lang = scopeToLang(scope);
+    const lang = scopeToContentLang(scope);
     let cancelled = false;
     fetch(`/api/admin/top-contents?days=30&lang=${lang ?? ''}`, { cache: 'no-store' })
       .then((r) => r.json())

@@ -37,6 +37,26 @@ export function scopeToLang(scope: string): string | null {
   }
 }
 
+/**
+ * 스코프 키 → generated_contents.lang 값 (null = 전체).
+ * ⚠️ 콘텐츠는 zh 를 'zh-Hans' 로 저장(측정 keywords 는 'zh-Hant'). 콘텐츠 기반
+ * 지표(콘텐츠 경쟁력·발행수 등)는 반드시 이 헬퍼를 써야 ZH 가 0으로 새지 않음.
+ */
+export function scopeToContentLang(scope: string): string | null {
+  switch (scope) {
+    case 'ko':
+      return 'ko';
+    case 'en':
+      return 'en';
+    case 'ja':
+      return 'ja';
+    case 'zh':
+      return 'zh-Hans';
+    default:
+      return null;
+  }
+}
+
 /** 현재 스코프 읽기 (localStorage, SSR 안전). */
 export function readScope(): string {
   if (typeof window === 'undefined') return 'all';
