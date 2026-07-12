@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getClinicContent } from "@/lib/guides";
 import { GuideArticle, type GuideLabels } from "@/components/GuideArticle";
+import { OverseasClinicSchema } from "@/components/OverseasClinicSchema";
 
 export const revalidate = 60;
 
@@ -34,5 +35,10 @@ export default async function JaClinicDetailPage({ params }: Props) {
   const { partner, slug } = await params;
   const guide = await getClinicContent("ja", partner, slug);
   if (!guide) notFound();
-  return <GuideArticle guide={guide} langPath="ja" inLang="ja" labels={JA_LABELS} />;
+  return (
+    <>
+      <OverseasClinicSchema partnerSlug={partner} lang="ja" />
+      <GuideArticle guide={guide} langPath="ja" inLang="ja" labels={JA_LABELS} />
+    </>
+  );
 }

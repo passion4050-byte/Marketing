@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getClinicContent } from "@/lib/guides";
 import { GuideArticle, type GuideLabels } from "@/components/GuideArticle";
+import { OverseasClinicSchema } from "@/components/OverseasClinicSchema";
 
 export const revalidate = 60;
 
@@ -34,5 +35,10 @@ export default async function ZhClinicDetailPage({ params }: Props) {
   const { partner, slug } = await params;
   const guide = await getClinicContent("zh-Hans", partner, slug);
   if (!guide) notFound();
-  return <GuideArticle guide={guide} langPath="zh" inLang="zh-Hans" labels={ZH_LABELS} />;
+  return (
+    <>
+      <OverseasClinicSchema partnerSlug={partner} lang="zh-Hans" />
+      <GuideArticle guide={guide} langPath="zh" inLang="zh-Hans" labels={ZH_LABELS} />
+    </>
+  );
 }
