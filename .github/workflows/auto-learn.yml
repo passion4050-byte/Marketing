@@ -46,6 +46,7 @@ jobs:
           echo "auto-learn: days=$DAYS topN=$TOPN"
           RESP=$(curl -sS -X POST "$VERCEL_URL/api/admin/auto-learn" \
             -H "Content-Type: application/json" \
+            -H "X-Cron-Secret: $CRON_SECRET" \
             -d "{\"cronSecret\":\"$CRON_SECRET\",\"days\":$DAYS,\"topN\":$TOPN}")
           echo "$RESP"
           echo "$RESP" | grep -q '"ok":true' || { echo "::error::auto-learn 실패"; exit 1; }
