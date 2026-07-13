@@ -460,6 +460,23 @@ _STRUCTURE_DIRECTIVES = {
 }
 
 
+# Round 141 (2026-07-13) — AEO 통계·데이터 강제.
+#   감사 결과: 해외 발행글 34/34 가 '%수치 통계' 0개. Princeton GEO(KDD2024) 실증상
+#   통계 삽입은 인용률 +30~41% 로 단일 최대 지렛대인데 전면 결손 → 인용 0의 콘텐츠 측 원인.
+#   표/정의문/이미지처럼 '베이스 요건'에 통계를 추가. 단, 의료법 안전장치를 프롬프트에 명시.
+_STATS_ENFORCE_DIRECTIVE = (
+    "[AEO 통계·데이터 강화 — 필수]\n"
+    "- 본문에 '출처를 함께 밝힌' 구체적 수치/통계를 최소 2개 포함하세요"
+    "(예: 유병률, 회복기간 범위, 만족도 설문 수치, 이용·시장 통계 등).\n"
+    "- 각 수치는 '무엇에 대한 값인지' + 대략적 출처(기관·조사명·연도 등)를 함께 밝혀,"
+    " AI가 그대로 인용해도 근거가 남게 합니다.\n"
+    "- 수치는 퍼센트(%)나 구간(예: 2~3주, 10명 중 7명)처럼 AI가 발췌하기 쉬운 형태로 표현합니다.\n"
+    "- 🔴 의료법 준수(중요): 특정 병원·시술의 '효과·성공률 단정/보장'으로 읽히는 수치는 금지."
+    " 일반적·객관적 통계와 범위만 사용하고, 개별 결과를 보장하지 않는다는 맥락을 유지합니다.\n"
+    "- 근거 없는 임의 수치 날조 금지 — 확실치 않으면 '일반적으로 알려진 범위' 수준으로 신중히 표현합니다."
+)
+
+
 def _pick_structure_type(keyword: str) -> str:
     """키워드 + 발행일 기준 결정적 구조 픽 — 같은 키워드도 날마다, 키워드끼리 구조가 달라짐.
 
@@ -635,7 +652,7 @@ def generate_blog_post(
     _structure_directive = _STRUCTURE_DIRECTIVES.get(_structure_type, "")
     _variation_block = _build_variation_block()
     _combined_directive = "\n\n".join(
-        d for d in (_structure_directive, _variation_block) if d
+        d for d in (_structure_directive, _STATS_ENFORCE_DIRECTIVE, _variation_block) if d
     )
     if _combined_directive:
         references_block = (
