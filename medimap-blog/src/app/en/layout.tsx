@@ -28,9 +28,9 @@ const NAV = [
   { href: "/en#how", label: "How it works" },
   { href: "/en#specialties", label: "Specialties" },
   { href: "/en/clinics", label: "Clinics" },
-  { href: "/en#proof", label: "Proof" },
   { href: "/en/blog", label: "Blog" },
-  { href: "/en/guides/smile-lasik-in-korea", label: "Sample" },
+  { href: "/en/about", label: "About" },
+  { href: "/en/contact", label: "Contact" },
 ];
 
 export default function EnLayout({ children }: { children: React.ReactNode }) {

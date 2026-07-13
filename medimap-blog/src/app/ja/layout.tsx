@@ -21,7 +21,8 @@ const NAV = [
   { href: "/ja#specialties", label: "診療科" },
   { href: "/ja/clinics", label: "クリニック" },
   { href: "/ja/blog", label: "ブログ" },
-  { href: "/ja/guides/smile-lasik-in-korea", label: "サンプル" },
+  { href: "/ja/about", label: "会社紹介" },
+  { href: "/ja/contact", label: "お問い合わせ" },
 ];
 
 export default function JaLayout({ children }: { children: React.ReactNode }) {

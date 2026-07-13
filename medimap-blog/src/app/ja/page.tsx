@@ -35,6 +35,14 @@ export default function JaHome() {
         </div>
       </section>
 
+      <section className="mx-auto max-w-6xl px-5 py-14">
+        <div className="grid gap-8 md:grid-cols-3">
+          <div><div className="text-3xl font-black text-stone-950">AIファースト</div><p className="mt-2 text-sm leading-relaxed text-stone-600">外国人患者は地図を開く前に、ChatGPT・Perplexityで調べます。</p></div>
+          <div><div className="text-3xl font-black text-stone-950">見えない＝いない</div><p className="mt-2 text-sm leading-relaxed text-stone-600">AIがあなたのクリニックを挙げなければ、その患者にとっては存在しません——どれだけ優れていても。</p></div>
+          <div><div className="text-3xl font-black text-[#1B68FF]">引用される側へ</div><p className="mt-2 text-sm leading-relaxed text-stone-600">AIは構造化された事実——価格・比較・FAQ——を引用します。私たちが作るのはまさにそれです。</p></div>
+        </div>
+      </section>
+
       <section id="how" className="border-y border-stone-200/70 bg-white">
         <div className="mx-auto grid max-w-6xl gap-8 px-5 py-14 md:grid-cols-3">
           <div><div className="text-lg font-bold text-stone-900">① 分析・ターゲティング</div><p className="mt-2 text-sm text-stone-600">外国人患者がAIに尋ねる質問と、すでに引用されている競合を洗い出します。</p></div>
@@ -52,7 +60,39 @@ export default function JaHome() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-5 pb-24">
+      <section id="proof" className="border-y border-stone-200/70 bg-white">
+        <div className="mx-auto max-w-6xl px-5 py-16">
+          <h2 className="text-2xl font-black tracking-tight text-stone-950 md:text-3xl">一般的な代理店との違い</h2>
+          <p className="mt-3 max-w-2xl text-stone-600">多くの代理店は投稿して祈るだけ。私たちはすでに韓国クリニック向けにライブのAI引用計測システムを運用しています——その同じエンジンを、あなたの外国人患者ファネルに向けます。</p>
+          <div className="mt-8 overflow-hidden rounded-2xl border border-stone-200">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-stone-50 text-[12px] uppercase tracking-wider text-stone-500">
+                <tr>
+                  <th className="px-4 py-3 font-semibold"> </th>
+                  <th className="px-4 py-3 font-semibold">一般的な代理店</th>
+                  <th className="px-4 py-3 font-semibold text-[#1B68FF]">WECIRCLE Global</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ["言語", "英語のみ（多くの場合）", "英語・日本語・中国語（ネイティブ）"],
+                  ["成果の証明", "なし——「投稿しました」だけ", "ライブAI引用ダッシュボード"],
+                  ["コンテンツエンジン", "手動・遅い", "自動発信パイプライン"],
+                  ["構造", "ブログ記事", "AEO最適化：schema・価格ガイド・FAQ・表"],
+                ].map((row) => (
+                  <tr key={row[0]} className="border-t border-stone-100">
+                    <td className="px-4 py-3 font-semibold text-stone-800">{row[0]}</td>
+                    <td className="px-4 py-3 text-stone-500">{row[1]}</td>
+                    <td className="px-4 py-3 font-medium text-stone-900">{row[2]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-5 pb-24 pt-16">
         <div className="rounded-3xl bg-stone-950 px-8 py-14 text-center text-white md:px-16">
           <h2 className="text-3xl font-black tracking-tight md:text-4xl">AIに選ばれるクリニックへ。</h2>
           <p className="mx-auto mt-4 max-w-xl text-stone-300">20分の相談で、今どの競合がAIに引用されているかをお見せします。</p>

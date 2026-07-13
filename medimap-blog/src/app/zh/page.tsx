@@ -35,6 +35,14 @@ export default function ZhHome() {
         </div>
       </section>
 
+      <section className="mx-auto max-w-6xl px-5 py-14">
+        <div className="grid gap-8 md:grid-cols-3">
+          <div><div className="text-3xl font-black text-stone-950">AI优先</div><p className="mt-2 text-sm leading-relaxed text-stone-600">外国患者在打开地图之前，先在 ChatGPT、Perplexity 上做功课。</p></div>
+          <div><div className="text-3xl font-black text-stone-950">看不见＝不存在</div><p className="mt-2 text-sm leading-relaxed text-stone-600">如果AI不提及您的诊所，对那位患者而言您就不存在——无论您多优秀。</p></div>
+          <div><div className="text-3xl font-black text-[#1B68FF]">可被引用者胜出</div><p className="mt-2 text-sm leading-relaxed text-stone-600">AI引用结构化的事实——价格、对比、FAQ。这正是我们所构建的。</p></div>
+        </div>
+      </section>
+
       <section id="how" className="border-y border-stone-200/70 bg-white">
         <div className="mx-auto grid max-w-6xl gap-8 px-5 py-14 md:grid-cols-3">
           <div><div className="text-lg font-bold text-stone-900">① 分析与定位</div><p className="mt-2 text-sm text-stone-600">梳理外国患者向AI提出的问题，以及已被引用的竞争对手。</p></div>
@@ -52,7 +60,39 @@ export default function ZhHome() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-5 pb-24">
+      <section id="proof" className="border-y border-stone-200/70 bg-white">
+        <div className="mx-auto max-w-6xl px-5 py-16">
+          <h2 className="text-2xl font-black tracking-tight text-stone-950 md:text-3xl">与普通代理商的不同</h2>
+          <p className="mt-3 max-w-2xl text-stone-600">大多数代理商发完内容就只能祈祷。我们已经在为韩国诊所运行实时的AI引用计量系统——同一套引擎，现在对准您的外国患者漏斗。</p>
+          <div className="mt-8 overflow-hidden rounded-2xl border border-stone-200">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-stone-50 text-[12px] uppercase tracking-wider text-stone-500">
+                <tr>
+                  <th className="px-4 py-3 font-semibold"> </th>
+                  <th className="px-4 py-3 font-semibold">普通代理商</th>
+                  <th className="px-4 py-3 font-semibold text-[#1B68FF]">WECIRCLE Global</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ["语言", "通常仅英语", "英语・日语・中文（母语）"],
+                  ["成效证明", "没有——只有「我们发布了」", "实时AI引用仪表盘"],
+                  ["内容引擎", "手动、缓慢", "自动发布流水线"],
+                  ["结构", "博客文章", "AEO优化：schema・价格指南・FAQ・表格"],
+                ].map((row) => (
+                  <tr key={row[0]} className="border-t border-stone-100">
+                    <td className="px-4 py-3 font-semibold text-stone-800">{row[0]}</td>
+                    <td className="px-4 py-3 text-stone-500">{row[1]}</td>
+                    <td className="px-4 py-3 font-medium text-stone-900">{row[2]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-5 pb-24 pt-16">
         <div className="rounded-3xl bg-stone-950 px-8 py-14 text-center text-white md:px-16">
           <h2 className="text-3xl font-black tracking-tight md:text-4xl">成为AI推荐的诊所。</h2>
           <p className="mx-auto mt-4 max-w-xl text-stone-300">20分钟通话，我们将展示目前哪些竞争对手正被AI引用。</p>

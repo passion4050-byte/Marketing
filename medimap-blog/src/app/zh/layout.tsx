@@ -21,7 +21,8 @@ const NAV = [
   { href: "/zh#specialties", label: "科室" },
   { href: "/zh/clinics", label: "诊所" },
   { href: "/zh/blog", label: "博客" },
-  { href: "/zh/guides/smile-lasik-in-korea", label: "样本" },
+  { href: "/zh/about", label: "关于我们" },
+  { href: "/zh/contact", label: "联系我们" },
 ];
 
 export default function ZhLayout({ children }: { children: React.ReactNode }) {
