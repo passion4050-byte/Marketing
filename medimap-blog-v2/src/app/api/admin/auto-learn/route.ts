@@ -89,14 +89,20 @@ export async function POST(req: NextRequest) {
     .slice(0, topN);
 
   // 4. 각 도메인 → learn-from-domain(analyze) → save (기존 검증 로직 재사용)
+  // 🔴 내부 self-call 도 /api/admin/* 이라 미들웨어(admin cookie or x-cron-secret) 통과 필요.
+  //    cron 컨텍스트엔 admin 쿠키가 없으므로 x-cron-secret 헤더를 반드시 전달.
   const origin = req.nextUrl.origin;
+  const internalHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(secret ? { 'X-Cron-Secret': secret } : {}),
+  };
   const results: Array<{ domain: string; citations: number; ok: boolean; error?: string }> = [];
   for (const [domain, e] of candidates) {
     const urls = Array.from(e.urls).slice(0, 6);
     try {
       const aRes = await fetch(`${origin}/api/admin/learn-from-domain`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: internalHeaders,
         body: JSON.stringify({ domain, urls, source_tier: 'competitor' }),
       });
       const a = (await aRes.json()) as {
@@ -113,7 +119,7 @@ export async function POST(req: NextRequest) {
       }
       const sRes = await fetch(`${origin}/api/admin/learn-from-domain?save=true`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: internalHeaders,
         body: JSON.stringify({
           domain,
           urls,
