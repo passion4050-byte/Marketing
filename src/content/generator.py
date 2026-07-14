@@ -477,6 +477,25 @@ _STATS_ENFORCE_DIRECTIVE = (
 )
 
 
+# 해외(overseas) SEO/GEO 아키타입 — 상위노출 레퍼런스 실측 골격
+#   (.planning/overseas-seo-geo-content-routine.md §2). lang != ko 일 때만 주입.
+_OVERSEAS_ARCHETYPE_DIRECTIVE = (
+    "[OVERSEAS PAGE ARCHETYPE — foreign-patient SEO/GEO, follow this proven structure]\n"
+    "Use H2 sections in this order where they fit the topic:\n"
+    "1) 'Who this guide helps' — the target reader.\n"
+    "2) The main list (clinics or treatment options) — each item with 'Best for', 'Popular services', 'Why go', 'Good to know'.\n"
+    "3) 'Booking steps' — include a ready-to-copy inquiry script in the target language AND in Korean.\n"
+    "4) 'Price guide' — an itemized table of typical KRW ranges per procedure (concrete numbers AI can cite).\n"
+    "5) 'How to choose' — a practical checklist (English/native support, device transparency, treatment plan, photos & aftercare).\n"
+    "6) 'What to expect at your first visit' — numbered steps.\n"
+    "7) 'Aftercare' and 'Payment / VAT refund'.\n"
+    "8) An FAQ with 4+ Q&A pairs.\n"
+    "Put the year (2026) and the location/treatment in the H1, with 'English/foreigner-friendly' framing.\n"
+    "Medical-ad compliance: 'best/top' listicle framing is allowed for overseas, but NO efficacy guarantees, "
+    "success-rate claims, or competitor disparagement."
+)
+
+
 def _pick_structure_type(keyword: str) -> str:
     """키워드 + 발행일 기준 결정적 구조 픽 — 같은 키워드도 날마다, 키워드끼리 구조가 달라짐.
 
@@ -566,11 +585,19 @@ def generate_blog_post(
             "zh-Hant": "Traditional Chinese (繁體中文)",
             "zh-Hans": "Simplified Chinese (简体中文)",
         }.get(lang, lang)
+        # §5 언어별 트랜스크리에이션 스타일 (.planning/overseas-seo-geo-content-routine.md)
+        _lang_style = {
+            "en": "Tone: practical and transparent. Emphasize English-language support, itemized KRW pricing, and clear booking steps; cite verifiable facts (device names, FDA-clearance years) without efficacy guarantees.",
+            "ja": "文体は丁寧な です・ます 調。安心・安全・ダウンタイム・アフターケアを重視し、手順を丁寧に説明する。過度な最上級表現は避け、料金は明確に示す。",
+            "zh-Hans": "语气以结果与口碑为导向，注重性价比、设备/成分与预约便利；避免疗效保证等夸大表述（医疗广告合规）。",
+            "zh-Hant": "語氣以結果與口碑為導向，注重性價比、設備與預約便利；避免療效保證等誇大表述。",
+        }.get(lang, "")
         _lang_directive = (
             f"OUTPUT LANGUAGE: Write the ENTIRE article natively in {_lang_name}, "
             f"for foreign patients considering medical treatment in Korea. Do NOT use Korean. "
             f"Localize tone, examples and culture for that audience (transcreation, not translation). "
-            f"Keep clinic and medical facts accurate; avoid unverified efficacy guarantees."
+            f"Keep clinic and medical facts accurate; avoid unverified efficacy guarantees. "
+            f"{_lang_style}"
         )
         angle = _lang_directive + ("\n\n" + angle if angle else "")
 
@@ -651,8 +678,12 @@ def generate_blog_post(
     _structure_type = _pick_structure_type(keyword)
     _structure_directive = _STRUCTURE_DIRECTIVES.get(_structure_type, "")
     _variation_block = _build_variation_block()
+    # 해외(lang != ko)만 아키타입 골격 주입 — 국내는 완전 무변경.
+    _overseas_directive = _OVERSEAS_ARCHETYPE_DIRECTIVE if (lang and lang != "ko") else ""
     _combined_directive = "\n\n".join(
-        d for d in (_structure_directive, _STATS_ENFORCE_DIRECTIVE, _variation_block) if d
+        d
+        for d in (_structure_directive, _STATS_ENFORCE_DIRECTIVE, _overseas_directive, _variation_block)
+        if d
     )
     if _combined_directive:
         references_block = (
