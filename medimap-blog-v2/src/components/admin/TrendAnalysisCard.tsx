@@ -18,8 +18,25 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Loader2, TrendingUp } from 'lucide-react';
+import { ExternalLink, Loader2, TrendingUp, X } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { readScope, SCOPE_EVENT } from '@/components/admin/ScopeSelector';
+
+type Tier = 'T1' | 'T2' | 'T3' | 'T4' | 'T5' | 'NOISE';
+interface CiteItem {
+  tier: Tier;
+  label: string;
+  domain: string;
+  url: string | null;
+  engine: string;
+  keyword: string;
+}
+interface DayDetail {
+  date: string;
+  ours: CiteItem[];
+  competitors: CiteItem[];
+  totals: { ours: number; competitors: number };
+}
 
 type Dim = { series: string[]; data: Array<Record<string, number | string>> };
 type TrendData = {
@@ -84,6 +101,22 @@ export function TrendAnalysisCard({ tenantId, days = 30 }: { tenantId: number | 
   const [engine, setEngine] = useState<string>(''); // engine 모드에서만 사용 ('' = 전체)
   const [data, setData] = useState<TrendData | null>(null);
   const [loading, setLoading] = useState(true);
+  // Round 143 — 언어 스코프 (헤더 ScopeSelector 동기화)
+  const [scope, setScope] = useState('all');
+  // Round 143 — 일별 인용 드릴다운
+  const [detailDate, setDetailDate] = useState<string | null>(null);
+  const [detail, setDetail] = useState<DayDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  useEffect(() => {
+    setScope(readScope());
+    const onEvt = (e: Event) => {
+      const d = (e as CustomEvent).detail;
+      if (typeof d === 'string') setScope(d);
+    };
+    window.addEventListener(SCOPE_EVENT, onEvt);
+    return () => window.removeEventListener(SCOPE_EVENT, onEvt);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -91,6 +124,7 @@ export function TrendAnalysisCard({ tenantId, days = 30 }: { tenantId: number | 
     const params = new URLSearchParams();
     if (tenantId) params.set('tenantId', String(tenantId));
     if (keyword) params.set('keyword', keyword);
+    if (scope && scope !== 'all') params.set('scope', scope);
     // Round 86 — engine='__compare__' 면 multi-engine breakdown 모드
     if (mode === 'engine') {
       if (engine === '__compare__') {
@@ -114,7 +148,34 @@ export function TrendAnalysisCard({ tenantId, days = 30 }: { tenantId: number | 
     return () => {
       alive = false;
     };
-  }, [tenantId, keyword, mode, engine, days]);
+  }, [tenantId, keyword, mode, engine, days, scope]);
+
+  // 스코프/기간/키워드 바뀌면 열린 드릴다운 닫기 (stale 방지)
+  useEffect(() => {
+    setDetailDate(null);
+    setDetail(null);
+  }, [tenantId, scope, days, keyword, engine, mode]);
+
+  const openDayDetail = (label: string) => {
+    if (!label) return;
+    setDetailDate(label);
+    setDetailLoading(true);
+    setDetail(null);
+    const params = new URLSearchParams();
+    if (tenantId) params.set('tenantId', String(tenantId));
+    if (keyword) params.set('keyword', keyword);
+    if (scope && scope !== 'all') params.set('scope', scope);
+    if (mode === 'engine' && engine && engine !== '__compare__') params.set('engine', engine);
+    params.set('days', String(days));
+    params.set('date', label);
+    fetch(`/api/admin/competitors/trends/detail?${params.toString()}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.ok) setDetail(j as DayDetail);
+      })
+      .catch(() => {})
+      .finally(() => setDetailLoading(false));
+  };
 
   const clientLabel = data?.summary.client_label ?? '클라이언트';
   const dim = data?.series ?? null;
@@ -218,7 +279,15 @@ export function TrendAnalysisCard({ tenantId, days = 30 }: { tenantId: number | 
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={dim!.data} margin={{ top: 4, right: 16, bottom: 0, left: -8 }}>
+          <LineChart
+            data={dim!.data}
+            margin={{ top: 4, right: 16, bottom: 0, left: -8 }}
+            onClick={(e: { activeLabel?: string | number } | null) => {
+              const lbl = e?.activeLabel;
+              if (typeof lbl === 'string') openDayDetail(lbl);
+            }}
+            style={{ cursor: 'pointer' }}
+          >
             <CartesianGrid strokeDasharray="3 3" stroke="#E5EBED" />
             <XAxis dataKey="date" fontSize={10} stroke="#64748B" interval="preserveStartEnd" minTickGap={24} />
             <YAxis fontSize={10} stroke="#64748B" allowDecimals={false} width={32} />
@@ -244,6 +313,106 @@ export function TrendAnalysisCard({ tenantId, days = 30 }: { tenantId: number | 
             })}
           </LineChart>
         </ResponsiveContainer>
+      )}
+
+      {hasData && !detailDate && (
+        <div className="mt-2 text-center text-[10px] text-ink-muted">
+          💡 차트의 날짜(점)를 클릭하면 그날 인용된 콘텐츠·URL 을 볼 수 있습니다
+        </div>
+      )}
+
+      {/* Round 143 — 일별 인용 드릴다운 패널 */}
+      {detailDate && (
+        <div className="mt-4 rounded-xl border border-border bg-surface-muted/40 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-sm font-bold text-ink">
+              {detail?.date ?? detailDate} · 인용된 콘텐츠
+              {detail && (
+                <span className="ml-2 text-[11px] font-normal text-ink-muted">
+                  자사·클라이언트 {detail.totals.ours} · 경쟁사 {detail.totals.competitors}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => { setDetailDate(null); setDetail(null); }}
+              className="text-ink-muted hover:text-ink"
+              aria-label="닫기"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {detailLoading ? (
+            <div className="flex items-center gap-2 py-6 text-[12px] text-ink-muted">
+              <Loader2 className="h-4 w-4 animate-spin" /> 불러오는 중…
+            </div>
+          ) : !detail || (detail.ours.length === 0 && detail.competitors.length === 0) ? (
+            <div className="py-6 text-center text-[12px] text-ink-muted">이 날짜에 인용 출처 데이터가 없습니다.</div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-status-success">
+                  우리 편 ({detail.ours.length})
+                </div>
+                {detail.ours.length === 0 ? (
+                  <div className="text-[11px] text-ink-muted">없음</div>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {detail.ours.map((c, i) => (
+                      <li key={`o${i}`} className="text-[11px]">
+                        <div className="flex items-center gap-1.5">
+                          <span className="rounded bg-status-successSoft px-1 py-0.5 text-[9px] font-bold text-status-success">
+                            {c.label}
+                          </span>
+                          <span className="text-ink-muted">{c.engine}</span>
+                          {c.keyword && <span className="truncate text-ink-muted">· {c.keyword}</span>}
+                        </div>
+                        {c.url ? (
+                          <a href={c.url} target="_blank" rel="noopener noreferrer"
+                            className="mt-0.5 flex items-center gap-1 break-all font-mono text-[10px] text-brand hover:underline">
+                            <ExternalLink className="h-3 w-3 shrink-0" /> {c.url}
+                          </a>
+                        ) : (
+                          <span className="font-mono text-[10px] text-ink-soft">{c.domain}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div>
+                <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-soft">
+                  경쟁사 ({detail.competitors.length})
+                </div>
+                {detail.competitors.length === 0 ? (
+                  <div className="text-[11px] text-ink-muted">없음</div>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {detail.competitors.map((c, i) => (
+                      <li key={`c${i}`} className="text-[11px]">
+                        <div className="flex items-center gap-1.5">
+                          <span className="rounded bg-surface-subtle px-1 py-0.5 text-[9px] font-bold text-ink-soft">
+                            {c.tier}
+                          </span>
+                          <span className="text-ink-muted">{c.engine}</span>
+                          {c.keyword && <span className="truncate text-ink-muted">· {c.keyword}</span>}
+                        </div>
+                        {c.url ? (
+                          <a href={c.url} target="_blank" rel="noopener noreferrer"
+                            className="mt-0.5 flex items-center gap-1 break-all font-mono text-[10px] text-ink hover:underline">
+                            <ExternalLink className="h-3 w-3 shrink-0" /> {c.url}
+                          </a>
+                        ) : (
+                          <span className="font-mono text-[10px] text-ink-soft">{c.domain}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </section>
   );

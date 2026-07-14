@@ -54,6 +54,16 @@ export async function GET(req: Request) {
   const tenantIdFilter = tenantIdParam ? Number(tenantIdParam) : null;
   const keywordFilter = url.searchParams.get('keyword')?.trim() || null;
   const engineFilter = url.searchParams.get('engine')?.trim().toLowerCase() || null;
+  // Round 143 (2026-07-14) — 언어 스코프 필터. 이전엔 scope 파라미터를 프론트가 보내도
+  //   API 가 무시 → EN/JA/ZH 가 전부 동일 차트로 나오는 버그. keywords.lang 로 필터한다.
+  //   ⚠️ 측정 keywords 는 zh 를 'zh-Hant' 로 저장 (scopeToLang 과 동일 매핑).
+  const scopeParam = url.searchParams.get('scope')?.trim() || null;
+  const scopeLang =
+    scopeParam === 'ko' ? 'ko'
+    : scopeParam === 'en' ? 'en'
+    : scopeParam === 'ja' ? 'ja'
+    : scopeParam === 'zh' ? 'zh-Hant'
+    : null; // all / 미지정 = 전체
   // Round 86 (2026-06-28) — multi-engine breakdown 모드.
   //   breakdown=engine 면 메디맵·클라이언트 시리즈를 엔진별 (Gemini/Claude/OpenAI) 로 분리.
   //   사용자 요구: "한눈에 보고 싶어, 엔진별 비교" — 한 차트에 동시 표시.
@@ -107,7 +117,8 @@ export async function GET(req: Request) {
       (selRow as { partner_slug?: string }).partner_slug === 'medimap-self');
 
   // 키워드 (자사는 own, 그 외는 competitor_landscape)
-  let kwQuery = sb.from('keywords').select('id, text, tenant_id').eq('is_active', true);
+  let kwQuery = sb.from('keywords').select('id, text, tenant_id, lang').eq('is_active', true);
+  if (scopeLang) kwQuery = kwQuery.eq('lang', scopeLang);
   // Round 138+ (A 수정) — 기존엔 비자사 차트가 competitor_landscape(3일 주기 측정)만 집계 →
   //   그 사이 날짜가 0으로 비어 "07-04부터 안 보임" 발생. own(자사 브랜드) 키워드는 매일 측정되고
   //   그 응답에도 경쟁사 출처 인용이 담기므로 함께 포함해 차트를 일별로 채운다.
