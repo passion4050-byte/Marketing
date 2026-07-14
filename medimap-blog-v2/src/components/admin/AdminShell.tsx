@@ -35,30 +35,33 @@ import { cn } from '@/lib/cn';
 //   ① 일상 운영(매일 봄, 4개) ② 측정·분석(주간 봄, 6개)
 //   ③ 설정(가끔 조정, 5개) ④ 시스템(거의 안 봄, 3개)
 // 이전: 운영 7 + 인사이트 7 + 시스템 3 = 운영 그룹 비대화 → 운영자가 핵심 4개 못 찾음.
+// Round 143 (2026-07-14) — IA 재정리(직무 기준). 이전엔 최적화/분석 항목이 '운영'에,
+//   매일 보는 리드·캘린더가 '분석'·'설정'에 흩어져 동선이 꼬였음.
+//   운영(매일 손대는 것) / 측정·분석(주간 판단) / 설정(가끔 조정) / 시스템(거의 안 봄)으로 정렬.
 const NAV = [
-  { group: '일상 운영', items: [
+  { group: '운영 · 매일', items: [
     { href: '/admin', label: '대시보드', icon: LayoutDashboard },
     { href: '/admin/content-queue', label: '콘텐츠 관리', icon: ClipboardCheck },
     { href: '/admin/overseas', label: '해외 관리', icon: Globe },
-    { href: '/admin/learned-insights', label: '학습 인사이트', icon: BookOpen },
-    { href: '/admin/ab-tests', label: 'A/B 테스트', icon: Beaker }
+    { href: '/admin/calendar', label: '콘텐츠 캘린더', icon: CalendarDays },
+    { href: '/admin/scanner-leads', label: '클라이언트 문의', icon: Inbox }
   ]},
   { group: '측정 · 분석', items: [
-    { href: '/admin/scanner-leads', label: '클라이언트 문의', icon: Inbox },
     { href: '/admin/citations', label: 'AI 인용 추적', icon: Zap },
     { href: '/admin/saas-tracking', label: 'SaaS 시장 노출도', icon: Sparkles },
+    { href: '/admin/ab-tests', label: 'A/B 테스트', icon: Beaker },
+    { href: '/admin/learned-insights', label: '학습 인사이트', icon: BookOpen },
     { href: '/admin/funnel', label: 'Funnel · ROI', icon: LinkIcon },
-    { href: '/admin/reports', label: '월간 보고서', icon: FileText },
-    { href: '/admin/cost', label: '비용 모니터', icon: DollarSign }
+    { href: '/admin/reports', label: '월간 보고서', icon: FileText }
   ]},
   { group: '설정', items: [
     { href: '/admin/tenants', label: '클라이언트', icon: Users },
     { href: '/admin/keywords', label: '키워드 풀', icon: Tag },
     { href: '/admin/content-settings', label: '콘텐츠 설정', icon: Settings },
-    { href: '/admin/calendar', label: '콘텐츠 캘린더', icon: CalendarDays },
     { href: '/admin/domain-classifications', label: '도메인 분류 사전', icon: ShieldCheck }
   ]},
   { group: '시스템', items: [
+    { href: '/admin/cost', label: '비용 모니터', icon: DollarSign },
     { href: '/admin/users', label: '사용자 관리', icon: UserCog },
     { href: '/admin/integrations', label: '연동 (YouTube 등)', icon: Plug },
     { href: '/admin/audit', label: '감사 로그', icon: History }
