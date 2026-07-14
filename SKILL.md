@@ -4856,7 +4856,9 @@ Round 104-c 사무실 세션에서 이미지 문제 조치됨 (`unsplash_client.
 ## 📌 Round 133~140 이후 — 일자별 스냅샷으로 이관
 이 누적본은 Round 132(2026-07-09)까지. 이후 세션 컨텍스트는 `.claude/skills/geo-snapshot/geoYYMMDD.md`(설치 스킬 `geo-snapshot-YYMMDD`)에 있음:
 - **geo260709 / geo260710** — Round 133~138 (스캐너 영업 앞문, 실측 대시보드 교체, 출처 인용 북극성 지표, 콘텐츠 밀도 루틴, PostgREST 1000행 한도 근본수정, 어드민 페이지네이션).
-- **geo260712 (최신)** — Round 139~140. 해외(EN/JA/ZH) 브랜치 + 전수조사. 🔴 최대 교훈: **esbuild 게이트는 타입 못 잡음** — `guides.ts unknown[]` 타입에러가 해외 라우트 배포를 막았고 esbuild는 통과시킴. 빌드-크리티컬 타입변경은 격리 `tsc` 또는 Vercel 빌드 Ready로 실측할 것. 그 외 해외 카드 커버 lazy 버그, 어드민 스코프 카드 연동(citation_proof_tenants·market_share_domains·top_cited_contents RPC), `/{lang}/clinics` 인덱스, ja/zh 404, sitemap canonical.
+- **geo260712** — Round 139~140. 해외 브랜치 + 전수조사. 🔴 교훈: esbuild≠tsc(`guides.ts unknown[]`), 해외 카드 커버 lazy 버그, 어드민 스코프 카드(citation_proof_tenants·market_share_domains·top_cited_contents RPC), `/{lang}/clinics` 인덱스, ja/zh 404.
+- **geo260713** — Round 141. 어드민 언어 스코프 전면화, AEO 점수 lib(scoreAeo), 리포트/A·B/auto-learn, 해외 about/contact 미러, 통계 디렉티브. scopeToKeywordLang/scopeToContentLang(zh=zh-Hant 측정 vs zh-Hans 콘텐츠).
+- **geo260714 (최신)** — Round 142. **해외 SEO/GEO 자동화 완성 + IA 미러.** reports 화면 AEO 섹션, `/{lang}/clinics/[category]` 진료과 허브, hreflang.ts 헬퍼(허브 canonical→홈 버그 수정), 리스티클 is_partner=false→`/guides` canonical(+301), generator 아키타입+트랜스크리에이션 디렉티브, 🔴해외 볼륨 갭 버그(daily_count=1→해외 절대생성안됨) 수정=market_only+auto-publish-overseas.yml(id249 종단검증), FAPage FAQ 파서+backfill, 홈 진료항목→/clinics/[category] IA 연결. 🔴교훈: Next redirect()는 fetch 아닌 브라우저로 검증, Postgres 정규식 non-greedy 신뢰금지, fetch는 hreflang 누락(document.head로). 정본 루틴 `.planning/overseas-seo-geo-content-routine.md`.
 
 ---
 
