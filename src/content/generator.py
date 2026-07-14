@@ -337,7 +337,7 @@ def generate_faq_content(
             keyword_text=keyword,
             channel="schema_org",
             body=json_ld,
-            raw_qa_pairs={"pairs": [{"q": p.question, "a": p.answer} for p in last_result.qa_pairs]},
+            raw_qa_pairs=[{"q": p.question, "a": p.answer} for p in last_result.qa_pairs],
             cited_reference_ids=cited_ids or None,
             compliance_status=last_report.status,
             compliance_report=last_report.to_dict(),

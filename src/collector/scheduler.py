@@ -464,6 +464,32 @@ def daily_auto_content_job(
     return summary
 
 
+def _extract_faq_pairs(body: str) -> list[dict]:
+    """생성 본문의 FAQ 섹션(<p><strong>Q: …</strong> A: …</p>)을 raw_qa_pairs 평면 배열로 파싱.
+
+    FAPage JSON-LD + AEO FAQ 점수용(국내·해외 자동콘텐츠 공통 GEO 개선).
+    'Q:' 로 시작하는 strong 만 매칭해 일반 볼드 오탐 방지. 없음/실패면 [] → 저장 안 함(백워드 안전).
+    """
+    if not body:
+        return []
+    import re as _re
+
+    pat = _re.compile(
+        r"<strong[^>]*>\s*Q\s*[:.]\s*(?P<q>.*?)</strong>(?P<a>.*?)</p>",
+        _re.IGNORECASE | _re.DOTALL,
+    )
+    out: list[dict] = []
+    for m in pat.finditer(body):
+        q = _re.sub(r"<[^>]+>", " ", m.group("q"))
+        a = _re.sub(r"<[^>]+>", " ", m.group("a"))
+        a = _re.sub(r"^\s*A\s*[:.]?\s*", "", a, flags=_re.IGNORECASE)
+        q = _re.sub(r"\s+", " ", q).strip()
+        a = _re.sub(r"\s+", " ", a).strip()
+        if q and a and 3 <= len(q) <= 300 and len(a) >= 5:
+            out.append({"q": q, "a": a})
+    return out[:10]
+
+
 def _generate_draft(
     session_factory,
     tenant_id: int,
@@ -548,6 +574,15 @@ def _generate_draft(
                         obj.blog_category = _map_blog_category(keyword, getattr(obj, "title", "") or "")
                 except Exception:  # noqa: BLE001
                     pass  # 매핑 실패는 발행 차단 사유 아님
+
+        # FAPage 구조화 FAQ — body FAQ 섹션을 raw_qa_pairs 평면 배열로 채움(비어있을 때만).
+        #   FAPage JSON-LD + AEO FAQ 점수 활성화. 파싱 실패면 무변경(백워드 안전).
+        if channel == "blog_html" and hasattr(obj, "raw_qa_pairs"):
+            _cur_faq = getattr(obj, "raw_qa_pairs", None)
+            if not (isinstance(_cur_faq, list) and len(_cur_faq) > 0):
+                _faq_pairs = _extract_faq_pairs(getattr(obj, "body", "") or "")
+                if _faq_pairs:
+                    obj.raw_qa_pairs = _faq_pairs
 
         # 의료법 통과 + auto_publish 일 때만 즉시 발행 — 그 외엔 draft 유지.
         if auto_publish and obj.compliance_status == "pass":
