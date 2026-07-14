@@ -572,6 +572,13 @@ def _generate_draft(
                     if _is_self:
                         # Round 59 fix 6 — title 도 전달해서 더 정확히 분류 (keyword 단일이면 편향)
                         obj.blog_category = _map_blog_category(keyword, getattr(obj, "title", "") or "")
+                    elif market == "overseas":
+                        # 해외 비파트너 콘텐츠 — B2C 3분류(K-뷰티/K-의료/꿀팁).
+                        # 파트너 콘텐츠는 is_partner_content=true 라 /blog 에서 제외되므로
+                        # blog_category 부여돼도 무해(항상 /clinics 노출).
+                        obj.blog_category = _classify_overseas_blog_category(
+                            keyword, getattr(obj, "title", "") or ""
+                        )
                 except Exception:  # noqa: BLE001
                     pass  # 매핑 실패는 발행 차단 사유 아님
 
@@ -791,6 +798,42 @@ def _map_partner_category(domain_category: str | None) -> str | None:
         "oriental": "oriental",
     }
     return _m.get(domain_category.strip())
+
+
+def _classify_overseas_blog_category(keyword: str, title: str = "") -> str:
+    """해외(en/ja/zh) 비파트너 콘텐츠 → B2C blog_category slug 매핑.
+
+    medimap-blog/src/lib/overseasBlog.ts classifyOverseasBlogCategory 와 동일:
+        k_beauty  — K-뷰티의 우수성 (미용/피부 시술)
+        k_medical — K-의료의 우수성 (안과·치과·내과·모발 등)
+        k_tips    — K-의료·뷰티 이용 꿀팁 (병원 선택·비용·예약)
+
+    키워드는 언어별로 현지어(ja/zh)라 다국어 마커로 판별한다.
+    """
+    text = ((keyword or "") + " " + (title or "")).strip().lower()
+    if not text:
+        return "k_beauty"
+
+    # 1) k_tips — 병원 선택/추천/비교형 (리스티클)
+    tips_kws = [
+        "best ", "how to choose", "clinic in", "clinics in",
+        "추천", "おすすめ", "ランキング", "クリニック", "推荐", "攻略", "诊所",
+    ]
+    if any(t in text for t in tips_kws):
+        return "k_tips"
+
+    # 2) k_medical — 의료(안과·치과·내과·모발)
+    medical_kws = [
+        "lasik", "smile", "implant", "dental", "screening", "eye",
+        "라식", "임플란트", "레이시크",
+        "レーシック", "インプラント", "眼科", "歯",
+        "近视", "植发", "种植牙", "眼科", "牙",
+    ]
+    if any(t in text for t in medical_kws):
+        return "k_medical"
+
+    # 3) k_beauty — 그 외 미용/피부 시술 (default)
+    return "k_beauty"
 
 
 def _map_blog_category(keyword: str, title: str = "") -> str:

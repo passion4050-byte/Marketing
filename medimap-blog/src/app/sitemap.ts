@@ -7,6 +7,7 @@ import {
 } from "@/lib/partners";
 import { absoluteUrl } from "@/lib/site";
 import { getOverseasCards } from "@/lib/guides";
+import { OVERSEAS_BLOG_CATEGORIES } from "@/lib/overseasBlog";
 
 // Round 12 (2026-05-26): sitemap.ts 는 Next.js metadata route — `dynamic` export
 //   가 webpack metadata-route-loader 와 충돌해 빌드 fail. 다시 revalidate=60 으로
@@ -101,6 +102,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...OVERSEAS_LANGS.flatMap((l) => [
       { url: absoluteUrl(`/${l.code}`), lastModified: now, changeFrequency: "weekly" as const, priority: 0.8 },
       { url: absoluteUrl(`/${l.code}/blog`), lastModified: now, changeFrequency: "daily" as const, priority: 0.8 },
+      ...OVERSEAS_BLOG_CATEGORIES.map((cat) => ({
+        url: absoluteUrl(`/${l.code}/blog/category/${cat}`),
+        lastModified: now,
+        changeFrequency: "weekly" as const,
+        priority: 0.7,
+      })),
       { url: absoluteUrl(`/${l.code}/clinics`), lastModified: now, changeFrequency: "daily" as const, priority: 0.8 },
       { url: absoluteUrl(`/${l.code}/about`), lastModified: now, changeFrequency: "monthly" as const, priority: 0.5 },
       { url: absoluteUrl(`/${l.code}/contact`), lastModified: now, changeFrequency: "monthly" as const, priority: 0.6 },

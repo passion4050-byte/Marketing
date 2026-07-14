@@ -145,6 +145,7 @@ const POST_FILTER = `
   AND length(trim(gc.slug)) > 0
   AND t.partner_slug IS NOT NULL
   AND gc.partner_category IS NOT NULL
+  AND COALESCE(gc.market, 'domestic') = 'domestic'
 `;
 
 function toIsoDate(v: unknown): string {

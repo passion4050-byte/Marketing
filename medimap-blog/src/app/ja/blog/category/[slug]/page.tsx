@@ -1,0 +1,49 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { getOverseasCards } from "@/lib/guides";
+import { OverseasBlogIndex } from "@/components/OverseasBlogIndex";
+import { overseasAlternates } from "@/lib/hreflang";
+import {
+  OVERSEAS_BLOG_CATEGORIES,
+  OVERSEAS_BLOG_LABELS,
+  isOverseasBlogCategory,
+} from "@/lib/overseasBlog";
+
+export const revalidate = 60;
+
+export function generateStaticParams() {
+  return OVERSEAS_BLOG_CATEGORIES.map((slug) => ({ slug }));
+}
+
+interface Props {
+  params: Promise<{ slug: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  if (!isOverseasBlogCategory(slug)) return { title: "ブログ — WECIRCLE Global" };
+  const meta = OVERSEAS_BLOG_LABELS.ja[slug];
+  return {
+    title: `${meta.label} — WECIRCLE Global`,
+    description: meta.desc,
+    alternates: overseasAlternates("ja", `/blog/category/${slug}`),
+  };
+}
+
+export default async function JaBlogCategoryPage({ params }: Props) {
+  const { slug } = await params;
+  if (!isOverseasBlogCategory(slug)) notFound();
+  const meta = OVERSEAS_BLOG_LABELS.ja[slug];
+  const cards = await getOverseasCards("ja", { kind: "blog", blogCategory: slug });
+  return (
+    <OverseasBlogIndex
+      lang="ja"
+      title={meta.label}
+      subtitle={meta.desc}
+      cards={cards}
+      sectionsLabel="セクション"
+      storiesLabel={(n) => `${n} 記事`}
+      activeCat={slug}
+    />
+  );
+}

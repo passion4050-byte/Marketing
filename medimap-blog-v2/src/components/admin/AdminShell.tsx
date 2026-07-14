@@ -11,6 +11,7 @@ import {
   ClipboardCheck,
   DollarSign,
   FileText,
+  Globe,
   History,
   Inbox,
   LayoutDashboard,
@@ -38,6 +39,7 @@ const NAV = [
   { group: '일상 운영', items: [
     { href: '/admin', label: '대시보드', icon: LayoutDashboard },
     { href: '/admin/content-queue', label: '콘텐츠 관리', icon: ClipboardCheck },
+    { href: '/admin/overseas', label: '해외 관리', icon: Globe },
     { href: '/admin/learned-insights', label: '학습 인사이트', icon: BookOpen },
     { href: '/admin/ab-tests', label: 'A/B 테스트', icon: Beaker }
   ]},

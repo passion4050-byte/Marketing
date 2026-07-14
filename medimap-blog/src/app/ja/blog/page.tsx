@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { getOverseasCards } from "@/lib/guides";
-import { OverseasListing } from "@/components/OverseasListing";
+import { OverseasBlogIndex } from "@/components/OverseasBlogIndex";
 
 export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "ブログ — WECIRCLE Global",
-  description: "韓国での治療を検討する外国人患者向けの施術ガイドと情報。",
+  description: "K-ビューティー・K-医療の実力、そして韓国での施術を検討する外国人患者向けの活用のコツ。",
   alternates: {
     canonical: "/ja/blog",
     languages: { en: "/en/blog", ja: "/ja/blog", "zh-Hans": "/zh/blog" },
@@ -16,12 +16,13 @@ export const metadata: Metadata = {
 export default async function JaBlogPage() {
   const cards = await getOverseasCards("ja", { kind: "blog" });
   return (
-    <OverseasListing
+    <OverseasBlogIndex
+      lang="ja"
       title="ブログ"
-      subtitle="韓国での治療を検討する外国人患者向けの施術ガイドと情報。"
+      subtitle="K-ビューティー・K-医療の実力、そして韓国での施術を検討する外国人患者向けの活用のコツ。"
       cards={cards}
-      hrefFor={(c) => `/ja/guides/${c.slug}`}
-      empty="記事はまだありません。"
+      sectionsLabel="セクション"
+      storiesLabel={(n) => `${n} 記事`}
     />
   );
 }

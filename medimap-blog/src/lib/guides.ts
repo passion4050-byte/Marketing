@@ -118,12 +118,18 @@ export interface OverseasCard {
   partner_category: string | null;
   partner_slug: string | null;
   is_partner: boolean;
+  blog_category?: string | null;
 }
 
 /** kind: 'blog'(비파트너) | 'clinic'(파트너). category/partner 로 추가 필터. */
 export async function getOverseasCards(
   lang: string,
-  opts: { kind?: "blog" | "clinic"; category?: string; partner?: string } = {}
+  opts: {
+    kind?: "blog" | "clinic";
+    category?: string;
+    partner?: string;
+    blogCategory?: string;
+  } = {}
 ): Promise<OverseasCard[]> {
   const sql = getSql();
   if (!sql) return [];
@@ -141,12 +147,16 @@ export async function getOverseasCards(
       params.push(opts.category);
       where.push(`g.partner_category = $${params.length}`);
     }
+    if (opts.blogCategory) {
+      params.push(opts.blogCategory);
+      where.push(`g.blog_category = $${params.length}`);
+    }
     if (opts.partner) {
       params.push(opts.partner);
       where.push(`t.partner_slug = $${params.length}`);
     }
     const rows = await sql.unsafe<Array<Record<string, unknown>>>(
-      `SELECT g.slug, g.title, g.excerpt, g.cover_image_url, g.partner_category, g.is_partner_content, t.partner_slug
+      `SELECT g.slug, g.title, g.excerpt, g.cover_image_url, g.partner_category, g.is_partner_content, g.blog_category, t.partner_slug
        FROM generated_contents g LEFT JOIN tenants t ON t.id = g.tenant_id
        WHERE ${where.join(" AND ")}
        ORDER BY COALESCE(g.published_at, g.created_at) DESC
@@ -161,6 +171,7 @@ export async function getOverseasCards(
       partner_category: (r.partner_category as string) ?? null,
       partner_slug: (r.partner_slug as string) ?? null,
       is_partner: Boolean(r.is_partner_content),
+      blog_category: (r.blog_category as string) ?? null,
     }));
   } catch {
     return [];
