@@ -31,10 +31,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ZhClinicCategoryPage({ params }: Props) {
   const { category } = await params;
+  if (!CAT_LABELS[category]) notFound();
+  const label = CAT_LABELS[category];
   const all = await getOverseasPartners("zh-Hans");
   const partners = all.filter((p) => p.partner_category === category);
-  if (partners.length === 0) notFound();
-  const label = CAT_LABELS[category] ?? category;
   const cards = partners.map((p) => ({
     slug: p.partner_slug,
     title: p.name,
@@ -50,7 +50,7 @@ export default async function ZhClinicCategoryPage({ params }: Props) {
       subtitle="我们为其发布可被 AI 引用的外国患者内容的韩国诊所。"
       cards={cards}
       hrefFor={(c) => `/zh/clinics/${category}/${c.partner_slug}`}
-      empty="暂无诊所。"
+      empty="我们正在为该科室引入合作诊所，敬请期待。"
     />
   );
 }

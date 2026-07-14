@@ -38,6 +38,9 @@ const SPECIALTIES = [
   { t: "Health Screening", ex: "premium checkups · anti-aging · IV therapy" },
 ];
 
+// 진료항목 → 클리닉 카테고리 슬러그(순서 동일). 홈 카드 클릭 → /en/clinics/{cat} 리스트.
+const SPECIALTY_CATS = ["derma", "plastic", "eyeclinic", "hair", "dental", "internal"];
+
 const COMPARE = [
   ["Languages", "English only (usually)", "English · Japanese · Chinese (native)"],
   ["Proof of results", "None — just \"we posted content\"", "Live AI-citation dashboard"],
@@ -185,14 +188,15 @@ export default function EnHomePage() {
           Built for your specialty
         </h2>
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {SPECIALTIES.map((s) => (
-            <div
+          {SPECIALTIES.map((s, i) => (
+            <Link
               key={s.t}
-              className="rounded-2xl border border-stone-200 bg-white p-5 transition hover:border-[#1B68FF]"
+              href={`/en/clinics/${SPECIALTY_CATS[i]}`}
+              className="block rounded-2xl border border-stone-200 bg-white p-5 transition hover:border-[#1B68FF] hover:shadow-sm"
             >
               <div className="font-bold text-stone-900">{s.t}</div>
               <div className="mt-1 text-[13px] text-stone-500">{s.ex}</div>
-            </div>
+            </Link>
           ))}
         </div>
       </section>

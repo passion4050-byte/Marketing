@@ -31,10 +31,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function JaClinicCategoryPage({ params }: Props) {
   const { category } = await params;
+  if (!CAT_LABELS[category]) notFound();
+  const label = CAT_LABELS[category];
   const all = await getOverseasPartners("ja");
   const partners = all.filter((p) => p.partner_category === category);
-  if (partners.length === 0) notFound();
-  const label = CAT_LABELS[category] ?? category;
   const cards = partners.map((p) => ({
     slug: p.partner_slug,
     title: p.name,
@@ -50,7 +50,7 @@ export default async function JaClinicCategoryPage({ params }: Props) {
       subtitle="AIに引用される外国人向けコンテンツを発信している韓国のクリニック。"
       cards={cards}
       hrefFor={(c) => `/ja/clinics/${category}/${c.partner_slug}`}
-      empty="クリニックはまだありません。"
+      empty="現在、この診療科の提携クリニックを準備中です。"
     />
   );
 }

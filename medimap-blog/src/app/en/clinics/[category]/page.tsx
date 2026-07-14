@@ -31,10 +31,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function EnClinicCategoryPage({ params }: Props) {
   const { category } = await params;
+  if (!CAT_LABELS[category]) notFound();
+  const label = CAT_LABELS[category];
   const all = await getOverseasPartners("en");
   const partners = all.filter((p) => p.partner_category === category);
-  if (partners.length === 0) notFound();
-  const label = CAT_LABELS[category] ?? category;
   const cards = partners.map((p) => ({
     slug: p.partner_slug,
     title: p.name,
@@ -50,7 +50,7 @@ export default async function EnClinicCategoryPage({ params }: Props) {
       subtitle="Korean clinics we publish AI-cited, foreigner-ready content for."
       cards={cards}
       hrefFor={(c) => `/en/clinics/${category}/${c.partner_slug}`}
-      empty="No clinics yet."
+      empty="We're onboarding partner clinics in this specialty — check back soon."
     />
   );
 }

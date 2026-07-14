@@ -10,6 +10,7 @@ export const metadata: Metadata = {
 };
 
 const SPECIALTIES = ["皮肤科・医美", "整形外科（鼻・眼・轮廓）", "视力矫正（SMILE・LASIK）", "植发（FUE）", "牙科（种植牙）", "体检・抗衰老"];
+const SPECIALTY_CATS = ["derma", "plastic", "eyeclinic", "hair", "dental", "internal"];
 
 export default function ZhHome() {
   return (
@@ -54,8 +55,8 @@ export default function ZhHome() {
       <section id="specialties" className="mx-auto max-w-6xl px-5 py-16">
         <h2 className="text-2xl font-black tracking-tight text-stone-950">为您的科室量身打造</h2>
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {SPECIALTIES.map((s) => (
-            <div key={s} className="rounded-2xl border border-stone-200 bg-white p-5 font-bold text-stone-900 transition hover:border-[#1B68FF]">{s}</div>
+          {SPECIALTIES.map((s, i) => (
+            <Link key={s} href={`/zh/clinics/${SPECIALTY_CATS[i]}`} className="block rounded-2xl border border-stone-200 bg-white p-5 font-bold text-stone-900 transition hover:border-[#1B68FF] hover:shadow-sm">{s}</Link>
           ))}
         </div>
       </section>

@@ -10,6 +10,7 @@ export const metadata: Metadata = {
 };
 
 const SPECIALTIES = ["皮膚科・美容皮膚", "美容外科（鼻・目・輪郭）", "視力矯正（SMILE・LASIK）", "植毛（FUE）", "歯科（インプラント）", "健康診断・アンチエイジング"];
+const SPECIALTY_CATS = ["derma", "plastic", "eyeclinic", "hair", "dental", "internal"];
 
 export default function JaHome() {
   return (
@@ -54,8 +55,8 @@ export default function JaHome() {
       <section id="specialties" className="mx-auto max-w-6xl px-5 py-16">
         <h2 className="text-2xl font-black tracking-tight text-stone-950">診療科に合わせて</h2>
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {SPECIALTIES.map((s) => (
-            <div key={s} className="rounded-2xl border border-stone-200 bg-white p-5 font-bold text-stone-900 transition hover:border-[#1B68FF]">{s}</div>
+          {SPECIALTIES.map((s, i) => (
+            <Link key={s} href={`/ja/clinics/${SPECIALTY_CATS[i]}`} className="block rounded-2xl border border-stone-200 bg-white p-5 font-bold text-stone-900 transition hover:border-[#1B68FF] hover:shadow-sm">{s}</Link>
           ))}
         </div>
       </section>
