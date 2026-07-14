@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { getOverseasPartners } from "@/lib/guides";
 import { OverseasListing } from "@/components/OverseasListing";
+import { overseasAlternates } from "@/lib/hreflang";
 
 export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "合作诊所 — WECIRCLE Global",
-  alternates: { canonical: "/zh/clinics" },
+  alternates: overseasAlternates("zh", "/clinics"),
 };
 
 export default async function ZhClinicsIndex() {

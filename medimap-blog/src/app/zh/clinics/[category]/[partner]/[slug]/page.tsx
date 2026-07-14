@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getClinicContent } from "@/lib/guides";
+import { overseasAlternates } from "@/lib/hreflang";
 import { GuideArticle, type GuideLabels } from "@/components/GuideArticle";
 import { OverseasClinicSchema } from "@/components/OverseasClinicSchema";
 
@@ -27,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: g.title,
     description: g.excerpt ?? undefined,
-    alternates: { canonical: `/zh/clinics/${category}/${partner}/${slug}` },
+    alternates: overseasAlternates("zh", `/clinics/${category}/${partner}/${slug}`),
   };
 }
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getOverseasPartners } from "@/lib/guides";
 import { OverseasListing } from "@/components/OverseasListing";
+import { overseasAlternates } from "@/lib/hreflang";
 
 export const revalidate = 60;
 
@@ -24,7 +25,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const label = CAT_LABELS[category] ?? category;
   return {
     title: `韓国の${label}クリニック — WECIRCLE Global`,
-    alternates: { canonical: `/ja/clinics/${category}` },
+    alternates: overseasAlternates("ja", `/clinics/${category}`),
   };
 }
 

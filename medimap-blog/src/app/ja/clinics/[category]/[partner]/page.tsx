@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getOverseasCards } from "@/lib/guides";
 import { OverseasListing } from "@/components/OverseasListing";
 import { OverseasClinicSchema } from "@/components/OverseasClinicSchema";
+import { overseasAlternates } from "@/lib/hreflang";
 
 export const revalidate = 60;
 
@@ -10,8 +11,11 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { partner } = await params;
-  return { title: `${partner} — クリニックコンテンツ · WECIRCLE Global` };
+  const { category, partner } = await params;
+  return {
+    title: `${partner} — クリニックコンテンツ · WECIRCLE Global`,
+    alternates: overseasAlternates("ja", `/clinics/${category}/${partner}`),
+  };
 }
 
 export default async function JaClinicPartnerPage({ params }: Props) {
