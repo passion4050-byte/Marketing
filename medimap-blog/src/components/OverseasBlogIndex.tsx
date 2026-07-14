@@ -18,6 +18,7 @@ export function OverseasBlogIndex({
   sectionsLabel,
   storiesLabel,
   activeCat,
+  counts,
 }: {
   lang: OverseasLang;
   title: string;
@@ -26,12 +27,18 @@ export function OverseasBlogIndex({
   sectionsLabel: string;
   storiesLabel: (n: number) => string;
   activeCat?: string;
+  /** 카테고리별 전체 카운트(레일용). 미제공 시 cards 로 계산 — 필터된 페이지에선 counts 를 넘길 것. */
+  counts?: Record<string, number>;
 }) {
   const labels = OVERSEAS_BLOG_LABELS[lang];
   const countBy = new Map<string, number>();
-  for (const c of cards) {
-    if (c.blog_category)
-      countBy.set(c.blog_category, (countBy.get(c.blog_category) ?? 0) + 1);
+  if (counts) {
+    for (const [k, v] of Object.entries(counts)) countBy.set(k, v);
+  } else {
+    for (const c of cards) {
+      if (c.blog_category)
+        countBy.set(c.blog_category, (countBy.get(c.blog_category) ?? 0) + 1);
+    }
   }
 
   return (

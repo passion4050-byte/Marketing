@@ -34,13 +34,19 @@ export default async function ZhBlogCategoryPage({ params }: Props) {
   const { slug } = await params;
   if (!isOverseasBlogCategory(slug)) notFound();
   const meta = OVERSEAS_BLOG_LABELS.zh[slug];
-  const cards = await getOverseasCards("zh-Hans", { kind: "blog", blogCategory: slug });
+  const all = await getOverseasCards("zh-Hans", { kind: "blog" });
+  const counts = all.reduce<Record<string, number>>((a, c) => {
+    if (c.blog_category) a[c.blog_category] = (a[c.blog_category] ?? 0) + 1;
+    return a;
+  }, {});
+  const cards = all.filter((c) => c.blog_category === slug);
   return (
     <OverseasBlogIndex
       lang="zh"
       title={meta.label}
       subtitle={meta.desc}
       cards={cards}
+      counts={counts}
       sectionsLabel="栏目"
       storiesLabel={(n) => `${n} 篇`}
       activeCat={slug}

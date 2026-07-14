@@ -34,13 +34,19 @@ export default async function JaBlogCategoryPage({ params }: Props) {
   const { slug } = await params;
   if (!isOverseasBlogCategory(slug)) notFound();
   const meta = OVERSEAS_BLOG_LABELS.ja[slug];
-  const cards = await getOverseasCards("ja", { kind: "blog", blogCategory: slug });
+  const all = await getOverseasCards("ja", { kind: "blog" });
+  const counts = all.reduce<Record<string, number>>((a, c) => {
+    if (c.blog_category) a[c.blog_category] = (a[c.blog_category] ?? 0) + 1;
+    return a;
+  }, {});
+  const cards = all.filter((c) => c.blog_category === slug);
   return (
     <OverseasBlogIndex
       lang="ja"
       title={meta.label}
       subtitle={meta.desc}
       cards={cards}
+      counts={counts}
       sectionsLabel="セクション"
       storiesLabel={(n) => `${n} 記事`}
       activeCat={slug}
