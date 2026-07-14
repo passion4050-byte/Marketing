@@ -745,6 +745,7 @@ export default async function TenantReportPage({
         )}
 
         {/* === 7.5 콘텐츠 AEO 품질 === */}
+        {data.aeo && (
         <section className="border-t border-border px-6 py-6 md:px-10">
           <h2 className="mb-1 text-base font-bold text-ink">🎯 콘텐츠 AEO 품질 — AI 인용 최적화 점수</h2>
           <p className="mb-4 text-[12px] text-ink-muted">
@@ -789,6 +790,7 @@ export default async function TenantReportPage({
             </div>
           )}
         </section>
+        )}
 
         {/* === 8. 다음 달 액션 플랜 === */}
         <section className="border-t border-border px-6 py-6 md:px-10">
