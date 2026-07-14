@@ -48,6 +48,21 @@ const mdxComponents = {
     ),
 };
 
+// Round 143b — 본문 첫 <h1> 텍스트(서술형 헤드라인) 추출. title 필드가 stub 인 자동발행
+//   글의 <title>/og:title 을 서술형으로 교정하는 데 사용(generateMetadata 공용).
+function firstH1Text(html: string | null | undefined): string | null {
+  if (!html) return null;
+  const m = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  if (!m) return null;
+  return (
+    m[1]
+      .replace(/<[^>]+>/g, "")
+      .replace(/\s*\|\s*위서클\s*$/, "")
+      .replace(/\s+/g, " ")
+      .trim() || null
+  );
+}
+
 export async function generateStaticParams() {
   // 2026-05-24: DB slug 들은 빌드타임 prerender 에서 제외 — pooler hang 회피.
   // dynamicParams=true 와 revalidate=60 으로 첫 요청 시 SSR + 60초 ISR.
@@ -64,13 +79,15 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const post = await getPostBySlug(params.slug);
   if (!post) return { title: "글을 찾을 수 없습니다" };
+  const displayTitle =
+    post.source_type === "html" ? firstH1Text(post.source) || post.title : post.title;
   return {
-    title: post.title,
+    title: displayTitle,
     description: post.description,
     keywords: post.tags,
     alternates: { canonical: `/blog/${post.slug}` },
     openGraph: {
-      title: post.title,
+      title: displayTitle,
       description: post.description,
       type: "article",
       publishedTime: post.date,
@@ -179,19 +196,39 @@ export default async function BlogPostPage({
       /<p[^>]*>\s*(?:홈페이지|네이버\s*지도|웹사이트|사이트)[^<]*<\/p>/gi,
       "",
     );
-    // Round 143 (SEO 감사) — 본문 안 <h1> → <h2> 강등. 페이지 템플릿이 이미 기사
-    // 제목을 <h1>로 렌더하므로, 자동발행 본문에 박힌 h1(키워드 스텁 제목)이 이중 H1을
-    // 만들어 온페이지 SEO 신호를 희석함(국내 blog_html 71건). 속성 보존하며 h2로 강등.
-    out = out.replace(/<(\/?)h1(\s[^>]*)?>/gi, "<$1h2$2>");
     return out;
   };
 
+  // Round 143b (SEO 감사 ②) — 본문 첫 <h1>을 기사 헤드라인으로 승격.
+  //   자동발행 self 글은 DB title 이 stub("키워드 #id")이고 진짜 서술형 헤드라인은
+  //   본문 첫 <h1>에 있음. 이전엔 이 둘이 이중 H1(스텁+헤드라인)이었음.
+  //   → 본문 h1 텍스트를 추출해 템플릿 H1(post.title 대체)로 쓰고 본문에선 제거.
+  //   서술형 단일 H1 확보. 본문에 h1 없으면 headline=null → post.title 폴백.
+  const extractAndStripFirstH1 = (
+    html: string,
+  ): { headline: string | null; rest: string } => {
+    if (!html) return { headline: null, rest: html };
+    const m = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+    if (!m || m.index == null) return { headline: null, rest: html };
+    const headline =
+      m[1]
+        .replace(/<[^>]+>/g, "")
+        .replace(/\s*\|\s*위서클\s*$/, "")
+        .replace(/\s+/g, " ")
+        .trim() || null;
+    const rest = html.slice(0, m.index) + html.slice(m.index + m[0].length);
+    return { headline, rest };
+  };
+
   let content: React.ReactNode;
+  let bodyHeadline: string | null = null;
   if (post.source_type === "html") {
+    const { headline, rest } = extractAndStripFirstH1(post.source);
+    bodyHeadline = headline;
     content = (
       <div
         className="db-html-content"
-        dangerouslySetInnerHTML={{ __html: stripReferenceSection(post.source) }}
+        dangerouslySetInnerHTML={{ __html: stripReferenceSection(rest) }}
       />
     );
   } else {
@@ -214,6 +251,10 @@ export default async function BlogPostPage({
     content = compiled.content;
   }
 
+  // Round 143b — stub title 보정된 표시 제목 (본문 헤드라인 우선). H1·breadcrumb·스키마 공용.
+  const displayTitle = bodyHeadline || post.title;
+  const postForLd = { ...post, title: displayTitle };
+
   return (
     <>
       <ReadingProgress />
@@ -221,11 +262,11 @@ export default async function BlogPostPage({
         data={breadcrumbLd([
           { name: "홈", href: "/" },
           { name: "블로그", href: "/blog" },
-          { name: post.title, href: `/blog/${post.slug}` },
+          { name: displayTitle, href: `/blog/${post.slug}` },
         ])}
       />
-      <JsonLd data={articleLd(post)} />
-      <JsonLd data={medicalWebPageLd(post)} />
+      <JsonLd data={articleLd(postForLd)} />
+      <JsonLd data={medicalWebPageLd(postForLd)} />
       <JsonLd data={faqPageLd(post.faq ?? [])} />
 
       <div className="mx-auto w-full max-w-[1280px] px-6 py-10 md:py-14 lg:px-10">
@@ -258,7 +299,7 @@ export default async function BlogPostPage({
                 )}
               </div>
               <h1 className="mt-4 text-[36px] font-extrabold leading-[1.15] tracking-[-0.025em] balance-text md:text-[48px]">
-                {post.title}
+                {displayTitle}
               </h1>
               <p className="mt-5 text-[18px] leading-[1.7] text-ink-muted pretty-text">
                 {post.description}
