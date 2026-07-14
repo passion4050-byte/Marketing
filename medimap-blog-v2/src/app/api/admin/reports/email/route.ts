@@ -8,69 +8,11 @@
  * to: tenant.email 우선 (Round 48), fallback ADMIN_EMAIL
  */
 import { NextRequest, NextResponse } from 'next/server';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { getServerClient } from '@/lib/supabase';
-import { scoreAeo } from '@/lib/aeoScore';
+import { computeReportMetrics, type ReportMetrics } from '@/lib/reportMetrics';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-/** 리포트용 tenant 실측 지표 — 30일 발행수 · AI 인용수 · 평균 AEO 점수 · Top 인용 콘텐츠. */
-export interface ReportMetrics {
-  published30d: number;
-  citations30d: number;
-  avgAeo: number | null;
-  topContent: { title: string; aeo: number } | null;
-}
-
-async function computeReportMetrics(
-  sb: SupabaseClient,
-  tenantId: string | number
-): Promise<ReportMetrics> {
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  // 발행 콘텐츠(30일) + body → AEO 점수
-  const { data: contents } = await sb
-    .from('generated_contents')
-    .select('title, body, raw_qa_pairs, published_at')
-    .eq('tenant_id', tenantId)
-    .eq('status', 'published')
-    .eq('channel', 'blog_html')
-    .gte('published_at', since);
-  const list = (contents ?? []) as Array<{
-    title: string | null;
-    body: string | null;
-    raw_qa_pairs: unknown;
-    published_at: string | null;
-  }>;
-  let aeoSum = 0;
-  let top: { title: string; aeo: number } | null = null;
-  for (const c of list) {
-    const faqCount = Array.isArray(c.raw_qa_pairs) ? c.raw_qa_pairs.length : 0;
-    const r = scoreAeo({
-      body: c.body ?? '',
-      faqCount,
-      publishedAt: c.published_at,
-      hasFaqSchema: faqCount > 0,
-      hasMedicalSchema: true,
-    });
-    aeoSum += r.score;
-    if (!top || r.score > top.aeo) top = { title: c.title ?? '(제목 없음)', aeo: r.score };
-  }
-  const avgAeo = list.length > 0 ? Math.round(aeoSum / list.length) : null;
-  // AI 인용수(30일, is_target)
-  const { count: citations } = await sb
-    .from('mentions')
-    .select('id', { count: 'exact', head: true })
-    .eq('tenant_id', tenantId)
-    .eq('is_target', true)
-    .gte('created_at', since);
-  return {
-    published30d: list.length,
-    citations30d: citations ?? 0,
-    avgAeo,
-    topContent: top,
-  };
-}
 
 async function sendOne(opts: {
   tenantId: string | number;

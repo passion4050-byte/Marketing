@@ -20,6 +20,7 @@ import { getServerClient } from '@/lib/supabase';
 import { classifyDomain, loadClassifierSets } from '@/lib/domain-classifier';
 import { PrintButton } from './_components/PrintButton';
 import { ReportRangeSelector } from '@/components/admin/ReportRangeSelector';
+import { computeReportMetrics } from '@/lib/reportMetrics';
 
 // Round 57 (2026-05-31) — recharts 번들 (~100KB) lazy load. 첫 페인트 후 비동기 로드.
 // Round 58 fix 2 (2026-06-01) — `export const dynamic` 과 변수명 충돌 → nextDynamic alias (함정 BR)
@@ -351,9 +352,13 @@ async function fetchReportData(tenantIdStr: string, rangeOpts: ReportRangeOpts =
   }));
   const citedCount = publishedWithEffect.filter((c) => c.ai_cited).length;
 
+  // AEO 콘텐츠 품질 지표 (이메일 리포트와 동일 lib — 기간 cutoff 반영)
+  const aeoMetrics = await computeReportMetrics(sb, tenantId, cutoffThisMonth);
+
   return {
     tenant,
     hasData: true,
+    aeo: aeoMetrics,
     ownKeywords,
     competitorKeywords,
     tierThis: tierCountThis,
@@ -738,6 +743,52 @@ export default async function TenantReportPage({
             </ul>
           </section>
         )}
+
+        {/* === 7.5 콘텐츠 AEO 품질 === */}
+        <section className="border-t border-border px-6 py-6 md:px-10">
+          <h2 className="mb-1 text-base font-bold text-ink">🎯 콘텐츠 AEO 품질 — AI 인용 최적화 점수</h2>
+          <p className="mb-4 text-[12px] text-ink-muted">
+            발행 콘텐츠 본문을 Princeton GEO 연구 기반 9개 항목(통계·인용문·구조·표·FAQ·E-E-A-T·최신성·스키마)으로 채점 — AI가 출처로 인용하기 좋은 정도.
+          </p>
+          {data.aeo.avgAeo == null ? (
+            <div className="text-[12px] text-ink-muted">이 기간 발행 콘텐츠가 없어 AEO 점수를 낼 수 없습니다.</div>
+          ) : (
+            <div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className="rounded-lg border border-border bg-surface-subtle p-4 text-center">
+                  <div className="text-2xl font-black text-iris">{data.aeo.avgAeo}점</div>
+                  <div className="mt-1 text-[11px] text-ink-muted">평균 AEO 점수</div>
+                </div>
+                <div className="rounded-lg border border-border bg-surface-subtle p-4 text-center">
+                  <div className="text-2xl font-black text-ink">{data.aeo.published30d}편</div>
+                  <div className="mt-1 text-[11px] text-ink-muted">채점 대상 발행 콘텐츠</div>
+                </div>
+                <div className="rounded-lg border border-border bg-surface-subtle p-4 text-center">
+                  <div className="text-2xl font-black text-accent-deep">
+                    {data.aeo.gradeDist.A + data.aeo.gradeDist.B}편
+                  </div>
+                  <div className="mt-1 text-[11px] text-ink-muted">A·B 등급 (인용 우위)</div>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px]">
+                {(['A', 'B', 'C', 'D'] as const).map((g) => (
+                  <span key={g} className="inline-flex items-center gap-1 rounded-full border border-border bg-white px-2 py-1">
+                    <b className="text-ink">{g}</b>
+                    <span className="text-ink-muted">{data.aeo.gradeDist[g]}편</span>
+                  </span>
+                ))}
+              </div>
+              {data.aeo.topContent && (
+                <p className="mt-3 text-[12px] text-ink-soft">
+                  🏆 최고 AEO 콘텐츠: <b className="text-ink">{data.aeo.topContent.title}</b> ({data.aeo.topContent.aeo}점)
+                </p>
+              )}
+              <p className="mt-3 text-[11px] text-ink-muted">
+                💡 점수를 올리려면: 출처 명시 통계(+30~41%)·전문가 인용문(+37%)·비교표(+47%)·FAQ·최신성. 위서클 자동 생성이 이 구조를 반영합니다.
+              </p>
+            </div>
+          )}
+        </section>
 
         {/* === 8. 다음 달 액션 플랜 === */}
         <section className="border-t border-border px-6 py-6 md:px-10">
