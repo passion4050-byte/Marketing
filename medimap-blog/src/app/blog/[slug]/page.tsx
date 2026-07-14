@@ -179,6 +179,10 @@ export default async function BlogPostPage({
       /<p[^>]*>\s*(?:홈페이지|네이버\s*지도|웹사이트|사이트)[^<]*<\/p>/gi,
       "",
     );
+    // Round 143 (SEO 감사) — 본문 안 <h1> → <h2> 강등. 페이지 템플릿이 이미 기사
+    // 제목을 <h1>로 렌더하므로, 자동발행 본문에 박힌 h1(키워드 스텁 제목)이 이중 H1을
+    // 만들어 온페이지 SEO 신호를 희석함(국내 blog_html 71건). 속성 보존하며 h2로 강등.
+    out = out.replace(/<(\/?)h1(\s[^>]*)?>/gi, "<$1h2$2>");
     return out;
   };
 

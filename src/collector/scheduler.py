@@ -591,6 +591,21 @@ def _generate_draft(
                 if _faq_pairs:
                     obj.raw_qa_pairs = _faq_pairs
 
+        # Round 143 (SEO 감사 ③) — excerpt(메타 description) 비어있으면 본문에서 자동 생성.
+        #   국내 발행글 다수가 excerpt 없어 meta description 이 본문 앞부분 파생·중간 잘림 →
+        #   SERP 클릭 유도 문구 부재. 본문 텍스트를 문장 경계로 ~155자 요약(새 주장 없음).
+        if channel == "blog_html" and hasattr(obj, "excerpt"):
+            _cur_ex = (getattr(obj, "excerpt", None) or "").strip()
+            if not _cur_ex:
+                import re as _re_ex
+                _txt = _re_ex.sub(r"<[^>]+>", " ", getattr(obj, "body", "") or "")
+                _txt = _re_ex.sub(r"\s+", " ", _txt).strip()
+                if _txt:
+                    _cut = _txt[:157]
+                    _ends = [m.end() for m in _re_ex.finditer(r"[.!?。！？]", _cut)]
+                    _good = [e for e in _ends if e >= 80]
+                    obj.excerpt = (_cut[:_good[-1]] if _good else (_cut.rstrip() + "…")).strip()
+
         # 의료법 통과 + auto_publish 일 때만 즉시 발행 — 그 외엔 draft 유지.
         if auto_publish and obj.compliance_status == "pass":
             obj.status = "published"

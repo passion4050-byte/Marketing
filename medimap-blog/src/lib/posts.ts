@@ -385,7 +385,7 @@ function parseCoverCredit(
 /** Round 81 — 본문의 질문형 H2 + 첫 답변 단락에서 FAQ Q&A 추출 → FAQPage 스키마 발동.
  *  Type A(질문답변형) 글에서 People Also Ask / AI 발췌 유리. 비질문 글은 빈 배열. */
 const Q_PAT = /[?？]|(나요|까요|가요|인가요|있나요|되나요|무엇|어떻게|왜|언제|어디|얼마|몇)/;
-function extractFaqFromBody(body: string | null | undefined): { question: string; answer: string }[] {
+export function extractFaqFromBody(body: string | null | undefined): { question: string; answer: string }[] {
   if (!body) return [];
   const faqs: { question: string; answer: string }[] = [];
   const sections = body.split(/(?=<h2)/i);

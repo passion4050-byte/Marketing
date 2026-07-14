@@ -6,7 +6,8 @@ import { getCategoryMeta, getPartnerPost, getPartnerPostsByPartner } from "@/lib
 import { siteConfig, absoluteUrl } from "@/lib/site";
 // Round 129 (2026-07-05) — SEO: 파트너 글 BreadcrumbList (3단 경로 구조화)
 import { JsonLd } from "@/components/JsonLd";
-import { breadcrumbLd } from "@/lib/schema";
+import { breadcrumbLd, faqPageLd } from "@/lib/schema";
+import { extractFaqFromBody } from "@/lib/posts";
 
 // Round 12: force-dynamic 으로 빌드 시점 prerender 회피 + dynamicParams 자동 활성
 // Round 129 — blog/[slug] 와 대칭: ISR 60s (첫 요청 SSR 후 캐시. archived 반영
@@ -113,6 +114,10 @@ export default async function PartnerPostPage({ params }: PageProps) {
   return (
     <main className="mx-auto w-full max-w-[860px] px-6 py-14 md:py-20 lg:px-10">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ldJson) }} />
+      {/* Round 143 (SEO 감사 ①) — 파트너 글 FAQPage. 본문 질문형 H2+답변을 추출해 스키마화.
+          자사(/blog)는 이미 있었으나 파트너는 누락 → Google FAQ 리치결과 + AI 인용성 확보.
+          본문에 이미 있는 Q&A를 미러링만 하므로 새 주장 없음(의료법 안전). */}
+      <JsonLd data={faqPageLd(extractFaqFromBody(post.body))} />
       {/* Round 129 — 3단 경로 BreadcrumbList (검색 결과 경로 표시 + 구조 신호) */}
       <JsonLd
         data={breadcrumbLd([
