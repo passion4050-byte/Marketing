@@ -33,12 +33,16 @@ def main() -> int:
     _raw_tid = (os.environ.get("TARGET_TENANT_ID") or "").strip()
     target_tenant_id: int | None = int(_raw_tid) if _raw_tid.isdigit() else None
     target_keyword = (os.environ.get("TARGET_KEYWORD") or "").strip() or None
+    # 해외 전용 생성(국내/해외 분리 운영). MARKET_ONLY='overseas' 면 해외 키워드만 생성.
+    #   미지정(빈 문자열)이면 기존 로테이션(국내 포함) 그대로 — 백워드 무변경.
+    market_only = (os.environ.get("MARKET_ONLY") or "").strip() or None
 
     try:
         result = daily_auto_content_job(
             SessionLocal,
             target_tenant_id=target_tenant_id,
             target_keyword=target_keyword,
+            market_only=market_only,
         )
     except Exception as e:  # pragma: no cover
         print(f"ERROR: daily_auto_content_job 실패: {e}", file=sys.stderr)

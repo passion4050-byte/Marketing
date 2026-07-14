@@ -193,6 +193,7 @@ def daily_auto_content_job(
     session_factory,
     target_tenant_id: int | None = None,
     target_keyword: str | None = None,
+    market_only: str | None = None,
 ) -> dict:
     """활성 ``AutoContentSetting`` 마다 ``daily_count`` 만큼 ``draft`` 콘텐츠 생성.
 
@@ -411,6 +412,10 @@ def daily_auto_content_job(
                 if _publish_ok(
                     (getattr(k, "lang", "ko") or "ko"),
                     (getattr(k, "market", "domestic") or "domestic"),
+                )
+                and (
+                    market_only is None
+                    or (getattr(k, "market", "domestic") or "domestic") == market_only
                 )
             ]
         if not kw_rows:

@@ -1,0 +1,94 @@
+name: Auto-publish OVERSEAS content (cron)
+
+# 국내/해외 분리 운영 — 해외(EN/JA/ZH)는 tenant_products 로 언어 상품을 신청한
+#   (tenant, market, lang) 조합만 별도 cadence 로 생성한다(MARKET_ONLY=overseas).
+#   기존 auto-publish.yml(국내 포함 로테이션)과 독립. 해외 콘텐츠 볼륨(=AI 인용) 병목 해소.
+#   해외는 항상 draft — 어드민에서 검수 후 수동 발행(의료법).
+on:
+  schedule:
+    - cron: '0 6 * * *'    # 매일 06:00 UTC = 15:00 KST — 해외 전용
+  workflow_dispatch:
+    inputs:
+      tenant_id:
+        description: '특정 tenant 만 (비우면 해외 상품 활성 tenant 전체)'
+        required: false
+        type: string
+      keyword:
+        description: '키워드 override (선택)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auto-publish-overseas
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    name: Generate overseas drafts (gated by tenant_products)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify required secrets
+        run: |
+          if [ -z "${{ secrets.DATABASE_URL }}" ]; then
+            echo "::error::DATABASE_URL secret 미설정"
+            exit 1
+          fi
+
+      - name: Run daily_auto_content_job (overseas only)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          LLM_PROVIDER: ${{ secrets.LLM_PROVIDER || 'gemini' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ secrets.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001' }}
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          MAX_DAILY_USD: ${{ secrets.MAX_DAILY_USD || '10' }}
+          MAX_CONTENT_GEN_PER_DAY: ${{ secrets.MAX_CONTENT_GEN_PER_DAY || '50' }}
+          IMAGE_GEN_ENABLED: ${{ secrets.IMAGE_GEN_ENABLED || 'true' }}
+          IMAGE_PROVIDER: ${{ secrets.IMAGE_PROVIDER || 'nano_banana' }}
+          IMAGE_STRICT: ${{ secrets.IMAGE_STRICT || 'true' }}
+          IMAGE_STRICT_DALLE: ${{ secrets.IMAGE_STRICT_DALLE || 'true' }}
+          TARGET_TENANT_ID: ${{ inputs.tenant_id }}
+          TARGET_KEYWORD: ${{ inputs.keyword }}
+          # 해외 전용 게이트 — 이 워크플로의 핵심.
+          MARKET_ONLY: overseas
+        run: python scripts/run_auto_content_once.py
+
+      - name: Trigger Vercel deploy hook — medimap-blog
+        if: success() && env.VERCEL_DEPLOY_HOOK_BLOG != ''
+        env:
+          VERCEL_DEPLOY_HOOK_BLOG: ${{ secrets.VERCEL_DEPLOY_HOOK_BLOG }}
+        run: |
+          curl -sS -X POST "$VERCEL_DEPLOY_HOOK_BLOG" || true
+          echo ""
+
+      - name: Trigger Vercel deploy hook — geo-v2
+        if: success() && env.VERCEL_DEPLOY_HOOK_ADMIN != ''
+        env:
+          VERCEL_DEPLOY_HOOK_ADMIN: ${{ secrets.VERCEL_DEPLOY_HOOK_ADMIN }}
+        run: |
+          curl -sS -X POST "$VERCEL_DEPLOY_HOOK_ADMIN" || true
+          echo ""
