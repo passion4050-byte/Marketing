@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { getClinicContent } from "@/lib/guides";
 import { overseasAlternates } from "@/lib/hreflang";
 import { GuideArticle, type GuideLabels } from "@/components/GuideArticle";
@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ZhClinicDetailPage({ params }: Props) {
   const { partner, slug } = await params;
   const guide = await getClinicContent("zh-Hans", partner, slug);
-  if (!guide) notFound();
+  if (!guide) redirect(`/zh/guides/${slug}`);
   return (
     <>
       <OverseasClinicSchema partnerSlug={partner} lang="zh-Hans" />

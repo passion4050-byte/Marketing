@@ -180,6 +180,7 @@ export async function getClinicContent(
       `SELECT g.slug, g.title, g.excerpt, g.body, g.raw_qa_pairs, g.lang, g.published_at, g.cover_image_url, g.cover_image_alt
        FROM generated_contents g JOIN tenants t ON t.id = g.tenant_id
        WHERE g.lang = $1 AND g.market = 'overseas' AND g.slug = $2 AND t.partner_slug = $3
+         AND g.is_partner_content = true
          AND g.status = 'published' AND g.compliance_status = 'pass'
        LIMIT 1`,
       [lang, slug, partner]
