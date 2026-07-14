@@ -24,6 +24,7 @@ import {
 } from 'recharts';
 import { Sparkles, Target, TrendingUp, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
 import { useListView, PageBar, SearchBox } from '@/components/admin/ListView';
+import { readScope, SCOPE_EVENT } from '@/components/admin/ScopeSelector';
 
 type ApiResponse = {
   ok: boolean;
@@ -42,6 +43,7 @@ export default function SaasTrackingPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ApiResponse | null>(null);
   const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
+  const [scope, setScope] = useState('all');
   const groundLv = useListView(data?.keyword_grounding ?? [], {
     size: 15,
     search: (k, q) => k.keyword.toLowerCase().includes(q),
@@ -52,7 +54,19 @@ export default function SaasTrackingPage() {
   });
 
   useEffect(() => {
-    fetch('/api/admin/saas-tracking')
+    setScope(readScope());
+    const onEvt = (e: Event) => {
+      const d = (e as CustomEvent).detail;
+      if (typeof d === 'string') setScope(d);
+    };
+    window.addEventListener(SCOPE_EVENT, onEvt);
+    return () => window.removeEventListener(SCOPE_EVENT, onEvt);
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    const q = scope && scope !== 'all' ? `?scope=${scope}` : '';
+    fetch(`/api/admin/saas-tracking${q}`)
       .then((r) => r.json())
       .then(setData)
       .catch(() => setData({
@@ -67,7 +81,7 @@ export default function SaasTrackingPage() {
         keyword_grounding: [],
       }))
       .finally(() => setLoading(false));
-  }, []);
+  }, [scope]);
 
   if (loading) {
     return (

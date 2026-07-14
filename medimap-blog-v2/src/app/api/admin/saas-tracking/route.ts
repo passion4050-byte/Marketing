@@ -20,19 +20,34 @@ import { classifyDomain, loadClassifierSets } from '@/lib/domain-classifier';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+// Round 143 — 언어 스코프 → 측정 keywords.lang (zh 는 측정에서 zh-Hant).
+function scopeToKwLang(scope: string | null): string | null {
+  switch (scope) {
+    case 'ko': return 'ko';
+    case 'en': return 'en';
+    case 'ja': return 'ja';
+    case 'zh': return 'zh-Hant';
+    default: return null;
+  }
+}
+
+export async function GET(req: Request) {
   const sb = getServerClient();
   if (!sb) return NextResponse.json({ ok: false, error: 'supabase not configured' }, { status: 503 });
+
+  const scopeParam = new URL(req.url).searchParams.get('scope')?.trim() || null;
+  const scopeLang = scopeToKwLang(scopeParam); // null = 전체
 
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const classifierSets = await loadClassifierSets();
 
-  // 1. SaaS 마케팅 키워드 (is_saas_marketing=true)
-  const { data: kwRows } = await sb
+  // 1. SaaS 마케팅 키워드 (is_saas_marketing=true) — 언어 스코프 필터
+  let kwQuery = sb
     .from('keywords')
     .select('id, text, is_active, last_measured_at')
-    .eq('is_saas_marketing', true)
-    .order('id');
+    .eq('is_saas_marketing', true);
+  if (scopeLang) kwQuery = kwQuery.eq('lang', scopeLang);
+  const { data: kwRows } = await kwQuery.order('id');
 
   const keywords = (kwRows ?? []).map((k: { id: number; text: string; is_active: boolean; last_measured_at: string | null }) => ({
     id: k.id,
@@ -51,7 +66,9 @@ export async function GET() {
       daily_trend: [],
       competitor_domains: [],
       keyword_grounding: [],
-      note: 'SaaS 마케팅 키워드 미등록 — keywords.is_saas_marketing=true 인 row 추가 필요',
+      note: scopeLang
+        ? `이 언어(${scopeParam})의 SaaS 마케팅 키워드가 아직 없습니다. 위서클 자사 SaaS는 현재 국내(ko) 위주로 측정됩니다 — 해외 SaaS 확장 시 채워집니다.`
+        : 'SaaS 마케팅 키워드 미등록 — keywords.is_saas_marketing=true 인 row 추가 필요',
     });
   }
 

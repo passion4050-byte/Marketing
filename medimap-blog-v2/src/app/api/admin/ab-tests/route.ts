@@ -40,14 +40,29 @@ type ContentRow = {
   body: string | null;
   raw_qa_pairs: unknown;
   published_at: string | null;
+  lang: string | null;
 };
+
+// Round 143 — 언어 스코프 → 콘텐츠 lang (zh 는 콘텐츠에서 zh-Hans).
+function scopeToContentLang(scope: string | null): string | null {
+  switch (scope) {
+    case 'ko': return 'ko';
+    case 'en': return 'en';
+    case 'ja': return 'ja';
+    case 'zh': return 'zh-Hans';
+    default: return null;
+  }
+}
 
 // Round 102: wecircle.co.kr 커스텀 도메인 (이전 medimap-blog-phi.vercel.app)
 const SITE = process.env.NEXT_PUBLIC_PUBLIC_BLOG_URL ?? 'https://wecircle.co.kr';
 
-export async function GET() {
+export async function GET(req: Request) {
   const sb = getServerClient();
   if (!sb) return NextResponse.json({ ok: false, error: 'supabase not configured' }, { status: 503 });
+
+  const scopeParam = new URL(req.url).searchParams.get('scope')?.trim() || null;
+  const scopeLang = scopeToContentLang(scopeParam); // null = 전체
 
   const { data: testsRaw } = await sb
     .from('ab_tests')
@@ -68,7 +83,7 @@ export async function GET() {
     // is_partner_content + partner_category 추가 SELECT.
     const { data: contents } = await sb
       .from('generated_contents')
-      .select('id, title, slug, status, tenant_id, is_partner_content, partner_category, body, raw_qa_pairs, published_at')
+      .select('id, title, slug, status, tenant_id, is_partner_content, partner_category, body, raw_qa_pairs, published_at, lang')
       .in('id', contentIds);
     ((contents ?? []) as ContentRow[]).forEach((c) => contentMap.set(c.id, c));
   }
@@ -125,7 +140,16 @@ export async function GET() {
     };
   };
 
-  const result = tests.map((t) => ({
+  // Round 143 — 언어 스코프 필터: 테스트의 변형 콘텐츠 lang 기준.
+  const testsScoped = scopeLang
+    ? tests.filter((t) => {
+        const la = t.variant_a_content_id != null ? contentMap.get(t.variant_a_content_id)?.lang : null;
+        const lb = t.variant_b_content_id != null ? contentMap.get(t.variant_b_content_id)?.lang : null;
+        return la === scopeLang || lb === scopeLang;
+      })
+    : tests;
+
+  const result = testsScoped.map((t) => ({
     id: t.id,
     tenant_name: tenantMap.get(t.tenant_id) ?? `#${t.tenant_id}`,
     keyword: t.keyword,

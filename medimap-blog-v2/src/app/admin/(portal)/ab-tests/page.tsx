@@ -7,9 +7,10 @@
  */
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Beaker, ExternalLink, Loader2, RefreshCw, Trophy } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { readScope, SCOPE_EVENT } from '@/components/admin/ScopeSelector';
 
 type Variant = {
   content_id: number | null;
@@ -46,12 +47,14 @@ export default function AbTestsPage() {
   const [tests, setTests] = useState<AbTest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [scope, setScope] = useState('all');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/admin/ab-tests', { cache: 'no-store' });
+      const q = scope && scope !== 'all' ? `?scope=${scope}` : '';
+      const res = await fetch(`/api/admin/ab-tests${q}`, { cache: 'no-store' });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error ?? 'fetch failed');
       setTests(json.tests ?? []);
@@ -60,11 +63,21 @@ export default function AbTestsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [scope]);
+
+  useEffect(() => {
+    setScope(readScope());
+    const onEvt = (e: Event) => {
+      const d = (e as CustomEvent).detail;
+      if (typeof d === 'string') setScope(d);
+    };
+    window.addEventListener(SCOPE_EVENT, onEvt);
+    return () => window.removeEventListener(SCOPE_EVENT, onEvt);
+  }, []);
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
 
   return (
     <div className="px-8 py-6">
