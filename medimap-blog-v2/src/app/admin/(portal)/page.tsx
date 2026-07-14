@@ -1093,7 +1093,7 @@ export default async function AdminDashboardPage({
   ];
 
   return (
-    <div className="mx-auto max-w-[1440px] px-6 py-8 lg:px-10">
+    <div className="mx-auto max-w-[1536px] px-6 py-6 lg:px-10">
       {/* Round 119 (2026-07-03) — UI/UX 재설계: 3존 재그룹핑.
           헤더(+필터 상단 고정) → KPI 통합 스트립 → 01 지금 봐야 할 것(액션·시장·신규도메인)
           → 02 성과 분석(추이·콘텐츠·패턴·파트너) → 03 운영 로그(검수·인용·크롤러·카카오).
@@ -1161,7 +1161,7 @@ export default async function AdminDashboardPage({
       </section>
 
       {/* === 01 지금 봐야 할 것 — 액션 권고 · 시장 점유 진단 · 신규 등장 도메인 === */}
-      <div className="mt-12">
+      <div className="mt-8">
         <div className="flex items-baseline gap-3 border-b border-border pb-3">
           <span className="font-mono text-[11px] font-black tracking-widest text-iris">01</span>
           <h2 className="text-[15px] font-black tracking-tight text-ink">지금 봐야 할 것</h2>
@@ -1205,7 +1205,7 @@ export default async function AdminDashboardPage({
       </div>
 
       {/* === 02 성과 분석 — 측정 추이 · 콘텐츠 경쟁력 · 구조 패턴 · 파트너 리더보드 === */}
-      <div className="mt-12">
+      <div className="mt-8">
         <div className="flex items-baseline gap-3 border-b border-border pb-3">
           <span className="font-mono text-[11px] font-black tracking-widest text-iris">02</span>
           <h2 className="text-[15px] font-black tracking-tight text-ink">성과 분석</h2>
@@ -1226,7 +1226,7 @@ export default async function AdminDashboardPage({
       </div>
 
       {/* === 03 운영 로그 — 검수 대기 · 최근 인용 · 크롤러/카카오 실측 === */}
-      <div className="mt-12">
+      <div className="mt-8">
         <div className="flex items-baseline gap-3 border-b border-border pb-3">
           <span className="font-mono text-[11px] font-black tracking-widest text-iris">03</span>
           <h2 className="text-[15px] font-black tracking-tight text-ink">운영 로그</h2>
