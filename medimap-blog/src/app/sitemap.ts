@@ -117,6 +117,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   OVERSEAS_LANGS.forEach((l, i) => {
     for (const c of overseasCardsByLang[i]) {
       if (c.is_partner && c.partner_category && c.partner_slug) {
+        const cat = `/${l.code}/clinics/${c.partner_category}`;
+        if (!overseasHubSeen.has(cat)) {
+          overseasHubSeen.add(cat);
+          overseasHubs.push({ url: absoluteUrl(cat), lastModified: now, changeFrequency: "weekly", priority: 0.7 });
+        }
         const hub = `/${l.code}/clinics/${c.partner_category}/${c.partner_slug}`;
         if (!overseasHubSeen.has(hub)) {
           overseasHubSeen.add(hub);
