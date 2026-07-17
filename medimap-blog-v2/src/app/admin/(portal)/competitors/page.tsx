@@ -323,12 +323,27 @@ export default function CompetitorsPage() {
           {/* Round 67 — 경쟁사 측정 데이터 없을 때 안내 (위서클/자사 혼동 방지) */}
           {data.competitor_top.length === 0 && (
             <div className="mb-6 card card-pad border-l-4 border-l-status-warning">
-              <div className="text-sm font-semibold text-ink">이 클라이언트는 아직 경쟁사 측정 데이터가 없습니다</div>
+              <div className="text-sm font-semibold text-ink">
+                {scope !== 'all' && scope !== 'ko'
+                  ? `이 언어(${scope.toUpperCase()})의 경쟁사 측정 데이터가 없습니다`
+                  : '이 클라이언트는 아직 경쟁사 측정 데이터가 없습니다'}
+              </div>
               <div className="mt-1 text-[12px] leading-relaxed text-ink-soft">
+                {/* Round 143b — 언어 스코프 인지형 안내. 현재 competitor_landscape 키워드는
+                    국내(ko)만 존재하고 해외 키워드는 전부 purpose='own' 이라, EN/JA/ZH 스코프에선
+                    구조적으로 비어 보임 → "고장"으로 오인하던 문제를 문구로 해소. */}
                 이 페이지는 <strong>경쟁사 추적용(competitor_landscape) 키워드</strong>만 집계합니다.{' '}
-                {data.selected_tenant?.business_model === 'self'
-                  ? '위서클(자사)은 자사 키워드로 추적되므로, 상단 ‘자사 인용’ 탭에서 경쟁/점유 데이터를 확인하세요.'
-                  : '이 병원에 competitor_landscape 키워드를 등록하면 채워집니다. 자사 키워드 기반 데이터는 ‘자사 인용’ 탭에 있습니다.'}
+                {scope !== 'all' && scope !== 'ko' ? (
+                  <>
+                    현재 이 언어에는 경쟁사 추적 키워드가 없습니다 — 해외 키워드는 <strong>자사 브랜드 추적(own)</strong>용으로만
+                    등록돼 있습니다. 해외 경쟁사 분석을 하려면 해당 언어의 competitor_landscape 키워드를
+                    <strong> 키워드 풀</strong>에서 추가하세요. 상단 <strong>언어 스코프를 ‘국내’</strong>로 바꾸면 국내 경쟁사 데이터를 볼 수 있습니다.
+                  </>
+                ) : data.selected_tenant?.business_model === 'self' ? (
+                  '위서클(자사)은 자사 키워드로 추적되므로, 상단 ‘자사 인용’ 탭에서 경쟁/점유 데이터를 확인하세요.'
+                ) : (
+                  '이 병원에 competitor_landscape 키워드를 등록하면 채워집니다. 자사 키워드 기반 데이터는 ‘자사 인용’ 탭에 있습니다.'
+                )}
               </div>
             </div>
           )}
