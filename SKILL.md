@@ -4949,3 +4949,23 @@ Round 104-c 사무실 세션에서 이미지 문제 조치됨 (`unsplash_client.
 - push → Vercel 재배포 후 두 허브 라이브 확인(내부링크·통계 렌더) → IndexNow 재핑 → GSC 색인요청.
 - 2~4주 뒤 GSC 재확인: 평균순위(43.9→?)·백내장/라식 페이지 노출 추이.
 
+---
+
+# Round 143g (2026-07-18) — 콘텐츠 밀도 루틴 시작 + 스케줄 2개
+
+## 밀도 루틴 첫 배치 (정적 MDX 안과 허브 2개 강화)
+143f 패턴(통계+내부링크+freshness) 반복. 라식 클러스터 강화:
+- `songpa-lasik.mdx` — 근시 유병률 통계 + 잠실 BGN 상세 3링크(jamsil-lasik-guide-2026·jamsil-lasek-vs-lasik-2026·jamsil-smile-recovery-2026) + 형제 블로그 2교차 + updated.
+- `smile-vs-lasik.mdx` — 근시 통계 + jamsil-smile-recovery-2026·busan-lasik 비교·jamsil-lasek-vs-lasik + lasik-guide 교차 + updated.
+- 게이트: python yaml 파싱 + 링크 실재(ASCII) 검증 통과.
+
+## 강화 완료 파일 누적 (중복 방지)
+lasik-guide·cataract-overview(143f) + songpa-lasik·smile-vs-lasik(143g). **다음 큐**: gangnam-lasik.mdx → (DB) acne-scar-treatment-fractional-vs-subcision → gangnam-rejuran-healer-effect-protocol.
+
+## 스케줄 2개 생성 (C:\Users\user\Documents\Claude\Scheduled\)
+- `gsc-recheck-260801` — 일회성 2026-08-01 09:00 KST. GSC 실적 재확인(베이스라인 노출32·클릭0·순위43.9 대비) + 신규 5곳(13/14/15/16/18) 발행 SQL 점검.
+- `content-density-weekly` — 매주 월 10:00 KST. 상위 노출 페이지 1~2개 강화(위 큐 순서), 실재 파트너 슬러그만 링크, push는 사용자 로컬, 배포 후 web_fetch ?v= 검증.
+
+## 다음(검증)
+- push → 배포 후 songpa/smile 라이브에서 내부링크·통계 렌더 확인(?v= 캐시버스터).
+
