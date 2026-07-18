@@ -4894,3 +4894,58 @@ Round 104-c 사무실 세션에서 이미지 문제 조치됨 (`unsplash_client.
 
 **다음(검증 대기)**: 측정 cron 수동 트리거 → 해외 6키워드 실측 → 어드민 스코프 EN/JA/ZH에 CCS 노출 확인. QA = `.planning/QA-260711.md`.
 
+---
+
+# Round 143e (2026-07-18) — 국내 5곳 자동발행·경쟁분석 활성화 (DB 온리, 코드/푸시 없음)
+
+## 무엇
+어드민에 등록만 돼 있고 **발행 0·분석 0** 이던 국내 파트너 5곳을 자동 콘텐츠 발행 + 경쟁 분석 파이프라인에 실제로 편입. 코드 변경 없이 Supabase DB(`gifopyowyankfsfghhdi`)만 수정.
+
+- **대상**: 클리어서울안과(t13), 힐링안과(t14), 강남연세안과(t15), 모우림의원(t16), 포레나의원(t18).
+- **원인 진단**: 발행 게이트는 키워드가 아니라 **`auto_content_settings.enabled` + `channels`** 였음. 5곳은 여기가 꺼져 있어(또는 미생성) 키워드가 있어도 발행 0. 키워드만 넣는 건 헛일 — 설정 활성화가 진짜 스위치.
+
+## 실행 (SQL)
+1. **own 키워드** 각 5개 (`purpose='own'`, `market='domestic'`, `lang='ko'`). 관례 준수: own = "지역+시술"(강남 라식 / 홍대 울쎄라), category=시술, target_brand=partner_slug. ON CONFLICT (tenant_id,text,purpose) DO NOTHING.
+2. **competitor_landscape 보강**: 밴스모자이너(t5) 1→5, 모우림(t16) 2→5. 발견형 질의("~잘하는곳","~순위").
+3. **설정 활성화**: `UPDATE auto_content_settings SET enabled=true, channels='["blog_html"]', daily_count=1, auto_publish=true`. (첫 사이클 draft로 켰다가 사용자 지시로 즉시 발행 전환 — 기존 6곳과 동일 정책, 의료법 린터 하드 게이트 유지.)
+
+## 결과 (실측)
+- 6개 테넌트(5신규+밴스) 전부 comp 5 + own 5~7, enabled=true, auto_publish=true, daily_count=1, channels=blog_html.
+- **라우팅 검증**: 기존 발행 파트너 조회로 domain_category→partner_category 자동매핑 확인 — 안과→`eyeclinic`, 모발이식→`hair`, 피부과→`derma`. 힐링·모우림은 이미 1건 발행 이력 → partner_category 정상. 신규 5곳 전부 `/with-partners/{cat}/{slug}` 정상 노출 예정.
+- 하루 발행량 +5건(5곳×1), 비용 최소.
+
+## 다음(검증 대기)
+- **내일 KST 07:00 cron 후** 첫 발행물 실측: 이미지(무인물·무한글·맥락), 파트너 태깅 3필드, 의료법 통과, FAQPage, /with-partners 노출.
+- competitor 키워드 측정 채워지는지(경쟁 분석 대시보드) 확인.
+- 품질 이상 시 해당 테넌트만 auto_publish=false 되돌림.
+
+---
+
+# Round 143f (2026-07-18) — GSC 실적 분석 + 상위 노출 페이지 순위 강화 (A/B/C/D)
+
+## 배경 (GSC wecircle.co.kr, 3개월≈실질 2주)
+노출 32 / 클릭 0 / CTR 0% / 평균순위 43.9. 발행 143페이지 중 노출 잡힌 페이지 ~19개(10%대). 진단 = "색인 태동 + 방향 검증"(실패 아님). 상위 노출: /blog/cataract-overview·lasik-guide·acne-scar, /with-partners/eyeclinic/bgn-busan/busan-lasik 비교. 검색어 = 백내장·부산 라식·라식 원리(시술 의도 정확 매칭). 병목 = 순위(authority) + 색인 커버리지.
+
+## A/B — 상위 허브 2개 강화 (정적 MDX, 편집 안전)
+- 블로그는 하이브리드: `content/blog/*.mdx`(정적) + DB(html). cataract-overview·lasik-guide = **MDX 파일**.
+- 편집: ① `updated: 2026-07-18` freshness ② **검증 통계** 삽입(백내장: 국민건강보험공단 주요수술통계연보 2023년 다빈도 수술 1위 63.8만 건·10만명당 1,204건, 2021년 진료 153만 명 / 근시: 국민건강영양조사 40세+ 유병률 2008년 34.9%→2020년 53%) ③ **내부링크** 허브→파트너 상세(B): lasik→busan-lasik 비교·jamsil-lasik-guide-2026·jamsil-lasek-vs-lasik-2026·jamsil-smile-recovery-2026, cataract→jamsil-cataract-timing-2026·jamsil-presbyopia-edof-vs-multifocal + 상호 블로그 교차링크.
+- 링크 대상은 전부 DB에서 실재 검증한 ASCII 슬러그(404 방지). URL형: `/with-partners/{category}/{partner_slug}/{slug}`.
+- 게이트: node_modules 미설치 → gray-matter 대신 python yaml로 frontmatter 파싱 + 링크 실재 검증. MDX는 마크다운만 추가(신규 JSX 없음)라 저위험.
+
+## C — E-E-A-T·역링크
+- 사업자정보(798-67-00527)·법인명(주식회사 위서클)·주소는 **Footer.tsx에 이미 존재**(siteConfig). E-E-A-T 기본 OK.
+- 파트너 병원 역링크 요청 템플릿(이메일/카톡/HTML 스니펫 + 병원별 hub URL 8곳) → 산출물 `위서클_SEO실행가이드_260718.md`. authority가 순위 천장 → 역링크가 최고 레버리지.
+- 파트너 hub URL: BGN잠실 /eyeclinic/bgn, BGN부산 /eyeclinic/bgn-busan, 힐링 /eyeclinic/healingeye, 지우 /derma/jiwooclinic, 벨리셀 /derma/bellisel, 청담디어 /derma/dear, 밴스 /hair/vandsmosigner, 모우림 /hair/mowoolim.
+
+## D — 색인 가속
+- IndexNow(네이버·Bing·Yandex; **Google 미지원**) 키파일 `public/8f3a...0718.txt` 정상 호스팅. 샌드박스는 api.indexnow.org 403 차단 → 사용자 로컬 PowerShell(Invoke-RestMethod) 스크립트로 제공.
+- Google 색인은 IndexNow 무시 → GSC URL검사→색인요청 수동(상위 ~10 URL 목록 산출물에 포함). 신규 발행분은 cron이 IndexNow 자동 핑.
+
+## 🔴 함정/주의
+- IndexNow 편집분 재핑은 **배포 후**(Vercel 재배포로 프레시 콘텐츠 반영된 뒤) 실행해야 크롤러가 신버전 수집.
+- 샌드박스 아웃바운드(api.indexnow.org 등) 403 — 외부 핑은 사용자 로컬에서.
+
+## 다음(검증 대기)
+- push → Vercel 재배포 후 두 허브 라이브 확인(내부링크·통계 렌더) → IndexNow 재핑 → GSC 색인요청.
+- 2~4주 뒤 GSC 재확인: 평균순위(43.9→?)·백내장/라식 페이지 노출 추이.
+
