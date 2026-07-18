@@ -87,6 +87,20 @@ export function invalidateClassifierCache(): void {
 }
 
 /**
+ * set 매칭 — exact + 서브도메인(endsWith '.'+등록도메인).
+ * Round 143d(2026-07-18) SEO/GEO 감사: 이전엔 `set.has(d)` exact 만 해
+ *   `xxx.tistory.com`(NOISE 등록된 tistory.com 서브) 75+개가 전부 T5(경쟁사)로
+ *   오집계됐음. 리딩 닷('.'+e)이라 notgoogle.com 같은 false match 없음.
+ */
+function inSetWithSub(d: string, set: Set<string>): boolean {
+  if (set.has(d)) return true;
+  for (const e of set) {
+    if (d.endsWith("." + e)) return true;
+  }
+  return false;
+}
+
+/**
  * 단일 도메인 분류 — 5-tier.
  * clientDomains 는 tenant.homepage + additional_domains 통합 set (T2 동적 매칭).
  */
@@ -98,7 +112,7 @@ export function classifyDomain(
 ): Tier {
   if (!domain) return 'NOISE';
   const d = domain.toLowerCase();
-  if (sets.medimap.has(d)) return 'T1';
+  if (inSetWithSub(d, sets.medimap)) return 'T1';
   // pf.kakao.com 의 메디맵 path 는 T1, 그 외는 NOISE set 에 포함됨
   if (d === 'pf.kakao.com' && finalUrl) {
     if (MEDIMAP_KAKAO_PATHS.some((p) => finalUrl.includes(p))) return 'T1';
@@ -108,8 +122,8 @@ export function classifyDomain(
       if (d === cd || d.endsWith('.' + cd)) return 'T2';
     }
   }
-  if (sets.authority.has(d)) return 'T3';
-  if (sets.platform.has(d)) return 'T4';
-  if (sets.noise.has(d)) return 'NOISE';
+  if (inSetWithSub(d, sets.authority)) return 'T3';
+  if (inSetWithSub(d, sets.platform)) return 'T4';
+  if (inSetWithSub(d, sets.noise)) return 'NOISE';
   return 'T5';
 }
