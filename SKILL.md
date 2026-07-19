@@ -4951,6 +4951,88 @@ Round 104-c 사무실 세션에서 이미지 문제 조치됨 (`unsplash_client.
 
 ---
 
+# Round 143h (2026-07-19) — 자사 인용 자동 학습 파이프라인 (Auto-learn → 발행 → 재배포)
+
+## 무엇
+AI 가 실제 출처로 인용한 wecircle.co.kr URL 의 구조 패턴을 자동으로 분석·학습하고, 학습 결과를 즉시 다음 콘텐츠 발행에 반영하는 자기강화 루프. "인용됨 → 학습 → 발행 → 인용 증가" 순환 파이프라인.
+
+## 구현
+
+### `/api/admin/auto-learn-own/route.ts` (신규)
+- POST `/api/admin/auto-learn-own` — CRON_SECRET 인증
+- `responses.source_domains` 에서 T1(자사) 인용 URL 집계 (최근 N일)
+- 인용 횟수 상위 topN 선택 (`minCitations` 이상, 최근 30일 학습 중복 제외)
+- 각 URL → `learn-from-url` API 로 구조 분석 (word_count, h2_count, has_faq_schema, table_count, schema_types)
+- `learned_insights` INSERT: `source_tier='T1'`, **`applied=true`** → Python 생성기가 다음 사이클에 즉시 반영
+- 주의: `learn-from-url` 반환은 `faq_count` 없음 — `has_faq_schema: boolean` + `table_count` 사용
+
+### `citations/route.ts` — `own_citations` 패널 추가
+- citations API에 두 번째 forEach 루프 추가 → T1 인용 URL 집계 → `own_citations` 배열 반환
+- `clientDomainsForRow` 로 per-response 스코프 계산 (첫 번째 루프 내부 변수 참조 함정 회피)
+
+### `citations/page.tsx` — 자사 인용 증거 패널
+- `CitationsData` 타입에 `own_citations` 필드 추가
+- "위서클 자사 인용 증거" 패널: 민트색 인용 횟수 칩, 클릭 가능 URL(ExternalLink 아이콘), 키워드 태그, AI 엔진 태그, 최근 인용일
+
+### `.github/workflows/auto-learn-own.yml` (신규)
+- `cron: '0 8 * * *'` = 매일 08:00 UTC = 17:00 KST
+- Step 1: curl POST `/api/admin/auto-learn-own` (학습)
+- Step 2: `python scripts/run_auto_content_once.py` (발행)
+- Step 3: Vercel deploy hook blog + admin (재배포)
+- `timeout-minutes: 30`, Checkout + Python 3.11 + pip install 포함
+
+## 🔴 함정
+- `clientDomains` 스코프 오류: 두 번째 forEach에서 첫 번째 루프 내부 변수 참조 → `clientDomainsForRow`로 per-response 분리
+- `faq_count` 필드 없음: `learn-from-url` 반환은 `has_faq_schema: boolean` + `table_count` 사용
+- PowerShell 괄호 경로: `git add "medimap-blog-v2/src/app/admin/(portal)/citations/page.tsx"` — 큰따옴표 필수
+
+## 커밋
+- `fe1041b` feat(admin): auto-learn-own API + citations own_citations 패널 (Round 143h)
+- `d1af5f3` ci: auto-learn-own.yml 매일 17:00 KST 학습+발행+재배포 (Round 143h)
+
+---
+
+# Round 143i (2026-07-19) — CCS 스파이크 점 클릭 → 인용 증거 상세 패널
+
+## 무엇
+어드민 대시보드 CCS(콘텐츠 인용 점유율) 추이 차트에서 자사 인용이 있는 날(스파이크 점)을 클릭하면 당일 인용된 URL·키워드·AI 엔진·시각을 상세 패널로 표시. 관리자가 "어느 콘텐츠가 AI 에 인용됐는가"를 실시간 추적·관리 가능.
+
+## 구현
+
+### `/api/admin/ccs-detail/route.ts` (신규, 3.6kb, 빌드 ✅)
+- GET `/api/admin/ccs-detail?date=YYYY-MM-DD&lang=`
+- 날짜 범위로 queries 조회 (lang 있으면 kwIds 필터)
+- keyword 텍스트 + engine JOIN
+- responses → source_domains → T1 분류 → URL별 집계
+- 반환: `{ok, date, t1_citations:[{url,domain,keyword,engine,time,count}], t1_count, market_count, ccs_pct}`
+- `Cache-Control: no-store`
+
+### `CcsTrend.tsx` — 클릭 인터랙션 전면 개편 (14.1kb, 빌드 ✅)
+- `useState`: `selectedDate`, `detail`, `detailLoading` 관리
+- SVG 스파이크 원(self>0) 에 투명 히트 영역 `<circle r=14>` + 클릭 핸들러
+- 선택된 날짜 수직 강조선(대시 라인) + 선택된 원 `fill-white stroke-[#15B8A6]`
+- 클릭 → `ccs-detail` API fetch → 차트 바로 아래 슬라이드 인 패널 표시
+- 같은 날 재클릭 → 패널 닫힘
+- **패널 내용**: 당일 CCS% 뱃지, 인용 URL(ExternalLink), ×N 인용 횟수(민트 칩), 트리거 키워드, AI 엔진(브랜드 컬러), 인용 시각 HH:MM
+- **엔진 컬러**: Gemini `#4285F4`, OpenAI `#10a37f`, Claude `#D97706`, Perplexity `#8B5CF6`
+- `detailRef.current?.scrollIntoView({ behavior: 'smooth' })` — 패널로 자동 스크롤
+
+## 데이터 검증 (SQL 실측)
+- 실제 T1=5건, 총=10,092건, CCS=0.0495% ≈ 차트 표시값 0.06% → **진짜 데이터 확인**
+- 일자별 스파이크: 07-06(0.398%), 07-07(0.398%), 07-11(0.205%), 07-16(0.200%)
+- 07-16 인용은 구 도메인 `medi-map.co.kr` — T1 분류 유효
+
+## 커밋
+- `bd99413` feat(admin): CCS 스파이크 점 클릭 → 인용 증거 상세 패널 (Round 143i)
+
+## 다음 라운드 후보
+- 어드민 citations 페이지에도 유사 날짜 드릴다운 추가
+- learned_insights 어드민 UI — 어떤 패턴이 학습됐는지 확인 화면
+- CCS 주간/월간 집계 카드 (일별 추이 외 기간 집계)
+- 해외 EN/JA/ZH 시장 CCS 측정 검증 (cron 수동 트리거)
+
+---
+
 # Round 143g (2026-07-18) — 콘텐츠 밀도 루틴 시작 + 스케줄 2개
 
 ## 밀도 루틴 첫 배치 (정적 MDX 안과 허브 2개 강화)
