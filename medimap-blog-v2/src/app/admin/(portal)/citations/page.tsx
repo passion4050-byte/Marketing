@@ -85,6 +85,15 @@ type CitationsData = {
     urls: string[];
     citations: Citation[];
   }>;
+  // Round 143h — 자사 인용 증거 목록
+  own_citations: Array<{
+    url: string;
+    domain: string;
+    keywords: string[];
+    engines: string[];
+    dates: string[];
+    count: number;
+  }>;
 };
 
 // Round 124-C (2026-07-04) — 잉크 베이스 조화 팔레트: 민트(자사 계열) + 뮤트 골드(권위)
@@ -527,6 +536,86 @@ export default function CitationsPage() {
               {keywordLv.total > 0 && (
                 <div className="px-5 pb-4">
                   <PageBar lv={keywordLv} />
+                </div>
+              )}
+            </div>
+
+            {/* Round 143h — 자사 인용 증거 패널 (위서클 콘텐츠가 실제로 AI에 인용된 URL 목록) */}
+            <div className="card">
+              <header className="border-b border-border px-5 py-3">
+                <h2 className="section-title flex items-center gap-2">
+                  <span className="inline-flex h-2 w-2 rounded-full bg-[#15B8A6]" />
+                  위서클 자사 인용 증거
+                  {(data.own_citations ?? []).length > 0 && (
+                    <span className="ml-1 rounded-full bg-[#15B8A6]/15 px-2 py-0.5 text-[11px] font-semibold text-[#15B8A6]">
+                      {(data.own_citations ?? []).reduce((s, c) => s + c.count, 0)}회 인용
+                    </span>
+                  )}
+                </h2>
+                <div className="mt-1 text-[11px] text-ink-muted">
+                  AI 가 실제로 출처로 인용한 위서클 콘텐츠 URL — 클릭해서 해당 페이지 확인
+                </div>
+              </header>
+              {(data.own_citations ?? []).length === 0 ? (
+                <div className="px-5 py-8 text-center text-sm text-ink-muted">
+                  아직 자사 인용 URL 없음 (콘텐츠 발행·키워드 측정 누적 후 집계됩니다)
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-border bg-surface-soft text-ink-muted">
+                        <th className="px-4 py-2 text-left font-medium">인용 URL</th>
+                        <th className="px-3 py-2 text-center font-medium">인용 횟수</th>
+                        <th className="px-3 py-2 text-left font-medium">키워드</th>
+                        <th className="px-3 py-2 text-left font-medium">AI 엔진</th>
+                        <th className="px-3 py-2 text-left font-medium">최근 인용일</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(data.own_citations ?? []).map((oc, i) => (
+                        <tr key={i} className="border-b border-border/50 hover:bg-surface-soft/50 transition-colors">
+                          <td className="max-w-[360px] px-4 py-2">
+                            <a
+                              href={oc.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-start gap-1 break-all text-[#4F5DF8] hover:underline"
+                            >
+                              <ExternalLink className="mt-0.5 h-3 w-3 shrink-0" />
+                              <span className="line-clamp-2">{oc.url.replace(/^https?:\/\//, '')}</span>
+                            </a>
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#15B8A6]/15 px-1.5 font-semibold text-[#15B8A6]">
+                              {oc.count}
+                            </span>
+                          </td>
+                          <td className="max-w-[200px] px-3 py-2">
+                            <div className="flex flex-wrap gap-1">
+                              {oc.keywords.map((kw, ki) => (
+                                <span key={ki} className="rounded bg-surface-soft px-1.5 py-0.5 text-[10px] text-ink-soft">
+                                  {kw}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex flex-wrap gap-1">
+                              {oc.engines.map((eng, ei) => (
+                                <span key={ei} className="rounded bg-surface-soft px-1.5 py-0.5 text-[10px] capitalize text-ink-soft">
+                                  {eng}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-ink-muted">
+                            {oc.dates[0] ?? '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
