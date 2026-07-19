@@ -298,6 +298,60 @@ export async function GET(req: Request) {
     );
   }
 
+  // Round 143h — T1 (위서클 자사) 인용 증거 목록: 어떤 URL이 몇 번, 어떤 키워드로 인용됐는지.
+  // domain_classifications T1 set + is_self=true 양쪽 모두 수집 (DB 분류 누락 대비 안전망).
+  const ownCitationMap = new Map<
+    string,
+    { url: string; domain: string; keywords: Set<string>; engines: Set<string>; dates: string[]; count: number }
+  >();
+  filteredResp.forEach(
+    (r: {
+      id: number;
+      query_id: number;
+      source_domains: Array<{ domain: string; final_url: string | null; is_self?: boolean }> | null;
+      created_at: string;
+    }) => {
+      const keywordId = queryKeywordMap.get(r.query_id);
+      const kwText = keywordId ? keywordTextMap.get(keywordId) ?? '?' : '?';
+      const engine = queryEngineMap.get(r.query_id) ?? '?';
+      const tenantIdForRow = queryTenantMap.get(r.query_id);
+      const clientDomainsForRow =
+        selectedClientDomains ?? (tenantIdForRow ? tenantDomainsMap.get(tenantIdForRow) ?? null : null);
+      (r.source_domains ?? []).forEach((sd) => {
+        // T1 판정: DB 분류 OR is_self 플래그 (수집 시점 source_resolver 판정)
+        const tier = classifyDomain(sd.domain, sd.final_url, clientDomainsForRow, classifierSets);
+        const isSelf = tier === 'T1' || sd.is_self === true;
+        if (!isSelf || !sd.final_url) return;
+        const key = sd.final_url;
+        if (!ownCitationMap.has(key)) {
+          ownCitationMap.set(key, {
+            url: sd.final_url,
+            domain: sd.domain ?? '',
+            keywords: new Set(),
+            engines: new Set(),
+            dates: [],
+            count: 0,
+          });
+        }
+        const entry = ownCitationMap.get(key)!;
+        entry.count++;
+        entry.keywords.add(kwText);
+        entry.engines.add(engine);
+        entry.dates.push(r.created_at.slice(0, 10));
+      });
+    }
+  );
+  const ownCitations = Array.from(ownCitationMap.values())
+    .map((e) => ({
+      url: e.url,
+      domain: e.domain,
+      keywords: Array.from(e.keywords),
+      engines: Array.from(e.engines),
+      dates: [...new Set(e.dates)].sort().reverse(),
+      count: e.count,
+    }))
+    .sort((a, b) => b.count - a.count);
+
   const totalTier = Object.values(tierCount).reduce((a, b) => a + b, 0);
   const topDomains = Array.from(domainCount.entries())
     .map(([domain, { count, tier, keywords }]) => ({
@@ -368,5 +422,7 @@ export async function GET(req: Request) {
     medimap_share_trend: medimapShareTrend,
     keyword_breakdown: keywordBreakdown,
     competitor_breakdown: competitorBreakdown,
+    // Round 143h — 자사(T1) 인용 증거 목록 (어떤 URL이 몇 번 인용됐는지)
+    own_citations: ownCitations,
   });
 }

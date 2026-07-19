@@ -1,0 +1,61 @@
+name: Auto-learn cited own content (weekly Wed 08:00 UTC = 17:00 KST)
+
+# Round 143h — 자사(T1) 인용 콘텐츠 자동 학습.
+# AI 가 실제로 출처로 인용한 wecircle.co.kr URL 의 구조 패턴을 분석해
+# learned_insights 에 applied=true 로 저장 → Python 생성기가 다음 발행 사이클에 반영.
+
+on:
+  schedule:
+    - cron: '0 8 * * 3'   # 수요일 08:00 UTC = 17:00 KST (auto-learn Mon 과 분산)
+  workflow_dispatch:
+    inputs:
+      days:
+        description: '집계 기간(일) — 기본 60'
+        type: string
+        default: '60'
+      topN:
+        description: '학습할 상위 URL 수'
+        type: string
+        default: '5'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auto-learn-own
+  cancel-in-progress: false
+
+jobs:
+  learn-own:
+    name: Auto-learn cited own wecircle content
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify secrets
+        run: |
+          if [ -z "${{ secrets.VERCEL_PROD_URL }}" ]; then
+            echo "::error::VERCEL_PROD_URL 미설정"; exit 1
+          fi
+          if [ -z "${{ secrets.CRON_SECRET }}" ]; then
+            echo "::error::CRON_SECRET 미설정"; exit 1
+          fi
+
+      - name: Call auto-learn-own endpoint
+        env:
+          VERCEL_URL: ${{ secrets.VERCEL_PROD_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DAYS: ${{ inputs.days }}
+          TOPN: ${{ inputs.topN }}
+        run: |
+          DAYS="${DAYS:-60}"; TOPN="${TOPN:-5}"
+          echo "auto-learn-own: days=$DAYS topN=$TOPN"
+          RESP=$(curl -sS -X POST "$VERCEL_URL/api/admin/auto-learn-own" \
+            -H "Content-Type: application/json" \
+            -H "X-Cron-Secret: $CRON_SECRET" \
+            -d "{\"cronSecret\":\"$CRON_SECRET\",\"days\":$DAYS,\"topN\":$TOPN}")
+          echo "$RESP"
+          echo "$RESP" | grep -q '"ok":true' || { echo "::error::auto-learn-own 실패"; exit 1; }
+          # 결과 요약
+          LEARNED=$(echo "$RESP" | grep -o '"learned":[0-9]*' | grep -o '[0-9]*' || echo "?")
+          TOTAL=$(echo "$RESP" | grep -o '"totalT1Urls":[0-9]*' | grep -o '[0-9]*' || echo "?")
+          echo "✅ 자사 인용 URL 총 $TOTAL 개 발견 → $LEARNED 개 학습 완료"
