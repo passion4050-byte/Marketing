@@ -5177,11 +5177,117 @@ cd medimap-blog-v2 && bash scripts/build-gate.sh
 - 클라이언트 13곳 **월 비용 전원 $0**, 보고서 이메일 6곳 전부 운영자 본인 주소
 - 본문 순수 텍스트 평균 4,067자(어드민 표시, 태그 제외 기준으로 정정됨)
 
-## 10. 다음 라운드 후보
+---
 
-1. **6주 후(2026-09-13경) 코호트 재판정** — 성숙 표본 n=205 되면 처음으로 방향 판단 가능
-2. **Phase 1 갭 분석** — `smile-lasik-in-korea` 경쟁 페이지 5개 해부 → 갭 시트
-3. **개인별 로그인 전환** — 현재 단일 `ADMIN_PASSWORD` 공유 구조라 한 명 나갈 때마다 전원 변경 필요
-4. ShortLink 추적 연결 (유입·전환 실측 0인 상태 해소)
-5. 학습 인사이트를 T1 citation 기반으로 재설계 후 AUTO 재활성화
+# Round 144b (2026-08-02) — Phase 1 갭 분석 + Phase 2 콘텐츠 보강 + 퍼널 개선
+
+## 1. Phase 1 — `smile-lasik-in-korea` 경쟁 페이지 해부 (실측)
+
+경쟁 1위 **himedi.com**(7회 인용) 실제 수집 결과 — **예상과 다른 답**:
+
+| 항목 | 우리 EN | himedi |
+|---|---|---|
+| 순수 본문 | 1,956자 | ~2,500자 (비슷) |
+| FAQPage 스키마 | ✗ | **✗ (없음)** |
+| Medical 스키마 | ✗ | **✗ (없음)** |
+| 표 | 2개 | **0개** (우리가 더 많음) |
+| **실명 병원** | **0곳** | **3곳 + 주소 + 가격** |
+| 첫 문단 | 일반론 | **숫자 2개** |
+
+🔴 **스키마도 길이도 아니다.** 차이는 **"인용하면 그대로 답이 되는 문장"의 유무**.
+- 우리: "Korea is one of the world's most popular destinations…" → 인용해도 답 안 됨
+- himedi: "average price starts around KRW 2,300,000 (~$1,600 USD)… less than 30 seconds per eye" → 그대로 답
+
+코호트 분석의 "인용된 글이 오히려 더 짧고 H2 적음"과 같은 방향.
+
+### 🔴🔴 경쟁사가 우리 클라이언트를 팔고 있었다
+himedi 1순위 추천 = **"Bright Eye Clinic"** = **밝은눈안과 강남점**(tenant 19, `brighteye`,
+서초구 강남대로 531 — 사용자가 방금 추가한 클라이언트. **BGN 잠실(tenant 4)과 별개 법인**).
+2순위 B&VIIT = `bnviit.com` = 우리 어드민 경쟁사 3위(216회 인용).
+그런데 **우리 해외 가이드 12편엔 파트너 병원명이 단 한 번도 없었다.**
+
+경쟁 URL 패턴도 시사적 — `cost-of-` / `top-3-clinics` / `best-clinics-for-foreigners` 를
+명시 타겟팅. `lasiksurgerykorea.com` 은 `/ja/` `/zh/` 전용 경로로 각각 인용됨.
+
+정본: `.planning/overseas-gap-smile-lasik-in-korea.md`
+
+## 2. Phase 2 실행 — 3개 언어 보강 (DB 반영 완료)
+
+| 언어 | 이전 | 이후 |
+|---|---|---|
+| EN (203) | 1,956자 | **3,725자** |
+| JA (205) | 660자 | **1,749자** |
+| ZH (206) | 525자 | **1,405자** |
+
+- **① 첫 문단 숫자화** — 가격 구간(KRW 2,000,000–3,500,000) · 검사비 · 회복 1~2일 · 안정 1개월
+- **② 파트너 병원 섹션 신설** — 밝은눈안과 강남점 / BGN 잠실 / BGN 부산. 실명·주소·홈페이지·시술범위.
+  ⚠️ 주소는 **DB 실측값만** 사용(himedi 주소 베끼지 않음). 병원별 확정가는 데이터 없어 미표기
+- **③ 예약 전 확인 5개 + 체류 일정표** 추가
+- 의료광고법 검증 통과: 최상급 표현 0 · 제휴 고지 · "순위 아님" · 면책 · compliance_status=pass
+- 🔴 **원본 백업**: `content_body_backup` 테이블 (`reason='round144b_overseas_phase2'`)
+
+## 3. 퍼널 페이지 개선
+
+- 🔴 **신규 클라이언트가 목록에서 통째로 사라지던 필터 제거** — 발행·측정 0이면 탈락해
+  방금 등록한 밝은눈안과 강남점·광동병원이 안 보였음. 이제 **온보딩 대기 / 측정 대기** 배지
+- **발행당 등장 컬럼 추가** — 절대값만 보면 안 보이던 효율 격차가 드러남:
+  바를정 **40.7** (9편) vs 청담디어 **2.6** (29편) — **15배**. 청담디어는 최다 발행·최저 효율
+- 죽은 컬럼(ShortLink·클릭·CTR) 조건부 처리
+
+---
+
+# Round 144c (2026-08-02) — 🔴 전환 추적 연결 (측정 시작)
+
+## 진짜 원인 — 인프라는 이미 완성돼 있었다
+
+`wecircle.co.kr/r/{slug}` 는 **정상 구현**됨:
+`lookupShortlink(shortlinks)` → `recordClick`(트랜잭션: `shortlink_clicks` INSERT + `click_count` UPDATE) → 302
+
+빠진 건 둘뿐:
+1. **`shortlinks` 테이블 0행** — 아무도 발급 안 함
+2. **CTA가 오픈카톡 직링크** — 추적 경로 미경유
+
+### 🔴 부수 발견 — medimap-blog-v2 의 `/r/[slug]` 는 깨져 있음
+`src/lib/funnel/short-link.ts` 가 **존재하지 않는 테이블**을 참조:
+
+| 코드 | 실제 DB |
+|---|---|
+| `short_links` | `shortlinks` |
+| `destination_url` | `target_url` |
+| `funnel_events` | `shortlink_clicks` |
+
+콘텐츠는 medimap-blog 에서 서빙되므로 정상인 쪽을 사용. v2 쪽은 **미수정 상태로 남음**(다음 라운드).
+
+## 조치
+
+**① 클라이언트별 추적 링크 15개 발급** (DB)
+- slug 규칙 **결정적**: `k-{partner_slug}` — 코드에서 계산해야 하므로 랜덤 nanoid 금지
+- target: 오픈카톡 + `utm_source=wecircle_blog&utm_medium=ai_cite&utm_campaign={partner_slug}`
+- ⚠️ `shortlinks` 는 `is_active/click_count/created_at/updated_at` 에 **DB default 없음** → INSERT 시 전부 명시
+
+**② CTA 링크 교체** — `medimap-blog/src/lib/ctaLink.ts` 신설
+- 파트너 글 상세 `page.tsx` + `CTABlock.tsx` 두 곳
+- **본문은 한 글자도 안 건드림** — CTA 가 템플릿 렌더라 **218편 전부 즉시 적용**, 신규 발행도 자동
+
+**③ 퍼널 표 상담 클릭 컬럼 조건부 복원** — `trackingLive = totals.shortlinks > 0`
+
+## 측정 범위의 한계 (명시)
+지금 측정되는 건 **"콘텐츠 → 카카오 상담 클릭"** 까지.
+**"상담 → 실제 예약"** 은 오픈카톡 내부라 관측 불가 — 운영 프로세스(상담 시 유입 코드 안내 등) 필요.
+
+## 검증 방법
+파트너 글에서 카카오 CTA 클릭 → `/r/k-{slug}` 경유 → 어드민 유입·전환의 **상담 클릭** +1.
+
+---
+
+## 다음 라운드 후보
+
+1. **6주 후(2026-09-13경) 코호트 재판정** — 성숙 표본 n=205. 처음으로 방향 판단 가능
+2. **주제 공간 경쟁 현황에서 `smile-lasik-in-korea` 전환 확인** — 열세→확보면 나머지 11개 슬러그 확대,
+   0건이면 도메인 권위(H3) 확정 → 파트너 자체 도메인 게시 파일럿
+3. **청담디어 효율 진단** — 29편 발행 · 발행당 2.6 (최저). 코호트로 미성숙/실패 먼저 가를 것
+4. **medimap-blog-v2 의 `/r/[slug]` + `lib/funnel/short-link.ts` 스키마 수정** (현재 깨진 상태)
+5. **개인별 로그인 전환** — 사용자가 직접 하기로 함(보류). `users` 테이블 존재, `password_hash` 만 없음
+6. 학습 인사이트를 T1 citation 기반으로 재설계 후 AUTO 재활성화
+7. 밝은눈안과 강남점 해외 가이드 파트너 노출 동의 확인
 
