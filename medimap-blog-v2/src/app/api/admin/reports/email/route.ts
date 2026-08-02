@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
 import { computeReportMetrics, type ReportMetrics } from '@/lib/reportMetrics';
+import { buildReportUrl, periodKeyFromLabel } from '@/lib/reportToken';
 
 /**
  * 🔴 Round 144 — 클라이언트 발송 게이트 (G2 숫자 정합 + G4 수신자 유효성).
@@ -62,12 +63,26 @@ async function sendOne(opts: {
 }): Promise<{ ok: boolean; to?: string; reportUrl: string; resend?: unknown; stub?: boolean; error?: string }> {
   const key = process.env.RESEND_API_KEY;
   const fromAddr = process.env.RESEND_FROM ?? 'WECIRCLE GEO <reports@medimap.team>';
-  // Round 115 (2026-07-02): reportUrl 에도 range 쿼리 반영 → 클라이언트가 링크 클릭 시 같은 기간 리포트 렌더.
-  const rangeQ = opts.range ? `?range=${encodeURIComponent(opts.range)}${opts.range === 'custom' && opts.from && opts.to ? `&from=${opts.from}&to=${opts.to}` : ''}` : '';
-  const reportUrl = `${opts.origin}/admin/reports/${opts.tenantId}${rangeQ}`;
+
+  // 🔴 Round 144 (2026-08-02) — 클라이언트용 공개 보고서 링크로 교체.
+  //   기존 CTA 는 `/admin/reports/{id}` 를 가리켰는데 middleware 가 `/admin/*` 전체를
+  //   admin 쿠키로 막아 **클라이언트는 로그인 화면으로 튕겼음**. 즉 보고서 메일의
+  //   버튼이 한 번도 동작한 적이 없음(수신자가 운영자 본인이라 드러나지 않았을 뿐).
+  //   `/r/{id}/{yyyy-MM}?t=` 서명 링크 — 로그인 없이 자기 것만 열람.
+  const periodKey = periodKeyFromLabel(opts.period);
+  const publicUrl = buildReportUrl(opts.origin, opts.tenantId, periodKey);
+  const reportUrl = publicUrl ?? `${opts.origin}/admin/reports/${opts.tenantId}`;
 
   if (!key) {
     return { ok: false, stub: true, reportUrl };
+  }
+  if (!publicUrl) {
+    // 시크릿 미설정 → 링크가 admin 경로로 떨어져 클라이언트가 못 엶. 발송하지 않음.
+    return {
+      ok: false,
+      reportUrl,
+      error: 'REPORT_TOKEN_SECRET(또는 ADMIN_SESSION_SECRET) 미설정 — 공개 보고서 링크 생성 불가',
+    };
   }
 
   // Round 114 P1-3: period 안에 "(최근 30일" 포함 여부로 본문 문구 조건부 처리.

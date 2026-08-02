@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { CalendarClock, Download, Loader2, Mail, MailX, Search, Send } from 'lucide-react';
+import { CalendarClock, Download, Link as LinkIcon, Loader2, Mail, MailX, Search, Send } from 'lucide-react';
 import { showToast } from '@/lib/clientActions';
 import { cn } from '@/lib/cn';
 
@@ -58,6 +58,22 @@ export default function ReportsListPage() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  /**
+   * Round 144 — 클라이언트가 로그인 없이 열 수 있는 공개 보고서 링크 복사.
+   * 기존 "미리보기"는 /admin/reports/* 라 클라이언트에게 주면 로그인 화면으로 튕김.
+   */
+  const copyClientLink = async (tenantId: SbTenant['id']) => {
+    try {
+      const res = await fetch(`/api/admin/reports/link?tenantId=${tenantId}`, { cache: 'no-store' });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error ?? '링크 생성 실패');
+      await navigator.clipboard.writeText(data.url);
+      showToast(`고객용 링크 복사됨 (${data.period}) — 로그인 없이 열립니다`, { ms: 3500 });
+    } catch (err) {
+      showToast(`오류: ${(err as Error).message}`, { kind: 'error' });
+    }
+  };
 
   const sendEmail = async (tenantId: SbTenant['id']) => {
     setSending(tenantId);
@@ -166,7 +182,13 @@ export default function ReportsListPage() {
       <header className="admin-page-header">
         <div>
           <h1 className="admin-page-title">월간 보고서 — {period}</h1>
-          <p className="admin-page-desc">클라이언트별 월간 ROI 보고서를 미리보기·발송합니다. 매일 18시 KST 에 설정된 발송일과 일치하는 클라이언트에게 자동 발송됩니다</p>
+          {/* Round 144 — 자동 발송 cron 은 지표 정의 정정까지 비활성화됨. 문구도 사실에 맞춤. */}
+          <p className="admin-page-desc">
+            클라이언트별 월간 보고서를 미리보기·발송합니다.{' '}
+            <strong className="text-ink-soft">자동 발송은 현재 중지</strong> — 발송 게이트 검증 후
+            수동 발송만 동작합니다. <strong className="text-ink-soft">[고객 링크]</strong>는 로그인
+            없이 열리는 클라이언트 전용 주소를 복사합니다.
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
@@ -316,6 +338,12 @@ export default function ReportsListPage() {
                                 className="inline-flex items-center gap-1 rounded border border-border bg-surface-base px-2 py-1 text-[10px] font-semibold text-ink-soft hover:bg-surface-subtle">
                                 <Download className="h-3 w-3" /> 미리보기
                               </Link>
+                              <button
+                                onClick={() => copyClientLink(t.id)}
+                                title="로그인 없이 열리는 고객 전용 보고서 링크를 복사합니다"
+                                className="inline-flex items-center gap-1 rounded border border-accent/40 bg-accent/10 px-2 py-1 text-[10px] font-semibold text-accent-deep hover:bg-accent/20">
+                                <LinkIcon className="h-3 w-3" /> 고객 링크
+                              </button>
                               <button
                                 onClick={() => sendEmail(t.id)}
                                 disabled={sending === t.id}
