@@ -92,16 +92,14 @@ export function ContentPatternStats({ stats }: { stats: StructureStats }) {
   }
 
   const top = stats.topPattern;
-  // 인사이트 생성
-  const insights: string[] = [];
-  if (top) {
-    if (top.avgH2 > stats.avgH2 + 0.5) insights.push(`H2 ${top.avgH2}개 (평균 ${stats.avgH2}) — 더 잘게 나눈 글이 인용 잘 받음`);
-    if (top.avgTable > stats.avgTable) insights.push(`표 ${top.avgTable}개 (평균 ${stats.avgTable}) — 표가 있는 글이 AI 인용 우세`);
-    if (top.avgImg > stats.avgImg + 0.5) insights.push(`이미지 ${top.avgImg}개 (평균 ${stats.avgImg}) — 시각자료 추가 권장`);
-    if (top.faqSchemaPct > stats.faqSchemaPct + 10) insights.push(`FAQPage schema ${top.faqSchemaPct}% (평균 ${stats.faqSchemaPct}%) — schema 추가 시 인용률 ↑`);
-    if (top.avgBodyLen > stats.avgBodyLen * 1.2) insights.push(`본문 ${top.avgBodyLen}자 (평균 ${stats.avgBodyLen}) — 더 긴 글이 우세`);
-    if (top.avgBodyLen < stats.avgBodyLen * 0.8) insights.push(`본문 ${top.avgBodyLen}자 (평균 ${stats.avgBodyLen}) — 짧은 글도 인용 잘 받음`);
-  }
+  /*
+    🔴 Round 144 (2026-08-02) — 인과 단정 문구 제거.
+    여기서 "Top 20%"는 **키워드 언급 수(mention)** 로 선정된 것이지 그 글이
+    실제로 출처 인용된 게 아님. 즉 사실상 무작위 표본 두 개를 비교하는 구조라
+    ±10% 차이는 노이즈. 게다가 같은 나이대(6주+)에서 공정 비교한 결과
+    인용된 글이 오히려 더 짧고 H2 적고 FAQ 0% 였음(코호트 분석 실측).
+    따라서 "~하면 인용 잘 받음" 류의 처방 문구는 근거가 없어 삭제.
+  */
 
   return (
     <section className="card mt-6">
@@ -111,7 +109,13 @@ export function ContentPatternStats({ stats }: { stats: StructureStats }) {
           콘텐츠 구조 패턴 분석 ({stats.totalCount}편 분석)
         </h2>
         <div className="mt-0.5 text-[11px] text-ink-muted">
-          전체 발행 평균 vs <strong className="text-ink">Top 20% 인용 콘텐츠</strong> 의 구조 비교 — 어떤 패턴이 효과적인지 자동 발견
+          전체 발행 평균 vs <strong className="text-ink">키워드 언급량 상위 20%</strong> 의 구조 비교.
+          본문 길이는 <strong className="text-ink">HTML 태그를 제외한 순수 텍스트</strong> 기준입니다.
+        </div>
+        <div className="mt-2 rounded-md border border-status-warningSoft bg-status-warningSoft/25 px-2.5 py-1.5 text-[11px] text-status-warning">
+          ⚠ <strong>참고용 지표</strong> — 상위 20%는 &ldquo;출처 인용&rdquo;이 아니라 &ldquo;키워드 언급량&rdquo;으로
+          선정됩니다. 같은 발행 나이대에서 공정 비교하면 실제 인용된 글이 오히려 더 짧고 H2가 적었습니다.
+          이 표를 콘텐츠 처방 근거로 쓰지 마세요.
         </div>
       </header>
 
@@ -148,23 +152,8 @@ export function ContentPatternStats({ stats }: { stats: StructureStats }) {
         />
       </div>
 
-      {/* 자동 인사이트 — 차이가 의미 있을 때만 */}
-      {insights.length > 0 && (
-        <div className="border-t border-border bg-surface-muted/60 px-4 py-3 md:px-5">
-          <div className="flex items-start gap-2 text-[12px] text-ink">
-            <Lightbulb className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-ink" />
-            <div className="flex-1">
-              <div className="font-semibold text-ink">🧠 자동 발견된 패턴</div>
-              <ul className="ml-4 mt-1 list-disc space-y-0.5 text-[11px] text-ink-soft">
-                {insights.map((s, i) => <li key={i}>{s}</li>)}
-              </ul>
-              <div className="mt-2 text-[10px] text-ink-muted">
-                💡 다음 cron 글 prompt 에 이 패턴 자동 반영 예정 (Round 90 학습 인사이트 자동 등록)
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Round 144 — "자동 발견된 패턴" 블록 제거.
+          잘못된 Top 선정 지표에서 나온 처방 문구였고, 내부 라운드 번호가 UI 에 노출됐음. */}
 
       {!top && stats.totalCount > 0 && (
         <div className="border-t border-border bg-surface-subtle px-4 py-2 text-[10px] text-ink-muted md:px-5">

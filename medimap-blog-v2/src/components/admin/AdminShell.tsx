@@ -8,6 +8,7 @@ import {
   Beaker,
   BookOpen,
   CalendarDays,
+  ChevronDown,
   ClipboardCheck,
   DollarSign,
   FileText,
@@ -38,35 +39,61 @@ import { cn } from '@/lib/cn';
 // Round 143 (2026-07-14) — IA 재정리(직무 기준). 이전엔 최적화/분석 항목이 '운영'에,
 //   매일 보는 리드·캘린더가 '분석'·'설정'에 흩어져 동선이 꼬였음.
 //   운영(매일 손대는 것) / 측정·분석(주간 판단) / 설정(가끔 조정) / 시스템(거의 안 봄)으로 정렬.
-const NAV = [
-  { group: '운영 · 매일', items: [
-    { href: '/admin', label: '대시보드', icon: LayoutDashboard },
-    { href: '/admin/content-queue', label: '콘텐츠 관리', icon: ClipboardCheck },
-    { href: '/admin/overseas', label: '해외 관리', icon: Globe },
-    { href: '/admin/calendar', label: '콘텐츠 캘린더', icon: CalendarDays },
-    { href: '/admin/scanner-leads', label: '클라이언트 문의', icon: Inbox }
+/**
+ * Round 144 (2026-08-02) — IA 재편.
+ *
+ * 이전 문제 (E2E 감사):
+ *   · 19개 항목이 평평하게 나열돼 매일 쓰는 것과 분기에 한 번 쓰는 것이 같은 무게
+ *   · '측정·분석' 그룹에 클라이언트 보고(월간 보고서)와 내부 실험(A/B)이 섞여 목적이 뒤엉킴
+ *   · 거의 안 보는 시스템 항목이 항상 펼쳐져 스크롤을 잡아먹음
+ *
+ * 재편 기준 = **운영자가 언제 여는가**:
+ *   매일 / 성과·보고(주간) / 클라이언트(개별 작업) / 실험·학습 / 시스템(기본 접힘)
+ *
+ * 라우트는 하나도 바꾸지 않는다(안전). 그룹·순서·라벨·접힘·배지만 조정.
+ */
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  /** 사이드바 처리 대기 배지 */
+  badge?: 'pendingContent' | 'newLeads';
+  /** 처음 보는 사람도 뭘 하는 화면인지 알 수 있게 */
+  hint?: string;
+};
+type NavGroup = { group: string; items: NavItem[]; defaultCollapsed?: boolean };
+
+const NAV: NavGroup[] = [
+  { group: '매일', items: [
+    { href: '/admin', label: '대시보드', icon: LayoutDashboard, hint: '오늘 상태 · 성과 요약' },
+    { href: '/admin/content-queue', label: '콘텐츠 관리', icon: ClipboardCheck, badge: 'pendingContent', hint: '검수 · 발행물 확인' },
+    { href: '/admin/scanner-leads', label: '클라이언트 문의', icon: Inbox, badge: 'newLeads', hint: '진단 신청 · 상담 요청' },
   ]},
-  { group: '측정 · 분석', items: [
-    { href: '/admin/citations', label: 'AI 인용 추적', icon: Zap },
-    { href: '/admin/saas-tracking', label: 'SaaS 시장 노출도', icon: Sparkles },
-    { href: '/admin/ab-tests', label: 'A/B 테스트', icon: Beaker },
-    { href: '/admin/learned-insights', label: '학습 인사이트', icon: BookOpen },
-    { href: '/admin/funnel', label: 'Funnel · ROI', icon: LinkIcon },
-    { href: '/admin/reports', label: '월간 보고서', icon: FileText }
+  { group: '성과 · 보고', items: [
+    { href: '/admin/citations', label: 'AI 인용 추적', icon: Zap, hint: '실제 출처 인용 (북극성)' },
+    { href: '/admin/reports', label: '월간 보고서', icon: FileText, hint: '클라이언트 발송' },
+    { href: '/admin/funnel', label: '유입 · 전환', icon: LinkIcon, hint: '발행 → 언급 → 클릭' },
   ]},
-  { group: '설정', items: [
-    { href: '/admin/tenants', label: '클라이언트', icon: Users },
-    { href: '/admin/keywords', label: '키워드 풀', icon: Tag },
+  { group: '클라이언트', items: [
+    { href: '/admin/tenants', label: '클라이언트 목록', icon: Users, hint: '등록 · 요금 · 상태' },
+    { href: '/admin/keywords', label: '키워드 풀', icon: Tag, hint: '측정 대상 키워드' },
+    { href: '/admin/calendar', label: '콘텐츠 캘린더', icon: CalendarDays, hint: '발행 일정' },
+    { href: '/admin/overseas', label: '해외 관리', icon: Globe, hint: 'EN · JA · ZH 전용' },
+  ]},
+  { group: '실험 · 학습', items: [
+    { href: '/admin/ab-tests', label: 'A/B 테스트', icon: Beaker, hint: '변형 비교' },
+    { href: '/admin/learned-insights', label: '학습 인사이트', icon: BookOpen, hint: '생성 프롬프트 규칙' },
+    { href: '/admin/saas-tracking', label: '자사 영업 키워드', icon: Sparkles, hint: '위서클 자체 노출도' },
+  ]},
+  { group: '시스템', defaultCollapsed: true, items: [
     { href: '/admin/content-settings', label: '콘텐츠 설정', icon: Settings },
-    { href: '/admin/domain-classifications', label: '도메인 분류 사전', icon: ShieldCheck }
-  ]},
-  { group: '시스템', items: [
+    { href: '/admin/domain-classifications', label: '도메인 분류 사전', icon: ShieldCheck },
     { href: '/admin/cost', label: '비용 모니터', icon: DollarSign },
+    { href: '/admin/integrations', label: '연동', icon: Plug },
     { href: '/admin/users', label: '사용자 관리', icon: UserCog },
-    { href: '/admin/integrations', label: '연동 (YouTube 등)', icon: Plug },
-    { href: '/admin/audit', label: '감사 로그', icon: History }
+    { href: '/admin/audit', label: '감사 로그', icon: History },
   ]}
-] as const;
+];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -97,6 +124,59 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     window.location.href = '/admin/login';
   };
 
+  /*
+   * Round 144 — 사이드바 처리 대기 배지.
+   * 운영자가 어드민을 열자마자 "손댈 게 있는지"를 메뉴에서 바로 알 수 있게 한다.
+   * 기존엔 콘텐츠 관리/문의에 몇 건이 밀려 있는지 각 화면에 들어가야만 알 수 있었음.
+   * 실패해도 배지만 안 보이면 되므로 전부 graceful.
+   */
+  const [badges, setBadges] = useState<{ pendingContent: number; newLeads: number }>({
+    pendingContent: 0,
+    newLeads: 0,
+  });
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/admin/nav-badges', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => {
+        if (alive && j?.ok) {
+          setBadges({ pendingContent: j.pendingContent ?? 0, newLeads: j.newLeads ?? 0 });
+        }
+      })
+      .catch(() => {
+        /* 배지는 부가 정보 — 실패해도 무시 */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [pathname]);
+
+  /* 그룹 접힘 — 시스템처럼 거의 안 보는 그룹은 기본 접힘. 선택은 localStorage 유지. */
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('admin-nav-collapsed') || '{}');
+      const init: Record<string, boolean> = {};
+      for (const g of NAV) init[g.group] = saved[g.group] ?? !!g.defaultCollapsed;
+      setCollapsed(init);
+    } catch {
+      const init: Record<string, boolean> = {};
+      for (const g of NAV) init[g.group] = !!g.defaultCollapsed;
+      setCollapsed(init);
+    }
+  }, []);
+  const toggleGroup = (g: string) => {
+    setCollapsed((prev) => {
+      const next = { ...prev, [g]: !prev[g] };
+      try {
+        localStorage.setItem('admin-nav-collapsed', JSON.stringify(next));
+      } catch {
+        /* private mode 등 — 무시 */
+      }
+      return next;
+    });
+  };
+
   const sidebarContent = (
     <>
       {/* Round 116 (2026-07-02) — Editorial 톤. warm off-white + stone hairline + ink 로고. */}
@@ -114,36 +194,75 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-4">
-        {NAV.map((g) => (
-          <div key={g.group} className="mb-5">
-            {/* Round 124-D — 그룹 라벨 iris (레퍼런스: 다크 사이드바의 바이올렛 그룹 라벨) */}
-            <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-iris">
-              {g.group}
+        {NAV.map((g) => {
+          // 접힌 그룹 안에 현재 페이지가 있으면 강제로 펼침 — 사용자가 길을 잃지 않게
+          const hasActive = g.items.some(
+            (it) => pathname === it.href || (it.href !== '/admin' && pathname?.startsWith(it.href + '/')),
+          );
+          const isCollapsed = (collapsed[g.group] ?? !!g.defaultCollapsed) && !hasActive;
+          // 접힌 상태에서도 처리 대기가 있으면 알 수 있게 그룹 합계 표시
+          const groupPending = g.items.reduce(
+            (s, it) => s + (it.badge ? badges[it.badge] ?? 0 : 0),
+            0,
+          );
+          return (
+            <div key={g.group} className="mb-4">
+              <button
+                type="button"
+                onClick={() => toggleGroup(g.group)}
+                className="flex w-full items-center gap-1.5 rounded px-3 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-iris transition hover:text-ink"
+              >
+                <ChevronDown
+                  className={cn('h-3 w-3 transition-transform', isCollapsed && '-rotate-90')}
+                />
+                {g.group}
+                {isCollapsed && groupPending > 0 && (
+                  <span className="ml-auto rounded-full bg-status-danger px-1.5 py-0.5 text-[9px] font-bold text-white tracking-normal">
+                    {groupPending}
+                  </span>
+                )}
+              </button>
+              {!isCollapsed && (
+                <ul className="space-y-0.5">
+                  {g.items.map((it) => {
+                    const active =
+                      pathname === it.href ||
+                      (it.href !== '/admin' && pathname?.startsWith(it.href + '/'));
+                    const Icon = it.icon;
+                    const count = it.badge ? badges[it.badge] ?? 0 : 0;
+                    return (
+                      <li key={it.href}>
+                        <Link
+                          href={it.href}
+                          title={it.hint}
+                          className={cn(
+                            'flex min-h-[40px] items-center gap-2.5 rounded-md px-3 py-2 text-[13px] transition',
+                            active
+                              ? 'bg-ink font-bold text-white'
+                              : 'text-ink-soft hover:bg-surface-muted',
+                          )}
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          <span className="min-w-0 flex-1 truncate">{it.label}</span>
+                          {count > 0 && (
+                            <span
+                              className={cn(
+                                'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums',
+                                active ? 'bg-white/20 text-white' : 'bg-status-danger text-white',
+                              )}
+                            >
+                              {count > 99 ? '99+' : count}
+                            </span>
+                          )}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
-            <ul className="space-y-0.5">
-              {g.items.map((it) => {
-                const active = pathname === it.href || (it.href !== '/admin' && pathname?.startsWith(it.href + '/')) || pathname === it.href;
-                const Icon = it.icon;
-                return (
-                  <li key={it.href}>
-                    <Link
-                      href={it.href}
-                      className={cn(
-                        'flex min-h-[40px] items-center gap-2.5 rounded-md px-3 py-2 text-[13px] transition',
-                        active
-                          ? 'bg-ink font-bold text-white'
-                          : 'text-ink-soft hover:bg-surface-muted'
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {it.label}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+          );
+        })}
       </nav>
       <div className="border-t border-border px-3 py-3">
         <button

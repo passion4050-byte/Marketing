@@ -24,6 +24,9 @@ import { ContentCompetitivenessScoped } from '@/components/admin/ContentCompetit
 import { MarketShareDiagnosisScoped } from '@/components/admin/MarketShareDiagnosisScoped';
 import { PartnerLeaderboard } from '@/components/admin/PartnerLeaderboard';
 import { ContentPatternStats } from '@/components/admin/ContentPatternStats';
+import { CohortAnalysis } from '@/components/admin/CohortAnalysis';
+import { SlugRivalry } from '@/components/admin/SlugRivalry';
+import { DashboardSection } from '@/components/admin/DashboardSection';
 import { CcsTrend } from '@/components/admin/CcsTrend';
 import { CitationProof } from '@/components/admin/CitationProof';
 import { DashboardChartsTabbed } from '@/components/admin/DashboardChartsTabbed';
@@ -880,10 +883,24 @@ async function fetchDashboardData(opts: {
     const list = (bodies ?? []) as Array<{ id: number; body: string; keyword_text: string }>;
     if (list.length > 0) {
       const countMatches = (text: string, re: RegExp) => (text.match(re) || []).length;
+      // 🔴 Round 144 (2026-08-02) — 본문 길이 집계 버그.
+      //   기존 `body.length` 는 **HTML 마크업 전체**를 셌음. 실측 대조 결과
+      //   "평균 12,581자" → 태그·스크립트·스타일 제거 시 **2,884자** (4.4배 부풀림).
+      //   그래서 "길이는 충분하다"는 잘못된 안심을 주고 있었고, 구조 패턴 통계 전체가
+      //   이 값 위에서 계산되고 있었음.
+      const plainLen = (html: string) =>
+        (html || '')
+          .replace(/<script[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[\s\S]*?<\/style>/gi, '')
+          .replace(/<[^>]+>/g, '')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&[a-z]+;/gi, '')
+          .replace(/\s+/g, ' ')
+          .trim().length;
       const metrics = list.map((c) => ({
         id: c.id,
         keyword: c.keyword_text,
-        bodyLen: (c.body || '').length,
+        bodyLen: plainLen(c.body || ''),
         h2: countMatches(c.body || '', /<h2[\s>]/g),
         table: countMatches(c.body || '', /<table[\s>]/g),
         list: countMatches(c.body || '', /<(ul|ol)[\s>]/g),
@@ -1248,38 +1265,37 @@ export default async function AdminDashboardPage({
         </div>
       </div>
 
-      {/* === 02 성과 분석 — 측정 추이 · 콘텐츠 경쟁력 · 구조 패턴 · 파트너 리더보드 === */}
-      <div className="mt-8">
-        <div className="flex items-baseline gap-3 border-b border-border pb-3">
-          <span className="font-mono text-[11px] font-black tracking-widest text-iris">02</span>
-          <h2 className="text-[15px] font-black tracking-tight text-ink">성과 분석</h2>
-          <span className="hidden text-[11px] text-ink-muted sm:inline">
-            측정 추이 · Top 인용 콘텐츠 · 구조 패턴 · 파트너 리더보드
-          </span>
-        </div>
+      {/* === 02 성과 분석 — Round 144: 접이식. 매일 보는 화면이 아니라 주간 판단용. === */}
+      <DashboardSection
+        no="02"
+        title="성과 분석"
+        desc="코호트 · 주제 경쟁 · 측정 추이 · 파트너 현황"
+        storageKey="perf"
+      >
         <div className="mt-4 space-y-4 [&>section]:!mt-0 [&>*>section:first-child]:!mt-0">
           <DashboardChartsTabbed
             tierTrend={d.tierTrend}
             clientRanking={d.clientRanking}
             keywordGrounding={d.keywordGrounding}
           />
+          {/* Round 144 — 코호트를 구조 통계보다 위에 둔다.
+              "인용 0"이 실패인지 미성숙인지 먼저 알아야 구조 통계를 해석할 수 있음. */}
+          <CohortAnalysis />
+          <SlugRivalry />
           <ContentCompetitivenessScoped initialContents={d.topContents ?? []} />
           <ContentPatternStats stats={d.structureStats} />
           <PartnerLeaderboard />
         </div>
-      </div>
+      </DashboardSection>
 
-      {/* === 03 운영 로그 — 검수 대기 · 최근 인용 · 크롤러/카카오 실측 === */}
-      <div className="mt-8">
-        <div className="flex items-baseline gap-3 border-b border-border pb-3">
-          <span className="font-mono text-[11px] font-black tracking-widest text-iris">03</span>
-          <h2 className="text-[15px] font-black tracking-tight text-ink">운영 로그</h2>
-          <span className="hidden text-[11px] text-ink-muted sm:inline">
-            검수 대기 · 최근 AI 인용 · 유입 실측
-          </span>
-        </div>
-      </div>
-
+      {/* === 03 운영 로그 — Round 144: 기본 접힘. 문제가 있을 때만 펼쳐 보는 영역. === */}
+      <DashboardSection
+        no="03"
+        title="운영 로그"
+        desc="검수 대기 · 최근 AI 인용 · 유입 실측"
+        storageKey="oplog"
+        defaultCollapsed
+      >
       <section className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="card">
           <header className="flex items-center justify-between border-b border-border px-5 py-4">
@@ -1396,6 +1412,7 @@ export default async function AdminDashboardPage({
         유입·전환 실측(AI 크롤러 방문 · 카카오 CTA 클릭)은 추적 인프라 연결 후 표시됩니다.
         현재 ShortLink 발급 0건 — 발행 콘텐츠의 CTA 가 추적 링크로 변환되지 않은 상태입니다.
       </div>
+      </DashboardSection>
 
       {d.error && (
         <div className="mt-6 rounded-md border border-status-warningSoft bg-status-warningSoft/30 px-4 py-3 text-xs text-status-warning">
