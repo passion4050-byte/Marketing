@@ -5051,3 +5051,137 @@ lasik-guide·cataract-overview(143f) + songpa-lasik·smile-vs-lasik(143g). **다
 ## 다음(검증)
 - push → 배포 후 songpa/smile 라이브에서 내부링크·통계 렌더 확인(?v= 캐시버스터).
 
+---
+
+# Round 144 (2026-08-02) — E2E 5관점 감사 → 지표 정합성 대수술 · 코호트 분석 · 어드민 IA 재편
+
+가장 큰 라운드. **제품이 클라이언트에게 실측의 160배 부풀린 숫자를 보고하는 구조**였음을 발견하고 전면 수정.
+
+## 0. 발단 — E2E 5-페르소나 감사
+
+브라우저 실순회(어드민 9화면 + 공개 기사) + Supabase 실측 + 코드 대조 + 서브에이전트 5개 관점
+(병원담당자·개발자·마케터·디자이너·운영자) 병렬 분석. 산출물: `위서클_E2E감사_260802.html`
+
+## 1. 🔴 지표 정합성 — 발견한 것
+
+| 문제 | 실태 |
+|---|---|
+| 북극성이 3개 값 | 대시보드 0.08%(11/13,518) / 인용추적 0.1%(9/6,794) / SaaS 0% |
+| **홍콩 타사 오염** | `domain LIKE '%medimap%'` 이 `www.medimap.com.hk`(홍콩 소재 타사)를 자사로 집계. **자사 11건 중 2건(18%)이 남의 회사** |
+| **mention을 "인용"으로 라벨링** | 파트너 리더보드 "1,440건 · 자동 발행된 콘텐츠가 실제 인용된 횟수" → 실제 mentions 테이블(브랜드 언급). 자사 콘텐츠 인용은 **9건** |
+| 인용률 226% | funnel 분자(mentions)에 30일 필터 없음. 분모만 30일 |
+| A/B 6건 전부 무효 | 설계는 A=gemini/B=anthropic인데 `ANTHROPIC_API_KEY` 부재 시 **무음 폴백** → 6건 전부 gemini. 게다가 `logger.info(prefer="anthropic")`가 계속 출력돼 **로그가 거짓말** |
+| 본문 길이 4.4배 부풀림 | `body.length`가 HTML 태그 포함. 12,581자 → 실제 **2,884자** |
+| 보고서 링크 미동작 | CTA가 `/admin/reports/{id}` → middleware가 막아 **클라이언트는 로그인 화면으로 튕김**. 한 번도 동작한 적 없음 |
+| 랜딩 근거 없음 | "AI 인용 28회·신규 문의 11명" → 실측 9건 / ShortLink 0·클릭 0으로 11명 산출 근거가 코드에 없음 |
+
+## 2. 수정 (커밋 6d17977 · af57e0a · f0e581b · 2e143cb)
+
+- substring 자사 판정 **3곳 전부** `classifyDomain()` 단일 소스로 (대시보드 SSR / market-share API / DB RPC `citation_market_trend`) → 자사 **11 → 9**
+- mention/citation 라벨 전량 정정 (리더보드·Top콘텐츠·KPI·액션권고·이메일). "AI 인용" → "브랜드 등장"
+- "Top이 4391% 더 인용"·"제목 40자 vs 39자" 파생통계 **삭제**, 대신 "이 표를 읽는 법" 안내
+- funnel 분자 기간 필터 + "인용률" → "질의당 등장(배)"
+- `llm.py` `strict_prefer` — provider 폴백 시 **예외**. `generator.py` `variation_seed` — A/B 양쪽 동일 seed로 랜덤 변주 통제
+- `run_ab_test.py` logger import (의료법 fail 분기 NameError 크래시)
+- `send-monthly-reports.yml` cron **비활성화** + 발송 게이트(운영자 본인 주소 차단·인용 수 상한 검산)
+- `hasMedicalSchema: true` 하드코딩 → body에서 실제 검출
+- 빈 위젯(크롤러 레이더·카카오 퍼널) 제거, 개발 잔재 카피 제거, SaaS 차트 Y축 0~400% → 0~100%
+- **DB**: AUTO 인사이트 11건 `applied=false`(오차 자기강화 차단), A/B 6건 `status='invalid'`
+
+## 3. 215편 코호트 분석 — 핵심 발견
+
+**"215편 발행 → 인용 5개"는 부당한 프레이밍이었다.**
+
+| 코호트 | 글 | 인용 | 인용률 | Wilson 95% CI |
+|---|---|---|---|---|
+| 0~2주 | 65 | 0 | 0% | — |
+| 2~4주 | 76 | 0 | 0% | — |
+| 4~6주 | 35 | 1 | 2.86% | — |
+| **6주+** | **29** | **2** | **6.90%** | **[1.91%, 21.96%]** |
+| <6주 종합 | 176 | 1 | 0.57% | [0.10%, 3.15%] |
+
+- **전체의 82%가 아직 6주 미만.** 가장 오래된 글도 10주 — 발행 이력 자체가 10주뿐
+- 점추정 12배 차이지만 **CI가 겹쳐 통계적으로 미확정**
+- 첫 인용까지 실측 **16·22·39일**
+- 🔴 **슬러그 매칭은 반드시 T1 도메인 제한**. 안 하면 해외 영문 슬러그가 경쟁사 URL과 동일해 경쟁사 인용이 우리 것으로 잡혀 **15.8%로 뻥튀기**(실제 오탐 겪음)
+
+**구조 가설 반박**: 같은 나이대(6주+) 공정 비교에서 인용된 글이 **더 짧고(2,537 vs 2,884자) H2 적고(4.0 vs 5.4) 목록 0개 FAQ 0%**
+
+## 4. 해외 슬러그 충돌 — 정면 대결 중이고 지고 있음
+
+`smile-lasik-in-korea` 하나로 **경쟁사 5개 도메인 15회 인용 vs 우리 0회**.
+경쟁 도메인: himedi.com · gangnam.health · gangnammedspa.com · seoulskinclinic.directory ·
+gangnamwomenshealth.com · koreaskinclinic.com · mineclinic.com · myseoulclinic.com (전부 해외환자 유치 전문)
+
+**⚠️ 슬러그 생성 규칙은 건드리지 않는다** — `guide_html` 채널의 `/{lang}/guides/{slug}` 구조라
+en·ja·zh 동일 슬러그가 hreflang 정합상 정상. id suffix 붙이면 다국어 구조가 깨짐. 슬러그는 증상이지 원인이 아님.
+
+탈환 계획 정본: `.planning/overseas-topic-capture-plan.md` (가설 3개 + Phase 1~3 + 하지 말아야 할 것)
+
+## 5. 신설 화면
+
+| 경로 | 무엇 |
+|---|---|
+| `/api/admin/cohort` + `CohortAnalysis` | 버킷별 인용률 + Wilson CI + 평가유보 배지 + 전량성숙 시 기대값(보수/점추정/낙관) |
+| `/api/admin/slug-rivalry` + `SlugRivalry` | 슬러그별 경쟁 도메인 실명 + 점유 바 + 4판정(열세/확보/무경쟁/신호없음) |
+| `/api/admin/nav-badges` | 사이드바 처리 대기 배지 |
+| `/report/{tenantId}/{yyyy-MM}?t=` | **클라이언트 공개 보고서**. HMAC 서명 토큰, 로그인 없음. 지표 3분리(브랜드등장/병원홈인용/위서클인용) + 인용 URL 증거 + AI 답변 원문 |
+| `/api/admin/reports/link` | 어드민 [고객 링크] 복사용 |
+
+## 6. 어드민 IA 재편
+
+19개 4그룹 → **작업 시점 기준 5그룹**(매일 / 성과·보고 / 클라이언트 / 실험·학습 / 시스템).
+시스템 기본 접힘 + localStorage 유지 + 현재 페이지 있으면 강제 펼침. 처리 대기 배지.
+대시보드 02·03 섹션 접기(03 기본 접힘) → 스크롤 6화면 → 2화면. **라우트는 하나도 안 바꿈.**
+
+## 7. 🔴🔴 빌드 4회 연속 실패 — 이 라운드 최대 교훈
+
+`91a1be0` → `af57e0a` → `88b05f2` → `f0e581b` **4회 연속 실패**. 실패해도 이전 성공 빌드가 계속
+서빙되므로 **"배포했는데 화면이 그대로"** 로만 나타나 1시간 소모.
+
+**원인 3종 — 전부 esbuild도 tsc도 못 잡고 `next build`만 잡는 것:**
+
+1. **동적 세그먼트명 충돌** — `/r/[slug]`(ShortLink)가 있는데 `/r/[tenantId]/...` 추가
+   → `You cannot use different slug names for the same dynamic path ('slug' !== 'tenantId')`
+   → `/report/`로 이동해서 해결. **예약 경로: `/r`(ShortLink) · `/report`(클라이언트 보고서)**
+2. **route.ts 비허용 export** — `export const MATURE_DAYS = 42`
+   → `"MATURE_DAYS" is not a valid Route export field`
+3. **Next 15 스타일 Promise params** — 이 프로젝트는 **Next 14.2.13**, 페이지 params는 동기
+
+**내 진단 실패**: 4회 중 3회를 로그 안 보고 추측으로 진단. 첫 실패에서 로그를 봤으면 그 위에 두 번을
+더 쌓지 않았음. → **배포 안 되면 추측 금지, 빌드 로그부터.**
+
+### ✅ 게이트 스크립트 신설
+```bash
+cd medimap-blog-v2 && bash scripts/build-gate.sh
+```
+세그먼트 충돌 · route export · Promise params · UI 내부용어를 한 번에 검사.
+**RESULT: ✅ PASS 아니면 push 금지.** CLAUDE.md에 규칙 등재.
+
+## 8. 어드민 인증 구조 (비밀번호 변경 시 참고)
+
+```
+쿠키 = sha256("admin::" + ADMIN_PASSWORD + "::" + ADMIN_SESSION_SECRET)
+검증 = 쿠키 === 현재 ADMIN_PASSWORD 로 재계산한 값
+```
+→ **ADMIN_PASSWORD만 바꿔도 기존 세션 전원 즉시 무효.** 별도 로그아웃 불필요.
+→ ⚠️ `ADMIN_SESSION_SECRET`은 바꾸지 말 것 — `REPORT_TOKEN_SECRET` 미설정 시 fallback이라
+   **이미 발급한 고객 보고서 링크가 전부 죽음**.
+→ 변경 후 **Vercel Redeploy 필수**(빌드 시점 주입). Build Cache 해제 권장.
+
+## 9. 실측 스냅샷 (2026-08-02)
+
+- 자사 콘텐츠 인용 **9** / 시장 6,794 = **0.1%** · 클라이언트 병원 자체 사이트 **211(3.1%)** — 23배
+- 발행 215편, 인용된 고유 URL 5개(그중 3건은 홈·병원상세)
+- 자사 B2B 키워드 10개 × 45회 = 450회 측정, **위서클 T1 0건**. grounding rate 36~62%
+- 클라이언트 13곳 **월 비용 전원 $0**, 보고서 이메일 6곳 전부 운영자 본인 주소
+- 본문 순수 텍스트 평균 4,067자(어드민 표시, 태그 제외 기준으로 정정됨)
+
+## 10. 다음 라운드 후보
+
+1. **6주 후(2026-09-13경) 코호트 재판정** — 성숙 표본 n=205 되면 처음으로 방향 판단 가능
+2. **Phase 1 갭 분석** — `smile-lasik-in-korea` 경쟁 페이지 5개 해부 → 갭 시트
+3. **개인별 로그인 전환** — 현재 단일 `ADMIN_PASSWORD` 공유 구조라 한 명 나갈 때마다 전원 변경 필요
+4. ShortLink 추적 연결 (유입·전환 실측 0인 상태 해소)
+5. 학습 인사이트를 T1 citation 기반으로 재설계 후 AUTO 재활성화
+
