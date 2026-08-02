@@ -28,6 +28,13 @@ interface FunnelRow {
   // 정의상 1.0 을 초과할 수 있음 → % 가 아니라 "배" 로 표기 (Round 144).
   mentionsPerQuery: number;
   ctr: number; // clicks / mentions
+  /**
+   * Round 144b — 신규 클라이언트가 목록에서 통째로 사라지던 문제.
+   * 이전엔 발행·측정·멘션이 모두 0이면 filter 에서 탈락해, 방금 등록한
+   * 클라이언트(예: 밝은눈안과 강남점)가 화면에 아예 안 보였음.
+   * 운영자 입장에선 "등록했는데 없다"로 보여 온보딩 누락을 못 잡는다.
+   */
+  stage: 'measuring' | 'published_only' | 'awaiting_setup';
 }
 
 async function fetchData() {
@@ -85,16 +92,19 @@ async function fetchData() {
     });
   });
 
+  // Round 144b — 필터 제거. 발행·측정 0인 신규 클라이언트도 "온보딩 대기"로 노출.
   const rows: FunnelRow[] = ((tenants ?? []) as TenantRow[])
-    .filter((t) => publishedMap.has(t.id) || queryMap.has(t.id) || mentionMap.has(t.id))
     .map((t) => {
       const mt = mentionMap.get(t.id) ?? { total: 0, target: 0 };
       const lk = linkMap.get(t.id) ?? { count: 0, clicks: 0 };
       const q = queryMap.get(t.id) ?? 0;
+      const published = publishedMap.get(t.id) ?? 0;
+      const stage: FunnelRow['stage'] =
+        q > 0 ? 'measuring' : published > 0 ? 'published_only' : 'awaiting_setup';
       return {
         tenantId: t.id,
         tenantName: t.name,
-        published: publishedMap.get(t.id) ?? 0,
+        published,
         measureQueries: q,
         mentions: mt.total,
         targetMentions: mt.target,
@@ -102,9 +112,16 @@ async function fetchData() {
         clicks: lk.clicks,
         mentionsPerQuery: q > 0 ? mt.target / q : 0,
         ctr: mt.total > 0 ? (lk.clicks / mt.total) * 100 : 0,
+        stage,
       };
     })
-    .sort((a, b) => b.targetMentions - a.targetMentions);
+    // 측정 중인 곳을 위로, 그 안에서 멘션 많은 순. 온보딩 대기는 맨 아래.
+    .sort((a, b) => {
+      const rank = (s: FunnelRow['stage']) =>
+        s === 'measuring' ? 0 : s === 'published_only' ? 1 : 2;
+      const d = rank(a.stage) - rank(b.stage);
+      return d !== 0 ? d : b.targetMentions - a.targetMentions;
+    });
 
   return { rows, error: null };
 }
@@ -187,59 +204,78 @@ export default async function FunnelPage() {
         <header className="border-b border-border px-5 py-3">
           <h2 className="section-title">테넌트별 Funnel (최근 30일)</h2>
           <div className="mt-1 text-[11px] text-ink-muted">
-            발행 후 AI 측정 query 가 누적되면 멘션이 발생합니다 — 멘션이 0 이면 측정 query 자체가 아직 적거나, 콘텐츠/키워드 조정이 필요
+            발행 → 측정 질의 누적 → AI 답변에 브랜드 등장. 등장이 0이면 측정 질의가 아직 적거나 키워드 조정이 필요합니다.
+            <strong className="text-ink-soft"> 발행 42일 미만은 아직 색인 적재 중일 수 있어 판단을 유보하세요.</strong>
           </div>
         </header>
 
         {rows.length === 0 ? (
           <div className="px-5 py-12 text-center text-sm text-ink-muted">
-            아직 추적 가능한 tenant 가 없습니다 — 발행/측정/멘션 어느 하나라도 데이터가 있어야 표시됩니다
+            등록된 클라이언트가 없습니다.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[820px] text-xs">
+              {/*
+                Round 144b — ShortLink·클릭·CTR 3개 컬럼 제거.
+                추적 인프라 미연결이라 전 행이 "—" 였고, 화면 폭의 40%를 죽은 컬럼이 차지했음.
+                연결되면 되살릴 것(하단 안내 박스에 상태 표기).
+                대신 "발행당 등장" 을 추가 — 콘텐츠 효율을 보는 실제 운영 지표.
+              */}
               <thead className="bg-surface-subtle text-[10px] font-bold uppercase tracking-wider text-ink-muted">
                 <tr>
-                  <th className="px-3 py-2.5 text-left">테넌트</th>
+                  <th className="px-3 py-2.5 text-left">클라이언트</th>
                   <th className="px-3 py-2.5 text-right">발행</th>
-                  <th className="px-3 py-2.5 text-right">측정 query</th>
+                  <th className="px-3 py-2.5 text-right">측정 질의</th>
                   <th className="px-3 py-2.5 text-right">브랜드 등장</th>
                   <th className="px-3 py-2.5 text-right" title="브랜드 등장 ÷ 측정 질의. 한 응답에 여러 번 등장할 수 있어 1배를 넘을 수 있습니다.">질의당 등장</th>
-                  <th className="px-3 py-2.5 text-right">ShortLink</th>
-                  <th className="px-3 py-2.5 text-right">클릭</th>
-                  <th className="px-3 py-2.5 text-right">CTR</th>
+                  <th className="px-3 py-2.5 text-right" title="브랜드 등장 ÷ 발행 편수. 콘텐츠 1편당 얼마나 노출로 이어졌는지.">발행당 등장</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
+                {rows.map((r) => {
+                  const perPublished = r.published > 0 ? r.targetMentions / r.published : 0;
+                  return (
                   <tr key={r.tenantId} className="border-t border-border hover:bg-surface-subtle">
                     <td className="px-3 py-2.5">
-                      <div className="text-sm font-semibold text-ink">{r.tenantName}</div>
-                      <div className="text-[10px] text-ink-muted">tenant #{r.tenantId}</div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-sm font-semibold text-ink">{r.tenantName}</span>
+                        {r.stage === 'awaiting_setup' && (
+                          <span className="rounded-full bg-status-warningSoft px-2 py-0.5 text-[10px] font-bold text-status-warning">
+                            온보딩 대기
+                          </span>
+                        )}
+                        {r.stage === 'published_only' && (
+                          <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[10px] font-bold text-ink-soft">
+                            측정 대기
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-ink-muted">
+                        tenant #{r.tenantId}
+                        {r.stage === 'awaiting_setup' && ' · 키워드 등록 + 발행 설정 필요'}
+                      </div>
                     </td>
-                    <td className="px-3 py-2.5 text-right font-mono text-sm">{r.published}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-sm">{r.published || '—'}</td>
                     <td className="px-3 py-2.5 text-right font-mono text-xs text-ink-muted">
-                      {r.measureQueries.toLocaleString()}
+                      {r.measureQueries > 0 ? r.measureQueries.toLocaleString() : '—'}
                     </td>
                     <td className="px-3 py-2.5 text-right font-mono text-sm font-bold text-ink-soft">
-                      {r.targetMentions.toLocaleString()}
+                      {r.targetMentions > 0 ? r.targetMentions.toLocaleString() : '—'}
                     </td>
                     <td className="px-3 py-2.5 text-right font-mono text-xs">
                       {r.mentionsPerQuery > 0 ? `${r.mentionsPerQuery.toFixed(2)}배` : '—'}
                     </td>
-                    <td className="px-3 py-2.5 text-right font-mono text-xs text-ink-muted">
-                      {r.shortlinks > 0 ? r.shortlinks : '—'}
-                    </td>
                     <td className="px-3 py-2.5 text-right font-mono text-xs">
-                      {r.clicks > 0 ? r.clicks.toLocaleString() : '—'}
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-mono text-xs">
-                      {r.ctr > 0 ? (
-                        <span className="font-bold text-status-success">{r.ctr.toFixed(2)}%</span>
+                      {perPublished > 0 ? (
+                        <span className={perPublished >= 10 ? 'font-bold text-accent-deep' : 'text-ink-soft'}>
+                          {perPublished.toFixed(1)}
+                        </span>
                       ) : '—'}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -252,16 +288,14 @@ export default async function FunnelPage() {
           <div className="flex items-start gap-3">
             <LinkIcon className="mt-0.5 h-5 w-5 flex-shrink-0 text-ink-muted" />
             <div className="text-sm">
-              <div className="font-semibold text-ink">ShortLink 추적 인프라 — 다음 단계</div>
+              <div className="font-semibold text-ink">
+                유입·전환 추적 — <span className="text-status-warning">미연결</span>
+              </div>
               <p className="mt-1 text-xs text-ink-muted">
-                AI 인용에서 실제 문의/예약까지 ROI 측정하려면 콘텐츠 CTA 를 <code className="rounded bg-white px-1 py-0.5 text-[11px]">/r/&lt;slug&gt;</code> 형식
-                ShortLink 로 발급해야 합니다. 현재 발급된 링크 0건.
+                발행 콘텐츠의 CTA(카카오톡·예약 링크)가 추적 링크로 변환되지 않아,
+                <strong className="text-ink-soft"> AI 노출에서 실제 문의까지의 전환은 현재 측정되지 않습니다.</strong>
+                {' '}연결되면 클릭·CTR 컬럼이 이 표에 자동으로 추가됩니다.
               </p>
-              <ol className="mt-2 ml-4 list-decimal space-y-1 text-xs text-ink-muted">
-                <li>발행 콘텐츠의 CTA(카카오톡·예약 링크)를 추적 링크로 자동 변환 — <strong>미연결</strong></li>
-                <li>클릭 로그가 쌓이기 시작하면 이 표의 클릭·CTR 이 자동으로 채워집니다</li>
-                <li>연결 전까지 유입·전환 수치는 측정되지 않습니다</li>
-              </ol>
             </div>
           </div>
         </div>
