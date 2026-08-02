@@ -64,6 +64,20 @@ find src/app -type d -name '\[*\]' | while read d; do echo "$(dirname "$d")|$(ba
 ```
 → **출력이 비어야 정상.** 현재 예약된 최상위 경로: `/r`(ShortLink) · `/report`(클라이언트 보고서)
 
+### 🔴 route.ts 는 정해진 export 만 허용 (실사고 Round 144)
+`export const MATURE_DAYS = 42` 같은 임의 상수를 route.ts 에서 export 하면
+`"MATURE_DAYS" is not a valid Route export field` 로 빌드 실패.
+허용: `GET/POST/PUT/PATCH/DELETE/HEAD/OPTIONS · runtime · dynamic · revalidate ·
+fetchCache · dynamicParams · preferredRegion · maxDuration · generateStaticParams · config`
+공유가 필요하면 **별도 lib 파일로 분리**할 것.
+
+### ✅ 게이트 스크립트 (push 전 1회 실행 — 손으로 치지 말 것)
+```bash
+cd medimap-blog-v2 && bash scripts/build-gate.sh
+```
+위 3대 함정(세그먼트 충돌 · route export · Promise params) + UI 내부용어를 한 번에 검사.
+**RESULT: ✅ PASS 아니면 push 금지.**
+
 ### 배포 검증 (Round 144 이후 필수)
 push 후 "됐겠지" 금지. Vercel 프로젝트 `geo-v2`(팀 slug `medimaps-projects`) 배포 상태를
 확인하거나, 신규 API 엔드포인트를 직접 호출해 **404 가 아닌지** 확인할 것.

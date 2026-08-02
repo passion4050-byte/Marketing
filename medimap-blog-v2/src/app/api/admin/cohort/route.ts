@@ -41,8 +41,15 @@ const BUCKETS: Array<{ key: string; label: string; min: number; max: number }> =
   { key: 'w10p', label: '10주+', min: 70, max: 100000 },
 ];
 
-/** 성숙 기준 — 첫 인용까지 실측 22~39일이라 42일(6주)을 임계로 둔다. */
-export const MATURE_DAYS = 42;
+/**
+ * 성숙 기준 — 첫 인용까지 실측 22~39일이라 42일(6주)을 임계로 둔다.
+ *
+ * ⚠️ `export` 금지. Next.js 의 route.ts 는 허용된 export 이름만 받는다
+ *   (GET/POST/... · runtime · dynamic · revalidate 등). 임의 상수를 export 하면
+ *   "X is not a valid Route export field" 로 **빌드가 실패**한다. (Round 144 실사고)
+ *   외부에서 써야 하면 별도 lib 파일로 옮길 것.
+ */
+const MATURE_DAYS = 42;
 
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
