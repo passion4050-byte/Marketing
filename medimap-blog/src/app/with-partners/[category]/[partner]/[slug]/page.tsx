@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCategoryMeta, getPartnerPost, getPartnerPostsByPartner } from "@/lib/partners";
 import { siteConfig, absoluteUrl } from "@/lib/site";
+import { kakaoTrackHref, TRACK_LINK_REL } from "@/lib/ctaLink";
 // Round 129 (2026-07-05) — SEO: 파트너 글 BreadcrumbList (3단 경로 구조화)
 import { JsonLd } from "@/components/JsonLd";
 import { breadcrumbLd, faqPageLd } from "@/lib/schema";
@@ -188,10 +189,16 @@ export default async function PartnerPostPage({ params }: PageProps) {
               위서클 상담 채널을 통해 {post.tenant_name}과 연결됩니다.
             </p>
           </div>
+          {/*
+            Round 144c — 추적 링크 경유로 변경.
+            기존엔 오픈카톡 직링크라 클릭이 서버에 기록되지 않아
+            "AI 노출 → 실제 문의" 전환을 측정할 수 없었다.
+            /r/k-{partner_slug} → shortlink_clicks 적재 → 302 로 카카오 이동.
+          */}
           <a
-            href={siteConfig.contact.kakao}
+            href={kakaoTrackHref(post.partner_slug ?? partner)}
             target="_blank"
-            rel="noopener noreferrer"
+            rel={TRACK_LINK_REL}
             className="group inline-flex items-center justify-between gap-4 border border-stone-900 bg-stone-900 px-6 py-5 text-white transition hover:bg-stone-800"
           >
             <span className="text-sm font-bold tracking-tight">카카오톡으로 상담받기</span>

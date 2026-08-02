@@ -142,6 +142,11 @@ export default async function FunnelPage() {
   const overallCitationRate =
     totals.queries > 0 ? (totals.mentions / totals.queries) * 100 : 0;
   const overallCtr = totals.mentions > 0 ? (totals.clicks / totals.mentions) * 100 : 0;
+  /**
+   * Round 144c — 추적 링크가 하나라도 발급됐으면 클릭 컬럼을 노출한다.
+   * 발급 전에는 전 행이 "—" 라 화면만 먹으므로 숨긴다.
+   */
+  const trackingLive = totals.shortlinks > 0;
 
   return (
     <div className="px-8 py-6">
@@ -217,10 +222,10 @@ export default async function FunnelPage() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[820px] text-xs">
               {/*
-                Round 144b — ShortLink·클릭·CTR 3개 컬럼 제거.
-                추적 인프라 미연결이라 전 행이 "—" 였고, 화면 폭의 40%를 죽은 컬럼이 차지했음.
-                연결되면 되살릴 것(하단 안내 박스에 상태 표기).
-                대신 "발행당 등장" 을 추가 — 콘텐츠 효율을 보는 실제 운영 지표.
+                Round 144b/c — 추적 컬럼을 조건부로.
+                미발급 상태에서는 전 행이 "—" 라 화면 폭만 먹었으므로 숨기고,
+                추적 링크가 발급된 뒤에는(Round 144c) 상담 클릭 컬럼을 노출한다.
+                "발행당 등장" 은 콘텐츠 효율을 보는 상시 지표라 항상 표시.
               */}
               <thead className="bg-surface-subtle text-[10px] font-bold uppercase tracking-wider text-ink-muted">
                 <tr>
@@ -230,6 +235,9 @@ export default async function FunnelPage() {
                   <th className="px-3 py-2.5 text-right">브랜드 등장</th>
                   <th className="px-3 py-2.5 text-right" title="브랜드 등장 ÷ 측정 질의. 한 응답에 여러 번 등장할 수 있어 1배를 넘을 수 있습니다.">질의당 등장</th>
                   <th className="px-3 py-2.5 text-right" title="브랜드 등장 ÷ 발행 편수. 콘텐츠 1편당 얼마나 노출로 이어졌는지.">발행당 등장</th>
+                  {trackingLive && (
+                    <th className="px-3 py-2.5 text-right" title="발행 콘텐츠의 카카오 상담 CTA 클릭 수 (추적 링크 경유 서버 기록).">상담 클릭</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -273,6 +281,15 @@ export default async function FunnelPage() {
                         </span>
                       ) : '—'}
                     </td>
+                    {trackingLive && (
+                      <td className="px-3 py-2.5 text-right font-mono text-xs">
+                        {r.clicks > 0 ? (
+                          <span className="font-bold text-status-success">{r.clicks.toLocaleString()}</span>
+                        ) : r.shortlinks > 0 ? (
+                          <span className="text-ink-faint">0</span>
+                        ) : '—'}
+                      </td>
+                    )}
                   </tr>
                   );
                 })}
@@ -282,24 +299,41 @@ export default async function FunnelPage() {
         )}
       </section>
 
-      {/* ShortLink 인프라 안내 (클릭 0 일 때) */}
-      {totals.shortlinks === 0 && (
-        <div className="mt-4 rounded-lg border border-border bg-surface-subtle p-5">
-          <div className="flex items-start gap-3">
-            <LinkIcon className="mt-0.5 h-5 w-5 flex-shrink-0 text-ink-muted" />
-            <div className="text-sm">
-              <div className="font-semibold text-ink">
-                유입·전환 추적 — <span className="text-status-warning">미연결</span>
-              </div>
-              <p className="mt-1 text-xs text-ink-muted">
-                발행 콘텐츠의 CTA(카카오톡·예약 링크)가 추적 링크로 변환되지 않아,
-                <strong className="text-ink-soft"> AI 노출에서 실제 문의까지의 전환은 현재 측정되지 않습니다.</strong>
-                {' '}연결되면 클릭·CTR 컬럼이 이 표에 자동으로 추가됩니다.
-              </p>
-            </div>
+      {/* 유입·전환 추적 상태 */}
+      <div className="mt-4 rounded-lg border border-border bg-surface-subtle p-5">
+        <div className="flex items-start gap-3">
+          <LinkIcon className="mt-0.5 h-5 w-5 flex-shrink-0 text-ink-muted" />
+          <div className="text-sm">
+            {trackingLive ? (
+              <>
+                <div className="font-semibold text-ink">
+                  유입·전환 추적 — <span className="text-status-success">가동 중</span>
+                </div>
+                <p className="mt-1 text-xs text-ink-muted">
+                  발행 콘텐츠의 카카오 상담 CTA 가 추적 링크(<code className="rounded bg-white px-1 py-0.5 text-[11px]">/r/k-&lt;클라이언트&gt;</code>)를
+                  경유합니다. 클릭은 서버에 기록되며 위 <strong className="text-ink-soft">상담 클릭</strong> 컬럼에 반영됩니다.
+                  {totals.clicks === 0 && ' 아직 클릭이 없습니다 — 콘텐츠 방문자가 발생하면 누적됩니다.'}
+                </p>
+                <p className="mt-1.5 text-[11px] text-ink-faint">
+                  발급된 추적 링크 {totals.shortlinks}건 · 누적 클릭 {totals.clicks.toLocaleString()}건
+                  {totals.mentions > 0 && ` · 브랜드 등장 대비 ${overallCtr.toFixed(2)}%`}
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="font-semibold text-ink">
+                  유입·전환 추적 — <span className="text-status-warning">미연결</span>
+                </div>
+                <p className="mt-1 text-xs text-ink-muted">
+                  추적 링크가 발급되지 않아 AI 노출에서 실제 문의까지의 전환이 측정되지 않습니다.
+                  클라이언트에 <code className="rounded bg-white px-1 py-0.5 text-[11px]">partner_slug</code> 가
+                  설정돼 있는지 확인하세요.
+                </p>
+              </>
+            )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
