@@ -30,10 +30,24 @@
 - 마운트에서 git commit/push 금지. **push 는 항상 사용자 로컬 터미널** — 완성된 한 줄 명령어 제공
 - 샌드박스 산출물을 사용자에게 줄 땐 Write 도구(호스트 경로) 또는 outputs 복사+present_files 만 신뢰. outputs 에 직접 zip 생성이 막히면(Operation not permitted) /tmp 에 만들고 cp
 
-### 빌드 게이트 (push 명령 제공 전 필수 — 실사고 2회 예방 실증)
+### 빌드 게이트 (push 명령 제공 전 필수 — 실사고 3회 예방 실증)
 - .tsx/.ts 수정: 수정본 /tmp 사본 확보(마운트 동기화 확인 or 재적용) → `npx --yes esbuild --loader:.tsx=tsx <파일> --outfile=/dev/null` PASS 확인
 - .py 수정: `python3 -m py_compile <파일>`
 - 게이트 없이 push 명령 주는 것 금지
+
+### 🔴 esbuild 는 타입을 못 잡는다 — Next 규약 수동 체크 필수 (실사고 Round 144)
+esbuild 는 **문법만** 본다. 타입 에러는 Vercel 빌드에서 처음 터지고, 실패해도
+이전 성공 빌드가 계속 서빙되므로 **"배포됐는데 화면이 그대로"** 로 나타난다.
+push 전 아래를 눈으로 확인할 것:
+
+- **이 프로젝트는 Next.js 14.2.13** — 페이지 컴포넌트의 `params`/`searchParams` 는
+  **동기 객체**다. Next 15 스타일 `params: Promise<{...}>` 로 쓰면 PageProps 타입
+  검사에서 빌드가 깨진다.
+  - `page.tsx` → `{ params: { id: string } }` (await 금지)
+  - `route.ts` → `params: Promise<{...}>` 패턴이 기존 5개 파일에 있고 동작함(핸들러는 PageProps 검사 대상 아님)
+  - 검사 한 줄: `grep -rln "params: Promise" src/app --include=page.tsx` → **결과 0이어야 정상**
+- 공유 인터페이스(예: `ReportMetrics`) 필드명을 바꾸면 **소비처 전수 grep** 필수
+- 배포 후 화면이 안 바뀌면 캐시를 의심하기 전에 **빌드 실패를 먼저 의심**할 것
 
 ### JSX 함정 (실사고 2회: 124-B, 131-B)
 - 삼항 `) : ( ... )` / `{cond && ( ... )}` 괄호 안에 `{/* */}` 주석 금지 → 빌드 실패. `//` 줄주석 또는 괄호 밖에 배치

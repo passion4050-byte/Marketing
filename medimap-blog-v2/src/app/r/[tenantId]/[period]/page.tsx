@@ -261,15 +261,20 @@ const ENGINE_LABEL: Record<string, string> = {
   perplexity: 'Perplexity',
 };
 
+/**
+ * ⚠️ Next.js 14 — 페이지 컴포넌트의 params/searchParams 는 **동기 객체**다.
+ *   Next 15 스타일로 `Promise<...>` 를 선언하면 PageProps 타입 검사에서 빌드가 깨진다.
+ *   (Round 144 실사고: esbuild 게이트는 타입을 안 잡아 통과했고 Vercel 빌드에서 실패)
+ */
 export default async function PublicReportPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ tenantId: string; period: string }>;
-  searchParams: Promise<{ t?: string }>;
+  params: { tenantId: string; period: string };
+  searchParams: { t?: string };
 }) {
-  const { tenantId: tenantIdRaw, period } = await params;
-  const { t: token } = await searchParams;
+  const { tenantId: tenantIdRaw, period } = params;
+  const token = searchParams?.t;
 
   const tenantId = Number(tenantIdRaw);
   if (!Number.isFinite(tenantId) || !isValidPeriod(period)) notFound();
