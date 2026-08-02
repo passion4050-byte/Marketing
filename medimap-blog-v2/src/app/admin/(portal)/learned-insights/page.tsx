@@ -541,8 +541,12 @@ export default function LearnedInsightsPage() {
           <p>
             A/B 테스트에서는 변형 A(베이스라인)는 주입 <strong>생략</strong>, 변형 B만 주입해 인사이트 효과를 분리 측정합니다.
           </p>
+          {/* Round 144 — 내부 파일명·함수명·라운드 번호는 UI 카피에서 제거. */}
           <p className="text-ink-muted">
-            연결: <code className="font-mono text-ink-soft">generator.py</code> → <code className="font-mono text-ink-soft">learned_insights_loader</code> + <code className="font-mono text-ink-soft">applied_insights_loader</code> (Round 62/81).
+            🔴 자동 발견 패턴(AUTO)은 현재 <strong>주입 중단</strong> 상태입니다 — 이 패턴들은
+            &ldquo;키워드 언급 수&rdquo;로 Top 20%를 선정해 만든 것이라 실제 출처 인용 성과와
+            인과관계가 없었습니다. 지표를 출처 인용 기준으로 교체한 뒤 재활성화합니다.
+            경쟁사 도메인 분석 기반 인사이트는 정상 주입 중입니다.
           </p>
         </div>
       </section>

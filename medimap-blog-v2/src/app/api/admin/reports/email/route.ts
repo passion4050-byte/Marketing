@@ -11,6 +11,41 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
 import { computeReportMetrics, type ReportMetrics } from '@/lib/reportMetrics';
 
+/**
+ * 🔴 Round 144 — 클라이언트 발송 게이트 (G2 숫자 정합 + G4 수신자 유효성).
+ *
+ * E2E 감사 배경: 기존에는 아무 검증 없이 Resend 로 바로 발송했고, 지표는
+ * mentions(브랜드 언급)를 "AI 인용"으로 라벨링하고 있었음. 수신자가 전부
+ * 운영자 본인이라 우연히 사고가 안 났을 뿐, 클라이언트 이메일을 등록하는
+ * 순간 실측의 수십 배 숫자가 발송되는 구조였음.
+ */
+function reportSendGate(
+  toEmail: string | null,
+  m: ReportMetrics,
+): { ok: true } | { ok: false; reason: string } {
+  const email = (toEmail ?? '').trim().toLowerCase();
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return { ok: false, reason: '수신 이메일 형식 오류' };
+  }
+  // G4 — 운영자 본인 주소로는 "클라이언트 발송"으로 집계하지 않음.
+  const operatorEmails = (process.env.OPERATOR_EMAILS ?? 'passion4050@gmail.com')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  if (operatorEmails.includes(email)) {
+    return { ok: false, reason: '운영자 본인 주소 — 클라이언트 발송 대상 아님' };
+  }
+  // G2 — 숫자 정합. 인용 수가 (측정 질의 × 엔진 4) 를 넘으면 계산 오류.
+  const maxPlausible = Math.max(1, m.queries30d) * 4;
+  if (m.ownCitations30d > maxPlausible || m.clientSiteCitations30d > maxPlausible) {
+    return { ok: false, reason: '인용 수가 측정 질의 대비 비현실적 — 지표 계산 점검 필요' };
+  }
+  if (m.avgAeo != null && (m.avgAeo < 0 || m.avgAeo > 100)) {
+    return { ok: false, reason: 'AEO 점수 범위 이탈' };
+  }
+  return { ok: true };
+}
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -44,18 +79,23 @@ async function sendOne(opts: {
     ? `
   <div style="display:flex;gap:8px;margin:16px 0">
     <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px 6px;text-align:center">
-      <div style="font-size:22px;font-weight:800;color:#1B68FF">${m.citations30d}</div>
-      <div style="font-size:11px;color:#64748B">AI 인용 (30일)</div>
+      <div style="font-size:22px;font-weight:800;color:#1B68FF">${m.mentions30d}</div>
+      <div style="font-size:11px;color:#64748B">AI 답변 내 병원명 등장 (30일)</div>
     </div>
     <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px 6px;text-align:center">
-      <div style="font-size:22px;font-weight:800;color:#0F172A">${m.published30d}</div>
-      <div style="font-size:11px;color:#64748B">발행 콘텐츠</div>
+      <div style="font-size:22px;font-weight:800;color:#15CBA8">${m.clientSiteCitations30d}</div>
+      <div style="font-size:11px;color:#64748B">병원 홈페이지가 출처로 인용</div>
     </div>
     <div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px 6px;text-align:center">
-      <div style="font-size:22px;font-weight:800;color:#15CBA8">${m.avgAeo ?? '-'}${m.avgAeo != null ? '점' : ''}</div>
-      <div style="font-size:11px;color:#64748B">평균 AEO 점수</div>
+      <div style="font-size:22px;font-weight:800;color:#0F172A">${m.ownCitations30d}</div>
+      <div style="font-size:11px;color:#64748B">위서클 콘텐츠가 출처로 인용</div>
     </div>
   </div>
+  <p style="font-size:11px;color:#64748B;line-height:1.6;margin:0 0 12px">
+    ※ <b>등장</b>은 AI 답변 본문에 병원 이름이 언급된 횟수이고, <b>출처 인용</b>은 AI 가 답변의 근거 URL 로
+    해당 사이트를 실제로 표기한 횟수입니다. 두 지표는 서로 다르며, 등장이 곧 우리 콘텐츠의 성과를 의미하지 않습니다.
+    (30일 측정 질의 ${m.queries30d.toLocaleString()}회 기준 · 발행 ${m.published30d}편)
+  </p>
   ${m.topContent ? `<p style="font-size:12px;color:#334155;margin:0 0 12px">🏆 최고 AEO 콘텐츠: <b>${m.topContent.title}</b> (${m.topContent.aeo}점)</p>` : ''}`
     : '';
   const html = `
@@ -70,11 +110,11 @@ async function sendOne(opts: {
   ${metricsBlock}
   <p style="font-size:14px;line-height:1.6">보고서에는 다음 내용이 포함됩니다:</p>
   <ul style="font-size:13px;line-height:1.7;color:#334155">
-    <li>${_periodShort} AI 검색 인용 횟수 + 위서클 도메인 점유율 (전월 대비)</li>
+    <li>${_periodShort} AI 답변 내 병원명 등장 추이 (전월 대비)</li>
+    <li>실제 출처로 인용된 URL 목록 (병원 홈페이지 · 위서클 콘텐츠 구분)</li>
     <li>키워드별 성과 + 보강 필요 키워드</li>
     <li>경쟁사 노출 현황 Top 5</li>
-    <li>파트너별 인용 랭킹 (30일) + 자사 발행 콘텐츠 성과</li>
-    <li>다음 달 액션 플랜 4개</li>
+    <li>다음 달 액션 플랜</li>
   </ul>
   <div style="text-align:center;margin:24px 0">
     <a href="${reportUrl}" style="display:inline-block;background:#1B68FF;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">보고서 보기 →</a>
@@ -83,7 +123,7 @@ async function sendOne(opts: {
   <hr style="border:0;border-top:1px solid #E2E8F0;margin:24px 0">
   <p style="font-size:11px;color:#94A3B8;line-height:1.5">
     WECIRCLE GEO/AEO SaaS · AI 검색 시대 의료 마케팅 솔루션<br>
-    wecircle.co.kr · 이 보고서는 매월 1일 자동 발송됩니다.
+    wecircle.co.kr · 이 보고서는 매월 1일 발송됩니다.
   </p>
 </div>`;
 
@@ -153,6 +193,20 @@ export async function POST(req: NextRequest) {
     for (const t of tenants ?? []) {
       const tt = t as { id: number; name: string; email: string };
       const metrics = await computeReportMetrics(sb, tt.id);
+
+      // 🔴 Round 144 발송 게이트 — 통과 못 하면 발송하지 않고 사유를 반환.
+      const gate = reportSendGate(tt.email, metrics);
+      if (!gate.ok) {
+        results.push({
+          tenantId: tt.id,
+          tenantName: tt.name,
+          ok: false,
+          reportUrl: `${origin}/admin/reports/${tt.id}`,
+          error: `발송 게이트 차단: ${gate.reason}`,
+        });
+        continue;
+      }
+
       const r = await sendOne({
         tenantId: tt.id,
         tenantName: tt.name,

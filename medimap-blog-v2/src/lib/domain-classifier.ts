@@ -80,6 +80,20 @@ export async function loadClassifierSets(): Promise<ClassifierSets> {
   }
 }
 
+/**
+ * URL → 호스트명(소문자, www 제거). Round 144 — citations/route.ts 로컬 구현을
+ * 공용으로 승격. tenant.homepage / additional_domains 파싱에 사용.
+ */
+export function extractDomainFromUrl(url: string | null): string | null {
+  if (!url) return null;
+  try {
+    const u = url.startsWith('http') ? url : `https://${url}`;
+    return new URL(u).hostname.toLowerCase().replace(/^www\./, '');
+  } catch {
+    return null;
+  }
+}
+
 /** 캐시 강제 무효화 — admin 편집 직후 호출 권장 */
 export function invalidateClassifierCache(): void {
   cachedSets = null;

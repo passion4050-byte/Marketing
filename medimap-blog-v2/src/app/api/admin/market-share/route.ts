@@ -7,6 +7,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
+import { loadClassifierSets, classifyDomain } from '@/lib/domain-classifier';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,13 +34,16 @@ export async function GET(req: NextRequest) {
   }
 
   const rows = (data ?? []) as Array<{ domain: string; citations: number }>;
+  // 🔴 Round 144 — substring 자사 판정 제거. `domain.includes('medimap')` 이
+  //   www.medimap.com.hk(홍콩 타사)를 자사로 집계했음. T1 셋 단일 소스 사용.
+  const classifierSets = await loadClassifierSets();
   let totalCitations = 0;
   let medimapCitations = 0;
   const all = rows.map((r) => {
     const domain = (r.domain || '').toLowerCase();
     const citations = Number(r.citations) || 0;
     totalCitations += citations;
-    const isOwn = domain.includes('wecircle') || domain.includes('medimap') || domain.includes('medi-map');
+    const isOwn = classifyDomain(domain, null, null, classifierSets) === 'T1';
     if (isOwn) medimapCitations += citations;
     const isAuth = AUTHORITY.has(domain);
     const isCompetitor = !isOwn && !isAuth && COMPETITOR_PATTERNS.some((p) => domain.includes(p));

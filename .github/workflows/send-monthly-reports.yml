@@ -14,9 +14,15 @@ name: Send monthly reports (daily 09:00 UTC = 18:00 KST, filtered by report_send
 #   - CRON_SECRET — 보안용 (Vercel 환경변수도 동일하게 설정 필요)
 #   - (Vercel 측) RESEND_API_KEY + RESEND_FROM
 
+# 🔴 Round 144 (2026-08-02) — 자동 스케줄 **비활성화**.
+#   E2E 감사 결과 reportMetrics 가 mentions(브랜드 언급) 값을 "AI 인용"으로 라벨링해
+#   클라이언트에게 실측의 수십 배 부풀려진 숫자가 발송되는 구조였음.
+#   현재는 수신자가 전부 운영자 본인이라 우연히 사고가 안 난 상태.
+#   지표 정의가 T1 citation 기반으로 정정되고 발송 게이트(G1~G7)가 붙기 전까지
+#   자동 발송 금지. 테스트는 workflow_dispatch 수동 실행으로만.
 on:
-  schedule:
-    - cron: '0 9 * * *'   # 매일 09:00 UTC = 18:00 KST. endpoint 가 today_day == report_send_day 인 tenant 만 발송.
+  # schedule:
+  #   - cron: '0 9 * * *'   # 비활성화 — 위 주석 참조
   workflow_dispatch:
     inputs:
       period:

@@ -22,10 +22,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+import structlog  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 
 from src.content.generator import generate_blog_post  # noqa: E402
 from src.storage.db import SessionLocal  # noqa: E402
+
+# 🔴 Round 144 (2026-08-02) — logger 미정의 버그.
+#   109 행에서 logger.warning() 을 호출하는데 import 가 없어, 의료법 컴플라이언스
+#   fail 분기(= 안전망이 실제로 발동하는 순간)에 진입하면 NameError 로
+#   A/B 생성이 통째로 죽었음. s.commit() 은 먼저 실행되므로 DB 는 남고
+#   ab_tests 레코드만 유실되는 형태.
+logger = structlog.get_logger(__name__)
 
 
 def _applied_insight_ids(session, tenant_id: int) -> list[int]:
@@ -48,7 +56,7 @@ def _applied_insight_ids(session, tenant_id: int) -> list[int]:
 
 def _gen_variant(
     session_factory, tenant_id: int, keyword: str, apply_insights: bool,
-    *, prefer: str | None = None,
+    *, prefer: str | None = None, variation_seed: int | None = None,
 ) -> int | None:
     """변형 1개 생성 → saved content id 반환 (실패 시 None).
 
@@ -62,7 +70,8 @@ def _gen_variant(
     from src.content.llm import get_provider
     from src.collector.scheduler import _map_partner_category
     with session_factory() as s:
-        provider = get_provider(prefer=prefer) if prefer else None
+        # Round 144 — strict_prefer=True. provider 자체가 처치이므로 폴백 시 실험 중단.
+        provider = get_provider(prefer=prefer, strict_prefer=True) if prefer else None
         r = generate_blog_post(
             s,
             tenant_id=tenant_id,
@@ -70,6 +79,7 @@ def _gen_variant(
             save=True,
             apply_insights=apply_insights,
             provider=provider,
+            variation_seed=variation_seed,
         )
         saved_id = getattr(r, "saved_id", None)
         if saved_id is None:
@@ -121,8 +131,21 @@ def run_ab_test(session_factory, tenant_id: int, keyword: str, hypothesis: str =
       - 변형 B = apply_insights=True  + prefer="anthropic" (Claude 깊이 + 인사이트)
     가설: B(Claude+인사이트) 가 A(Gemini 베이스라인) 보다 AI 인용 더 받음.
     """
-    a_id = _gen_variant(session_factory, tenant_id, keyword, apply_insights=False, prefer="gemini")
-    b_id = _gen_variant(session_factory, tenant_id, keyword, apply_insights=True, prefer="anthropic")
+    # 🔴 Round 144 (2026-08-02) — 처치 유효성 확보.
+    #   ① strict_prefer 로 provider 폴백 차단 (기존: B도 조용히 gemini → 처치 0% 적용)
+    #   ② variation_seed 를 A/B 동일 값으로 고정.
+    #      generator._build_variation_block() 이 random.choice 로 도입부·어조를
+    #      매번 바꿔 주입하는데, 이 랜덤 교란이 처치보다 커서 표본 1쌍으로는
+    #      원리적으로 효과 분리가 불가능했음.
+    variation_seed = abs(hash(f"{tenant_id}:{keyword}")) % (2**31)
+    a_id = _gen_variant(
+        session_factory, tenant_id, keyword,
+        apply_insights=False, prefer="gemini", variation_seed=variation_seed,
+    )
+    b_id = _gen_variant(
+        session_factory, tenant_id, keyword,
+        apply_insights=True, prefer="anthropic", variation_seed=variation_seed,
+    )
 
     with session_factory() as s:
         insight_ids = _applied_insight_ids(s, tenant_id)

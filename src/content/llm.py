@@ -1611,7 +1611,7 @@ class FallbackProvider:
         return self._try_all("generate_instagram", *args, **kwargs)
 
 
-def _build_provider_chain(prefer: str = "gemini") -> list:
+def _build_provider_chain(prefer: str = "gemini", *, strict: bool = False) -> list:
     """환경변수로 가능한 provider 만 활성.
 
     기본 우선순위: Gemini > Anthropic > OpenAI > Stub.
@@ -1645,25 +1645,55 @@ def _build_provider_chain(prefer: str = "gemini") -> list:
 
     chain: list = []
     p = (prefer or "gemini").lower().strip()
+
+    # 🔴 Round 144 (2026-08-02) — prefer 무음 폴백 차단.
+    #   기존엔 ANTHROPIC_API_KEY 가 없으면 _anthropic=None 이라 체인이 조용히
+    #   [gemini, openai] 가 됐고, 호출부는 여전히 prefer="anthropic" 이라고 로그를
+    #   남겼음. 그 결과 A/B 변형 B 6건이 전부 gemini 로 생성돼 provider 처치가
+    #   0% 적용된 무효 실험이 35일간 running 상태로 남았음(실측).
+    #   strict 모드에서는 요청한 provider 를 못 만들면 예외를 던져 호출부가
+    #   실험을 중단할 수 있게 한다.
+    _requested = {"anthropic": _anthropic, "gemini": _gemini, "openai": _openai}.get(p)
+    if _requested is None:
+        msg = (
+            f"llm.prefer_unavailable: prefer='{p}' provider 초기화 실패 "
+            f"(API 키 누락 또는 init 예외). 사용 가능: "
+            f"gemini={_gemini is not None}, anthropic={_anthropic is not None}, "
+            f"openai={_openai is not None}"
+        )
+        if strict:
+            raise RuntimeError(msg)
+        logger.warning("llm.prefer_unavailable_fallback", prefer=p, detail=msg)
+
     if p == "anthropic":
         # 자사글 — Claude 우선 (깊이/문장 윤기) → Gemini → OpenAI
         for prov in (_anthropic, _gemini, _openai):
             if prov is not None:
                 chain.append(prov)
-        logger.info("llm.chain_built", prefer="anthropic", order=[type(p).__name__ for p in chain])
     else:
         # 파트너글 (기본) — Gemini 우선 (속도/비용) → Anthropic → OpenAI
         for prov in (_gemini, _anthropic, _openai):
             if prov is not None:
                 chain.append(prov)
-        logger.info("llm.chain_built", prefer="gemini", order=[type(p).__name__ for p in chain])
+
+    logger.info(
+        "llm.chain_built",
+        prefer=p,
+        prefer_available=_requested is not None,
+        actual_first=type(chain[0]).__name__ if chain else None,
+        order=[type(x).__name__ for x in chain],
+    )
 
     if not chain:
+        if strict:
+            raise RuntimeError("llm.no_provider: 사용 가능한 LLM provider 가 없습니다 (StubProvider 차단)")
         chain.append(StubProvider())
     return chain
 
 
-def get_provider(provider_name: str | None = None, *, prefer: str = "gemini") -> LLMProvider:
+def get_provider(
+    provider_name: str | None = None, *, prefer: str = "gemini", strict_prefer: bool = False
+) -> LLMProvider:
     """환경변수 또는 인자로 프로바이더 선택.
 
     Round 40 — 'fallback' 추가. Gemini quota exhaust 등에서 자동 다음 provider.
@@ -1673,6 +1703,10 @@ def get_provider(provider_name: str | None = None, *, prefer: str = "gemini") ->
       자사글 → prefer="anthropic" (Claude 우선, 깊이/문장력)
       파트너글 → prefer="gemini" (기본, 속도/비용)
       generator.py 가 tenant 정보 보고 결정.
+
+    Round 144 (2026-08-02) — `strict_prefer=True` 면 요청한 provider 를 만들지
+      못할 때 조용히 폴백하지 않고 RuntimeError. A/B 테스트처럼 provider 자체가
+      **처치(treatment)** 인 경로에서 필수. 일반 발행 경로는 기본값 False 유지.
     """
     name = (provider_name or os.getenv("LLM_PROVIDER", "stub")).lower().strip()
 
@@ -1692,9 +1726,11 @@ def get_provider(provider_name: str | None = None, *, prefer: str = "gemini") ->
     name = _PROVIDER_ALIASES.get(name, name)
 
     if name == "fallback":
-        return FallbackProvider(_build_provider_chain(prefer=prefer))
+        return FallbackProvider(_build_provider_chain(prefer=prefer, strict=strict_prefer))
 
     if name == "stub":
+        if strict_prefer:
+            raise RuntimeError("llm.stub_blocked: strict_prefer 경로에서 StubProvider 사용 불가")
         return StubProvider()
 
     if name == "gemini":

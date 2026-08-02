@@ -117,7 +117,7 @@ export default async function CostPage() {
         <div>
           <h1 className="admin-page-title">비용 모니터</h1>
           <p className="admin-page-desc">
-            AI 모델 호출 비용과 일별 추이 — Round 81 USD 실토큰 미터링 기반 (라이브 llm_call_logs)
+            AI 모델 호출 비용과 일별 추이 — 실제 사용 토큰 기준 USD 집계
           </p>
         </div>
       </header>
@@ -132,7 +132,7 @@ export default async function CostPage() {
         <div className="mb-4 rounded-lg border border-border bg-surface-subtle px-4 py-3 text-sm text-ink-muted">
           <div className="font-semibold text-ink">📊 측정 데이터 누적 중</div>
           <div className="mt-1 text-xs">
-            llm_call_logs 테이블이 비어있습니다. auto-publish cron 1~2회 실행 후 자동 누적됩니다.
+            아직 호출 기록이 없습니다. 자동 발행이 1~2회 실행되면 자동으로 누적됩니다.
           </div>
         </div>
       )}

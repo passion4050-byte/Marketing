@@ -41,6 +41,8 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
   pending: { label: '대기', cls: 'bg-surface-subtle text-ink-muted' },
   running: { label: '측정 중', cls: 'bg-status-warningSoft text-status-warning' },
   concluded: { label: '종료', cls: 'bg-status-successSoft text-status-success' },
+  // Round 144 — 처치가 실제로 적용되지 않아 결과 해석이 불가능한 실험.
+  invalid: { label: '무효 (처치 미적용)', cls: 'bg-status-dangerSoft text-status-danger' },
 };
 
 export default function AbTestsPage() {
@@ -126,6 +128,23 @@ export default function AbTestsPage() {
         </div>
       ) : (
         <div className="space-y-3">
+          {/* Round 144 — 무효 실험 안내. 처치가 실제로 적용됐는지 확인 없이
+              결과를 읽으면 "효과 없음"으로 오독하게 됨. */}
+          {tests.some((t) => t.status === 'invalid') && (
+            <div className="card border-status-danger/30 bg-status-dangerSoft/20 px-5 py-4 text-[13px]">
+              <div className="font-bold text-status-danger">무효 처리된 실험이 있습니다</div>
+              <p className="mt-1.5 text-ink-soft">
+                변형 B 가 다른 LLM 으로 생성되도록 설계됐으나, API 키 부재로 조용히 A 와 같은
+                모델로 폴백돼 <strong>처치가 실제로 적용되지 않았습니다.</strong> 또한 도입부·어조를
+                무작위로 바꾸는 변주가 양쪽 모두에 들어가 처치보다 큰 교란이었습니다.
+                이 실험들의 결과(0 vs 0)는 &ldquo;효과 없음&rdquo;이 아니라 <strong>실험 부재</strong>입니다.
+              </p>
+              <p className="mt-1.5 text-ink-muted">
+                재실행 조건: ① 변형 B 용 API 키 설정 ② 새 실험은 처치 미적용 시 생성 자체가 실패하도록
+                변경됨 ③ 최소 관측 기간 12주 (첫 인용까지 5~6주 소요 실측).
+              </p>
+            </div>
+          )}
           {tests.map((t) => {
             const st = STATUS_META[t.status] ?? STATUS_META.pending;
             const total = t.variant_a.citations + t.variant_b.citations;

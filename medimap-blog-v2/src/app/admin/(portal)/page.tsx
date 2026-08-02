@@ -17,13 +17,12 @@ import { ArrowUpRight, ClipboardCheck, DollarSign, Users, Zap, FileText, Trendin
 import Link from 'next/link';
 import { getServerClient } from '@/lib/supabase';
 import { getScopeServer, scopeToKeywordLang, scopeToContentLang } from '@/lib/scope';
+import { loadClassifierSets, classifyDomain } from '@/lib/domain-classifier';
 import { cn } from '@/lib/cn';
 import { ActionRecommendations } from '@/components/admin/ActionRecommendations';
 import { ContentCompetitivenessScoped } from '@/components/admin/ContentCompetitivenessScoped';
 import { MarketShareDiagnosisScoped } from '@/components/admin/MarketShareDiagnosisScoped';
 import { PartnerLeaderboard } from '@/components/admin/PartnerLeaderboard';
-import { CrawlerLogWidget } from '@/components/admin/CrawlerLogWidget';
-import { KakaoFunnelWidget } from '@/components/admin/KakaoFunnelWidget';
 import { ContentPatternStats } from '@/components/admin/ContentPatternStats';
 import { CcsTrend } from '@/components/admin/CcsTrend';
 import { CitationProof } from '@/components/admin/CitationProof';
@@ -145,12 +144,39 @@ async function fetchDashboardData(opts: {
     langKwIds = (kwRows ?? []).map((k: { id: number }) => k.id);
   }
 
-  // 1. 활성 클라이언트 — 자사 제외 tenants 카운트
-  const { count: clientCount } = await sb
-    .from('tenants')
-    .select('id', { count: 'exact', head: true })
-    .neq('business_model', 'self')
-    .neq('partner_slug', 'medimap-self');
+  // 1. 활성 클라이언트 — 자사 제외 tenants 카운트 (스코프 인지)
+  // Round 143h: 해외(EN/JA/ZH) 스코프 → tenant_products.lang 으로 필터.
+  //             국내(KO) 스코프 → kwLang='ko' 키워드 보유 tenant.
+  //             통합(all) → 기존 동작 (self 제외 전체).
+  let clientCount: number | null = 0;
+  if (!kwLang) {
+    // 통합 — 전체 비자사 테넌트
+    const { count } = await sb
+      .from('tenants')
+      .select('id', { count: 'exact', head: true })
+      .neq('business_model', 'self')
+      .neq('partner_slug', 'medimap-self');
+    clientCount = count;
+  } else if (kwLang === 'ko') {
+    // 국내 스코프 — ko 키워드를 보유한 테넌트 수
+    const { data: koTenantRows } = await sb
+      .from('keywords')
+      .select('tenant_id')
+      .eq('lang', 'ko')
+      .eq('is_active', true);
+    const koTenantIds = Array.from(new Set((koTenantRows ?? []).map((r: { tenant_id: number }) => r.tenant_id)));
+    clientCount = koTenantIds.length;
+  } else {
+    // 해외 스코프(EN/JA/ZH) — tenant_products.lang 보유 테넌트 수
+    // ZH: keywords.lang='zh-Hant', tenant_products.lang='zh-Hant'
+    const tpLang = kwLang; // en / ja / zh-Hant
+    const { data: tpRows } = await sb
+      .from('tenant_products')
+      .select('tenant_id')
+      .eq('lang', tpLang)
+      .eq('status', 'active');
+    clientCount = Array.from(new Set((tpRows ?? []).map((r: { tenant_id: number }) => r.tenant_id))).length;
+  }
 
   // 2. 검수 대기 — draft + pending COUNT (스코프: 콘텐츠 lang)
   let pendingQ = sb
@@ -246,12 +272,17 @@ async function fetchDashboardData(opts: {
     publishedThisMonth = pubM ?? 0;
 
     // 측정 cron 마지막 성공 시각 (운영자 헬스 체크)
-    const { data: lastQ } = await sb
+    // Round 143h: 언어 스코프 시 해당 lang 키워드 쿼리의 최신 시각만 표시.
+    let lastCronQ = sb
       .from('queries')
       .select('requested_at')
       .neq('engine', 'stub')
       .order('requested_at', { ascending: false })
       .limit(1);
+    if (langKwIds && langKwIds.length > 0) {
+      lastCronQ = lastCronQ.in('keyword_id', langKwIds);
+    }
+    const { data: lastQ } = await lastCronQ;
     lastCronAt = (lastQ?.[0] as { requested_at?: string })?.requested_at ?? null;
   } catch {
     // graceful
@@ -944,17 +975,27 @@ async function fetchDashboardData(opts: {
       .gte('created_at', cutoff30)
       .not('source_domains', 'is', null)
       .limit(5000);
+    // 🔴 Round 144 (2026-08-02) — substring 자사 판정 제거.
+    //   이전 구현은 `dom.includes('medimap')` 이라 **www.medimap.com.hk(홍콩 소재 타사)** 가
+    //   자사로 집계됐음. 30일 자사 인용 11건 중 2건이 남의 회사였고, 북극성 지표의 18% 오염.
+    //   lib/domain-classifier 의 T1 셋(domain_classifications 테이블)을 단일 소스로 사용.
+    const classifierSets = await loadClassifierSets();
     const domainCount = new Map<string, number>();
+    const domainFirstUrl = new Map<string, string | null>();
     let totalCount = 0;
     let medimapCount = 0;
-    ((respRows ?? []) as Array<{ source_domains: Array<{ domain: string }> | null }>).forEach((r) => {
+    ((respRows ?? []) as Array<{
+      source_domains: Array<{ domain: string; final_url?: string | null }> | null;
+    }>).forEach((r) => {
       (r.source_domains ?? []).forEach((sd) => {
         const dom = (sd.domain || '').toLowerCase().replace(/^www\./, '');
         if (!dom) return;
         domainCount.set(dom, (domainCount.get(dom) ?? 0) + 1);
+        if (!domainFirstUrl.has(dom)) domainFirstUrl.set(dom, sd.final_url ?? null);
         totalCount++;
-        // CCS 정확도: 자사 콘텐츠 = wecircle(현 도메인) + medimap/medi-map(구 도메인) 모두 카운트
-        if (dom.includes('wecircle') || dom.includes('medimap') || dom.includes('medi-map')) medimapCount++;
+        if (classifyDomain(sd.domain, sd.final_url ?? null, null, classifierSets) === 'T1') {
+          medimapCount++;
+        }
       });
     });
 
@@ -963,7 +1004,8 @@ async function fetchDashboardData(opts: {
     const AUTHORITY = new Set(['namu.wiki', 'youtube.com', 'modoodoc.com', 'hidoc.co.kr', 'news.hidoc.co.kr', 'v.daum.net', 'edu.donga.com', 'news.naver.com']);
     domainDistribution = Array.from(domainCount.entries())
       .map(([domain, citations]) => {
-        const isOwn = domain.includes('wecircle') || domain.includes('medimap') || domain.includes('medi-map');
+        const isOwn =
+          classifyDomain(domain, domainFirstUrl.get(domain) ?? null, null, classifierSets) === 'T1';
         const isAuth = AUTHORITY.has(domain);
         const isCompetitor =
           !isOwn && !isAuth &&
@@ -1051,12 +1093,14 @@ export default async function AdminDashboardPage({
       hint: d.pendingQueue > 5 ? '⚠ 누적 — 검수 필요' : '정상',
     },
     {
-      label: '30일 누적 인용',
+      // Round 144 — 소스가 mentions 테이블(브랜드 언급)이므로 "인용" 라벨 제거.
+      //   실제 출처 인용 수는 AI 인용 추적 페이지의 자사 인용 증거(30일 9건)를 볼 것.
+      label: '30일 브랜드 등장',
       value: (d.citations30d ?? 0).toLocaleString(),
       suffix: '건',
       href: '/admin/citations',
       icon: Zap,
-      hint: `24h ${d.citations24h ?? 0}건`,
+      hint: `24h ${d.citations24h ?? 0}건 · 출처 인용과 다름`,
     },
     {
       label: '이번 달 발행',
@@ -1340,14 +1384,17 @@ export default async function AdminDashboardPage({
 
       {/* 유입·크롤 실측 — 데이터 누적 전이라 운영 로그 존 하단으로 격하 배치 (Round 119).
           데이터가 쌓이면 02 성과 분석 존으로 승격 검토. */}
-      <div className="mt-4">
-        <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-ink-faint">
-          유입·크롤 실측 — 파이프라인 가동 중, 데이터 누적 대기
-        </div>
-        <div className="grid gap-4 xl:grid-cols-2">
-          <CrawlerLogWidget />
-          <KakaoFunnelWidget />
-        </div>
+      {/*
+        🔴 Round 144 (2026-08-02) — 빈 위젯 2개(AI CRAWLER RADAR / KAKAO FUNNEL) 제거.
+        둘 다 데이터 소스가 연결되지 않아 상시 "로그가 없습니다"만 표시됐음.
+        빈 상태 문구는 "아직 없음"이 아니라 "이 제품은 미완성"으로 읽히고,
+        클라이언트에게 화면을 공유할 수 없게 만드는 요소였음.
+        소스가 실제로 연결되면(미들웨어 크롤러 감지 / /api/track/kakao beacon)
+        그때 다시 노출. 컴포넌트는 삭제하지 않고 import 만 해제.
+      */}
+      <div className="mt-4 rounded-lg border border-border bg-surface-subtle/40 px-4 py-3 text-[11px] text-ink-muted">
+        유입·전환 실측(AI 크롤러 방문 · 카카오 CTA 클릭)은 추적 인프라 연결 후 표시됩니다.
+        현재 ShortLink 발급 0건 — 발행 콘텐츠의 CTA 가 추적 링크로 변환되지 않은 상태입니다.
       </div>
 
       {d.error && (

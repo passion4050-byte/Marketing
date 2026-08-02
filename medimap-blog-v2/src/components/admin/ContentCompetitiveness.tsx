@@ -124,10 +124,11 @@ export function ContentCompetitiveness({ contents }: { contents: Content[] }) {
           <div>
             <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
               <Trophy className="h-4 w-4 text-ink-soft" />
-              위서클 콘텐츠 경쟁력 — Top 인용 콘텐츠
+              키워드별 브랜드 언급량 Top — 발행 콘텐츠 기준
             </h2>
             <div className="mt-0.5 text-[11px] text-ink-muted">
-              30일 발행 글 × 해당 키워드의 AI 인용 mention 수 — 어떤 콘텐츠가 시장에 영향력 있는지
+              30일 발행 글 × 해당 키워드의 AI 답변 내 언급 수.
+              <strong className="text-ink-soft"> 글 자체의 출처 인용 수가 아닙니다.</strong>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -187,35 +188,31 @@ export function ContentCompetitiveness({ contents }: { contents: Content[] }) {
               className="inline-flex items-center gap-1 rounded-md border border-border bg-white px-2 py-1 text-xs text-ink-soft hover:bg-surface-subtle"
             >
               <ArrowUpDown className="h-3 w-3" />
-              {sortBy === 'mentions' ? '인용순' : '날짜순'}
+              {sortBy === 'mentions' ? '언급순' : '날짜순'}
             </button>
           </div>
         </div>
       </header>
 
-      {/* 자동 패턴 분석 */}
+      {/*
+        🔴 Round 144 (2026-08-02) — "자동 패턴 분석" 블록 제거.
+        이 블록은 mentionsForKeyword(= 그 글의 키워드가 AI 답변에 언급된 횟수)를
+        "인용"으로 간주해 Top 10 을 선정하고, 거기서 파생 통계를 냈음.
+        · "Top 이 4391% 더 인용" → 잘못된 지표 위의 파생값
+        · "평균 제목 길이 40자 vs 39자" → 1자 차이를 패턴으로 제시(노이즈)
+        지표가 T1 citation 기반으로 교체되기 전까지 미노출.
+        (insights 계산 자체는 상위에서 유지 — 재활성화 시 지표만 교체하면 됨)
+      */}
       {insights && (
         <div className="border-b border-border bg-surface-muted/60 px-4 py-3 text-[11px] text-ink-soft md:px-5">
           <div className="flex items-start gap-2">
             <Lightbulb className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-ink" />
             <div className="flex-1">
-              <div className="font-semibold text-ink">자동 패턴 분석</div>
+              <div className="font-semibold text-ink">이 표를 읽는 법</div>
               <div className="mt-1">
-                Top 10 콘텐츠 평균 인용 <strong>{insights.avgTopMentions}건</strong> vs 나머지 <strong>{insights.avgRestMentions}건</strong>
-                {insights.lift > 0 && (
-                  <span className="ml-1 font-semibold text-status-success">
-                    (Top 이 {insights.lift}% 더 인용)
-                  </span>
-                )}
-                · 평균 제목 길이 <strong>{insights.avgTopTitleLen}자</strong> (나머지 {insights.avgRestTitleLen}자)
-                {insights.topTenant && (
-                  <span className="ml-1">
-                    · 최강 병원: <strong>{insights.topTenant}</strong> ({insights.topTenantMentions}건)
-                  </span>
-                )}
-              </div>
-              <div className="mt-1 text-[10px] text-ink-muted">
-                💡 활용: Top 콘텐츠 구조(제목 길이/병원/키워드) 를 다음 cron 글 prompt 에 학습 적용 (Round 88 자동화 예정)
+                아래 숫자는 <strong>그 글의 키워드가 AI 답변에 언급된 횟수</strong>이지,
+                그 글이 출처로 인용된 횟수가 아닙니다. 같은 키워드로 쓴 글은 모두 같은 값을 받습니다.
+                실제 출처 인용은 <strong>AI 인용 추적 → 자사 인용 증거</strong>에서 URL 단위로 확인하세요.
               </div>
             </div>
           </div>
@@ -235,7 +232,7 @@ export function ContentCompetitiveness({ contents }: { contents: Content[] }) {
                 <th className="px-3 py-2 text-left">제목</th>
                 <th className="px-3 py-2 text-left">병원</th>
                 <th className="px-3 py-2 text-left">키워드</th>
-                <th className="px-3 py-2 text-right">인용 (30일)</th>
+                <th className="px-3 py-2 text-right">키워드 언급 (30일)</th>
                 <th className="px-3 py-2 text-right">발행일</th>
                 <th className="px-3 py-2 text-center">링크</th>
               </tr>
@@ -301,8 +298,9 @@ export function ContentCompetitiveness({ contents }: { contents: Content[] }) {
 
       {/* 운영 액션 가이드 */}
       <div className="border-t border-border bg-surface-subtle/50 px-4 py-2 text-[10px] text-ink-muted md:px-5">
-        ⭐ = 인용 10+ 인 콘텐츠 · 인용 0인 글 = 키워드 재검토 또는 콘텐츠 추가 발행 검토
-        · <Filter className="inline h-2.5 w-2.5" /> 병원 필터로 클라이언트별 성과 확인
+        ⭐ = 키워드 언급 10+ · 언급 0 = 키워드 재검토 또는 콘텐츠 추가 발행 검토
+        · <Filter className="inline h-2.5 w-2.5" /> 병원 필터로 클라이언트별 확인
+        · 발행 42일 미만 글은 아직 색인 적재 중일 수 있어 성과 판단 유보 권장
       </div>
     </section>
   );

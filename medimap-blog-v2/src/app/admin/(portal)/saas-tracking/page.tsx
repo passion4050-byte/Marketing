@@ -179,11 +179,16 @@ export default function SaasTrackingPage() {
               <LineChart data={data.daily_trend} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
                 <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                {/* 🔴 Round 144 — domain 미지정 시 t1_share 가 전부 0 이면 Recharts 가
+                    기본 정수 눈금(0,1,2,3,4)을 만들고 tickFormatter 가 이를 0~400% 로
+                    렌더했음(점유율 지표에 400% 축). 0~1 로 고정. */}
                 <YAxis
                   tick={{ fontSize: 10 }}
+                  domain={[0, 1]}
+                  ticks={[0, 0.25, 0.5, 0.75, 1]}
                   tickFormatter={(v) => `${Math.round(v * 100)}%`}
                 />
-                <Tooltip formatter={(v: number) => `${Math.round(v * 100)}%`} />
+                <Tooltip formatter={(v: number) => `${(v * 100).toFixed(2)}%`} />
                 <Line
                   type="monotone"
                   dataKey="t1_share"

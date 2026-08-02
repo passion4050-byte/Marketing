@@ -90,7 +90,7 @@ export function PartnerLeaderboard() {
   if (!data || data.partners.length === 0) {
     return (
       <div className="rounded-2xl border border-border bg-surface-base p-6 text-center text-sm text-ink-muted">
-        아직 인용 데이터가 없습니다. 매일 KST 07:00 cron 이 누적 중입니다.
+        아직 브랜드 등장 데이터가 없습니다. 매일 KST 07:00 cron 이 누적 중입니다.
       </div>
     );
   }
@@ -103,19 +103,23 @@ export function PartnerLeaderboard() {
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-ink-soft">
-            <Sparkles size={12} /> Partner AI Citation Leaderboard
+            <Sparkles size={12} /> Partner Brand Mention Leaderboard
           </div>
           <h2 className="mt-2 text-xl font-extrabold tracking-tight text-ink">
-            파트너별 AI 인용 성과 (최근 30일)
+            파트너 브랜드가 AI 답변에 등장한 횟수 (최근 30일)
           </h2>
+          {/* Round 144 — 이전 카피는 "자동 발행된 콘텐츠가 실제 인용된 횟수"로 인과를 단정했음.
+              실제 데이터는 mentions(브랜드 언급)이고 우리 콘텐츠와 인과관계가 없음. */}
           <p className="mt-1 text-xs text-ink-muted">
-            자동 발행된 콘텐츠가 ChatGPT · Claude · Gemini 에서 실제 인용된 횟수
+            AI 답변 본문에 병원 이름이 등장한 횟수입니다.
+            <strong className="text-ink-soft"> 우리 콘텐츠가 출처로 쓰인 건수(인용)는 별도 지표</strong>이며,
+            등장이 곧 콘텐츠 성과를 의미하지 않습니다.
           </p>
         </div>
         <div className="text-right">
           <div className="text-3xl font-black text-ink-soft num">{data.total_mentions_30d}</div>
           <div className="text-[10px] font-bold uppercase tracking-widest text-ink-subtle">
-            총 인용 (30d)
+            총 브랜드 등장 (30d)
           </div>
           <div className="mt-1 text-xs text-ink-muted num">
             7d: {data.total_mentions_7d}
@@ -184,7 +188,7 @@ export function PartnerLeaderboard() {
                 <div className="text-right">
                   <div className="text-2xl font-black text-ink-soft num">{p.mentions_30d}</div>
                   <div className="text-[9px] font-bold uppercase tracking-wider text-ink-subtle">
-                    30d 인용
+                    30d 브랜드 등장
                   </div>
                 </div>
               </div>
@@ -195,7 +199,7 @@ export function PartnerLeaderboard() {
 
       {top && top.mentions_30d > 0 && (
         <div className="mt-4 rounded-xl border border-border bg-surface-muted/60 p-3 text-xs text-ink-soft">
-          🏆 <strong>{top.tenant_name}</strong> 이 30일간 <strong>{top.mentions_30d}회</strong> AI 인용으로 1위.{' '}
+          🏆 <strong>{top.tenant_name}</strong> 이 30일간 <strong>{top.mentions_30d}회</strong> AI 답변에 등장해 1위.{' '}
           {top.mentions_delta > 0 && `최근 7일 +${top.mentions_delta} 증가 추세.`}
         </div>
       )}

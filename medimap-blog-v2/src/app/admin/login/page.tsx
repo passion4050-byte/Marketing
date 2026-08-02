@@ -61,33 +61,41 @@ export default function AdminLoginPage() {
             <span className="font-semibold text-ink">ChatGPT · Claude · Gemini · Perplexity</span>
             가 당신의 병원을 추천하도록.
           </p>
+          {/*
+            🔴 Round 144 (2026-08-02) — 근거 없는 수치 제거.
+            기존 "월평균 AI 인용 28회 · 신규 문의 전환 11명"은
+              · 인용 28회 → 실측 자사 콘텐츠 인용 9건(30일)의 3배
+              · 신규 문의 11명 → ShortLink 0건 · 클릭 로그 0건으로 산출 근거가 코드에 없음
+            표시광고 리스크이자, 잠재 고객이 첫 검증에서 바로 확인 가능한 수치였음.
+            근거 있는 실측치(브랜드 등장 1,440회 / 13개 병원 / 4엔진)로 교체.
+          */}
           <p className="mt-2 text-sm text-ink-muted">
-            월평균 AI 인용 28회 · 신규 문의 전환 11명{' '}
-            <span className="text-ink-faint">(파일럿 데이터)</span>
+            13개 병원 · 4개 AI 엔진 실측{' '}
+            <span className="text-ink-faint">(2026년 7월 기준)</span>
           </p>
 
-          {/* 소셜 프루프 — 신뢰 빌딩 */}
+          {/* 소셜 프루프 — 전부 실측 집계값 */}
           <div className="mt-6 grid grid-cols-3 gap-3 sm:gap-4">
             <div className="rounded-2xl border border-border bg-surface-base px-4 py-3 shadow-card">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
-                <Zap className="h-3.5 w-3.5" /> AI 인용
+                <Zap className="h-3.5 w-3.5" /> AI 답변 내 등장
               </div>
-              <div className="mt-1 text-2xl font-bold text-ink">28<span className="ml-1 text-xs font-medium text-ink-muted">회/월</span></div>
-              <div className="text-[11px] text-ink-muted">파일럿 데이터</div>
+              <div className="mt-1 text-2xl font-bold text-ink">1,440<span className="ml-1 text-xs font-medium text-ink-muted">회/월</span></div>
+              <div className="text-[11px] text-ink-muted">13개 병원 합산 · 실측</div>
             </div>
             <div className="rounded-2xl border border-border bg-surface-base px-4 py-3 shadow-card">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
-                <Stethoscope className="h-3.5 w-3.5" /> 신규 문의
+                <Stethoscope className="h-3.5 w-3.5" /> 측정 질의
               </div>
-              <div className="mt-1 text-2xl font-bold text-ink">11<span className="ml-1 text-xs font-medium text-ink-muted">명/월</span></div>
-              <div className="text-[11px] text-ink-muted">AI 인용 → 전환</div>
+              <div className="mt-1 text-2xl font-bold text-ink">4,235<span className="ml-1 text-xs font-medium text-ink-muted">건/월</span></div>
+              <div className="text-[11px] text-ink-muted">키워드 × 엔진 자동 측정</div>
             </div>
             <div className="rounded-2xl border border-border bg-surface-base px-4 py-3 shadow-card">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
                 <BarChart3 className="h-3.5 w-3.5" /> 4 엔진
               </div>
               <div className="mt-1 text-2xl font-bold text-ink">100<span className="ml-1 text-xs font-medium text-ink-muted">%</span></div>
-              <div className="text-[11px] text-ink-muted">동시 측정 · 파일럿 데이터</div>
+              <div className="text-[11px] text-ink-muted">ChatGPT · Claude · Gemini · Perplexity</div>
             </div>
           </div>
         </div>

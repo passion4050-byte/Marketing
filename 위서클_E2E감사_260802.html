@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>위서클 GEO SaaS — E2E 5관점 감사 (2026-08-02)</title>
+<style>
+:root{
+  --bg:#0d1117; --surface:#161b22; --surface2:#1c2128; --border:#30363d;
+  --ink:#e6edf3; --ink-soft:#9198a1; --ink-faint:#6e7681;
+  --teal:#15B8A6; --iris:#4F5DF8; --red:#f85149; --amber:#d29922; --green:#3fb950;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;line-height:1.7;font-size:15px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px 100px}
+
+header{padding:56px 0 32px;border-bottom:1px solid var(--border);margin-bottom:32px}
+.eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);font-weight:700;margin-bottom:12px}
+h1{font-size:34px;line-height:1.25;letter-spacing:-.02em;margin-bottom:12px;font-weight:800}
+.sub{color:var(--ink-soft);font-size:15px}
+
+.verdict{background:linear-gradient(135deg,rgba(248,81,73,.09),rgba(210,153,34,.05));border:1px solid rgba(248,81,73,.3);border-radius:14px;padding:26px;margin:28px 0}
+.verdict h2{font-size:19px;margin-bottom:12px;color:#ff8a80}
+.verdict p{color:var(--ink);font-size:15px}
+.verdict strong{color:#ffb4a9}
+
+nav{position:sticky;top:0;background:rgba(13,17,23,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);z-index:50;margin:0 -24px 36px;padding:12px 24px;display:flex;gap:6px;overflow-x:auto}
+nav button{background:transparent;border:1px solid transparent;color:var(--ink-soft);padding:7px 13px;border-radius:8px;font-size:13px;cursor:pointer;white-space:nowrap;font-family:inherit;font-weight:600;transition:.15s}
+nav button:hover{color:var(--ink);background:var(--surface2)}
+nav button.on{background:var(--teal);color:#04211d;border-color:var(--teal)}
+
+section{display:none;animation:fade .25s}
+section.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+h2.sec{font-size:24px;margin:0 0 8px;letter-spacing:-.01em;font-weight:800}
+h3{font-size:17px;margin:36px 0 12px;font-weight:700;letter-spacing:-.01em}
+h4{font-size:14px;margin:22px 0 8px;color:var(--teal);font-weight:700}
+p{margin-bottom:14px}
+.lead{color:var(--ink-soft);margin-bottom:28px;font-size:14.5px}
+
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:13.5px}
+th{background:var(--surface2);text-align:left;padding:10px 12px;font-weight:700;color:var(--ink-soft);font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid var(--border)}
+td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:hover td{background:rgba(255,255,255,.02)}
+td.num{font-variant-numeric:tabular-nums;font-weight:700;text-align:right;white-space:nowrap}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin:16px 0}
+.card.red{border-left:3px solid var(--red)}
+.card.amber{border-left:3px solid var(--amber)}
+.card.green{border-left:3px solid var(--green)}
+.card.teal{border-left:3px solid var(--teal)}
+.card h4{margin-top:0}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:22px 0}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px}
+.kpi .v{font-size:28px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1.1}
+.kpi .l{font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.08em;margin-top:6px;font-weight:700}
+.kpi .n{font-size:12px;color:var(--ink-soft);margin-top:6px}
+.v.bad{color:var(--red)} .v.warn{color:var(--amber)} .v.ok{color:var(--green)} .v.tl{color:var(--teal)}
+
+.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.02em}
+.t-p0{background:rgba(248,81,73,.15);color:#ff8a80}
+.t-p1{background:rgba(210,153,34,.15);color:#e3b341}
+.t-p2{background:rgba(79,93,248,.15);color:#8b96ff}
+.t-ok{background:rgba(63,185,80,.15);color:#56d364}
+
+code{background:var(--surface2);padding:2px 6px;border-radius:5px;font-size:12.5px;font-family:'SF Mono',Consolas,monospace;color:#a5d6ff}
+pre{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;overflow-x:auto;margin:14px 0;font-size:12.5px;line-height:1.6}
+pre code{background:none;padding:0;color:var(--ink)}
+
+.ba{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:10px 0}
+.ba>div{padding:13px 15px;font-size:13.5px}
+.ba .b{background:rgba(248,81,73,.06);border-right:1px solid var(--border)}
+.ba .a{background:rgba(63,185,80,.06)}
+.ba .lb{font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:800;margin-bottom:6px;display:block}
+.ba .b .lb{color:var(--red)} .ba .a .lb{color:var(--green)}
+
+ul,ol{margin:0 0 16px 20px}
+li{margin-bottom:7px}
+.quote{border-left:3px solid var(--iris);padding:4px 0 4px 16px;margin:16px 0;color:var(--ink-soft);font-style:italic}
+
+.pill{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 11px;font-size:12px;margin:3px 4px 3px 0}
+
+details{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin:10px 0;overflow:hidden}
+summary{padding:13px 16px;cursor:pointer;font-weight:700;font-size:14px;list-style:none;display:flex;align-items:center;gap:8px}
+summary::-webkit-details-marker{display:none}
+summary::before{content:'▸';color:var(--teal);transition:.2s;display:inline-block}
+details[open] summary::before{transform:rotate(90deg)}
+details>div{padding:0 16px 16px;border-top:1px solid var(--border);padding-top:14px}
+
+.foot{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);color:var(--ink-faint);font-size:12.5px}
+@media(max-width:720px){.ba{grid-template-columns:1fr}.ba .b{border-right:none;border-bottom:1px solid var(--border)}h1{font-size:26px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">E2E Product Audit · 5 Personas · Live Data</div>
+  <h1>위서클 GEO/AEO SaaS<br>전면 감사 보고서</h1>
+  <p class="sub">2026-08-02 · 브라우저 실순회 + Supabase 실측 + 코드 대조 · 병원담당자·개발자·마케터·디자이너·운영자 5개 관점</p>
+</header>
+
+<div class="verdict">
+  <h2>한 줄 결론</h2>
+  <p>이 제품의 문제는 콘텐츠가 나쁜 게 아니라, <strong>215편을 발행하는 동안 그 215편이 효과가 있었는지 판정할 장치를 한 번도 만들지 않았다</strong>는 것입니다. 그 결과 지금 "발행량을 늘려야 하나 구조를 고쳐야 하나"조차 물을 수 없는 상태이고, 동시에 <strong>클라이언트에게 실측의 160배로 부풀려진 숫자가 보고되는 구조</strong>가 프로덕션에 살아 있습니다.</p>
+</div>
+
+<nav>
+  <button class="on" data-t="s0">실측 요약</button>
+  <button data-t="s1">🔴 P0 즉시</button>
+  <button data-t="s2">병원 담당자</button>
+  <button data-t="s3">개발자</button>
+  <button data-t="s4">마케터·전략</button>
+  <button data-t="s5">디자이너·UX</button>
+  <button data-t="s6">운영 어드민</button>
+  <button data-t="s7">실행 로드맵</button>
+</nav>
+
+<!-- ============ S0 실측 요약 ============ -->
+<section id="s0" class="on">
+  <h2 class="sec">실측 요약</h2>
+  <p class="lead">모든 수치는 2026-08-02 기준 라이브 DB(gifopyowyankfsfghhdi) + 브라우저 실순회로 확인. 추정치는 별도 표기.</p>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v bad">9건</div><div class="l">자사 콘텐츠 인용 (30일)</div><div class="n">전체 6,794건 중 0.1%</div></div>
+    <div class="kpi"><div class="v tl">211건</div><div class="l">클라이언트 자기 도메인</div><div class="n">우리보다 <strong>23배</strong></div></div>
+    <div class="kpi"><div class="v warn">215편</div><div class="l">누적 발행</div><div class="n">인용된 고유 URL <strong>5개</strong></div></div>
+    <div class="kpi"><div class="v bad">$0</div><div class="l">월 매출</div><div class="n">클라이언트 13곳 전원</div></div>
+  </div>
+
+  <h3>1. 북극성 지표가 한 DB·한 기간에서 3개 값</h3>
+  <table>
+    <tr><th>페이지</th><th>표기</th><th>값</th><th>분모</th></tr>
+    <tr><td>운영 대시보드</td><td>기간 CCS</td><td class="num" style="color:var(--red)">0.08%</td><td>11 / 13,518</td></tr>
+    <tr><td>AI 인용 추적</td><td>위서클 콘텐츠 인용률</td><td class="num" style="color:var(--amber)">0.1%</td><td>9 / 6,794</td></tr>
+    <tr><td>SaaS 시장 노출도</td><td>위서클 점유율</td><td class="num" style="color:var(--ink-soft)">0%</td><td>0 / 1,417</td></tr>
+  </table>
+  <div class="card red">
+    <h4>더 나쁜 것 — 대시보드 분자 11건 중 2건은 남의 회사</h4>
+    <p style="margin:0">대시보드는 <code>domain LIKE '%medimap%'</code> substring 매칭을 씁니다. 여기에 <code>www.medimap.com.hk</code>(홍콩 소재 타사)가 걸립니다. <strong>북극성 지표의 18%가 경쟁사 데이터</strong>입니다.</p>
+  </div>
+
+  <h3>2. "AI 인용"이라 부르는 1,440건은 실제로 브랜드 언급</h3>
+  <div class="ba">
+    <div class="b"><span class="lb">화면 문구</span>파트너별 <strong>AI 인용</strong> 성과 (30일) — "자동 발행된 콘텐츠가 ChatGPT·Claude·Gemini에서 <strong>실제 인용된 횟수</strong>" · 총 <strong>1,440건</strong> (BGN 373 / 바를정 366 / 벨리셀 280 / 지우 248)</div>
+    <div class="a"><span class="lb">실제 데이터</span><code>mentions</code> 테이블 = AI 답변에 병원 <strong>이름이 등장한</strong> 횟수. <code>responses.source_domains</code>(출처 인용)와 무관. 같은 30일 자사 콘텐츠 인용은 <strong>9건</strong>. 인과를 뒷받침하는 계산이 코드에 존재하지 않음.</div>
+  </div>
+  <p>파생 지표도 전부 오염: "Top 콘텐츠 평균 인용 60건 vs 나머지 1건(<strong>Top이 4391% 더 인용</strong>)", "평균 제목 길이 40자 vs 39자". <strong>학습 인사이트 34건이 이 잘못된 Top 지표에서 파생되어 다시 생성 프롬프트에 주입되고 있습니다 — 오차의 자기강화 루프.</strong></p>
+
+  <h3>3. 인용률 226% — 산술이 성립하지 않음</h3>
+  <table>
+    <tr><th>테넌트</th><th>멘션(전기간)</th><th>멘션(30일)</th><th>query(30일)</th><th>화면 표기</th></tr>
+    <tr><td>바를정 한방의원</td><td class="num">552</td><td class="num">366</td><td class="num">244</td><td class="num" style="color:var(--red)">226.2%</td></tr>
+    <tr><td>벨리셀 피부과</td><td class="num">366</td><td class="num">280</td><td class="num">170</td><td class="num" style="color:var(--red)">215.3%</td></tr>
+    <tr><td>지우피부과</td><td class="num">273</td><td class="num">248</td><td class="num">221</td><td class="num" style="color:var(--red)">123.5%</td></tr>
+  </table>
+  <p>원인: <code>funnel/page.tsx:48-49</code> — 분모(queries)에만 30일 필터가 있고 <strong>분자(mentions)에는 기간 필터가 없음</strong>. 날짜를 맞춰도 100%를 넘습니다(1 response당 mention N건). 라벨 자체가 틀렸습니다.</p>
+
+  <h3>4. A/B 테스트 6건 — 처치가 존재하지 않는 실험</h3>
+  <table>
+    <tr><th>키워드</th><th>시작</th><th>경과</th><th>A</th><th>B</th><th>A/B 차이</th></tr>
+    <tr><td>스마일 (BGN)</td><td>06-28</td><td class="num">35일</td><td class="num">0</td><td class="num">0</td><td>"시력 교정술" vs "시력교정술"</td></tr>
+    <tr><td>FUE 비절개 (밴스)</td><td>06-30</td><td class="num">33일</td><td class="num">0</td><td class="num">0</td><td>쉼표 vs 콜론</td></tr>
+    <tr><td>jiwooclinic (지우)</td><td>07-02</td><td class="num">31일</td><td class="num">0</td><td class="num">0</td><td>—</td></tr>
+    <tr><td>안면거상 (바를정)</td><td>07-14</td><td class="num">19일</td><td class="num">0</td><td class="num">0</td><td>—</td></tr>
+    <tr><td>스킨부스터 (벨리셀)</td><td>07-21</td><td class="num">12일</td><td class="num">0</td><td class="num">0</td><td>"답하는" vs "밝히는"</td></tr>
+    <tr><td>부산 라식 (BGN부산)</td><td>07-28</td><td class="num">5일</td><td class="num">0</td><td class="num">0</td><td>—</td></tr>
+  </table>
+  <div class="card red">
+    <h4>코드 실측 — 설계된 처치 2개 중 1개는 실행조차 안 됨</h4>
+    <p><code>run_ab_test.py:124-125</code>는 A=gemini / B=anthropic으로 생성하도록 설계됐습니다. 그런데 <code>generated_contents.llm_provider</code> 실측 결과 <strong>6건 전부 gemini</strong>입니다.</p>
+    <p style="margin:0">원인: <code>llm.py:1634-1652</code>의 <code>_build_provider_chain("anthropic")</code>이 <code>ANTHROPIC_API_KEY</code> 부재 시 <strong>예외도 경고도 없이</strong> gemini로 폴백합니다. 더 나쁜 것은 <code>generator.py:609</code>가 여전히 <code>logger.info(prefer="anthropic")</code>을 출력한다는 점 — <strong>로그가 거짓말을 합니다.</strong></p>
+  </div>
+  <p>추가로 <code>generator.py:680</code>의 <code>_build_variation_block()</code>이 <strong>A/B 양쪽에 매번 랜덤 도입부·어조를 주입</strong>합니다. 처치보다 큰 랜덤 교란이 두 팔 모두에 들어가 있어 표본 1쌍으로는 원리적으로 아무것도 검출할 수 없습니다.</p>
+
+  <h3>5. 자사 B2B 키워드 450회 측정 — 인용 0건</h3>
+  <p>위서클이 <strong>도메인·일정·키워드·예산·동기를 100% 통제하는</strong> 유일한 케이스에서의 결과입니다.</p>
+  <table>
+    <tr><th>키워드</th><th>측정</th><th>grounding rate</th><th>위서클 T1</th></tr>
+    <tr><td>병원 마케팅 SaaS</td><td class="num">45</td><td class="num">62%</td><td class="num" style="color:var(--red)">0</td></tr>
+    <tr><td>GEO SEO 컨설팅</td><td class="num">43</td><td class="num">60%</td><td class="num" style="color:var(--red)">0</td></tr>
+    <tr><td>병원 콘텐츠 자동화 SaaS</td><td class="num">45</td><td class="num">60%</td><td class="num" style="color:var(--red)">0</td></tr>
+    <tr><td>의료 SEO 자동화</td><td class="num">45</td><td class="num">56%</td><td class="num" style="color:var(--red)">0</td></tr>
+    <tr><td>(나머지 6개 전부)</td><td class="num">45</td><td class="num">36~53%</td><td class="num" style="color:var(--red)">0</td></tr>
+  </table>
+  <p><strong>grounding rate 36~62%가 결정타입니다.</strong> AI가 출처를 안 붙이는 상황이 아니라, <strong>출처를 붙이는데 우리를 안 고릅니다.</strong> 대신 인용되는 곳: compl.co.kr ×33, app.dalpha.so ×33, interad.com ×31, openads.co.kr ×30, mediguru.kr ×25 — 전부 수년 된 업계 매체·에이전시.</p>
+
+  <h3>6. 제품이 이미 발견한 정답이 표 두 번째 줄에 묻혀 있음</h3>
+  <table>
+    <tr><th>Source 5-Tier (30일, 총 6,794)</th><th>건수</th><th>비중</th></tr>
+    <tr><td>⭐ 위서클 자체 (우리가 만든 콘텐츠)</td><td class="num" style="color:var(--red)">9</td><td class="num">0.1%</td></tr>
+    <tr style="background:rgba(21,184,166,.07)"><td><strong>클라이언트 병원 자체 사이트</strong></td><td class="num" style="color:var(--teal)"><strong>211</strong></td><td class="num"><strong>3.1%</strong></td></tr>
+    <tr><td>권위/공식 (대학병원 등)</td><td class="num">378</td><td class="num">5.6%</td></tr>
+    <tr><td>의료 플랫폼</td><td class="num">281</td><td class="num">4.1%</td></tr>
+    <tr><td>기타(경쟁사)</td><td class="num">5,915</td><td class="num">87%</td></tr>
+  </table>
+  <p>실측 Top Source: news.hidoc.co.kr 136 · topeye.co.kr 115 · <strong>jiwooclinic.co.kr 110</strong> · newhairps.com 104 · modoodoc.com 101 · <strong>bgneye.com 138</strong> · sueye.co.kr 88</p>
+  <p><strong>jiwooclinic·bgneye는 우리 클라이언트의 자기 홈페이지입니다.</strong> 우리가 wecircle.co.kr에 대신 써준 글은 0~4회.</p>
+
+  <h3>7. 인용된 유일한 글의 정체 — 구조가 아니라 나이</h3>
+  <table>
+    <tr><th>URL</th><th>인용</th><th>발행</th><th>인용일</th></tr>
+    <tr><td>/with-partners/hair/vandsmosigner/gangnam-hair-transplant-recovery-6month-guide</td><td class="num">4</td><td><strong>05-28</strong></td><td>07-06·07·11·27</td></tr>
+    <tr><td>global.medi-map.co.kr/ <span class="tag t-p2">홈</span></td><td class="num">2</td><td>—</td><td>07-26</td></tr>
+    <tr><td>/blog/medimap-insights-113</td><td class="num">1</td><td>—</td><td>07-06</td></tr>
+    <tr><td>medi-map.co.kr/hospital/view/H000026 <span class="tag t-p2">병원상세</span></td><td class="num">1</td><td>—</td><td>07-16</td></tr>
+    <tr><td>/blog/medimap-157</td><td class="num">1</td><td>—</td><td>07-20</td></tr>
+  </table>
+  <p>유일하게 반복 인용된 글 = <strong>가장 오래된 글</strong>(발행 5~6주 뒤부터 인용 시작). 9건 중 3건은 콘텐츠가 아니라 홈/병원상세 페이지. <strong>지배 변수가 색인 경과 시간일 가능성이 높습니다</strong>(n=1이므로 확정 아님).</p>
+
+  <h3>8. 그 유일한 인용 글의 실물 (라이브 확인)</h3>
+  <div class="card red">
+    <ul style="margin-bottom:0">
+      <li><strong>커버 이미지 미표시</strong> — 회색 빈 박스. 제품의 대표 산출물 히어로가 깨져 있음</li>
+      <li>본문 삽화가 <strong>픽사풍 3D 카툰 인물</strong> — 프로젝트 자체 규칙("이미지 무인물·무한글·맥락 일치") 위반</li>
+      <li><strong>모발이식 글인데 얼굴에 붕대 감은 만화 여성</strong> 이미지</li>
+      <li>"모발이식 후 6개월 회복 단계" 캡션에 <strong>긴 생머리 여성 일러스트 9컷</strong></li>
+      <li>본문 밀도: 섹션당 2문장. 어드민 집계는 "본문 평균 12,581자"(<code>bodyLen = body.length</code> — <strong>HTML 태그 포함 길이</strong>)</li>
+    </ul>
+  </div>
+
+  <h3>9. 사업 실태</h3>
+  <ul>
+    <li>클라이언트 13곳 <strong>월 비용 전부 $0.00</strong> (대시보드 KPI는 "활성 클라이언트 13개 · 월 청구 대상")</li>
+    <li>보고서 발송 가능 6곳인데 <strong>이메일이 전부 <code>passion4050@gmail.com</code>(운영자 본인)</strong> — 실제 클라이언트 발송 이력 없음</li>
+    <li>나머지 6곳은 이메일 미등록</li>
+    <li>자사 테넌트 진료과목이 "모발이식"으로 오등록</li>
+    <li>로그인 랜딩: "월평균 AI 인용 <strong>28회</strong> · 신규 문의 전환 <strong>11명</strong>" → 실측 9건 / ShortLink 0·클릭 0으로 <strong>11명의 산출 근거가 코드에 존재하지 않음</strong></li>
+  </ul>
+</section>
+
+<!-- ============ S1 P0 ============ -->
+<section id="s1">
+  <h2 class="sec">🔴 P0 — 오늘 안에</h2>
+  <p class="lead">순서가 중요합니다. 1번을 먼저 하지 않으면 나머지가 사고로 이어집니다.</p>
+
+  <div class="card red">
+    <h4><span class="tag t-p0">P0-1</span> 월간 보고서 cron 즉시 비활성화</h4>
+    <p><code>.github/workflows/send-monthly-reports.yml</code> — 매일 18:00 KST 실행 중.</p>
+    <p><code>lib/reportMetrics.ts:54-59</code>가 <code>mentions</code> 테이블 값을 이메일에서 <strong>"AI 인용 (30일)"</strong> 라벨로 발송합니다. 지금은 수신자가 운영자 본인이라 <strong>우연히</strong> 사고가 안 난 상태입니다. 클라이언트 이메일을 등록하는 순간 BGN에게 "AI 인용 373회"(실제 T1 0~4회)가 발송됩니다.</p>
+    <p style="margin:0">추가 결함 3건: ① CTA 링크가 <code>/admin/reports/{id}</code>인데 middleware가 <code>/admin/*</code> 전체를 막아 <strong>클라이언트는 로그인 화면으로 튕김</strong> ② <code>hasMedicalSchema: true</code> <strong>하드코딩</strong>(실측 0%) ③ 발송 로그 테이블 없어 <strong>재실행 시 중복 발송</strong></p>
+  </div>
+
+  <div class="card red">
+    <h4><span class="tag t-p0">P0-2</span> substring 자사 판정 3곳 → classifyDomain() 교체</h4>
+    <p><code>api/admin/market-share/route.ts:42</code>, <code>admin/(portal)/page.tsx:989,998</code>, DB RPC <code>citation_market_trend</code></p>
+    <p style="margin:0"><code>'www.medimap.com.hk'.includes('medimap') === true</code>. <code>lib/domain-classifier.ts</code>의 <code>inSetWithSub()</code>는 이미 올바릅니다 — <strong>호출만 하면 됩니다.</strong> 수정 후 CCS 분자가 <strong>11 → 9</strong>로 내려가야 통과.</p>
+  </div>
+
+  <div class="card red">
+    <h4><span class="tag t-p0">P0-3</span> 파트너 리더보드 라벨 = 데이터 정합</h4>
+    <p><code>components/admin/PartnerLeaderboard.tsx:109-118</code></p>
+    <div class="ba" style="margin-top:10px">
+      <div class="b"><span class="lb">현재</span>파트너별 <strong>AI 인용</strong> 성과<br><small>"자동 발행된 콘텐츠가 … 실제 인용된 횟수"</small></div>
+      <div class="a"><span class="lb">수정</span>파트너 브랜드가 <strong>AI 답변에 등장한 횟수</strong><br><small>"AI 답변 본문에 병원 이름이 등장한 횟수입니다. 우리 콘텐츠가 출처로 쓰인 건수는 '자사 인용'에 별도 표기합니다."</small></div>
+    </div>
+    <p style="margin:0">표시광고법 리스크. 인용 실측치(9건)를 별도 열로 <strong>병기</strong>하면 정직하면서 숫자는 오히려 커집니다.</p>
+  </div>
+
+  <div class="card red">
+    <h4><span class="tag t-p0">P0-4</span> Funnel 분자 기간 필터 누락 + 라벨</h4>
+    <p><code>admin/(portal)/funnel/page.tsx:48-49</code> — mentions 쿼리에 <code>.gte('created_at', since)</code> 추가.</p>
+    <p style="margin:0">동시에 컬럼명 <strong>"인용률" → "질의당 언급 횟수"</strong>. 날짜를 맞춰도 366/244 = 150%로 100%를 넘습니다(단위가 다름). 비율이 아니라 배수로 표기해야 맞습니다.</p>
+  </div>
+
+  <div class="card red">
+    <h4><span class="tag t-p0">P0-5</span> A/B provider 무음 폴백 차단 + 랜덤 교란 제거</h4>
+    <p><code>content/llm.py:1634-1652</code> — <code>prefer</code> provider 초기화 실패 시 폴백 대신 <strong>예외</strong>. A/B는 실패 시 테스트 자체를 중단해야 합니다(현재는 무효 실험이 조용히 running으로 남음).</p>
+    <p style="margin:0"><code>content/generator.py:680</code> — <code>_build_variation_block()</code>에 seed 인자 추가, A/B 경로에서는 <strong>양 변형에 동일 seed</strong>. 그러지 않으면 처치 효과가 원리적으로 분리 불가.</p>
+  </div>
+
+  <div class="card red">
+    <h4><span class="tag t-p0">P0-6</span> logger NameError 크래시</h4>
+    <p style="margin:0"><code>scripts/run_ab_test.py:109</code>가 <code>logger.warning()</code>을 호출하는데 <strong>파일에 import가 없습니다</strong>. <code>compliance_status='fail' AND status='published'</code> 분기 진입 시 <code>NameError</code>로 A/B 생성이 통째로 죽습니다. <strong>의료법 안전망이 정작 발동하면 터지는 상태.</strong></p>
+  </div>
+
+  <div class="card amber">
+    <h4><span class="tag t-p1">P0-7</span> 학습 인사이트 34건 무효 처리</h4>
+    <p style="margin:0">34건이 잘못된 mention 기반 "Top 20%"에서 파생됐고, 그중 29건이 <code>applied=true</code>로 <strong>매 발행 프롬프트에 주입되고 있습니다</strong>. 지표를 고치기 전까지 주입을 중단하지 않으면 오차가 계속 증폭됩니다. T1 citation 기반이 아닌 인사이트는 주입 차단.</p>
+  </div>
+
+  <div class="card amber">
+    <h4><span class="tag t-p1">P0-8</span> 랜딩 카피 근거 부재</h4>
+    <div class="ba" style="margin-top:10px">
+      <div class="b"><span class="lb">현재</span>월평균 AI 인용 <strong>28회</strong> · 신규 문의 전환 <strong>11명</strong> (파일럿 데이터)</div>
+      <div class="a"><span class="lb">수정</span>파트너 병원 브랜드가 AI 답변에 등장 <strong>월 1,440회</strong> — 2026년 7월 실측 · 4개 엔진 · 13개 병원<br><small>(문의 전환 문구는 측정 인프라 가동 후)</small></div>
+    </div>
+    <p style="margin:0">근거 없는 11명을 빼고 근거 있는 1,440을 넣으면 <strong>숫자는 커지고 리스크는 사라집니다.</strong></p>
+  </div>
+</section>
+
+<!-- ============ S2 병원 담당자 ============ -->
+<section id="s2">
+  <h2 class="sec">🏥 병원 담당자 (클라이언트)</h2>
+  <p class="lead">강남 피부과 마케팅 실장. 월 구독료를 내고, 원장에게 매달 보고하고, 계약 갱신을 판단합니다.</p>
+
+  <div class="card red">
+    <h4>판정 — 현 상태로는 갱신 불가</h4>
+    <p style="margin:0">우리가 산 것은 "AI 검색에서 우리 병원이 추천되게 하는 것"인데, 위서클이 만든 콘텐츠가 출처로 인용된 건 30일 <strong>9건</strong>이고 그중 우리 것은 사실상 없습니다. 반면 <strong>우리가 이미 갖고 있던 jiwooclinic.co.kr이 110회 인용</strong>되고 있습니다. <strong>지금 성과의 대부분은 위서클이 없어도 발생하는 성과입니다.</strong></p>
+  </div>
+
+  <h3>신뢰를 깨는 순간 TOP 5</h3>
+
+  <details open><summary>1위 · "자동 발행된 콘텐츠가 실제 인용된 횟수 1,440건"</summary><div>
+    <p>이 부제는 문장 그대로 읽으면 <strong>인과 주장</strong>입니다. "당신들 콘텐츠 덕분에 248번 인용됐다."</p>
+    <p style="margin:0"><strong>왜 치명적인가</strong>: 내가 이 숫자로 원장 보고를 하고, 원장이 ChatGPT에 직접 물어본 순간 끝납니다. 우리 이름이 나와도 출처는 modoodoc·hidoc·우리 홈페이지이지 wecircle.co.kr이 아닙니다. 그 자리에서 나는 "검증 안 하고 올린 실장"이 됩니다. 서비스 품질 문제가 아니라 <strong>내 커리어 리스크</strong>입니다.</p>
+  </div></details>
+
+  <details><summary>2위 · 인용률 226.2% / 215.3% / 123.5%</summary><div>
+    <p style="margin:0">숫자가 틀린 게 아니라 <strong>누구도 검산을 안 했다는 증거</strong>입니다. 100%를 넘는 퍼센트를 프로덕션에 띄우는 팀이 계산한 다른 모든 숫자를 나는 못 믿습니다. Y축 0~400% 차트도 같은 뿌리. 한 번 보면 대시보드 전체가 "검토되지 않은 화면"으로 재분류됩니다.</p>
+  </div></details>
+
+  <details><summary>3위 · A/B 테스트 — 쉼표 하나 차이</summary><div>
+    <p>"FUE 비절개 모발이식<strong>,</strong> …" vs "FUE 비절개 모발이식<strong>:</strong> …". AEO 점수도 74 vs 74로 동일. 6건 전부 0 vs 0, 최장 35일.</p>
+    <p style="margin:0">우리는 "실험하고 최적화한다"는 명분에 돈을 냈습니다. 그런데 <strong>처치가 존재하지 않는 실험</strong>입니다. 결과가 0 vs 0인 건 실패가 아니라 애초에 아무것도 안 한 것입니다. 역량 부족이 아니라 <strong>일하는 척의 증거</strong>로 읽힙니다.</p>
+  </div></details>
+
+  <details><summary>4위 · 랜딩 "AI 인용 28회 · 신규 문의 11명"</summary><div>
+    <p style="margin:0">나는 이 문구를 보고 계약했습니다. 인용 28회는 실측의 3배, 문의 11명은 <strong>측정 인프라 자체가 미가동</strong>입니다. "성과가 안 나왔다"가 아니라 <strong>계약 유인 단계의 표시 문제</strong>입니다. 갱신 협상이 아니라 <strong>기납부 구독료 환불 논의</strong>로 넘어갑니다.</p>
+  </div></details>
+
+  <details><summary>5위 · 인용된 유일한 글의 실물</summary><div>
+    <p>커버 이미지 회색 빈 박스, 픽사풍 3D 카툰 인물, 모발이식 글에 얼굴 붕대 만화 여성, 6개월 회복 단계에 긴 생머리 여성 9컷, 섹션당 2문장.</p>
+    <p style="margin:0">두 가지가 동시에 무너집니다. <strong>(a)</strong> 제품이 파는 가설은 "AEO 구조를 만들면 인용된다"인데 실제 지배 변수는 <strong>색인 경과 시간</strong>으로 보입니다 → 시간이 변수라면 매달 구독료를 낼 이유가 약해집니다. <strong>(b)</strong> 우리 병원 이름을 달고 나가는 글입니다. 성과 이전에 <strong>브랜드 사고</strong>입니다.</p>
+  </div></details>
+
+  <h3>내가 실제로 원하는 것 (우선순위)</h3>
+  <div class="card teal">
+    <h4>1. 지표 하나. 원장에게 읽을 한 문장</h4>
+    <p class="quote" style="margin:8px 0">"이번 달 ChatGPT·Perplexity가 우리 병원을 답변에 넣으면서 <strong>jiwooclinic.co.kr을 출처로 건 횟수가 110회 → N회</strong>가 됐고, 그중 위서클이 만든 페이지가 M건입니다."</p>
+    <p style="margin:0">mention과 citation을 <strong>절대 같은 표에 섞지 말 것</strong>. 세 페이지 지표를 하나로 통일. 비율에 100% 상한 검산.</p>
+  </div>
+  <div class="card teal">
+    <h4>2. 우리 홈페이지를 최적화 대상에 넣을 것</h4>
+    <p>클라이언트 자체 211건 vs 위서클 9건 — <strong>23배</strong>. AI는 이미 병원 공식 도메인을 신뢰합니다. 그런데 위서클은 그 자산을 안 건드리고 wecircle.co.kr에 대신 쓰고 있습니다. <strong>우리에게 이득이 되는 구조가 아니라 위서클 도메인을 키우는 구조입니다.</strong></p>
+    <p style="margin:0">요구: ① 110건의 URL·쿼리·인용 문장 단위 분해 제출 ② 그 패턴을 <strong>우리 기존 페이지 개선</strong>에 적용 ③ 대행 콘텐츠에 우리 홈으로 가는 링크 구조 명시</p>
+  </div>
+  <div class="card teal">
+    <h4>3. 발행 전 우리 승인 게이트 + 이미지 QA</h4>
+    <p style="margin:0">"검수 대기 상시 0건"은 우리 입장에서 <strong>결함</strong>입니다. 우리 병원 이름으로 나가는 글에 붕대 감은 카툰 여성이 붙는 걸 아무도 안 봤다는 뜻입니다.</p>
+  </div>
+
+  <h3>클라이언트에게 보여줘도 되는 것 / 안 되는 것</h3>
+  <table>
+    <tr><th style="width:60px">판정</th><th>항목</th><th>근거</th></tr>
+    <tr><td><span class="tag t-ok">✅</span></td><td>우리 도메인 T1 인용 건수 추이</td><td>실측·검증 가능. 원장에게 읽을 유일한 숫자</td></tr>
+    <tr><td><span class="tag t-ok">✅</span></td><td>인용된 URL 목록 + 날짜 + 엔진</td><td>5개뿐이어도 실물. 직접 확인 가능해서 신뢰가 생김</td></tr>
+    <tr><td><span class="tag t-ok">✅</span></td><td>Top Source Domain 경쟁 지도</td><td>어디를 이겨야 하는지 알려주는 정직한 시장 정보</td></tr>
+    <tr><td><span class="tag t-p1">⚠️</span></td><td>AI 답변 내 브랜드 언급 수</td><td>라벨을 "언급"으로 바꾸고 "인용과 다름" 각주 필수</td></tr>
+    <tr><td><span class="tag t-p0">❌</span></td><td>"실제 인용된 횟수 1,440건"</td><td>실측 9건. 검증 즉시 관계 종료 + 표시광고 리스크</td></tr>
+    <tr><td><span class="tag t-p0">❌</span></td><td>인용률 226% / Y축 400%</td><td>산수 신뢰도가 0이 됨</td></tr>
+    <tr><td><span class="tag t-p0">❌</span></td><td>A/B 테스트 화면 전체</td><td>쉼표 차이 + 전부 0 vs 0. 일하는 척으로 읽힘</td></tr>
+    <tr><td><span class="tag t-p0">❌</span></td><td>"Round 88 자동화 예정", "generator.py의 include_cta=True"</td><td>미완성 제품에 값을 내고 있다는 증거</td></tr>
+    <tr><td><span class="tag t-p0">❌</span></td><td>빈 위젯 (크롤러 레이더 / 카카오 퍼널)</td><td>안 되는 기능을 UI로 채워둔 것. 없느니만 못함</td></tr>
+    <tr><td><span class="tag t-p0">❌</span></td><td>월 비용 $0.00 / 이메일 전부 운영자 본인</td><td>"우리가 실험 대상이었나"가 됨</td></tr>
+  </table>
+</section>
+
+<!-- ============ S3 개발자 ============ -->
+<section id="s3">
+  <h2 class="sec">⚙️ 개발자</h2>
+  <p class="lead">코드 + 라이브 DB 실측 대조. 수정은 하지 않고 진단만.</p>
+
+  <h3>왜 지표가 5개 값으로 갈라졌나 — 5개 위치 × 5개 축</h3>
+  <table>
+    <tr><th>#</th><th>위치</th><th>자사 판정</th><th>분모</th></tr>
+    <tr><td>1</td><td>DB RPC <code>citation_market_trend</code></td><td style="color:var(--red)">substring <code>LIKE '%medimap%'</code></td><td>전체, 필터 없음</td></tr>
+    <tr><td>2</td><td><code>api/admin/ccs-detail</code></td><td>classifyDomain()</td><td>NOISE 판정 <strong>전에</strong> 카운트 → 전체</td></tr>
+    <tr><td>3</td><td><code>api/admin/citations</code></td><td>classifyDomain()</td><td>stub제외 + purpose=own + NOISE제외</td></tr>
+    <tr><td>4</td><td><code>admin/(portal)/page.tsx:989</code></td><td style="color:var(--red)">substring <code>.includes()</code></td><td>전체 + <code>.limit(5000)</code></td></tr>
+    <tr><td>5</td><td><code>api/admin/saas-tracking</code></td><td>classifyDomain()</td><td>is_saas_marketing만</td></tr>
+  </table>
+  <pre><code>축 A. 자사 판정    : substring(1,4) / classifier(2,3,5)
+축 B. NOISE       : 포함(1,2,4) / 제외(3,5)
+축 C. 키워드 범위  : 전체(1,2,4) / purpose=own(3) / is_saas(5)
+축 D. 엔진        : 전체(1,2,4) / stub제외(3,5)
+축 E. clientDomains: 전달(3) / null(2,5)
+
+→ 2^5 조합 중 5개가 각각 하나씩 선택 = 5개 값
+→ 새 페이지를 만들 때마다 6번째 값이 생김</code></pre>
+
+  <div class="card amber">
+    <h4>왜 이렇게 됐는가</h4>
+    <p style="margin:0">Round 88에 대시보드가 인라인 substring으로 먼저 만들어졌고, Round 37에 <code>lib/domain-classifier.ts</code> 공용 모듈이 나왔지만 대시보드·RPC는 이전되지 않았습니다. Round 139에 RPC를 새로 쓸 때도 공용 분류기가 아니라 <strong>substring을 복제</strong>했습니다. SKILL.md 기록: "<code>medimap</code>만 봐서 wecircle 누락 → <code>wecircle</code> 추가" — <strong>근본 수정이 아니라 패턴 추가로 대응</strong>한 흔적.</p>
+  </div>
+
+  <h3>실측 검증 SQL (분모가 갈라지는 지점)</h3>
+  <pre><code>전체 source_domains            13,518   ← 대시보드 CCS 분모
+  engine≠stub                  13,518
+  + purpose='own'               8,218
+  + NOISE 제외                  6,794   ← AI 인용 추적 분모 (정확히 일치)
+is_saas_marketing 키워드만      1,554 (NOISE제외 ≈1,417) ← SaaS 분모
+
+자사로 잡힌 11건의 정체:
+  wecircle.co.kr           6   (정상)
+  global.medi-map.co.kr    2   (정상)
+  medi-map.co.kr           1   (정상)
+  www.medimap.com.hk       2   ← 홍콩 타사. LIKE '%medimap%'에 걸림</code></pre>
+
+  <h3>아키텍처 통합 설계안</h3>
+  <h4>Layer 1 — DB 단일 뷰 (진실의 원천)</h4>
+  <pre><code>CREATE VIEW citation_events AS
+SELECT r.created_at::date AS day, q.engine, q.tenant_id,
+       k.id AS keyword_id, k.lang, k.market, k.purpose, k.is_saas_marketing,
+       lower(sd->>'domain') AS domain, sd->>'final_url' AS final_url,
+       classify_tier(lower(sd->>'domain'), sd->>'final_url', q.tenant_id) AS tier
+FROM responses r
+JOIN queries q ON q.id = r.query_id
+JOIN keywords k ON k.id = q.keyword_id
+CROSS JOIN LATERAL jsonb_array_elements(r.source_domains) sd
+WHERE jsonb_typeof(r.source_domains) = 'array' AND q.engine &lt;&gt; 'stub';</code></pre>
+  <p><code>classify_tier()</code>를 SQL 함수로 승격 → TS/Python/SQL 3중 구현을 1개로.</p>
+
+  <h4>Layer 2 — 지표 계약을 코드로 고정</h4>
+  <pre><code>// src/lib/metrics/contract.ts
+export const CCS = {
+  id: 'ccs',
+  label: '콘텐츠 인용 점유율',
+  numerator: "tier='T1'",
+  denominator: "tier&lt;&gt;'NOISE' AND purpose='own'",  // ← 여기서만 정의
+  unit: 'percent', max: 100,
+} as const;
+
+export const MENTION_SHARE = {
+  id: 'mention_share',
+  label: 'AI 답변 내 브랜드 언급',   // "인용" 금지어
+  source: 'mentions',
+  note: 'citation 아님. 콘텐츠 인과관계 없음.',
+} as const;</code></pre>
+  <p>모든 화면이 <code>&lt;Metric contract={CCS} /&gt;</code>로만 렌더 → <strong>라벨이 계약에서 나오므로 mention을 "인용"으로 표기하는 것이 타입 레벨에서 불가능</strong>해집니다.</p>
+
+  <h4>Layer 3 — 단일 API</h4>
+  <p><code>/api/admin/metrics?metric=ccs&days=30&scope=ko&tenantId=</code> 하나로 통합. ccs-trend / ccs-detail / citations / saas-tracking / page.tsx 인라인 집계 전부 대체. saas-tracking은 <code>keywordFilter=saas</code> 파라미터 차이일 뿐 별도 구현일 이유가 없습니다.</p>
+
+  <h4>Layer 4 — 회귀 가드</h4>
+  <p><code>__tests__/metrics-parity.test.ts</code> — 동일 파라미터로 모든 진입점 호출해 값 불일치 시 CI 실패. <strong>이번 사고의 재발을 기계적으로 막는 유일한 장치.</strong></p>
+
+  <h3>검증 방법</h3>
+  <pre><code>-- 1) 지표 일치 (수정 후 세 값이 같아야 함)
+WITH e AS (
+  SELECT lower(sd->>'domain') AS domain
+  FROM responses r
+  JOIN queries q ON q.id=r.query_id JOIN keywords k ON k.id=q.keyword_id
+  CROSS JOIN LATERAL jsonb_array_elements(r.source_domains) sd
+  WHERE r.created_at > now() - interval '30 days'
+    AND jsonb_typeof(r.source_domains)='array' AND q.engine&lt;&gt;'stub'
+    AND (k.purpose='own' OR k.purpose IS NULL)
+)
+SELECT count(*) FILTER (WHERE domain IN
+   (SELECT lower(domain) FROM domain_classifications
+    WHERE tier='T1' AND is_active)) AS t1,
+   count(*) AS total FROM e;
+-- 기대: t1=9, total=6794 — 이 값이 3개 화면 모두에 떠야 통과
+
+-- 2) A/B provider 처치 적용 (다음 실행 후)
+SELECT a.id, ga.llm_provider AS a_llm, gb.llm_provider AS b_llm
+FROM ab_tests a
+JOIN generated_contents ga ON ga.id=a.variant_a_content_id
+JOIN generated_contents gb ON gb.id=a.variant_b_content_id
+ORDER BY a.id DESC LIMIT 3;
+-- 기대: a_llm='gemini' AND b_llm='anthropic'
+-- 현재 6건 전부 gemini/gemini</code></pre>
+
+  <div class="card amber">
+    <h4>빌드 게이트 주의</h4>
+    <p style="margin:0"><code>esbuild ≠ tsc</code>. 타입 오류는 안 잡힙니다(SKILL.md geo260712 교훈: <code>guides.ts unknown[]</code>). <strong>지표 리팩터처럼 타입이 바뀌는 작업은 <code>npx tsc --noEmit</code>도 함께</strong> 돌려야 합니다.</p>
+  </div>
+</section>
+
+<!-- ============ S4 마케터 ============ -->
+<section id="s4">
+  <h2 class="sec">📊 마케터 · 전략</h2>
+  <p class="lead">17년차 병원 마케팅 전략가. 상품의 실현 가능성을 냉정하게 판단.</p>
+
+  <div class="card amber">
+    <h4>먼저 — 데이터의 한계 (공정성을 위해)</h4>
+    <ol style="margin-bottom:0">
+      <li><strong>215편의 발행일 분포가 없다.</strong> "215편 → 인용 5개"가 실패인지, 대부분이 아직 5~6주 색인 창을 통과 못 한 미성숙 코호트인지 구분 불가. <strong>가장 시급한 결측치.</strong></li>
+      <li><strong>6,794건 인용의 쿼리 성격이 미분류.</strong> 브랜드 지명 쿼리("지우피부과 후기")에 jiwooclinic이 인용되는 건 당연하고 획득 불가능. 정보탐색 쿼리와 완전히 다른 게임.</li>
+      <li><strong>클라이언트 도메인에 우리가 글을 쓴 적이 없다.</strong> 따라서 <strong>3.1%는 우리 성과가 아니라 자연 베이스라인.</strong> "0.1% vs 3.1%"는 "우리 방식 실패, 저 방식 성공"이 아니라 "우리 방식 실패, 저건 <strong>미실험</strong>". 이 착시로 피봇하면 두 번째 실패를 합니다.</li>
+    </ol>
+  </div>
+
+  <h3>전제 재검토</h3>
+  <table>
+    <tr><th>전제</th><th>실측</th><th>판정</th></tr>
+    <tr><td>제3자 도메인에 대신 써주면 AI가 인용한다</td><td>215편 → 인용 고유 URL 5개(2.3%). 실질 콘텐츠 인용 6건</td><td><span class="tag t-p0">수정 (폐기에 가까움)</span></td></tr>
+    <tr><td>발행량을 늘리면 인용이 는다</td><td>편당 기대 인용 ≈ 0.04건/월</td><td><span class="tag t-p0">폐기</span></td></tr>
+    <tr><td>콘텐츠 구조 개선하면 인용된다</td><td>Top 20%가 오히려 더 짧고 H2 적음</td><td><span class="tag t-p1">판정 불가 (측정 폐기)</span></td></tr>
+    <tr><td>지배 변수는 색인 경과 시간</td><td>반복 인용 = 최고령 글 1개 (n=1)</td><td><span class="tag t-p2">유지 (강한 가설)</span></td></tr>
+    <tr><td>방법론이 카테고리 불문 재현된다</td><td>자사 B2B 450회 측정 0건</td><td><span class="tag t-p0">강한 반증</span></td></tr>
+  </table>
+
+  <details><summary>전제 1 상세 — 왜 폐기에 가까운가</summary><div>
+    <p>상위 인용 도메인(hidoc·topeye·jiwooclinic·newhairps·modoodoc·bgneye·sueye)의 공통 속성: ① 수년 된 색인 이력 ② 독립 수요 ③ 엔티티로 인식되는 고유명.</p>
+    <p style="margin:0"><strong>셋 다 글을 더 쓴다고 생기지 않습니다.</strong> "제3자 허브 도메인" 전략 자체가 틀린 게 아니라, <strong>그 전략은 도메인이 먼저 엔티티가 된 다음에 작동합니다.</strong> hidoc·modoodoc이 증거입니다 — 그들은 콘텐츠로 권위를 얻은 게 아니라, 권위가 있어서 콘텐츠가 인용됩니다. <strong>순서가 반대입니다.</strong></p>
+  </div></details>
+
+  <details><summary>전제 2 상세 — 산술</summary><div>
+    <p>편당 0.04건/월에서 월 100건 인용을 만들려면 <strong>월 2,500편</strong>이 필요합니다. 어떤 원가 구조로도 성립하지 않습니다.</p>
+    <p style="margin:0">정확히 말하면 데이터는 "발행량 무효"를 증명하지 않았습니다. 증명한 것은 <strong>현재 조건(신생 도메인 × 헤드 키워드 × 얇은 본문)에서 한계 수익이 사실상 0</strong>이라는 것. 그리고 발행량은 <strong>의료법 리스크와 검수 부채를 선형으로 늘립니다</strong> — 한 편 걸리면 전체가 무너지는 노출이 커집니다.</p>
+  </div></details>
+
+  <details><summary>전제 3 상세 — 왜 "판정 불가"인가</summary><div>
+    <ol>
+      <li><strong>"Top 20%"의 정의가 인용이 아니라 키워드 멘션.</strong> 무작위 표본을 "Top"이라 부르고 평균을 낸 것. 무작위 표본 둘을 비교하면 원래 ±10% 차이가 납니다. <strong>"제목 40자 vs 39자"가 이 지표가 노이즈임을 스스로 증명</strong>합니다.</li>
+      <li><strong>가설이 실행된 적이 없다.</strong> FAQPage schema 2%, Medical schema 0%. 98%의 글에서 <strong>적용하지 않은</strong> 가설은 기각될 수 없습니다.</li>
+      <li>구조는 "후보로 선발된 다음 어느 문단이 발췌되는가"에 영향을 줍니다. 후보군에 못 드는 도메인에서는 <strong>곱하는 값이 0</strong>. 구조는 2차 승수이지 게이트가 아닙니다.</li>
+    </ol>
+    <p style="margin:0">다만 실물(섹션당 2문장, 이미지 깨짐, 맥락 불일치)은 다른 걸 말합니다 — <strong>구조 가설이 실패한 게 아니라 품질 실행이 실패</strong>했습니다.</p>
+  </div></details>
+
+  <details open><summary>전제 5 상세 — 가장 결정적인 데이터</summary><div>
+    <ul>
+      <li><strong>최선의 조건에서의 실패.</strong> 자사 키워드는 도메인·일정·키워드·예산·동기를 100% 통제하는 유일한 케이스. 클라이언트 핑계, 예산 핑계, 승인 지연 핑계가 전부 없습니다. 그런데 0.</li>
+      <li><strong>grounding rate 36~62%가 결정타.</strong> AI가 출처를 안 붙이는 게 아니라 <strong>붙이는데 우리를 안 고릅니다.</strong> "콘텐츠가 조금 부족하다"가 아니라 "리트리버 관점에서 존재하지 않는다"에 가깝습니다.</li>
+      <li><strong>영업상 치명적.</strong> GEO 상품의 유일한 데모는 "우리 검색해보세요"입니다. 그게 0이면 잠재 고객의 첫 검증에서 즉시 탈락합니다.</li>
+    </ul>
+    <p style="margin:0">유일한 방어 논리는 "B2B SaaS 키워드는 의료 소비자 키워드와 코퍼스 경쟁 구조가 다르다"인데, 그건 검증 가능한 반론이므로 <strong>실험 C</strong>로 설계했습니다.</p>
+  </div></details>
+
+  <h3>신생 제3자 도메인이 뚫을 경로가 있는가</h3>
+  <table>
+    <tr><th>유형</th><th>예시(실측)</th><th>획득 조건</th><th>글쓰기로 가능?</th></tr>
+    <tr><td>건강매체</td><td>news.hidoc 136</td><td>언론 지위, 수년 트래픽</td><td style="color:var(--red)">불가</td></tr>
+    <tr><td>의료플랫폼</td><td>modoodoc 101</td><td>DB·리뷰·예약 데이터</td><td style="color:var(--red)">불가</td></tr>
+    <tr><td>백과</td><td>namu.wiki</td><td>편집 커뮤니티, 엔티티 등재</td><td style="color:var(--red)">불가</td></tr>
+    <tr><td>대학병원</td><td>snuh 등</td><td>기관 권위</td><td style="color:var(--red)">불가</td></tr>
+    <tr style="background:rgba(21,184,166,.07)"><td><strong>경쟁 병원 자체</strong></td><td>jiwooclinic 110, bgneye 138</td><td>브랜드 실재 + 도메인 연차</td><td style="color:var(--teal)"><strong>자기 도메인이면 가능</strong></td></tr>
+  </table>
+  <p><strong>우회로 3개</strong> (데이터 밖 · 도메인 지식):</p>
+  <ol>
+    <li><strong>무경쟁 롱테일</strong> — 위 5개 유형 누구도 답을 갖고 있지 않은 초장미 쿼리. 후보가 우리밖에 없으면 권위 비교가 발생하지 않습니다. <strong>콘텐츠 파이프라인만으로 시도 가능한 유일한 경로.</strong> 그런데 현재 키워드는 "강남 모발이식", "스마일", "부산 라식" — <strong>경쟁 최강 구간에 최약 도메인으로 들어가고 있습니다.</strong></li>
+    <li><strong>인용되는 곳에 실려 들어가기</strong> — hidoc급 매체 기고, modoodoc 프로필 정합, 구글·네이버 비즈니스 프로필 정비. 콘텐츠 생성이 아니라 PR·데이터 정합 작업.</li>
+    <li><strong>엔티티 만들기</strong> — 도메인이 "검색되는 고유명"이 되게 하는 것. 수요 창출의 문제.</li>
+  </ol>
+
+  <h3>진짜 병목 (2개로 좁힘)</h3>
+  <div class="card red">
+    <h4>병목 1 — 인과를 측정하는 장치가 없다 (최상위)</h4>
+    <p style="margin:0">이 상태에서는 <strong>어떤 전략도 참·거짓을 판정할 수 없습니다.</strong> 위 전제들이 전부 "판정 불가" 또는 "n=1"에 걸린 것도 이 때문입니다. 상업적으로는 더 직접적입니다 — 클라이언트가 "373회"를 한 번만 검증하면 그 자리에서 관계가 끝납니다.</p>
+  </div>
+  <div class="card red">
+    <h4>병목 2 — 자산이 인용 후보군에 진입하지 못한다</h4>
+    <p style="margin:0">권위·색인연차·엔티티 부재. <strong>어떤 프롬프트 개선으로도 도메인 연차는 만들어지지 않습니다.</strong> 인용 87%가 "기타(경쟁사)" = 시장은 이미 채워져 있고 우리는 목록에 없습니다.</p>
+  </div>
+  <p class="quote">부가 사실이지만 무시하면 안 되는 것: <strong>매출 $0 × 13곳, 등록 이메일 전원 운영자 본인.</strong> 실제 고객이 0이라는 뜻입니다. 기술 가설이 틀린 것보다, 그 가설을 교정해줄 <strong>시장 피드백 루프가 아예 없는 게</strong> 더 위험합니다.</p>
+
+  <h3>피봇 옵션 3개</h3>
+  <details><summary>옵션 A · 현행 유지 + 4대 보완 (실현 가능성 30~35%)</summary><div>
+    <p><strong>개요</strong>: ① 지표 단일화 ② 키워드 헤드 → <strong>무경쟁 롱테일 100%</strong> ③ 측정·계약·보고 30일 → <strong>12주</strong> ④ 량 → 편당 품질(스키마 100%)</p>
+    <p><strong>근거</strong>: "무경쟁 롱테일"은 논리적으로 유효하고 <strong>아직 한 번도 시도되지 않았습니다.</strong> 전제 4가 참이면 214편은 "실패"가 아니라 "미성숙"이므로 반전 여지가 있습니다.</p>
+    <p><strong>리소스</strong>: 계측 재구축 2~3주 + 키워드 리서치 1주 + 프롬프트 개편 1~2주. <strong>현재 코드베이스 재사용률 최고.</strong></p>
+    <p style="margin:0"><strong>가장 강한 반론</strong>: 전제 5. 우리 자신의 카테고리에서, 100% 통제 조건에서, 450회 0건이 나왔습니다. 롱테일로 바꿔도 도메인이 후보군에 없으면 여전히 0입니다. <strong>이 안은 "90일만 더"를 요구하는데, 90일 후 또 0이면 반증 근거조차 없이 시간만 소모합니다.</strong> → 유일한 방어: <strong>명시적 kill criteria를 박아둘 것.</strong></p>
+  </div></details>
+
+  <details><summary>옵션 B · 클라이언트 자기 도메인 온사이트 (40~45%)</summary><div>
+    <p><strong>개요</strong>: 우리 도메인에 쓰는 걸 중단하고 병원 자기 도메인에 게시. 우리가 공급하는 것은 원고 + 구조/스키마 + 의료법 검수 + 계측. 포지션이 "우리 매체에 실어드립니다" → <strong>"당신 사이트를 AI가 인용하게 만듭니다"</strong>로 이동.</p>
+    <p><strong>지지 근거</strong>: 211/6,794. 그리고 5~10년 색인된 도메인은 <strong>대기시간이 이미 지불되어 있습니다.</strong></p>
+    <p><strong>결정적 감점</strong>: 그 211은 <strong>우리 성과가 아닙니다.</strong> 쿼리 성격(브랜드 지명 vs 정보탐색)조차 미분류. 브랜드 지명이 대부분이면 <strong>글을 추가해도 늘지 않습니다.</strong> "3.1%가 있으니 옮기면 된다"는 가장 유혹적이면서 가장 검증 안 된 추론.</p>
+    <p style="margin:0"><strong>가장 강한 반론 (3겹)</strong>: ① 병원이 자기 홈을 안 열어줍니다. 열어주는 곳만 골라도 협조적 상위 표본이라 결과가 과대평가됩니다. ② <strong>SaaS → 대행 서비스로 변질.</strong> 병원 수만큼 온보딩 공수가 늘고 마진·확장성이 무너집니다. 13곳도 못 돌리는 조직이 감당할 구조가 아닙니다. ③ <strong>기여도 분리 증명 불가</strong> — 원래 인용되던 도메인이라 늘어도 "우리 덕분"임을 보일 수 없습니다.</p>
+  </div></details>
+
+  <details open><summary>옵션 C · AI 검색 인텔리전스 제품으로 전환 (50~55%) ⭐</summary><div>
+    <p><strong>개요</strong>: "인용을 만들어드립니다"를 팔지 않고 <strong>"AI 검색에서 당신이 어떻게 보이는지"를 팝니다.</strong> 실제로 <strong>이 감사에서 유일하게 작동하는 자산이 이것</strong>입니다 — 4엔진 수집, 30일 6,794건 실측, Source 5-Tier 분류, 신규 도메인 감지, 경쟁 도메인 랭킹. 이미 돌아가고 있습니다.</p>
+    <p><strong>왜 유리한가</strong>: ① 기술적으로 남은 건 지표 정합성 재건 = <strong>어차피 병목 1 해소로 반드시 해야 하는 작업과 동일</strong>. 투자가 겹칩니다. ② <strong>판매 시 즉시 검증 가능</strong> — "인용을 만들겠다"는 3개월 뒤에나 검증되지만 "당신은 이 카테고리에서 3위이고 hidoc이 41% 가져간다"는 첫 미팅에서 검증됩니다. <strong>매출 0을 깨는 가장 빠른 경로.</strong> ③ 의료법 리스크와 LLM 생성 비용이 거의 사라집니다.</p>
+    <p><strong>리소스</strong>: 지표 재건(병목 1과 동일) + 리포트 UX 재설계. 콘텐츠 생성 유지비 절감으로 <strong>순 리소스는 감소.</strong></p>
+    <p style="margin:0"><strong>가장 강한 반론</strong>: ① <strong>측정만으로는 ARPU가 낮고 이탈이 빠릅니다.</strong> "그래서 뭘 하면 됩니까"에 답을 못 하면 3개월 후 전원 해지. 그 답이 곧 옵션 B이고 B는 45%. <strong>즉 C는 B에 의존합니다.</strong> ② 지금 팔 물건이 없습니다 — 지표가 세 값이고 인용률이 226%. ③ 글로벌에 유사 도구가 이미 존재(Profound, Peec 계열). 한국 의료 버티컬이라는 좁은 해자로 버텨야 합니다.</p>
+  </div></details>
+
+  <div class="card teal">
+    <h4>종합 권고 — A와 C를 동시에, B는 실험으로만</h4>
+    <ul style="margin-bottom:0">
+      <li>C의 계측 재건 = A의 필수 선행 = 병목 1 해소. <strong>한 번의 투자로 셋이 진전됩니다.</strong></li>
+      <li>C는 90일 안에 매출 0을 깰 수 있는 유일한 옵션(측정은 즉시 검증 가능)</li>
+      <li>A는 만든 파이프라인을 죽이지 않고 kill criteria와 함께 유지하는 최소비용 옵션</li>
+      <li>B는 CMS 협상 비용이 커서 전면 전환은 위험. <strong>1~2개 병원 파일럿으로만</strong> 검증</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ S5 디자이너 ============ -->
+<section id="s5">
+  <h2 class="sec">🎨 디자이너 · UX</h2>
+  <p class="lead">B2B SaaS 대시보드 정보위계 · 시각적 신뢰 · 카피라이팅.</p>
+
+  <div class="card red">
+    <h4>이 화면이 지금 사용자에게 하는 말</h4>
+    <ol style="margin-bottom:0">
+      <li><strong>"이 숫자는 나도 안 믿는다"</strong> — 북극성이 세 페이지에서 세 값. 화면이 스스로 "분모를 정하지 못했다"고 자백. 지표 3개가 다르면 사용자는 셋 다 버립니다.</li>
+      <li><strong>"우리는 mention을 인용이라 부르기로 했다"</strong> — UI 문구 실수가 아니라 <strong>제품이 파는 것을 잘못 말하는 문제.</strong> 226%는 그 거짓말의 산술적 증거로 화면에 남아 있습니다.</li>
+      <li><strong>"이 화면은 보고용이 아니라 개발 로그다"</strong> — <code>generator.py의 include_cta=True</code>, <code>Round 88 자동화 예정</code>. 빈 위젯 2개. 404 2개. <strong>클라이언트용 산출물이 존재한 적이 없다는 뜻</strong>이고, 실제로 보고서 이메일 6곳이 전부 운영자 본인 주소인 것과 같은 원인입니다.</li>
+      <li><strong>진짜 인사이트는 표 한 칸에 묻혀 있음</strong> — "클라이언트 도메인 211 vs 우리 9(23배)"는 사업 방향을 바꾸는 숫자인데 5-tier 표 두 번째 줄. 반대로 화면 절반은 4391%·제목 1자 차이가 차지합니다.</li>
+    </ol>
+  </div>
+
+  <h3>두 개의 산출물로 분리</h3>
+  <table>
+    <tr><th></th><th>운영자 콘솔</th><th>클라이언트 보고서</th></tr>
+    <tr><td>빈도</td><td>매일</td><td>월 1회</td></tr>
+    <tr><td>형태</td><td>라이브 대시보드</td><td><strong>생성된 스냅샷 1장</strong> (웹 링크 + PDF)</td></tr>
+    <tr><td>밀도</td><td>높음. 내부 용어 허용</td><td>숫자 3개 + 근거 원문</td></tr>
+    <tr><td>왜</td><td>운영자는 상태를 훑는다</td><td>수치가 고정돼 "그때 왜 이랬냐"에 답할 수 있음 — <strong>신뢰의 조건</strong></td></tr>
+  </table>
+  <p><strong>클라이언트에게 라이브 대시보드를 열어주지 마세요.</strong> 매일 흔들리는 숫자를 월 1회 보면 전부 이상해 보입니다.</p>
+
+  <h3>IA 재설계 — 메뉴 13개 → 5개</h3>
+  <pre><code>[운영자 콘솔]  /admin
+│
+├─ 오늘                     ← 기본 랜딩. 액션 있는 항목만
+│     · 처리 대기 (권고/이상치/실패)
+│     · 신규 등장 도메인
+│
+├─ 노출                     ← 측정의 단일 출처(SSOT)
+│   ├─ 클라이언트 브랜드 언급   (구 파트너 리더보드)
+│   ├─ 자사 콘텐츠 인용        (구 AI 인용 추적 — 9건의 진짜 목록)
+│   ├─ 출처 티어 분포         (5-tier — 이 페이지의 헤드라인)
+│   └─ 자사 영업 키워드        (구 SaaS 노출도, 스코프 탭으로 강등)
+│
+├─ 콘텐츠
+│   ├─ 발행됨 / 예약 / 실패    (구 콘텐츠 관리 + 캘린더, 뷰 토글)
+│   └─ 생성 규칙             (구 학습 인사이트 — 규칙 원문 노출)
+│
+├─ 클라이언트               ← 13곳 리스트 → 상세 탭
+│     상세: 개요 / 콘텐츠 / 문의 / 보고서 발송
+│
+└─ 설정
+      키워드 풀 · 언어 · 엔진 · 연동 상태 · 요금
+
+[클라이언트 보고서]  /r/{tenant}/{yyyy-mm}   토큰 링크, 로그인 없음
+   1) 이번 달 AI 답변에 우리 병원이 등장한 횟수 + 전월 대비
+   2) 등장한 답변 원문 5개 (질문 / 엔진 / 인용된 출처)
+   3) 발행 N편 · 그중 AI가 출처로 쓴 글 M편   ← 0이면 0으로 표기</code></pre>
+
+  <table>
+    <tr><th>처리</th><th>대상</th><th>왜</th></tr>
+    <tr><td><span class="tag t-p0">삭제</span></td><td>해외 관리</td><td>언어는 필터지 메뉴가 아님. 전역 셀렉터와 <strong>같은 축이 두 번</strong></td></tr>
+    <tr><td><span class="tag t-p0">삭제</span></td><td>A/B 테스트</td><td>처치가 없는 실험. 무효한 실험 화면은 판단을 흐림. <strong>처치 유효성 검증기 붙기 전엔 재노출 금지</strong></td></tr>
+    <tr><td><span class="tag t-p0">삭제</span></td><td>Funnel·ROI</td><td>ShortLink 0 = 측정 미가동. 설정 &gt; 연동에 "추적 링크 미연결" 한 줄로 강등</td></tr>
+    <tr><td><span class="tag t-p1">통합</span></td><td>AI 인용 추적 + SaaS 노출도 → <strong>노출</strong></td><td>같은 파이프라인의 스코프 차이. <strong>페이지가 갈리면 지표 정의도 갈림</strong>(실제로 갈렸음)</td></tr>
+    <tr><td><span class="tag t-p1">통합</span></td><td>콘텐츠 관리 + 캘린더 → <strong>콘텐츠</strong></td><td>같은 객체의 리스트뷰/달력뷰</td></tr>
+    <tr><td><span class="tag t-p1">통합</span></td><td>클라이언트 + 문의 + 월간보고서</td><td>셋 다 "이 병원 하나"에 대한 정보. 탭이어야 컨텍스트가 안 끊김</td></tr>
+    <tr><td><span class="tag t-p2">이동</span></td><td>학습 인사이트 → 콘텐츠 &gt; 생성 규칙</td><td>분석 결과가 아니라 프롬프트 룰셋. <strong>소비처 옆에 있어야 편집됨</strong></td></tr>
+  </table>
+
+  <h3>대시보드 위젯 15+ → 6</h3>
+  <table>
+    <tr><th>위젯</th><th>판정</th><th>근거 — 어떤 의사결정을 바꾸는가</th></tr>
+    <tr><td>상단 KPI 6개</td><td><span class="tag t-p1">축소 → 3</span></td><td>6개는 위계가 없어 0개와 같음. ①처리할 항목 N ②자사 인용 <strong>9건(절대값)</strong> ③브랜드 언급 1,440. <strong>% 금지</strong></td></tr>
+    <tr><td>운영 액션 권고</td><td><span class="tag t-ok">유지·승격</span></td><td>유일하게 "지금 뭘 할지"를 바꾸는데 스크롤 중간에 있음. 카드가 아니라 체크리스트로</td></tr>
+    <tr><td>신규 등장 도메인</td><td><span class="tag t-ok">유지</span></td><td>학습 대상 추가 결정 → 액션 연결. 각 행에 [학습 추가][무시] 버튼. <strong>지금은 읽고 끝남</strong></td></tr>
+    <tr><td>5-tier 추이</td><td><span class="tag t-ok">승격</span></td><td><strong>사업 전략을 바꾸는 유일한 숫자.</strong> "우리 9 / 클라이언트 211" 대비를 명시적으로</td></tr>
+    <tr><td>파트너 리더보드</td><td><span class="tag t-p1">유지+개명</span></td><td>진짜인 유일한 성과 숫자. <strong>"브랜드 언급" + "자사 인용" 2열 병기</strong>. 인과 붙이지 말고 나란히</td></tr>
+    <tr><td>Top 인용 콘텐츠 표</td><td><span class="tag t-p0">삭제</span></td><td>지표가 가짜. <strong>실제 인용 URL 5개 표로 교체. 5행 정직한 표가 8행 거짓 표보다 낫습니다</strong></td></tr>
+    <tr><td>자동 패턴 분석 (4391%)</td><td><span class="tag t-p0">삭제</span></td><td>틀린 지표 × 노이즈. <strong>"40자 vs 39자"를 패턴이라 부르는 순간 다른 인사이트도 의심받음</strong></td></tr>
+    <tr><td>검수 대기</td><td><span class="tag t-p0">삭제</span></td><td>상시 0. <strong>항상 0인 위젯은 화면 읽는 습관을 망침.</strong> 실패 시에만 "오늘"에 등장</td></tr>
+    <tr><td>크롤러 레이더 / 카카오 퍼널</td><td><span class="tag t-p0">삭제</span></td><td>빈 위젯 = "이 제품은 미완성"이라는 문장. 설정 &gt; 연동 상태로</td></tr>
+    <tr><td>구조 패턴 6지표</td><td><span class="tag t-p2">이동+배지</span></td><td>가설을 데이터가 반증. <strong>표본수·신뢰구간 없음 명시, 결론 문장 삭제</strong></td></tr>
+    <tr><td>전역 언어 스코프</td><td><span class="tag t-p2">이동</span></td><td>스크롤하면 컨텍스트가 사라짐. 페이지 내부 필터로, 값은 <strong>항상 제목 옆 인라인</strong></td></tr>
+  </table>
+  <p><strong>결과: 오늘 화면 = KPI 3 + 처리 대기 + 신규 도메인 + 새 인용 알림. 1화면, 스크롤 없음.</strong></p>
+
+  <h3>카피 교정표</h3>
+  <table>
+    <tr><th style="width:30px">#</th><th>Before</th><th>After</th></tr>
+    <tr><td>1</td><td>파트너별 <strong>AI 인용</strong> 성과</td><td>파트너 브랜드가 <strong>AI 답변에 등장한 횟수</strong></td></tr>
+    <tr><td>2</td><td>자동 발행된 콘텐츠가 … <strong>실제 인용된 횟수</strong></td><td>AI 답변 본문에 병원 이름이 등장한 횟수입니다. 우리 콘텐츠가 출처로 쓰인 건수는 '자사 인용'에 별도 표기합니다.</td></tr>
+    <tr><td>3</td><td>표 헤더: <strong>인용 (30일)</strong></td><td><strong>브랜드 언급 (30일)</strong></td></tr>
+    <tr><td>4</td><td>Top <strong>인용</strong> 콘텐츠</td><td>키워드별 <strong>브랜드 언급량</strong> Top<br><small>(글 자체의 인용 수 아님)</small></td></tr>
+    <tr><td>5</td><td>기간 CCS <strong>0.08%</strong></td><td>자사 콘텐츠 인용 <strong>11건</strong> / 수집 답변 13,518건<br><small>소수점 둘째 %는 0과 구분이 안 됨. 절대값이 더 정확하고 더 정직</small></td></tr>
+    <tr><td>6</td><td>인용률 <strong>226.2%</strong></td><td>브랜드 언급 552 / 측정 질의 244 = <strong>질의당 2.3회 등장</strong></td></tr>
+    <tr><td>7</td><td>Top이 <strong>4391% 더 인용</strong></td><td style="color:var(--ink-faint)">(문구 삭제)</td></tr>
+    <tr><td>8</td><td>… (<strong>Round 88 자동화 예정</strong>)</td><td>상위 콘텐츠 구조를 다음 발행 글에 반영 — <strong>현재 수동 적용</strong></td></tr>
+    <tr><td>9</td><td><strong>generator.py의 include_cta=True</strong>가 …</td><td>발행 글에 추적 링크 자동 삽입 — <strong>미연결</strong>. 연결 전까지 유입·전환은 측정되지 않습니다.</td></tr>
+    <tr><td>10</td><td>인사이트 항목: <strong>internal · AUTO</strong></td><td><strong>H2는 6개를 넘기지 않는다</strong> — 상위 20% 평균 5.8개<br><small>(표본 168편 · 07-14 적용 · <strong>검증 안 됨</strong>)</small></td></tr>
+    <tr><td>11</td><td>누적 <strong>34건</strong> (적용 29건)</td><td>생성 규칙 34개 · 적용 29 · <strong>검증됨 0</strong><br><small>"적용"만 세면 늘 성장하는 것처럼 보임</small></td></tr>
+    <tr><td>12</td><td>활성 클라이언트 13개 · <strong>월 청구 대상</strong></td><td>클라이언트 13곳 — <strong>유료 0 · 체험 5 · 무상 8</strong><br><small>내부 화면에서 스스로를 속이면 회복 불가</small></td></tr>
+    <tr><td>13</td><td>위서클 점유율 <strong>0%</strong></td><td>자사 인용 <strong>0건</strong> / 측정 450회<br><small>0%는 축 400% 위에서 의미불명. 0건은 1건에서 개선이 보임</small></td></tr>
+    <tr><td>14</td><td style="color:var(--ink-faint)">(5-tier 표 두 번째 줄)</td><td>헤드라인 추가: <strong>클라이언트 자기 홈페이지가 우리 콘텐츠보다 23배 많이 인용됩니다</strong></td></tr>
+  </table>
+
+  <h3>신뢰 시각 요소 처리 원칙 (5개)</h3>
+  <div class="card teal"><h4>1. 데이터가 0이면 위젯을 그리지 않는다</h4><p style="margin:0">빈 상태 문구는 "아직 없음"이 아니라 "이 제품은 미완성"으로 읽힙니다. 소스 미연결은 위젯이 아니라 <strong>설정 &gt; 연동 상태의 한 줄</strong>. 소스는 연결됐는데 값이 0이면 그때만 0을 보여줍니다(그 0은 정보).</p></div>
+  <div class="card teal"><h4>2. 축은 데이터가 아니라 지표 정의가 정한다</h4><p style="margin:0">비율 축 상한 100%. 넘는 값이 들어오면 차트를 늘리지 말고 <strong>"지표 정의 오류"로 렌더 중단</strong>. 0~400% 축과 226%는 같은 버그의 두 얼굴.</p></div>
+  <div class="card teal"><h4>3. 비율은 절대 단독으로 쓰지 않는다</h4><p style="margin:0"><code>0.08%</code> → <code>11 / 13,518</code>. 모든 %는 분자·분모 병기, 툴팁에 계산식. <strong>이 규칙 하나만 강제했어도 북극성 3중화는 발생하지 않았습니다.</strong></p></div>
+  <div class="card teal"><h4>4. UI 카피에 파일명·함수명·라운드 번호·"예정"을 쓰지 않는다</h4><p style="margin:0">린트로 강제 가능 — <code>.py</code>, <code>Round \d+</code>, <code>=True</code>, <code>예정</code>이 렌더 카피에 들어가면 <strong>빌드 실패</strong>.</p></div>
+  <div class="card teal"><h4>5. 라벨은 측정 방법과 1:1로 대응해야 한다</h4><p style="margin:0"><code>mention ≠ citation</code>. 스키마 레벨에서 분리하고 "인용"은 <strong>자사 URL이 출처로 표기된 건에만</strong> 허용. 한 단어를 두 뜻으로 쓰면 파생 지표·A/B·학습까지 오염됩니다(<strong>이미 그렇게 됐습니다</strong>).</p></div>
+
+  <h3>공개 기사 렌더링 — 독자는 사람 30% / AI 파서 70%</h3>
+  <table>
+    <tr><th>문제</th><th>처리</th><th>왜</th></tr>
+    <tr><td>커버 회색 빈 박스</td><td><strong>빌드 게이트</strong>: 이미지 200 실패 시 배포 차단. 폴백은 빈 박스가 아니라 <strong>제목+요약 타이포 헤더</strong></td><td>가장 인용되는 글의 히어로가 깨진 상태 = 첫인상 전량 손실</td></tr>
+    <tr><td>픽사풍 3D 카툰 인물</td><td><strong>인물 이미지 전면 금지</strong></td><td>의료 콘텐츠에서 카툰 인물은 신뢰를 깎고 AI 인용 기여도 0</td></tr>
+    <tr><td>맥락 불일치 삽화</td><td>섹션 H2 키워드 ↔ 이미지 프롬프트 토큰 미교차 시 <strong>생성 거부</strong></td><td>"자동생성 콘텐츠"임을 스스로 광고함</td></tr>
+    <tr><td>긴 생머리 일러스트 9컷</td><td>장식 삽화 → <strong>데이터 표로 교체</strong> (기간/상태/관리 포인트)</td><td><strong>AI는 표를 인용합니다. 일러스트는 인용하지 않습니다.</strong> 인용 확률에 유일하게 기여하는 변경</td></tr>
+    <tr><td>H2가 작은 민트색 알약 뱃지</td><td><strong>좌측정렬 · 24~28px · 볼드 · 상단여백 48px</strong>. 뱃지·중앙정렬 금지</td><td>뱃지는 "태그"로 읽힘. 섹션 제목이 태그처럼 보이면 목차를 못 만듦</td></tr>
+    <tr><td>섹션당 2문장</td><td><strong>섹션 최소 구조 강제</strong>: ①H2를 질문형 ②첫 문단이 <strong>완결된 답</strong>(3~5문장, 떼어내도 말이 됨) ③수치·기준 1개 이상</td><td><strong>AI가 인용하는 단위는 글이 아니라 자기완결 문단(passage)</strong>. 2문장은 인용해도 답이 안 되므로 안 뽑힘</td></tr>
+    <tr><td>본문 12,581자 집계</td><td>HTML·캡션·목차 제외, <strong>순수 텍스트만</strong></td><td>사실이 아니면 "길이는 충분하다"는 잘못된 안심을 줌</td></tr>
+    <tr><td>FAQ 2% / Medical 0%</td><td><strong>전 글 FAQ 3문항 + 스키마 자동 삽입</strong>을 발행 필수 단계로</td><td>Top 20%에서 +200%인 유일한 유의미 신호. <strong>비용 최저 · 검증 최용이</strong></td></tr>
+    <tr><td>저자·검수자 없음</td><td>하단에 작성일·최종수정일·의료 감수자·<strong>출처 목록</strong></td><td>의료는 YMYL. <strong>출처가 붙은 문서가 출처로 인용됩니다</strong></td></tr>
+  </table>
+  <div class="card amber">
+    <h4>콘텐츠 목록에도 반영할 것 — 색인 경과일 컬럼</h4>
+    <p style="margin:0"><strong>42일 미만은 "평가 유보" 배지.</strong> 유일한 인용 글이 발행 5~6주 후부터 인용됐습니다. 3주 된 글의 인용 0을 실패로 읽으면 <strong>잘못된 방향으로 프롬프트를 고치게 됩니다.</strong> A/B가 35일간 0 vs 0이었던 것과 같은 오독.</p>
+  </div>
+</section>
+
+<!-- ============ S6 운영 ============ -->
+<section id="s6">
+  <h2 class="sec">🛠 운영 어드민</h2>
+  <p class="lead">1인 운영. 아침에 열고, 판단하고, 보고하고, 고쳐야 합니다.</p>
+
+  <div class="card red">
+    <h4>지금 — 야간에 크론 12개가 돌지만 결과를 아무도 통보받지 않음</h4>
+    <table style="margin:12px 0 0">
+      <tr><th>시각(KST)</th><th>자동</th><th>운영자가 아는가</th></tr>
+      <tr><td>06:00</td><td>경쟁사 측정, A/B 분석</td><td style="color:var(--red)">모름</td></tr>
+      <tr><td>07:00</td><td>자사 AI 멘션 측정</td><td style="color:var(--red)">모름</td></tr>
+      <tr><td>08:00</td><td>콘텐츠 자동 발행</td><td style="color:var(--red)">모름</td></tr>
+      <tr><td>09:00</td><td>인용 알림 메일</td><td style="color:var(--red)"><strong>인용 0건이면 메일 자체가 안 감</strong> → 파이프라인 사망과 구별 불가</td></tr>
+      <tr><td>14:00/15:00</td><td>국내/해외 발행</td><td style="color:var(--red)">모름</td></tr>
+      <tr><td>17:00</td><td>인용 콘텐츠 자동 학습</td><td style="color:var(--red)">모름</td></tr>
+      <tr><td>18:00</td><td>월간 보고서 발송</td><td style="color:var(--amber)">수신자가 본인이라 우연히 앎</td></tr>
+    </table>
+    <p style="margin:14px 0 0"><strong>홍콩 도메인 오염·provider 폴백·이미지 깨짐·크래시가 몇 주간 발견되지 않은 것은 운영자 과실이 아니라 설계 결과입니다.</strong> 어드민에 "어제 잘 돌았는가"를 판정하는 화면이 없습니다. 있는 것은 전부 "지표가 얼마인가" 화면이고, 그 지표들은 서로 모순됩니다.</p>
+  </div>
+
+  <h3>되어야 할 모습 — 09:00~09:30 고정</h3>
+  <table>
+    <tr><th>시각</th><th>무엇</th><th>시간</th><th>성격</th></tr>
+    <tr><td>08:55</td><td><strong>일일 브리핑 1통 자동 발송.</strong> 인용 0건이어도 <strong>반드시 발송</strong>(정상도 보고). 상단 3줄: 야간 잡 12/12 · 발행 6건 · 신호 이상 2건</td><td>0분</td><td>완전 자동</td></tr>
+    <tr><td>09:00</td><td><code>/admin/today</code> 단일 화면. <strong>신호등 3개</strong>(파이프라인/데이터 무결성/발행 품질). 전부 초록 → 5분 종료</td><td>5분</td><td>사람 판정</td></tr>
+    <tr><td>09:05</td><td>빨강/노랑이면 그 카드에서 바로 원인 행까지 드릴다운</td><td>10분</td><td>사람 판단</td></tr>
+    <tr><td>09:15</td><td><strong>발행물 샘플 2건 육안 검사</strong> (썸네일이 화면에 이미 렌더돼 있음). 통과/반려</td><td>5분</td><td><strong>사람 전용 — 대체 불가</strong></td></tr>
+    <tr><td>09:20</td><td>승인 큐: 신규 T1 승격 / 컴플라이언스 오버라이드 / 발송 예정 보고서 프리뷰</td><td>5분</td><td>사람 승인</td></tr>
+  </table>
+  <p><strong>핵심 전환: "지표를 보러 가는 어드민" → "이상만 올라오는 어드민". 정상인 날은 어드민을 열 필요조차 없어야 합니다.</strong></p>
+
+  <h3>🚨 헬스체크 24종 (18개 완전 자동)</h3>
+  <details open><summary>B. 데이터 무결성 — 이번 사고 4건이 전부 여기서 잡혔어야 함</summary><div>
+  <table>
+    <tr><th>체크명</th><th>판정 기준</th><th>알림</th><th>자동화</th></tr>
+    <tr><td><strong>T1 판정 이중 검증</strong></td><td>substring 결과와 classifyDomain() 결과의 <strong>diff = 0</strong></td><td>브리핑 빨강 + 오염 도메인 리스트</td><td><span class="tag t-ok">완전 자동</span> ← 홍콩 도메인을 <strong>첫날</strong> 잡음</td></tr>
+    <tr><td><strong>provider 실측 일치</strong></td><td>요청 prefer vs 실제 응답 provider <strong>불일치 = 0</strong></td><td>Slack 즉시</td><td><span class="tag t-ok">완전 자동</span> ← A/B 6건 전부 gemini를 즉시 잡음</td></tr>
+    <tr><td>StubProvider 사용</td><td>발생 = 0. 1건이라도 = P0</td><td>Slack 즉시 + 발행 정지</td><td><span class="tag t-ok">완전 자동</span></td></tr>
+    <tr><td><strong>비율 지표 범위</strong></td><td>모든 % 지표 0~100. 밖이면 <strong>숫자 대신 "계산 오류" 렌더</strong></td><td>렌더 차단</td><td><span class="tag t-ok">완전 자동</span> ← 226%를 프로덕션에 안 띄움</td></tr>
+    <tr><td>분자·분모 기간 일치</td><td>비율 함수가 <strong>동일 window 인자</strong>를 받도록 타입 강제</td><td>CI 실패</td><td><span class="tag t-ok">린트/타입</span></td></tr>
+    <tr><td>북극성 단일값</td><td>CCS가 3곳에서 동일</td><td>브리핑 빨강</td><td><span class="tag t-ok">스냅샷 테스트</span></td></tr>
+    <tr><td><strong>A/B 처치 유효성</strong></td><td>제목 편집거리 ≥20% 또는 본문 유사도 &lt;0.85. 미달이면 <strong>실험 생성 자체를 거부</strong></td><td>생성 실패 + 사유</td><td><span class="tag t-ok">완전 자동</span> ← "쉼표 vs 콜론" 실험이 <strong>애초에 못 만들어짐</strong></td></tr>
+    <tr><td>학습 인사이트 출처 검증</td><td>파생 원천이 T1 citation인지. mention 기반이면 <strong>주입 금지</strong></td><td>주입 차단</td><td><span class="tag t-ok">완전 자동</span> ← 오차 자기강화 차단</td></tr>
+  </table>
+  </div></details>
+
+  <details><summary>A. 파이프라인 생존 (5종)</summary><div>
+  <table>
+    <tr><th>체크명</th><th>판정 기준</th><th>자동화</th></tr>
+    <tr><td>야간 크론 완주</td><td>GH Actions 12개 전부 success. 1개라도 실패/미실행</td><td>완전 자동 (Actions API)</td></tr>
+    <tr><td>발행량 하한</td><td>당일 published ≥ 예상치의 70%</td><td>완전 자동</td></tr>
+    <tr><td>측정 커버리지</td><td>엔진별 query 수 전일 대비 ±30% 이내. 특정 엔진 0 = 즉시</td><td>완전 자동</td></tr>
+    <tr><td><strong>정상 신호(heartbeat)</strong></td><td>인용 0건인 날도 브리핑 발송. <strong>무소식 = 장애로 간주</strong></td><td>완전 자동 — citation-alerts의 조기 return 제거</td></tr>
+    <tr><td>일일 LLM 비용</td><td>MAX_DAILY_USD 80% 도달</td><td>완전 자동, 100%에서 발행 정지</td></tr>
+  </table>
+  </div></details>
+
+  <details><summary>C. 발행 품질 (6종)</summary><div>
+  <table>
+    <tr><th>체크명</th><th>판정 기준</th><th>자동화</th></tr>
+    <tr><td>커버 이미지 실존</td><td>og:image HTTP 200 && >10KB. 실패 시 <strong>발행 보류</strong></td><td>완전 자동</td></tr>
+    <tr><td>이미지 규칙 위반</td><td>인물 얼굴 / 한글 텍스트 검출 = 0 (VLM 1회)</td><td>자동 + 사람 최종</td></tr>
+    <tr><td>이미지-본문 맥락</td><td>캡션 ↔ H2 임베딩 유사도 &lt;0.5 = 경고</td><td>자동 감지 + <strong>사람 판정</strong></td></tr>
+    <tr><td>본문 실질 분량</td><td><strong>태그 제외 순수 텍스트</strong> 기준. H2당 3문장 미만 = 경고</td><td>완전 자동</td></tr>
+    <tr><td>컴플라이언스 정합</td><td><code>compliance_status=fail AND status=published</code> = 0</td><td>완전 자동</td></tr>
+    <tr><td>승인 시 덮어쓰기</td><td>approve가 compliance를 무조건 pass로 쓰지 않을 것</td><td>코드 수정</td></tr>
+  </table>
+  </div></details>
+
+  <h3>클라이언트 발송 게이트 7단계</h3>
+  <table>
+    <tr><th>#</th><th>단계</th><th>통과 조건</th><th>담당</th></tr>
+    <tr><td>G1</td><td><strong>지표 정의 검증</strong></td><td>모든 "인용" 수치가 <strong>T1 citation 소스</strong>에서 계산됨. mention 기반 필드 0개</td><td>자동</td></tr>
+    <tr><td>G2</td><td>숫자 정합성</td><td>모든 비율 0~100%. 인용 ≤ 발행 × 엔진 수. 전월 대비 ±300% 초과 시 보류</td><td>자동</td></tr>
+    <tr><td>G3</td><td>실측 여부</td><td><strong>하드코딩 상수 0개</strong>(<code>hasMedicalSchema:true</code> 등). 실측 불가는 "측정 준비 중"</td><td>자동</td></tr>
+    <tr><td>G4</td><td>수신자·도달성</td><td>운영자 본인 주소 아님 + MX 유효 + <strong>보고서 URL 비로그인 200</strong></td><td>자동</td></tr>
+    <tr><td>G5</td><td>중복 방지</td><td><code>report_sends(tenant_id, period)</code> 유니크 제약</td><td>자동</td></tr>
+    <tr><td>G6</td><td><strong>D-3 프리뷰 승인</strong></td><td>실제 발송될 HTML 그대로 + "이 숫자를 클라이언트가 검증하면 재현되는가?" 체크박스. <strong>미승인 = 미발송</strong></td><td><strong>사람 (2분/건)</strong></td></tr>
+    <tr><td>G7</td><td>첫 발송 유예</td><td>신규 또는 지표 변경 후 첫 회는 <strong>운영자 본인에게 먼저</strong></td><td>사람 1클릭</td></tr>
+  </table>
+  <p><strong>운영 부담: G6은 6곳 × 2분 = 월 12분. G1~G5는 0분.</strong></p>
+
+  <h3>검수 워크플로 재설계 — 게이트 위치가 잘못됨</h3>
+  <div class="card red">
+    <h4>진단</h4>
+    <p><code>collector/scheduler.py:609</code>의 실제 게이트:</p>
+    <pre style="margin:10px 0"><code>if auto_publish and obj.compliance_status == "pass":
+    obj.status = "published"</code></pre>
+    <p style="margin:0">조건이 <strong>의료법 린트 단 하나</strong>입니다. 이미지 존재, 맥락, 실질 분량은 게이트에 없습니다. 그래서 커버 깨진 글도 pass를 받고, <strong>발행된 순간 검수 큐를 지나쳐 버립니다</strong> — 큐가 0인 이유입니다. <strong>사람이 게을러서가 아니라 문제 있는 글이 큐에 들어가지 않습니다.</strong></p>
+  </div>
+
+  <h4>3층 구조 (자동발행 유지)</h4>
+  <div class="card teal">
+    <h4>1층 — 발행 전 하드 게이트 (기계, 0분)</h4>
+    <p>기존 <code>compliance == pass</code>에 AND로 추가: 커버 이미지 200&&10KB / 인물·한글 0 / 태그 제외 분량 / 파트너 태깅 3필드</p>
+    <p style="margin:0">실패는 <strong><code>rejected</code>가 아니라 <code>regen_queue</code></strong>로. 자동 재생성 1회 → 재실패 시에만 사람 큐로. <strong>이렇게 해야 운영자 큐가 처리 가능한 크기로 유지됩니다.</strong></p>
+  </div>
+  <div class="card teal">
+    <h4>2층 — 발행 후 사후 샘플링 (사람, 5분)</h4>
+    <p>매일 <strong>자동 큐레이션 2건</strong>. 랜덤이 아니라 가중 추출(신규 클라이언트 첫 3건 100%, 새 템플릿 첫 건 100%, 나머지 랜덤 1건).</p>
+    <p><strong>화면에 실제 렌더 스크린샷 + 커버 이미지가 이미 떠 있어야 합니다.</strong> 링크를 새 탭에서 여는 순간 5분 예산이 무너집니다.</p>
+    <p style="margin:0">반려 사유는 드롭다운 고정 → <strong>1층 게이트 튜닝 데이터로 환류.</strong> 같은 사유 3회면 1층 자동 게이트로 승격.</p>
+  </div>
+  <div class="card teal">
+    <h4>3층 — 회수 경로</h4>
+    <p style="margin:0">1클릭 archive → 사이트에서 즉시 내림 + IndexNow 재통지. 지금은 API는 있지만 <strong>발행물을 눈으로 보고 그 자리에서 내리는 동선이 없습니다.</strong></p>
+  </div>
+
+  <h3>1인 운영 부하</h3>
+  <table>
+    <tr><th>지점</th><th>지금</th><th>목표</th></tr>
+    <tr><td>야간 잡 결과 확인</td><td style="color:var(--red)">불가능(통보 없음)</td><td><strong>0분</strong> — 브리핑 자동</td></tr>
+    <tr><td>지표 신뢰성 판단</td><td style="color:var(--red)">사실상 포기</td><td><strong>0분</strong> — 무결성 체크 자동</td></tr>
+    <tr><td>발행물 품질</td><td style="color:var(--red)">0건(큐가 비어서)</td><td><strong>5분/일</strong> — 2건 샘플</td></tr>
+    <tr><td>T1 도메인 승격</td><td style="color:var(--red)">자동(검증 없음)</td><td><strong>1분/일</strong> — 신규만 1클릭</td></tr>
+    <tr><td>보고서 발송</td><td style="color:var(--red)">없음(본인에게)</td><td><strong>12분/월</strong> — D-3 프리뷰</td></tr>
+  </table>
+  <p><strong>합계: 정상일 6~8분, 이상 발생일 20~25분.</strong> 13곳 규모에서 1인 지속 가능.</p>
+
+  <div class="card amber">
+    <h4>확장 한계 — 13곳 → 30곳에서 먼저 터지는 것</h4>
+    <ul style="margin-bottom:0">
+      <li><strong>APScheduler 중복 실행</strong> — <code>collector/scheduler.py</code>의 2개 잡이 GitHub Actions와 <strong>같은 일을 다른 시각에</strong> 합니다. 살아 있으면 이중 집계·이중 과금. <strong>레거시 스케줄러를 먼저 끄십시오.</strong></li>
+      <li><strong>어드민 3벌 유지</strong> — medimap-blog-v2(라이브) / medimap-blog(v1) / Streamlit src/admin. 지표를 고칠 때 3곳을 고쳐야 하고 실제로는 1곳만 고쳐져서 값이 갈라집니다. <strong>v1·Streamlit 폐기가 지표 단일화의 전제.</strong></li>
+    </ul>
+  </div>
+
+  <h3>없어서 아쉬운 것 TOP 5</h3>
+  <ol>
+    <li><strong><code>/admin/today</code></strong> — 신호등 3개 + 실패 항목 3줄 + 승인 큐. 스크롤 없이 1화면. <em>없으면: 지금 그대로 — 크론이 조용히 실패해도 몇 주간 아무도 모름</em></li>
+    <li><strong>지표 정의 사전 + 단일 계산 소스</strong> — 숫자 옆 (i) → 계산식·계산 위치·최종 검증일. <em>없으면: 홍콩 도메인 오염이 정확히 이것 때문. 정의가 문서화됐다면 코드 리뷰에서 걸렸고, 계산이 한 곳이었다면 발생 불가</em></li>
+    <li><strong>실행 로그 뷰어</strong> (크론 12개 × 14일 히트맵) — 특히 <strong>"요청 prefer vs 실제 provider" 컬럼</strong>. <em>없으면: A/B 6건 전부 gemini. 게다가 <code>generator.py:609</code>가 여전히 <code>prefer="anthropic"</code>을 로그로 출력 — <strong>로그가 거짓말을 합니다</strong></em></li>
+    <li><strong>발행물 시각 검수 큐</strong> (썸네일 인라인) — <em>없으면: 텍스트 목록으로는 이미지 깨짐을 <strong>절대 발견할 수 없음</strong>. 제품의 대표 산출물 커버가 회색 빈 박스</em></li>
+    <li><strong>클라이언트 발송 콘솔</strong> (프리뷰 + 이력) — <em>없으면: 현재 <code>POST /api/admin/reports/email</code>은 <strong>아무 게이트 없이</strong> Resend로 바로 쏨. <code>RESEND_API_KEY</code> 미설정 시 <code>{ok:false, stub:true}</code>를 HTTP 200으로 반환 → <strong>조용히 아무것도 안 보내고 성공처럼 보임</strong></em></li>
+  </ol>
+</section>
+
+<!-- ============ S7 로드맵 ============ -->
+<section id="s7">
+  <h2 class="sec">🗺 실행 로드맵</h2>
+  <p class="lead">5개 관점이 공통으로 지목한 순서. 앞 단계를 건너뛰면 뒤 단계가 사고가 됩니다.</p>
+
+  <div class="card red">
+    <h4>Week 0 — 오늘 (지혈)</h4>
+    <ol style="margin-bottom:0">
+      <li><code>send-monthly-reports.yml</code> cron 비활성화</li>
+      <li>substring 자사 판정 3곳 → <code>classifyDomain()</code> (CCS 11 → 9 확인)</li>
+      <li>파트너 리더보드 · Top 인용 콘텐츠 · Funnel 라벨 정정</li>
+      <li><code>run_ab_test.py</code> logger import</li>
+      <li>학습 인사이트 <code>applied=true</code> 29건 → <strong>일시 중단</strong> (오차 자기강화 차단)</li>
+      <li>랜딩 "28회·11명" → "월 1,440회 브랜드 등장 (7월 실측)"</li>
+    </ol>
+  </div>
+
+  <div class="card amber">
+    <h4>Week 1~2 — 계측 재건 (모든 판단의 전제)</h4>
+    <ol style="margin-bottom:0">
+      <li><code>citation_events</code> 뷰 + <code>classify_tier()</code> SQL 함수 → 3중 구현을 1개로</li>
+      <li><code>metrics/contract.ts</code> — 라벨이 계약에서 나오게 (mention을 "인용"이라 못 쓰게 타입 강제)</li>
+      <li><code>/api/admin/metrics</code> 단일 API로 5개 경로 통합</li>
+      <li><code>metrics-parity.test.ts</code> CI 가드</li>
+      <li><strong>215편 전량 발행일 태깅 → 경과주차별 인용률 코호트 곡선</strong></li>
+    </ol>
+    <p style="margin:10px 0 0"><strong>이 단계에서 가장 큰 것을 얻습니다: 215편이 "실패"인지 "미성숙"인지가 2주 만에 판명됩니다.</strong> 8주+ 코호트의 편당 인용률이 0~4주의 3배 이상이면 색인 지연 가설 지지. 차이 없으면 기각.</p>
+  </div>
+
+  <div class="card teal">
+    <h4>Week 2~4 — 운영 안전망 + UI 정리</h4>
+    <ul style="margin-bottom:0">
+      <li><code>/admin/today</code> 신호등 3개 + 일일 브리핑(정상도 발송)</li>
+      <li>데이터 무결성 체크 9종 (T1 이중검증 · provider 실측 · 비율 상한 · A/B 처치 유효성)</li>
+      <li>발행 전 하드 게이트(커버 200 · 인물/한글 0 · 순수 텍스트 분량) → <code>regen_queue</code></li>
+      <li>메뉴 13 → 5, 대시보드 위젯 15+ → 6, 빈 위젯·개발 잔재 제거</li>
+      <li>클라이언트 보고서 <code>/r/{tenant}/{yyyy-mm}</code> 신설 (로그인 없는 토큰 링크)</li>
+    </ul>
+  </div>
+
+  <h3>Week 2~14 — 90일 검증 실험 4종</h3>
+  <div class="card">
+    <h4>단일 지표 정의 (이걸 안 정하면 나머지는 전부 무의미)</h4>
+    <p class="quote" style="margin:8px 0"><strong>T1 인용 = 우리가 게시한 특정 URL이 AI 답변에 출처로 표기된 건수.</strong> 브랜드 멘션은 분자에 절대 넣지 않는다. 분모는 "해당 키워드 측정 쿼리 수". 인용률 상한은 100%.</p>
+  </div>
+
+  <table>
+    <tr><th>실험</th><th>설계</th><th>성공 기준</th><th>Kill</th></tr>
+    <tr>
+      <td><strong>A · 도메인 자격</strong><br><small>최우선</small></td>
+      <td><strong>무경쟁 롱테일 15개</strong>(사전측정: grounding 발생 + 상위인용에 hidoc/modoodoc/대학병원 <strong>없고</strong> + 해당 병원 도메인 인용 0). 키워드당 <strong>동일 원고 1편</strong>을 2곳 동시 게시 — <strong>Arm A</strong> wecircle / <strong>Arm B</strong> 병원 자기 도메인. 원고·게시일·스키마·사이트맵 전부 동일</td>
+      <td>12주에 <strong>Arm B 인용 URL ≥ 4/15</strong> 이고 <strong>B가 A의 3배 이상</strong> → 옵션 B 확정<br><br>부분: <strong>Arm A ≥ 3/15</strong> → 롱테일 가설 지지, 옵션 A 존속</td>
+      <td>양쪽 모두 <strong>≤ 1/15</strong> → 콘텐츠 공급으로 인용 생성 불가 확정. <strong>콘텐츠 상품 종료, 옵션 C 전면</strong></td>
+    </tr>
+    <tr>
+      <td><strong>B · 시간축</strong><br><small>A에 얹어 무비용</small></td>
+      <td>30편의 <strong>주간 첫-인용 시점만</strong> 기록</td>
+      <td>첫 인용의 <strong>80%+가 6주 이후</strong> → 계약·보고·A/B 주기 전부 <strong>최소 12주</strong>로 재설계</td>
+      <td>12주까지 양쪽 0 → 시간 가설도 기각</td>
+    </tr>
+    <tr>
+      <td><strong>C · 도그푸딩 반증</strong></td>
+      <td>기존 헤드 B2B 10개 <strong>폐기</strong>. 무경쟁 롱테일 자사 키워드 10개 재선정, 스키마 100%, 12주 추적</td>
+      <td><strong>≥ 3/10</strong> → 방법론 유효 + <strong>그대로 세일즈 케이스스터디</strong>("우리 검색해보세요"에 답할 수 있게 됨)</td>
+      <td>실패 = 최선의 조건에서 <strong>두 번째</strong> 실패. 콘텐츠 상품 종료의 결정적 근거</td>
+    </tr>
+    <tr>
+      <td><strong>D · 지불의사</strong><br><small>기술 실험보다 우선</small></td>
+      <td>옵션 C 형태(AI 검색 점유 리포트)로 <strong>가격표를 만들어 8곳에 유료 제안.</strong> 콘텐츠 성과를 약속하지 않음. <strong>선행조건: 실험 0 완료</strong>(226%가 담긴 리포트를 팔면 안 됨)</td>
+      <td><strong>유료 계약 2곳 이상</strong>(금액 무관, $0이 아닐 것). 거절 8건 전원 <strong>사유 기록</strong></td>
+      <td>지불의사 없음 → C 단독 성립 불가. 사유가 "실행까지 해줘야 산다"면 <strong>옵션 B로 자원 집중</strong></td>
+    </tr>
+  </table>
+
+  <h3>90일 판정 매트릭스</h3>
+  <table>
+    <tr><th>실험 A</th><th>실험 C</th><th>실험 D</th><th>결론</th></tr>
+    <tr><td>B 성공</td><td>—</td><td>성공</td><td><strong>옵션 B + C 결합.</strong> 온사이트 게시 + 인텔리전스. 위서클 허브 축소</td></tr>
+    <tr><td>A 부분성공</td><td>성공</td><td>성공</td><td><strong>옵션 A 존속.</strong> 롱테일 전면 전환 + 12주 계약 구조</td></tr>
+    <tr><td>양쪽 kill</td><td>실패</td><td>성공</td><td><strong>옵션 C 단독.</strong> 콘텐츠 생성 종료, 인텔리전스 SaaS</td></tr>
+    <tr><td>양쪽 kill</td><td>실패</td><td>실패</td><td><strong>상품 재정의 또는 종료 판단.</strong> 90일 안에 이걸 알아내는 것도 성과</td></tr>
+  </table>
+  <p><strong>총 소요: 신규 원고 40편(A 30 + C 10), 병원 협조 1~2곳, 엔지니어링 4~5주.</strong> 측정 인프라는 기존 것 재사용. <strong>지금 발행량보다 훨씬 적은 생산으로 훨씬 많은 정보를 얻습니다.</strong></p>
+
+  <div class="verdict" style="margin-top:40px">
+    <h2>마지막 한 문장</h2>
+    <p>앞으로 90일에 쓸 자원의 <strong>절반은 콘텐츠가 아니라 계측</strong>에 들어가야 하고, 그 계측이 세워진 다음에야 세 옵션 중 어느 것이 옳은지 <strong>데이터가 말해줍니다.</strong> 지금은 아무도 모릅니다 — 이 감사도 포함해서.</p>
+  </div>
+</section>
+
+<div class="foot">
+  <p>위서클(WECIRCLE) GEO/AEO SaaS · E2E 5-페르소나 감사 · 2026-08-02</p>
+  <p>방법: 브라우저 라이브 순회(geo-v2-beta.vercel.app 어드민 9화면 + wecircle.co.kr 공개 기사) · Supabase 실측 SQL · 코드베이스 대조(medimap-blog-v2 + src/content + scripts) · 서브에이전트 5개 관점 병렬 분석</p>
+  <p style="margin-top:10px;color:var(--ink-faint)">모든 수치는 2026-08-02 기준. 추정치·미검증 항목은 본문에 별도 표기.</p>
+</div>
+
+</div>
+<script>
+document.querySelectorAll('nav button').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));
+    document.querySelectorAll('section').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    document.getElementById(b.dataset.t).classList.add('on');
+    window.scrollTo({top:0,behavior:'smooth'});
+  };
+});
+</script>
+</body>
+</html>

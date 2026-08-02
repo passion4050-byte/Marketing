@@ -24,7 +24,9 @@ interface FunnelRow {
   targetMentions: number;
   shortlinks: number;
   clicks: number;
-  citationRate: number; // target_mentions / measure_queries
+  // 질의당 브랜드 등장 배수. 1 response 에 mention 이 N건 생길 수 있어
+  // 정의상 1.0 을 초과할 수 있음 → % 가 아니라 "배" 로 표기 (Round 144).
+  mentionsPerQuery: number;
   ctr: number; // clicks / mentions
 }
 
@@ -44,9 +46,13 @@ async function fetchData() {
     .from('queries')
     .select('id, tenant_id')
     .gte('requested_at', since);
+  // 🔴 Round 144 (2026-08-02) — 기간 필터 누락 수정.
+  //   분모(queries)에만 30일 필터가 있고 분자(mentions)에는 없어서
+  //   "인용률 226.2%" 같은 100% 초과 값이 프로덕션에 노출됐음.
   const { data: mentions } = await sb
     .from('mentions')
-    .select('id, tenant_id, is_target');
+    .select('id, tenant_id, is_target')
+    .gte('created_at', since);
   const { data: shortlinks } = await sb
     .from('shortlinks')
     .select('tenant_id, click_count')
@@ -94,7 +100,7 @@ async function fetchData() {
         targetMentions: mt.target,
         shortlinks: lk.count,
         clicks: lk.clicks,
-        citationRate: q > 0 ? (mt.target / q) * 100 : 0,
+        mentionsPerQuery: q > 0 ? mt.target / q : 0,
         ctr: mt.total > 0 ? (lk.clicks / mt.total) * 100 : 0,
       };
     })
@@ -197,8 +203,8 @@ export default async function FunnelPage() {
                   <th className="px-3 py-2.5 text-left">테넌트</th>
                   <th className="px-3 py-2.5 text-right">발행</th>
                   <th className="px-3 py-2.5 text-right">측정 query</th>
-                  <th className="px-3 py-2.5 text-right">우리 멘션</th>
-                  <th className="px-3 py-2.5 text-right">인용률</th>
+                  <th className="px-3 py-2.5 text-right">브랜드 등장</th>
+                  <th className="px-3 py-2.5 text-right" title="브랜드 등장 ÷ 측정 질의. 한 응답에 여러 번 등장할 수 있어 1배를 넘을 수 있습니다.">질의당 등장</th>
                   <th className="px-3 py-2.5 text-right">ShortLink</th>
                   <th className="px-3 py-2.5 text-right">클릭</th>
                   <th className="px-3 py-2.5 text-right">CTR</th>
@@ -219,7 +225,7 @@ export default async function FunnelPage() {
                       {r.targetMentions.toLocaleString()}
                     </td>
                     <td className="px-3 py-2.5 text-right font-mono text-xs">
-                      {r.citationRate > 0 ? `${r.citationRate.toFixed(1)}%` : '—'}
+                      {r.mentionsPerQuery > 0 ? `${r.mentionsPerQuery.toFixed(2)}배` : '—'}
                     </td>
                     <td className="px-3 py-2.5 text-right font-mono text-xs text-ink-muted">
                       {r.shortlinks > 0 ? r.shortlinks : '—'}
@@ -252,9 +258,9 @@ export default async function FunnelPage() {
                 ShortLink 로 발급해야 합니다. 현재 발급된 링크 0건.
               </p>
               <ol className="mt-2 ml-4 list-decimal space-y-1 text-xs text-ink-muted">
-                <li>generator.py 의 include_cta=True 가 자동으로 ShortLink 발급하도록 인프라 연결 (Round 24 trace_url 모듈 활용)</li>
-                <li>발행 콘텐츠의 카카오톡/예약 CTA 가 모두 ShortLink 로 자동 변환되도록 cron 후처리</li>
-                <li>shortlink_clicks 누적되기 시작하면 이 표의 클릭·CTR 자동 채워짐</li>
+                <li>발행 콘텐츠의 CTA(카카오톡·예약 링크)를 추적 링크로 자동 변환 — <strong>미연결</strong></li>
+                <li>클릭 로그가 쌓이기 시작하면 이 표의 클릭·CTR 이 자동으로 채워집니다</li>
+                <li>연결 전까지 유입·전환 수치는 측정되지 않습니다</li>
               </ol>
             </div>
           </div>

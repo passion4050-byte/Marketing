@@ -527,12 +527,20 @@ _TONE_HINTS = [
 ]
 
 
-def _build_variation_block() -> str:
-    """이번 발행물만의 도입부·어조 + 반복 방지 지침. 매 호출 랜덤 → 획일화 차단."""
+def _build_variation_block(seed: int | None = None) -> str:
+    """이번 발행물만의 도입부·어조 + 반복 방지 지침. 매 호출 랜덤 → 획일화 차단.
+
+    Round 144 (2026-08-02) — `seed` 인자 추가.
+      A/B 테스트에서 이 랜덤 변주가 **양 팔 모두에** 들어가 처치보다 큰 교란이
+      됐고, 표본 1쌍으로는 원리적으로 효과 분리가 불가능했음(실측: 6건 전부
+      0 vs 0, 제목 차이는 쉼표/동사 1개). A/B 경로는 동일 seed 를 넘겨
+      변주를 통제변인으로 고정한다. 일반 발행은 seed=None (기존 랜덤 유지).
+    """
     import random
 
-    opening = random.choice(_OPENING_STYLES)
-    tone = random.choice(_TONE_HINTS)
+    rng = random.Random(seed) if seed is not None else random
+    opening = rng.choice(_OPENING_STYLES)
+    tone = rng.choice(_TONE_HINTS)
     return (
         "[이번 글의 변주 — 매 발행물을 다르게]\n"
         f"- 도입부 방식: {opening}.\n"
@@ -562,6 +570,7 @@ def generate_blog_post(
     apply_insights: bool = True,
     lang: str = "ko",
     market: str = "domestic",
+    variation_seed: Optional[int] = None,
 ) -> BlogResult:
     """키워드 + (선택) 참조 URL + (선택) 이미지 → SEO 친화적 블로그 post.
 
@@ -677,7 +686,7 @@ def generate_blog_post(
     #   아키타입(결정적) + 변주(랜덤 도입부·어조·반복방지) → 누적 발행물의 획일화 차단.
     _structure_type = _pick_structure_type(keyword)
     _structure_directive = _STRUCTURE_DIRECTIVES.get(_structure_type, "")
-    _variation_block = _build_variation_block()
+    _variation_block = _build_variation_block(variation_seed)
     # 해외(lang != ko)만 아키타입 골격 주입 — 국내는 완전 무변경.
     _overseas_directive = _OVERSEAS_ARCHETYPE_DIRECTIVE if (lang and lang != "ko") else ""
     _combined_directive = "\n\n".join(

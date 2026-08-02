@@ -120,12 +120,13 @@ export function ActionRecommendations({
     }
   }
 
-  // P2: 누적 인용 적음 (영업 자료 부족)
+  // P2: 브랜드 등장 적음 (측정 커버리지 부족)
+  //   Round 144 — citations30d 는 mentions 소스이므로 "인용" 표현 제거.
   if (citations30d < 100) {
     actions.push({
       severity: 'p2', icon: Info,
-      title: `30일 인용 ${citations30d}건 — 영업 자료 부족`,
-      detail: '월 200+ 누적이 영업/투자 자료에 신뢰감. 측정 키워드 확대 + 콘텐츠 발행 가속',
+      title: `30일 브랜드 등장 ${citations30d}건 — 측정 커버리지 부족`,
+      detail: '측정 키워드가 적으면 시장 상황 자체를 못 봅니다. 키워드 풀 확대 검토',
       href: '/admin/saas-tracking',
       cta: '시장 노출도 확인',
     });
