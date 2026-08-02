@@ -49,6 +49,26 @@ push 전 아래를 눈으로 확인할 것:
 - 공유 인터페이스(예: `ReportMetrics`) 필드명을 바꾸면 **소비처 전수 grep** 필수
 - 배포 후 화면이 안 바뀌면 캐시를 의심하기 전에 **빌드 실패를 먼저 의심**할 것
 
+### 🔴 신규 라우트 추가 시 — 동적 세그먼트명 충돌 (실사고 Round 144)
+Next.js 는 **같은 depth 에 서로 다른 동적 세그먼트명**을 허용하지 않는다.
+`/r/[slug]`(ShortLink)가 있는데 `/r/[tenantId]/...` 를 추가해서 빌드가 통째로 깨졌다.
+```
+Error: You cannot use different slug names for the same dynamic path ('slug' !== 'tenantId').
+```
+이건 **타입 에러가 아니라 라우트 트리 에러** — esbuild·tsc 둘 다 못 잡고 `next build` 만 잡는다.
+
+**신규 동적 라우트 추가 전 필수 검사 1줄:**
+```bash
+find src/app -type d -name '\[*\]' | while read d; do echo "$(dirname "$d")|$(basename "$d")"; done \
+ | sort | awk -F'|' '{a[$1]=a[$1]" "$2} END {for(p in a){n=split(a[p],arr," "); if(n>1) print "CONFLICT: "p" → "a[p]}}'
+```
+→ **출력이 비어야 정상.** 현재 예약된 최상위 경로: `/r`(ShortLink) · `/report`(클라이언트 보고서)
+
+### 배포 검증 (Round 144 이후 필수)
+push 후 "됐겠지" 금지. Vercel 프로젝트 `geo-v2`(팀 slug `medimaps-projects`) 배포 상태를
+확인하거나, 신규 API 엔드포인트를 직접 호출해 **404 가 아닌지** 확인할 것.
+빌드 실패해도 이전 성공 빌드가 계속 서빙되므로 화면만 봐서는 구분이 안 된다.
+
 ### JSX 함정 (실사고 2회: 124-B, 131-B)
 - 삼항 `) : ( ... )` / `{cond && ( ... )}` 괄호 안에 `{/* */}` 주석 금지 → 빌드 실패. `//` 줄주석 또는 괄호 밖에 배치
 

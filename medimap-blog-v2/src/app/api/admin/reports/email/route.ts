@@ -68,7 +68,8 @@ async function sendOne(opts: {
   //   기존 CTA 는 `/admin/reports/{id}` 를 가리켰는데 middleware 가 `/admin/*` 전체를
   //   admin 쿠키로 막아 **클라이언트는 로그인 화면으로 튕겼음**. 즉 보고서 메일의
   //   버튼이 한 번도 동작한 적이 없음(수신자가 운영자 본인이라 드러나지 않았을 뿐).
-  //   `/r/{id}/{yyyy-MM}?t=` 서명 링크 — 로그인 없이 자기 것만 열람.
+  //   `/report/{id}/{yyyy-MM}?t=` 서명 링크 — 로그인 없이 자기 것만 열람.
+  //   (`/r/` 는 ShortLink 라우트라 세그먼트명 충돌 — Round 144 실사고)
   const periodKey = periodKeyFromLabel(opts.period);
   const publicUrl = buildReportUrl(opts.origin, opts.tenantId, periodKey);
   const reportUrl = publicUrl ?? `${opts.origin}/admin/reports/${opts.tenantId}`;

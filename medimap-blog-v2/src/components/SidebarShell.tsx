@@ -13,10 +13,11 @@ export function SidebarShell({ children }: { children: React.ReactNode }) {
     pathname === '/geo' ||
     (pathname?.startsWith('/geo/') ?? false);
 
-  // Round 144 — 클라이언트 공개 월간 보고서(/r/{tenant}/{period}).
+  // Round 144 — 클라이언트 공개 월간 보고서(/report/{tenant}/{period}).
   //   병원 담당자가 받는 링크라 콘솔 사이드바(다른 메뉴·타 클라이언트 동선)가
   //   보이면 안 됨. 단독 문서로 렌더.
-  const isClientReport = pathname?.startsWith('/r/') ?? false;
+  //   ⚠️ `/r/` 가 아니라 `/report/` — `/r/[slug]` 는 ShortLink 라우트라 세그먼트명이 충돌한다.
+  const isClientReport = pathname?.startsWith('/report/') ?? false;
 
   // Admin pages render their own layout (AdminShell). Skip client Sidebar.
   // Marketing pages are prospect-facing — no console chrome.

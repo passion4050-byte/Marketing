@@ -1,8 +1,11 @@
 /**
  * Round 144 (2026-08-02) — 클라이언트 공개 월간 보고서.
  *
- * `/r/{tenantId}/{yyyy-MM}?t={token}` — 로그인 없이 열림. middleware matcher
+ * `/report/{tenantId}/{yyyy-MM}?t={token}` — 로그인 없이 열림. middleware matcher
  * (`/`, `/api/admin/*`, `/admin/*`) 밖이라 그대로 통과.
+ *
+ * ⚠️ 경로가 `/r/` 가 아닌 이유: `/r/[slug]` 가 ShortLink 라우트로 이미 존재.
+ *   Next.js 는 같은 depth 에 다른 동적 세그먼트명을 허용하지 않아 빌드가 깨진다.
  *
  * 설계 원칙 (E2E 감사 반영):
  *   1. **브랜드 등장(mention)과 출처 인용(citation)을 절대 섞지 않는다.**

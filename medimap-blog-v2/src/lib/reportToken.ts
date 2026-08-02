@@ -56,7 +56,13 @@ export function verifyReportToken(
   return timingSafeEqual(a, b);
 }
 
-/** 이메일/공유용 절대 URL. 시크릿 미설정 시 null. */
+/**
+ * 이메일/공유용 절대 URL. 시크릿 미설정 시 null.
+ *
+ * ⚠️ 경로는 `/report/...` — `/r/` 는 이미 ShortLink(`/r/[slug]`)가 쓰고 있다.
+ *   Next.js 는 같은 depth 에 서로 다른 동적 세그먼트명을 허용하지 않아
+ *   (`'slug' !== 'tenantId'`) 빌드가 통째로 실패한다. (Round 144 실사고)
+ */
 export function buildReportUrl(
   origin: string,
   tenantId: number | string,
@@ -64,7 +70,7 @@ export function buildReportUrl(
 ): string | null {
   const t = makeReportToken(tenantId, period);
   if (!t) return null;
-  return `${origin}/r/${tenantId}/${period}?t=${t}`;
+  return `${origin}/report/${tenantId}/${period}?t=${t}`;
 }
 
 /** 'YYYY년 M월 (최근 30일 기준)' 같은 라벨에서 yyyy-MM 추출. 실패 시 이번 달. */
