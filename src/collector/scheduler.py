@@ -423,8 +423,16 @@ def daily_auto_content_job(
 
         summary["tenants"] += 1
         ch_cycle = channels or default_channels
+        # Round 145 (2026-08-13) — 🔴 라운드로빈 인덱스 고착 수정.
+        #   daily_count=1 이면 kw_rows[i % len] 이 매일 같은 첫 키워드(최소 id)만 뽑아
+        #   실증: t17 11일간 "필러" ×22회 단일 생성, t16 "韓国 植毛 費用" ×20회.
+        #   해외 키워드는 영원히 미도달 → 커버리지 0 + 동일 주제 중복.
+        #   수정: 날짜(ordinal)+tenant_id 기반 결정적 오프셋 → 매일 다음 키워드로 순환.
+        #   결정적이라 같은 날 재실행해도 동일 픽(중복 생성 없음), A/B 재현성 유지.
+        import datetime as _dt_rot
+        _rot_offset = (_dt_rot.date.today().toordinal() + tenant_id) % len(kw_rows)
         for i in range(daily_count):
-            keyword_text, kw_lang, kw_market = kw_rows[i % len(kw_rows)]
+            keyword_text, kw_lang, kw_market = kw_rows[(_rot_offset + i) % len(kw_rows)]
             channel = ch_cycle[i % len(ch_cycle)]
             try:
                 final_status = _generate_draft(
