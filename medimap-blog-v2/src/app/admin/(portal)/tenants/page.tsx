@@ -27,6 +27,7 @@ interface SbTenant {
   joined_at: string | null;
   report_send_day: number | null; // Round 53 — 1~28일
   publish_plan: 'A' | 'B' | null; // Round 83 — A: 주3회(월/수/금), B: 매일
+  onboarding_warnings?: string[]; // Round 145 — 상품 활성인데 키워드 0 / enabled=false 경고
 }
 
 const STATUS_CHIP: Record<TenantStatus, { label: string; cls: string }> = {
@@ -174,6 +175,20 @@ export default function TenantsPage() {
                   <td className="px-4 py-3">
                     <div className="text-sm font-semibold text-ink">{t.name}</div>
                     <div className="text-[11px] text-ink-muted">{t.business_model ?? '—'}</div>
+                    {/* Round 145 — 온보딩 갭 경고: 상품 활성인데 키워드 0 / 자동발행 꺼짐 */}
+                    {(t.onboarding_warnings ?? []).length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {(t.onboarding_warnings ?? []).map((w) => (
+                          <span
+                            key={w}
+                            className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-200"
+                            title="이 상태면 해당 언어 콘텐츠가 생성되지 않습니다 — 키워드 풀 추가 또는 자동발행 켜기 필요"
+                          >
+                            ⚠ {w}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-xs">{t.domain_category ?? '—'}</td>
                   <td className="px-4 py-3 text-xs">{t.region ?? '—'}</td>
@@ -226,6 +241,16 @@ export default function TenantsPage() {
                 </div>
                 <span className={STATUS_CHIP[status].cls + ' shrink-0'}>{STATUS_CHIP[status].label}</span>
               </div>
+              {/* Round 145 — 온보딩 갭 경고 (모바일) */}
+              {(t.onboarding_warnings ?? []).length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-1">
+                  {(t.onboarding_warnings ?? []).map((w) => (
+                    <span key={w} className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-200">
+                      ⚠ {w}
+                    </span>
+                  ))}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-ink-soft">
                 <div><span className="text-ink-muted">진료과목:</span> {t.domain_category ?? '—'}</div>
                 <div><span className="text-ink-muted">지역:</span> {t.region ?? '—'}</div>

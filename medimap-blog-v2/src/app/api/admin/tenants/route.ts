@@ -69,9 +69,46 @@ export async function GET() {
       publishCountMap.set(r.tenant_id, (publishCountMap.get(r.tenant_id) ?? 0) + 1);
     });
   }
+  // Round 145 (2026-08-14) — 온보딩 갭 경고 (재발 방지).
+  //   실사고: 해외 상품(tenant_products active)인데 해당 언어 키워드 0 → 생성이 구조적으로
+  //   불가능한 채 침묵 (강남연세 en·밝은눈 en/zh·광동 en/zh 실측). enabled=false 도 동일 증상.
+  //   목록에서 바로 보이게 tenant 별 warnings 배열로 반환.
+  const warningsMap = new Map<number, string[]>();
+  if (tenantIds.length > 0) {
+    const [{ data: prodRows }, { data: kwRows }, { data: acsRows }] = await Promise.all([
+      sb.from('tenant_products').select('tenant_id, market, lang')
+        .eq('status', 'active').in('tenant_id', tenantIds),
+      sb.from('keywords').select('tenant_id, market, lang')
+        .eq('is_active', true).in('tenant_id', tenantIds),
+      sb.from('auto_content_settings').select('tenant_id, enabled').in('tenant_id', tenantIds),
+    ]);
+    const kwCount = new Map<string, number>();
+    (kwRows ?? []).forEach((k: { tenant_id: number; market: string | null; lang: string | null }) => {
+      const key = `${k.tenant_id}|${k.market ?? 'domestic'}|${k.lang ?? 'ko'}`;
+      kwCount.set(key, (kwCount.get(key) ?? 0) + 1);
+    });
+    const push = (tid: number, msg: string) => {
+      const arr = warningsMap.get(tid) ?? [];
+      if (!arr.includes(msg)) arr.push(msg);
+      warningsMap.set(tid, arr);
+    };
+    (prodRows ?? []).forEach((p: { tenant_id: number; market: string; lang: string }) => {
+      const n = kwCount.get(`${p.tenant_id}|${p.market}|${p.lang}`) ?? 0;
+      if (n === 0) push(p.tenant_id, `${p.market === 'overseas' ? '해외' : '국내'} ${p.lang.toUpperCase()} 상품 활성인데 키워드 0`);
+    });
+    const acsEnabled = new Map<number, boolean>();
+    (acsRows ?? []).forEach((a: { tenant_id: number; enabled: boolean }) => {
+      acsEnabled.set(a.tenant_id, a.enabled);
+    });
+    (prodRows ?? []).forEach((p: { tenant_id: number }) => {
+      if (acsEnabled.get(p.tenant_id) === false) push(p.tenant_id, '상품 활성인데 자동발행 꺼짐(enabled=false)');
+    });
+  }
+
   const enriched = tenants.map((t: { id: number }) => ({
     ...t,
     publish_count: publishCountMap.get(t.id) ?? 0,
+    onboarding_warnings: warningsMap.get(t.id) ?? [],
   }));
 
   return NextResponse.json({ ok: true, tenants: enriched });
