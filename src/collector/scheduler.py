@@ -275,7 +275,8 @@ def daily_auto_content_job(
         try:
             final_status = _generate_draft(
                 session_factory, target_tenant_id, keyword_text, channel,
-                auto_publish=(auto_publish and _tgt_market == "domestic"),
+                # Round 145 (2026-08-14) — 해외도 자동 발행 (사용자 결정). 린터 가드 유지.
+                auto_publish=auto_publish,
                 lang=_tgt_lang, market=_tgt_market,
             )
             if final_status == "published":
@@ -437,8 +438,11 @@ def daily_auto_content_job(
             try:
                 final_status = _generate_draft(
                     session_factory, tenant_id, keyword_text, channel,
-                    # 해외는 항상 draft 로(검수 후 수동 발행) — 첫 해외 발행 안전장치
-                    auto_publish=(auto_publish and kw_market == "domestic"),
+                    # Round 145 (2026-08-14) — 해외도 자동 발행 전환 (사용자 명시 결정·책임 확인).
+                    #   기존: 해외는 항상 draft(수동 검수 후 발행). 이제 국내와 동일하게
+                    #   의료법 린터 pass 시 즉시 published. 린터 warn/fail 은 여전히
+                    #   무조건 draft(_generate_draft 가드) — 컴플라이언스 우회 아님.
+                    auto_publish=auto_publish,
                     lang=kw_lang, market=kw_market,
                 )
                 if final_status == "published":
