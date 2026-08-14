@@ -94,7 +94,7 @@ jobs:
           IMAGE_PROVIDER: ${{ secrets.IMAGE_PROVIDER || 'nano_banana' }}
           IMAGE_STRICT: ${{ secrets.IMAGE_STRICT || 'true' }}
         run: python scripts/run_auto_content_once.py
-- name: Step 2.5 — Backfill missing draft cover images
+      - name: Step 2.5 — Backfill missing draft cover images
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
