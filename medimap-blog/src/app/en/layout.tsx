@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { OverseasShell } from "@/components/OverseasShell";
+import { FloatingConsult } from "@/components/FloatingConsult";
 
 export const metadata: Metadata = {
   title: {
@@ -42,6 +43,7 @@ export default function EnLayout({ children }: { children: React.ReactNode }) {
       footerTagline="AI search visibility for Korean clinics"
     >
       {children}
+      <FloatingConsult lang="en" />
     </OverseasShell>
   );
 }

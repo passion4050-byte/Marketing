@@ -209,8 +209,8 @@ export default async function CategoryPage({ params }: PageProps) {
                       className="object-cover grayscale transition duration-[900ms] ease-out group-hover:scale-[1.03] group-hover:grayscale-0"
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center bg-gradient-to-br from-stone-100 to-stone-200 text-[10px] font-bold uppercase tracking-widest text-stone-400">
-                      No cover
+                    <div className="flex h-full items-center justify-center bg-gradient-to-br from-stone-100 to-stone-200 text-stone-300">
+                      <span className="font-serif text-lg italic">WECIRCLE</span>
                     </div>
                   )}
                 </div>

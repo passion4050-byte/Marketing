@@ -88,7 +88,7 @@ export default async function BlogIndexPage() {
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center bg-gradient-to-br from-stone-100 to-stone-200 text-stone-400">
-                        <span className="text-[10px] font-bold uppercase tracking-widest">No cover</span>
+                        <span className="font-serif text-lg italic text-stone-300">WECIRCLE</span>
                       </div>
                     )}
                   </div>

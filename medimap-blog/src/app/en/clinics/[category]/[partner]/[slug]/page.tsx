@@ -15,10 +15,10 @@ const EN_LABELS: GuideLabels = {
   guides: "Clinics",
   faq: "Frequently asked questions",
   updated: "Updated",
-  ctaTitle: "Want your clinic featured & cited by AI?",
+  ctaTitle: "Interested in this clinic?",
   ctaBody:
-    "This is the kind of content WECIRCLE publishes so ChatGPT, Perplexity and Gemini recommend partner clinics to foreign patients.",
-  ctaBtn: "Talk to WECIRCLE →",
+    "Message us with your questions. We help you check availability, get a quote and book. Free for you.",
+  ctaBtn: "Chat on WhatsApp",
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

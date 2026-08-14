@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { siteConfig } from "@/lib/site";
+import { kakaoTrackHrefSelf } from "@/lib/ctaLink";
 
 /**
  * Round 111 v3 (2026-07-02) — Editorial masthead-style footer.
@@ -41,7 +42,7 @@ export function Footer() {
             <FooterColumn
               overline="Contact"
               items={[
-                { label: "카카오톡 상담", href: siteConfig.contact.kakao, external: true },
+                { label: "카카오톡 상담", href: kakaoTrackHrefSelf(), external: true },
                 { label: "제휴 문의", href: "/contact" },
                 { label: "passion4050@gmail.com", href: "mailto:passion4050@gmail.com" },
               ]}
@@ -74,7 +75,7 @@ export function Footer() {
             </p>
           </div>
           <a
-            href={siteConfig.contact.kakao}
+            href={kakaoTrackHrefSelf()}
             target="_blank"
             rel="noopener noreferrer"
             className="group inline-flex items-center justify-between gap-4 border border-stone-900 bg-stone-900 px-6 py-4 text-white transition hover:bg-stone-800"

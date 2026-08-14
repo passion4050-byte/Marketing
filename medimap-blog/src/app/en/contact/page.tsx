@@ -6,7 +6,7 @@ import { siteConfig } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Talk to WECIRCLE",
   description:
-    "Book a 20-minute call. We'll show you which competitors AI cites today for your treatments — and how we make it your clinic. English, Japanese & Chinese GEO/AEO for Korean clinics.",
+    "Patients: free help comparing Korean clinics and booking. Clinics: see which competitors AI cites for your treatments. English, Japanese and Chinese support.",
   alternates: {
     canonical: "/en/contact",
     languages: { en: "/en/contact", ja: "/ja/contact", "zh-Hans": "/zh/contact", ko: "/contact" },
@@ -34,20 +34,37 @@ export default function EnContactPage() {
     <>
       <JsonLd data={contactLd} />
 
-      {/* Hero */}
+      {/* Hero — Round 145c: 환자/병원 듀얼 패스 (감사 #4). 환자 카드가 1순위. */}
       <section className="mx-auto max-w-6xl px-5 pb-14 pt-16 md:pt-24">
-        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-stone-300 px-3 py-1 text-[12px] font-semibold text-stone-600">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#1B68FF]" />
-          Talk to us
-        </div>
         <h1 className="max-w-3xl text-4xl font-black leading-[1.08] tracking-tight text-stone-950 md:text-6xl">
-          See which clinics AI recommends for your treatments — <span className="text-[#1B68FF]">today</span>.
+          How can we help?
         </h1>
-        <p className="mt-6 max-w-2xl text-lg leading-relaxed text-stone-600">
-          Book a 20-minute call. We&apos;ll show you exactly which competitors ChatGPT, Perplexity and
-          Gemini cite for foreign-patient searches in your specialty — and how we make it your clinic.
-        </p>
-        <ContactButtons waLabel="Book a call" lineLabel="LINE" size="lg" className="mt-8" />
+        <div className="mt-8 grid gap-5 md:grid-cols-2">
+          <div className="rounded-2xl border-2 border-[#1B68FF]/30 bg-white p-7">
+            <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#1B68FF]">For patients</div>
+            <h2 className="mt-2 text-xl font-bold text-stone-950">Planning treatment in Korea</h2>
+            <p className="mt-2 text-sm leading-relaxed text-stone-600">
+              Questions about clinics, prices or booking. Message us and we handle the rest.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {["Free", "English OK", "Reply within 1 business day"].map((c) => (
+                <span key={c} className="rounded-full bg-stone-100 px-3 py-1 text-[11px] font-semibold text-stone-700">
+                  {c}
+                </span>
+              ))}
+            </div>
+            <ContactButtons lang="en" waLabel="Chat on WhatsApp" lineLabel="LINE" className="mt-5" />
+          </div>
+          <div className="rounded-2xl border border-stone-200 bg-white p-7">
+            <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-stone-500">For clinics</div>
+            <h2 className="mt-2 text-xl font-bold text-stone-950">Run a Korean clinic?</h2>
+            <p className="mt-2 text-sm leading-relaxed text-stone-600">
+              Book a 20-minute call. We show which competitors ChatGPT, Perplexity and Gemini cite
+              for your treatments, and how we make it your clinic.
+            </p>
+            <ContactButtons lang="en" waLabel="Book a call" lineLabel="LINE" className="mt-5" />
+          </div>
+        </div>
       </section>
 
       {/* What happens next */}
@@ -73,7 +90,7 @@ export default function EnContactPage() {
             <h2 className="text-xl font-bold tracking-tight text-stone-950">WECIRCLE</h2>
             <p className="mt-2 text-sm leading-relaxed text-stone-600">
               GEO/AEO content publishing that gets Korean clinics cited by AI search for foreign
-              patients — measured, compliant, multilingual.
+              patients. Measured, compliant, multilingual.
             </p>
             <dl className="mt-6 space-y-2 text-sm text-stone-600">
               <div className="flex gap-3">

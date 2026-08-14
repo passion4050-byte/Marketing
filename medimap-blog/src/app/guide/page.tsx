@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { JsonLd } from "@/components/JsonLd";
 import { breadcrumbLd } from "@/lib/schema";
-import { siteConfig } from "@/lib/site";
+import { kakaoTrackHrefSelf } from "@/lib/ctaLink";
 
 // Round 111 v3 (2026-07-02) — Editorial guide page.
 
@@ -167,7 +167,7 @@ export default function GuidePage() {
               </div>
               <div className="flex flex-col gap-3 lg:pl-8">
                 <a
-                  href={siteConfig.contact.kakao}
+                  href={kakaoTrackHrefSelf()}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="group inline-flex items-center justify-between gap-4 border border-stone-900 bg-stone-900 px-6 py-5 text-white transition hover:bg-stone-800"

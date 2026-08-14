@@ -5372,3 +5372,42 @@ self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 3
 6. CTA 셀프클릭 필터(운영자 IP/UA 제외) 또는 라벨 정직화
 7. (기존 144c 후보 승계) 코호트 재판정 9/13 · 청담디어 효율 · 개인 로그인 · T1 학습 재설계
 
+---
+
+# Round 145c (2026-08-14~15) — 고객 전환 UIUX 대수술 (페르소나 E2E → 21건 → A+B+C 전량 구현)
+
+> 발단: CTA 실번호 연결(WhatsApp +82 10-8378-7555=wa.me/821083787555, LINE ~passion4050) 후
+> "콘텐츠 독자가 상담을 쉽게 시작하는 구조"로 사용자 지시. 페르소나 3인(미국 환자·일본 환자·KR 병원장)
+> 서브에이전트 E2E(텍스트 렌더 실측) → 발견 21건(P0 8) → 아티팩트(wecircle-uiux-audit-145b) → 전량 승인.
+> 디자인: design-taste(redesign-preserve·em-dash 금지·기존 토큰 유지) + emil(모션 절제·active 촉각) + tailwind 토큰.
+
+## 핵심 발견 (감사)
+- 🔴 **환자 글의 유일 CTA 가 B2B 피치**("Want your clinic featured & cited by AI?") — 콘텐츠는 환자를
+  데려오는데 CTA 가 환자를 버림. /en·/ja contact 도 100% B2B.
+- 🔴 CTA 플레이스홀더 혼재 = 배포 캐시(env 반영 후 Redeploy 전 ISR) + LINE env 가 Development 전용이던 문제.
+- 🔴 JA 로케일에서 LINE(일본 지배 채널)이 항상 2순위. 카카오 채널 이원화(pf vs open) + 헤더 CTA /r/ 미경유.
+
+## 구현 (medimap-blog, 30파일 esbuild ALL_PASS)
+- **ContactButtons**: `lang` prop — ja=LINE 1순위 렌더. active:scale 촉각.
+- **FloatingConsult 신규**: 해외 모바일(md:hidden) 플로팅 WhatsApp+LINE(ja=LINE 먼저). 스크롤 리스너 없음
+  (항상 표시), motion-safe 진입 1회, /contact 숨김. en/ja/zh 레이아웃 마운트.
+- **GuideArticle**: 브레드크럼 → /{lang}/blog(#10) · 신뢰 라인(파트너 의료기관 네트워크·의료광고법 검수 #18)
+  · 본문 직후 인라인 환자 CTA 카드(#7) · 말미 CTA 안심 칩(무료·언어·1영업일 #16). PATIENT_COPY 내부 로컬라이즈.
+- **가이드/클리닉 말미 라벨 7파일**: B2B 피치 → 환자 CTA 트랜스크리에이션(en "Planning treatment in Korea?" /
+  ja 「韓国での施術をご検討中ですか？」 / zh 「正在考虑赴韩就医吗？」)(#3·#5).
+- **contact ×3 듀얼 패스**: 환자 카드(1순위·안심 칩) + 클리닉 카드(20분 콜)(#4). 홈 ×3 환자 분기 배너(#11).
+- **KR 계측·채널 통일(#14)**: site.ts kakao → pf.kakao/_xnWQkG(공식) · Header/Footer/홈/about/guide/허브 →
+  /r/k-wecircle-self · 파트너 페이지 → /r/k-{partner} · **DB shortlinks 15행 target open.kakao→pf.kakao(utm 유지)**.
+- KR 폴리시: "No cover" 라벨 → WECIRCLE 워드마크(#17) · 홈 최신 주제 중복 제거(제목 12자 키 #13) ·
+  contact 실적 스트립(#21).
+
+## 함정 (이번에 직접 밟음)
+- **em-dash**: 새 카피에 2회 삽입했다 자가 검출·교정. 가시 문자열 grep 최종 검사 루틴화.
+- **JSX 속성 자리 `//` 주석** 삽입 → 문법 오류, 즉시 교정 (함정 124-B 변형: 속성 리스트 안엔 어떤 주석도 금지).
+- **medimap-blog 는 Next 15**(Promise params 정상) — v2(Next 14)와 규약 다름. build-gate 의 Promise 검사는 v2 전용.
+
+## 미완/대기
+- ⏳ 사용자: Vercel LINE env All Environments 수정 + Redeploy (이거 없으면 LINE 버튼 여전히 죽음).
+- 클리닉 등재 갭(#8: 가이드 속 안과 3곳이 /en/clinics 부재 — 데이터 작업) · dear 중복 글(#9) · JA 윤문(#19).
+- KR 홈 브랜드 혼재(#12)·통계 위젯(#20)은 현행 코드에 부재 — 감사가 본 것은 스테일 캐시 추정, Redeploy 후 재검증.
+

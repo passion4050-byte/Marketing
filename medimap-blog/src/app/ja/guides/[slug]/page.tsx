@@ -37,10 +37,11 @@ const JA_LABELS: GuideLabels = {
   guides: "ガイド",
   faq: "よくある質問",
   updated: "更新日",
-  ctaTitle: "あなたのクリニックをAIに引用させませんか？",
+  // Round 145c — 환자용 CTA (감사 #5)
+  ctaTitle: "韓国での施術をご検討中ですか？",
   ctaBody:
-    "これはWECIRCLEが発信するガイドの一例です。ChatGPT・Perplexity・Geminiが外国人患者に提携クリニックを推薦するよう設計しています。",
-  ctaBtn: "WECIRCLEに相談 →",
+    "気になることをLINEでお聞かせください。クリニック比較・見積もり・予約まで、無料でお手伝いします。",
+  ctaBtn: "WhatsApp",
 };
 
 export default async function JaGuidePage({ params }: Props) {

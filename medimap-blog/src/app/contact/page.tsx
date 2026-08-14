@@ -70,6 +70,10 @@ export default function ContactPage() {
                 병원 · 의료기관 · 제휴 · 컴플라이언스 관련 문의는 아래 채널로 보내주세요. 위서클 파트너십 팀이 직접 응답합니다.
               </p>
             </div>
+            {/* Round 145c (감사 #21) — 실적 스트립: 신뢰 요소를 문의 진입점에 노출 */}
+            <p className="mt-6 text-[12.5px] tracking-tight text-stone-500">
+              7개 진료과 파트너 아카이브 · 발행 콘텐츠 200편+ · 전 콘텐츠 의료광고법 검수
+            </p>
           </div>
         </section>
 

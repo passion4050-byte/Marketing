@@ -28,12 +28,25 @@ export default function JaHome() {
             患者はもう10件のリンクをスクロールしません。ChatGPT・Perplexity・Geminiに聞きます。WECIRCLEは英語・日本語・中国語のコンテンツを発信し、Googleで上位表示され、<strong className="text-stone-900">AIに引用される</strong>ようにします。そして、その引用を計測します。
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <ContactButtons waLabel="相談する" />
+            <ContactButtons lang="ja" waLabel="WhatsApp" lineLabel="LINEで相談" />
             <Link href="/ja/guides/smile-lasik-in-korea" className="rounded-full border border-stone-300 px-6 py-3 text-sm font-bold text-stone-800 transition hover:border-stone-900">
               サンプルを見る
             </Link>
           </div>
         </div>
+      </section>
+
+      {/* Round 145c — 환자 분기 배너 */}
+      <section className="mx-auto max-w-6xl px-5 pb-4">
+        <Link
+          href="/ja/blog"
+          className="flex items-center justify-between gap-4 rounded-2xl border border-[#1B68FF]/25 bg-[#1B68FF]/5 px-6 py-4 transition hover:border-[#1B68FF]/50"
+        >
+          <span className="text-sm font-semibold text-stone-800">
+            韓国での施術をお探しですか？患者向けガイドはこちら
+          </span>
+          <span className="shrink-0 text-sm font-bold text-[#1B68FF]">→</span>
+        </Link>
       </section>
 
       <section className="mx-auto max-w-6xl px-5 py-14">

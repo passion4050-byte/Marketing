@@ -15,10 +15,10 @@ const JA_LABELS: GuideLabels = {
   guides: "クリニック",
   faq: "よくある質問",
   updated: "更新日",
-  ctaTitle: "あなたのクリニックをAIに引用させませんか？",
+  ctaTitle: "このクリニックが気になりますか？",
   ctaBody:
-    "これはWECIRCLEが発信するコンテンツの一例です。ChatGPT・Perplexity・Geminiが外国人患者に提携クリニックを推薦するよう設計しています。",
-  ctaBtn: "WECIRCLEに相談 →",
+    "LINEでお気軽にご相談ください。空き確認・見積もり・予約まで、無料でお手伝いします。",
+  ctaBtn: "WhatsApp",
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

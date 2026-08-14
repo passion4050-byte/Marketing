@@ -107,6 +107,19 @@ export default function EnHomePage() {
         </div>
       </section>
 
+      {/* Round 145c — 환자 분기 배너 (감사 #11: 이 홈은 B2B, 환자 유입 시 길 안내) */}
+      <section className="mx-auto max-w-6xl px-5 pb-4">
+        <Link
+          href="/en/blog"
+          className="flex items-center justify-between gap-4 rounded-2xl border border-[#1B68FF]/25 bg-[#1B68FF]/5 px-6 py-4 transition hover:border-[#1B68FF]/50"
+        >
+          <span className="text-sm font-semibold text-stone-800">
+            Looking for treatment in Korea? Browse our patient guides
+          </span>
+          <span className="shrink-0 text-sm font-bold text-[#1B68FF]">→</span>
+        </Link>
+      </section>
+
       {/* The shift */}
       <section className="border-y border-stone-200/70 bg-white">
         <div className="mx-auto grid max-w-6xl gap-8 px-5 py-14 md:grid-cols-3">

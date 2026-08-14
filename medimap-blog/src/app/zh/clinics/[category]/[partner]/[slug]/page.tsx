@@ -15,10 +15,9 @@ const ZH_LABELS: GuideLabels = {
   guides: "诊所",
   faq: "常见问题",
   updated: "更新于",
-  ctaTitle: "想让您的诊所被AI引用吗？",
-  ctaBody:
-    "这是WECIRCLE发布的内容示例。我们让ChatGPT、Perplexity和Gemini向外国患者推荐合作诊所。",
-  ctaBtn: "联系 WECIRCLE →",
+  ctaTitle: "对这家诊所感兴趣吗？",
+  ctaBody: "欢迎咨询。我们协助您确认档期、获取报价并完成预约，对您完全免费。",
+  ctaBtn: "立即咨询",
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

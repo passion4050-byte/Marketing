@@ -4,6 +4,7 @@ import Image from "next/image";
 import { ArrowUpRight } from "lucide-react";
 import { PARTNER_CATEGORIES, getAllPartnerPosts } from "@/lib/partners";
 import { siteConfig, absoluteUrl } from "@/lib/site";
+import { kakaoTrackHrefSelf } from "@/lib/ctaLink";
 
 // Round 111 v2 (2026-07-02) — editorial magazine index. 3-col grid 폐기, numbered directory,
 // hairline dividers, cover image preview on hover, warm off-white palette, controlled scale.
@@ -190,7 +191,7 @@ export default async function WithPartnersHubPage() {
             </div>
             <div className="lg:pl-6">
               <a
-                href={siteConfig.contact.kakao}
+                href={kakaoTrackHrefSelf()}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group inline-flex w-full items-center justify-between gap-4 border border-stone-900 bg-stone-900 px-6 py-5 text-white transition hover:bg-stone-800"

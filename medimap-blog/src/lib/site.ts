@@ -16,7 +16,9 @@ export const siteConfig = {
     process.env.NEXT_PUBLIC_SHORTLINK_BASE || "https://wecircle.co.kr/r",
   contact: {
     // Round 108-e (2026-07-03) — wecircle 오픈카톡 상담 채널 (국내용)
-    kakao: "https://open.kakao.com/o/spyAz9Bi",
+    // Round 145c (2026-08-14) — 카카오 채널 단일화 (감사 #14): 공식 채널 pf.kakao 로 통일.
+    //   (기존 open.kakao 오픈채팅과 이원화돼 있던 것 정리. /r/k-* 숏링크 target 도 DB 에서 동기 변경.)
+    kakao: "https://pf.kakao.com/_xnWQkG",
     // 해외(en/ja/zh)용 상담 채널 — 실제 링크는 Vercel env 로 주입(추후 제공). 미설정 시 placeholder.
     whatsapp: process.env.NEXT_PUBLIC_WHATSAPP || "https://wa.me/",
     line: process.env.NEXT_PUBLIC_LINE || "https://line.me/",

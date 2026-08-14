@@ -6,7 +6,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { organizationLd, websiteLd } from "@/lib/schema";
 import { getAllPosts } from "@/lib/posts";
 import { getAllPartnerPosts } from "@/lib/partners";
-import { siteConfig } from "@/lib/site";
+import { kakaoTrackHrefSelf } from "@/lib/ctaLink";
 
 // Round 111 v3 (2026-07-02) — Editorial home. Off-white magazine cover style.
 export const revalidate = 60;
@@ -20,7 +20,18 @@ const CATEGORY_OVERLINE: Record<string, string> = {
 export default async function HomePage() {
   const [blogPosts, partnerPosts] = await Promise.all([getAllPosts(), getAllPartnerPosts()]);
   const featured = blogPosts.find((p) => p.featured) ?? blogPosts[0];
-  const secondary = blogPosts.filter((p) => p.slug !== featured?.slug).slice(0, 3);
+  // Round 145c (감사 #13) — 홈 최신 목록 주제 중복 제거: 같은 주제(제목 앞 12자) 글이
+  //   같은 날 여러 편 발행돼 나란히 노출되면 자동생성 티가 남 → distinct topic 만.
+  const seenTopic = new Set<string>([(featured?.title ?? "").slice(0, 12)]);
+  const secondary = blogPosts
+    .filter((p) => p.slug !== featured?.slug)
+    .filter((p) => {
+      const key = (p.title ?? "").slice(0, 12);
+      if (seenTopic.has(key)) return false;
+      seenTopic.add(key);
+      return true;
+    })
+    .slice(0, 3);
   const totalPosts = blogPosts.length + partnerPosts.length;
   const today = new Date();
 
@@ -94,7 +105,7 @@ export default async function HomePage() {
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center bg-gradient-to-br from-stone-100 to-stone-200 text-stone-400">
-                        <span className="text-[10px] font-bold uppercase tracking-widest">No cover</span>
+                        <span className="font-serif text-lg italic text-stone-300">WECIRCLE</span>
                       </div>
                     )}
                     {/* Featured badge */}
@@ -226,7 +237,7 @@ export default async function HomePage() {
               </div>
               <div className="flex flex-col gap-3">
                 <a
-                  href={siteConfig.contact.kakao}
+                  href={kakaoTrackHrefSelf()}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="group inline-flex items-center justify-between gap-4 border border-stone-900 bg-stone-900 px-6 py-5 text-white transition hover:bg-stone-800"

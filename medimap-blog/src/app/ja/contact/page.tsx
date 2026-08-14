@@ -34,18 +34,36 @@ export default function JaContactPage() {
     <>
       <JsonLd data={contactLd} />
 
+      {/* Round 145c — 환자/병원 듀얼 패스. JA 는 LINE 1순위 (감사 #4·#6). */}
       <section className="mx-auto max-w-6xl px-5 pb-14 pt-16 md:pt-24">
-        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-stone-300 px-3 py-1 text-[12px] font-semibold text-stone-600">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#1B68FF]" />
-          相談する
-        </div>
         <h1 className="max-w-3xl text-4xl font-black leading-[1.1] tracking-tight text-stone-950 md:text-6xl">
-          あなたの施術で、AIが今どのクリニックを勧めているか<span className="text-[#1B68FF]">お見せします</span>。
+          ご相談内容をお選びください
         </h1>
-        <p className="mt-6 max-w-2xl text-lg leading-relaxed text-stone-600">
-          20分の相談で、外国人患者の検索であなたの診療科の競合をChatGPT・Perplexity・Geminiがどう引用しているかをお見せし、それをあなたのクリニックに変える方法をご説明します。
-        </p>
-        <ContactButtons waLabel="相談する" lineLabel="LINE" size="lg" className="mt-8" />
+        <div className="mt-8 grid gap-5 md:grid-cols-2">
+          <div className="rounded-2xl border-2 border-[#1B68FF]/30 bg-white p-7">
+            <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#1B68FF]">患者さまへ</div>
+            <h2 className="mt-2 text-xl font-bold text-stone-950">韓国での施術をご検討中の方</h2>
+            <p className="mt-2 text-sm leading-relaxed text-stone-600">
+              クリニック・費用・予約について、LINEでお気軽にご相談ください。
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {["無料", "日本語OK", "1営業日以内に返信"].map((c) => (
+                <span key={c} className="rounded-full bg-stone-100 px-3 py-1 text-[11px] font-semibold text-stone-700">
+                  {c}
+                </span>
+              ))}
+            </div>
+            <ContactButtons lang="ja" waLabel="WhatsApp" lineLabel="LINEで相談" className="mt-5" />
+          </div>
+          <div className="rounded-2xl border border-stone-200 bg-white p-7">
+            <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-stone-500">クリニックさまへ</div>
+            <h2 className="mt-2 text-xl font-bold text-stone-950">韓国のクリニックを運営中の方</h2>
+            <p className="mt-2 text-sm leading-relaxed text-stone-600">
+              20分の相談で、あなたの施術についてAIが今どの競合を引用しているかをお見せします。
+            </p>
+            <ContactButtons lang="ja" waLabel="WhatsApp" lineLabel="LINEで相談" className="mt-5" />
+          </div>
+        </div>
       </section>
 
       <section className="border-y border-stone-200/70 bg-white">

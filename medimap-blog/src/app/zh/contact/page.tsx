@@ -34,18 +34,36 @@ export default function ZhContactPage() {
     <>
       <JsonLd data={contactLd} />
 
+      {/* Round 145c — 환자/병원 듀얼 패스 (감사 #4) */}
       <section className="mx-auto max-w-6xl px-5 pb-14 pt-16 md:pt-24">
-        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-stone-300 px-3 py-1 text-[12px] font-semibold text-stone-600">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#1B68FF]" />
-          预约咨询
-        </div>
         <h1 className="max-w-3xl text-4xl font-black leading-[1.1] tracking-tight text-stone-950 md:text-6xl">
-          针对您的施术，AI目前推荐哪些诊所，我们<span className="text-[#1B68FF]">直接展示</span>。
+          请选择您的咨询类型
         </h1>
-        <p className="mt-6 max-w-2xl text-lg leading-relaxed text-stone-600">
-          20分钟通话，我们将展示在外国患者检索中，ChatGPT、Perplexity、Gemini 如何引用您科室的竞争对手，以及如何让它变成您的诊所。
-        </p>
-        <ContactButtons waLabel="预约咨询" lineLabel="LINE" size="lg" className="mt-8" />
+        <div className="mt-8 grid gap-5 md:grid-cols-2">
+          <div className="rounded-2xl border-2 border-[#1B68FF]/30 bg-white p-7">
+            <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#1B68FF]">患者咨询</div>
+            <h2 className="mt-2 text-xl font-bold text-stone-950">正在考虑赴韩就医</h2>
+            <p className="mt-2 text-sm leading-relaxed text-stone-600">
+              关于诊所、费用或预约的问题，欢迎随时咨询。
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {["免费", "中文可沟通", "1个工作日内回复"].map((c) => (
+                <span key={c} className="rounded-full bg-stone-100 px-3 py-1 text-[11px] font-semibold text-stone-700">
+                  {c}
+                </span>
+              ))}
+            </div>
+            <ContactButtons lang="zh" waLabel="立即咨询" lineLabel="LINE" className="mt-5" />
+          </div>
+          <div className="rounded-2xl border border-stone-200 bg-white p-7">
+            <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-stone-500">诊所合作</div>
+            <h2 className="mt-2 text-xl font-bold text-stone-950">您在韩国经营诊所吗？</h2>
+            <p className="mt-2 text-sm leading-relaxed text-stone-600">
+              20分钟通话，我们将展示AI目前为您的施术引用了哪些竞争对手。
+            </p>
+            <ContactButtons lang="zh" waLabel="预约通话" lineLabel="LINE" className="mt-5" />
+          </div>
+        </div>
       </section>
 
       <section className="border-y border-stone-200/70 bg-white">

@@ -28,12 +28,25 @@ export default function ZhHome() {
             患者不再翻十条链接，而是询问ChatGPT、Perplexity和Gemini。WECIRCLE发布英语、日语、中文内容，让您在Google排名靠前，并<strong className="text-stone-900">被AI引用</strong>——而且我们计量每一次引用。
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <ContactButtons waLabel="预约咨询" />
+            <ContactButtons lang="zh" waLabel="预约咨询" />
             <Link href="/zh/guides/smile-lasik-in-korea" className="rounded-full border border-stone-300 px-6 py-3 text-sm font-bold text-stone-800 transition hover:border-stone-900">
               查看样本
             </Link>
           </div>
         </div>
+      </section>
+
+      {/* Round 145c — 환자 분기 배너 */}
+      <section className="mx-auto max-w-6xl px-5 pb-4">
+        <Link
+          href="/zh/blog"
+          className="flex items-center justify-between gap-4 rounded-2xl border border-[#1B68FF]/25 bg-[#1B68FF]/5 px-6 py-4 transition hover:border-[#1B68FF]/50"
+        >
+          <span className="text-sm font-semibold text-stone-800">
+            正在了解赴韩就医？浏览患者指南
+          </span>
+          <span className="shrink-0 text-sm font-bold text-[#1B68FF]">→</span>
+        </Link>
       </section>
 
       <section className="mx-auto max-w-6xl px-5 py-14">

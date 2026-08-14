@@ -37,10 +37,10 @@ const ZH_LABELS: GuideLabels = {
   guides: "指南",
   faq: "常见问题",
   updated: "更新于",
-  ctaTitle: "想让您的诊所被AI引用吗？",
-  ctaBody:
-    "这是WECIRCLE发布的指南示例。我们让ChatGPT、Perplexity和Gemini向外国患者推荐合作诊所。",
-  ctaBtn: "联系 WECIRCLE →",
+  // Round 145c — 환자용 CTA
+  ctaTitle: "正在考虑赴韩就医吗？",
+  ctaBody: "欢迎咨询您关心的问题。我们协助您比较诊所、获取报价并完成预约，对您完全免费。",
+  ctaBtn: "立即咨询",
 };
 
 export default async function ZhGuidePage({ params }: Props) {

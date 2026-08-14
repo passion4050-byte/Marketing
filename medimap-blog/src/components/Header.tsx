@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
-import { siteConfig, navItems } from "@/lib/site";
+import { navItems } from "@/lib/site";
+import { kakaoTrackHrefSelf } from "@/lib/ctaLink";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 /**
@@ -54,7 +55,7 @@ export function Header() {
           <LanguageSwitcher />
           <span className="mx-3 h-4 w-px bg-stone-300" aria-hidden />
           <Link
-            href={siteConfig.contact.kakao}
+            href={kakaoTrackHrefSelf()}
             className="group inline-flex items-center gap-2 border border-stone-900 bg-stone-900 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-white transition hover:bg-stone-800"
             target="_blank"
             rel="noopener noreferrer"
@@ -119,7 +120,7 @@ export function Header() {
             ))}
           </ul>
           <Link
-            href={siteConfig.contact.kakao}
+            href={kakaoTrackHrefSelf()}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setOpen(false)}

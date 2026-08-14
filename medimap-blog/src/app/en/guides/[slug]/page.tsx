@@ -37,10 +37,11 @@ const EN_LABELS: GuideLabels = {
   guides: "Guides",
   faq: "Frequently asked questions",
   updated: "Updated",
-  ctaTitle: "Want your clinic featured & cited by AI?",
+  // Round 145c — 환자용 CTA (감사 #3: 환자 글이 B2B 피치로 끝나던 문제)
+  ctaTitle: "Planning treatment in Korea?",
   ctaBody:
-    "This is the kind of guide WECIRCLE publishes so ChatGPT, Perplexity and Gemini recommend partner clinics to foreign patients.",
-  ctaBtn: "Talk to WECIRCLE →",
+    "Message us with your questions. We help you compare clinics, get quotes and book. Free for you.",
+  ctaBtn: "Chat on WhatsApp",
 };
 
 export default async function EnGuidePage({ params }: Props) {

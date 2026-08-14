@@ -8,6 +8,7 @@ import {
   getPartnerPostsByPartner,
 } from "@/lib/partners";
 import { siteConfig, absoluteUrl } from "@/lib/site";
+import { kakaoTrackHref } from "@/lib/ctaLink";
 
 // Round 111 v3 (2026-07-02) — Editorial partner page.
 // Round 129 — SEO/CWV: force-dynamic → ISR 60s
@@ -184,8 +185,9 @@ export default async function PartnerListPage({ params }: PageProps) {
                 진료 상담은 위서클 카카오 채널을 통해 연결됩니다.
               </p>
             </div>
+            {/* Round 145c — 파트너 스코프 추적 링크 (/r/k-{partner}) 로 계측 통일 (감사 #14) */}
             <a
-              href={siteConfig.contact.kakao}
+              href={kakaoTrackHref(partner)}
               target="_blank"
               rel="noopener noreferrer"
               className="group inline-flex items-center justify-between gap-4 border border-stone-900 bg-stone-900 px-6 py-5 text-white transition hover:bg-stone-800"
