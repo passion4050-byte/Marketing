@@ -219,6 +219,17 @@ def daily_auto_content_job(
     #   /with-partners 미노출되던 갭(#186 실측) 근본 해소.
     _heal_partner_tags(session_factory)
 
+    # Round 145 (2026-08-14) — 키워드 자동 발굴 (루프의 맨 앞 닫기).
+    #   AI 가 인용하는 경쟁 URL 슬러그 → 키워드 풀 자동 추가. 실패해도 발행 진행.
+    #   가드레일(테넌트당 2개/실행·총량 30·상품 게이팅)은 모듈 내부.
+    try:
+        from src.collector.keyword_discovery import discover_keywords_from_citations
+        _kd = discover_keywords_from_citations(session_factory)
+        if _kd.get("inserted"):
+            logger.info("scheduler.keyword_discovery", inserted=_kd["inserted"])
+    except Exception as _kd_err:  # noqa: BLE001
+        logger.warning("scheduler.keyword_discovery_failed", error=str(_kd_err))
+
     # Round 120 (2026-07-03) — admin 즉시발행 타깃 실행 (publish-now → workflow_dispatch).
     #   target_tenant_id 지정 시: 로테이션·plan 요일 필터 무시, 해당 tenant 1편만 생성.
     #   last_run_at 은 갱신하지 않음 — 일반 cron 로테이션 순서에 영향 주지 않기 위해.

@@ -5339,6 +5339,22 @@ himedi 1순위 추천 = **"Bright Eye Clinic"** = **밝은눈안과 강남점**(
 self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 395·396 2건.)
 부수: auto-learn-own.yml 에 Step 2.5 백필 추가하다 **들여쓰기 0칸으로 YAML 깨짐**(빨간 X -1s) → `- name:` 앞 6칸 교정 필요.
 
+## 5b. 자동화 루프 완성 — 해외 자동발행 + 키워드 자동 발굴 (2026-08-14 후반)
+
+- **해외 자동발행 전환** (사용자 명시 결정·책임 확인): scheduler 2곳의
+  `auto_publish and market=='domestic'` 게이트 해제. **의료법 린터 가드 유지** —
+  warn/fail 은 auto_publish 여도 무조건 draft(_generate_draft). 크레딧 충전(OpenAI·Anthropic)으로
+  측정 4엔진 + A/B(anthropic variant) 재가동 조건 충족.
+- **키워드 자동 발굴 신설** `src/collector/keyword_discovery.py` — 루프의 마지막 미구현 조각.
+  신호: 최근 30일 경쟁사(is_self=false) 인용 final_url 슬러그가 **3단어+ 영문 && 도메인 2곳+ && 3회+**
+  인용 → 슬러그를 키워드로 (top-10-skin-clinics-in-seoul → "top 10 skin clinics in seoul").
+  가드레일: en만(v1)·테넌트당 2개/실행·활성 총량 30 상한·tenant_products 게이팅·ON CONFLICT 무해.
+  category/target_brand 는 기존 own 키워드 상속. daily_auto_content_job 시작부에서 try/except 호출.
+  **E2E 실검증**: 실데이터 후보 4건 발굴 → 1건 삽입("smile lasik clinics in seoul" t12, vision/WECIRCLE 상속 확인),
+  t17 3건은 총량 30 가드레일이 정상 차단(3언어 상품 테넌트 상한 스케일링은 다음 후보).
+- 이로써 루프 전체 자동화: **발굴(신규) → 측정(4엔진 복원) → 학습(auto-learn×2) → A/B(재가동) →
+  발행(로테이션+자동발행) → 인용·클릭 측정(CCS+숏링크)**.
+
 ## 6. KPI 실측 스냅샷 (8/13)
 
 - CTA 추적 18클릭/11일 — 파이프라인 실동작. ⚠️ 8/12 12:51~53 KST 6파트너 클릭 클러스터 = 셀프테스트 의심.
