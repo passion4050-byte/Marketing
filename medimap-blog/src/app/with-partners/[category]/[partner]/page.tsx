@@ -154,7 +154,7 @@ export default async function PartnerListPage({ params }: PageProps) {
                       </div>
                     ) : (
                       <div className="flex aspect-[3/2] w-full items-center justify-center border border-dashed border-stone-200 bg-stone-50 text-[9px] font-semibold uppercase tracking-widest text-stone-400">
-                        No cover
+                        <span className="font-serif text-sm italic normal-case tracking-normal text-stone-300">WECIRCLE</span>
                       </div>
                     )}
                   </div>
@@ -192,7 +192,7 @@ export default async function PartnerListPage({ params }: PageProps) {
               rel="noopener noreferrer"
               className="group inline-flex items-center justify-between gap-4 border border-stone-900 bg-stone-900 px-6 py-5 text-white transition hover:bg-stone-800"
             >
-              <span className="text-sm font-bold tracking-tight">카카오톡으로 상담받기</span>
+              <span className="text-sm font-bold tracking-tight">카카오톡으로 무료 상담받기</span>
               <ArrowUpRight size={16} strokeWidth={2} className="transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
             </a>
           </div>

@@ -12,9 +12,9 @@ import { siteConfig } from "@/lib/site";
  *   /contact 페이지는 페이지 자체가 CTA 라 숨김. lang=ja 는 LINE 우선.
  */
 const LABELS: Record<string, { wa: string; line: string }> = {
-  en: { wa: "WhatsApp", line: "LINE" },
-  ja: { wa: "WhatsApp", line: "LINE相談" },
-  zh: { wa: "咨询", line: "LINE" },
+  en: { wa: "Free quote", line: "LINE" },
+  ja: { wa: "WhatsApp", line: "無料見積もり" },
+  zh: { wa: "免费报价", line: "LINE" },
 };
 
 export function FloatingConsult({ lang }: { lang: "en" | "ja" | "zh" }) {

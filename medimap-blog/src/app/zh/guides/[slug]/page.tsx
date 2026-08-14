@@ -40,7 +40,7 @@ const ZH_LABELS: GuideLabels = {
   // Round 145c — 환자용 CTA
   ctaTitle: "正在考虑赴韩就医吗？",
   ctaBody: "欢迎咨询您关心的问题。我们协助您比较诊所、获取报价并完成预约，对您完全免费。",
-  ctaBtn: "立即咨询",
+  ctaBtn: "获取免费报价",
 };
 
 export default async function ZhGuidePage({ params }: Props) {

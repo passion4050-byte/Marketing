@@ -234,6 +234,13 @@ const OVERSEAS_PARTNER_DISPLAY: Record<string, Record<string, string>> = {
     ja: "清潭ディア医院",
     "zh-Hans": "清潭Dear医院",
   },
+  // Round 145d (2026-08-15) — 엔티티 디렉토리 등재용 (감사 #8). 브랜드 라틴 표기는 전 언어 공통 안전.
+  gangnamyonsei: { en: "Gangnam Yonsei Eye Clinic", ja: "Gangnam Yonsei Eye Clinic", "zh-Hans": "Gangnam Yonsei Eye Clinic" },
+  brighteye: { en: "Bright Eye Clinic Gangnam", ja: "Bright Eye Clinic Gangnam", "zh-Hans": "Bright Eye Clinic Gangnam" },
+  bgn: { en: "BGN Eye Clinic Jamsil", ja: "BGN Eye Clinic Jamsil", "zh-Hans": "BGN Eye Clinic Jamsil" },
+  "bgn-busan": { en: "BGN Eye Clinic Busan", ja: "BGN Eye Clinic Busan", "zh-Hans": "BGN Eye Clinic Busan" },
+  mowoolim: { en: "Mowoolim Clinic", ja: "Mowoolim Clinic", "zh-Hans": "Mowoolim Clinic" },
+  "partner-20": { en: "Kwangdong Hospital", ja: "Kwangdong Hospital", "zh-Hans": "Kwangdong Hospital" },
 };
 
 /** partner_slug + lang → 표시명(폴백: 한국어 name). */
@@ -313,5 +320,70 @@ export async function getPartnerBySlug(slug: string): Promise<PartnerClinicInfo 
     };
   } catch {
     return null;
+  }
+}
+
+// ── Round 145d (2026-08-15) — 해외 클리닉 엔티티 디렉토리 (감사 #8) ──
+//   기존 getOverseasPartners 는 "발행 콘텐츠가 있는" 파트너만 반환 → EN 에 청담디어 1곳뿐.
+//   가이드 본문에 등장하는 파트너(밝은눈·BGN 등)가 /clinics 에 부재 = 여정 단절.
+//   이 함수는 tenant_products(해외 언어 상품 활성) 기준 '엔티티'를 등재하고
+//   콘텐츠 수는 LEFT JOIN — 콘텐츠 0이어도 프로필로 노출된다(국내 /with-partners 미러).
+
+export interface OverseasClinicEntry {
+  category: string; // eyeclinic | derma | plastic | dental | hair | oriental | internal
+  partner_slug: string;
+  name: string;
+  guides: number;
+  cover_image_url: string | null;
+}
+
+const DOMAIN_TO_OVERSEAS_CAT: Record<string, string> = {
+  안과: "eyeclinic", 피부과: "derma", 성형외과: "plastic", 치과: "dental",
+  내과: "internal", 모발이식: "hair", 한방의원: "oriental", 한방: "oriental",
+  eyeclinic: "eyeclinic", derma: "derma", plastic: "plastic", dental: "dental",
+  internal: "internal", hair: "hair", oriental: "oriental",
+};
+
+/** langPath("en"|"ja"|"zh") → 상품 lang(측정계: zh-Hant) / 콘텐츠 lang(zh-Hans). */
+export async function getOverseasClinicDirectory(langPath: string): Promise<OverseasClinicEntry[]> {
+  const sql = getSql();
+  if (!sql) return [];
+  const productLang = langPath === "zh" ? "zh-Hant" : langPath;
+  const contentLang = langPath === "zh" ? "zh-Hans" : langPath;
+  try {
+    const rows = await sql.unsafe<Array<Record<string, unknown>>>(
+      `SELECT t.partner_slug, t.name, t.domain_category,
+              COALESCE(g.cnt, 0) AS cnt, g.cover_image_url
+       FROM tenants t
+       JOIN tenant_products tp
+         ON tp.tenant_id = t.id AND tp.market = 'overseas'
+        AND tp.lang = $1 AND tp.status = 'active'
+       LEFT JOIN LATERAL (
+         SELECT count(*) AS cnt,
+                (array_agg(gc.cover_image_url ORDER BY COALESCE(gc.published_at, gc.created_at) DESC))[1]
+                  AS cover_image_url
+         FROM generated_contents gc
+         WHERE gc.tenant_id = t.id AND gc.market = 'overseas' AND gc.lang = $2
+           AND gc.status = 'published' AND gc.compliance_status = 'pass'
+           AND gc.is_partner_content = true
+       ) g ON true
+       WHERE t.partner_slug IS NOT NULL
+         AND COALESCE(t.business_model, '') <> 'self'
+         AND t.partner_slug NOT IN ('medimap-self', 'wecircle-self')
+       ORDER BY cnt DESC, t.id`,
+      [productLang, contentLang]
+    );
+    return rows.map((r) => {
+      const slug = String(r.partner_slug);
+      return {
+        category: DOMAIN_TO_OVERSEAS_CAT[String(r.domain_category ?? "").trim()] ?? "internal",
+        partner_slug: slug,
+        name: overseasPartnerName(slug, contentLang, String(r.name ?? slug)),
+        guides: Number(r.cnt ?? 0),
+        cover_image_url: (r.cover_image_url as string) ?? null,
+      };
+    });
+  } catch {
+    return [];
   }
 }

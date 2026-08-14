@@ -24,33 +24,61 @@ export interface GuideLabels {
  */
 const PATIENT_COPY: Record<
   string,
-  { trust: string; inlineTitle: string; inlineBody: string; wa: string; line: string; chips: string[] }
+  {
+    trust: string;
+    inlineTitle: string;
+    inlineBody: string;
+    wa: string;
+    line: string;
+    chips: string[];
+    midQ: string;
+    midBtn: string;
+  }
 > = {
   en: {
     trust: "Published by WECIRCLE with its partner medical network. Reviewed under Korean medical advertising rules.",
-    inlineTitle: "Questions while reading?",
-    inlineBody: "Message us about treatment in Korea. We help you compare clinics and book.",
-    wa: "Chat on WhatsApp",
+    // Round 145d — benefit형 카피: "무엇을 얻는지"가 보이는 CTA (사용자 지시)
+    inlineTitle: "Not sure which clinic fits you?",
+    inlineBody: "Tell us what you're considering. Free personalized quotes and honest answers, in English.",
+    wa: "Get my free quote",
     line: "LINE",
     chips: ["Free", "English OK", "Reply within 1 business day"],
+    midQ: "Want a cost estimate for your case?",
+    midBtn: "Get my free quote",
   },
   ja: {
     trust: "本ガイドはWECIRCLEが提携医療機関ネットワークとともに発信し、韓国医療広告ガイドラインに基づき検収しています。",
-    inlineTitle: "読みながら気になることは？",
-    inlineBody: "韓国での施術について、お気軽にご相談ください。クリニック比較から予約までお手伝いします。",
+    inlineTitle: "自分に合うクリニック、迷っていませんか？",
+    inlineBody: "検討中の施術を教えてください。無料でお見積もり・正直にご案内します。",
     wa: "WhatsApp",
-    line: "LINEで無料相談",
+    line: "LINEで無料見積もり",
     chips: ["無料", "日本語OK", "1営業日以内に返信"],
+    midQ: "この施術、自分の場合いくら？",
+    midBtn: "LINEで無料見積もり",
   },
   zh: {
     trust: "本指南由 WECIRCLE 与合作医疗机构网络共同发布，并按韩国医疗广告规范审核。",
-    inlineTitle: "阅读中有疑问吗？",
-    inlineBody: "欢迎咨询赴韩就医事宜，我们协助您比较诊所并完成预约。",
-    wa: "WhatsApp 咨询",
+    inlineTitle: "不确定哪家诊所适合您？",
+    inlineBody: "告诉我们您的需求，免费获取个性化报价与专业建议。",
+    wa: "获取免费报价",
     line: "LINE",
     chips: ["免费", "中文可沟通", "1个工作日内回复"],
+    midQ: "想知道适合您的具体费用？",
+    midBtn: "免费报价",
   },
 };
+
+/**
+ * Round 145d — 본문 중간 CTA 주입 (이탈 방지).
+ *   긴 가이드(8~10 스크린)에서 독자가 본문을 읽다 이탈하기 전에 1회 노출.
+ *   3번째 h2 직전에 삽입, h2 가 4개 미만이면 주입하지 않음(짧은 글 과밀 방지).
+ *   Tailwind 클래스는 이 파일 소스에 문자열로 존재하므로 JIT 스캔에 포함됨.
+ */
+function injectMidCta(body: string, midHtml: string): string {
+  const parts = body.split(/(?=<h2)/i);
+  if (parts.length < 5) return body;
+  return parts.slice(0, 3).join("") + midHtml + parts.slice(3).join("");
+}
 
 export function GuideArticle({
   guide,
@@ -156,7 +184,15 @@ export function GuideArticle({
 
       <div
         className="prose-medimap mt-8 max-w-none"
-        dangerouslySetInnerHTML={{ __html: guide.body }}
+        dangerouslySetInnerHTML={{
+          __html: injectMidCta(
+            guide.body,
+            `<div class="not-prose my-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#1B68FF]/25 bg-[#1B68FF]/5 px-5 py-4">` +
+              `<span class="text-sm font-semibold text-stone-800">${pc.midQ}</span>` +
+              `<a href="${langPath === "ja" ? siteConfig.contact.line : siteConfig.contact.whatsapp}" target="_blank" rel="noopener noreferrer" class="shrink-0 rounded-full ${langPath === "ja" ? "bg-[#06C755]" : "bg-[#25D366]"} px-4 py-2 text-[13px] font-bold text-white">${pc.midBtn}</a>` +
+              `</div>`
+          ),
+        }}
       />
 
       {/* 인라인 환자 CTA — 본문을 다 읽기 전에도 상담 진입 가능 (감사 #7) */}

@@ -53,7 +53,7 @@ export default function ZhContactPage() {
                 </span>
               ))}
             </div>
-            <ContactButtons lang="zh" waLabel="立即咨询" lineLabel="LINE" className="mt-5" />
+            <ContactButtons lang="zh" waLabel="获取免费报价" lineLabel="LINE" className="mt-5" />
           </div>
           <div className="rounded-2xl border border-stone-200 bg-white p-7">
             <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-stone-500">诊所合作</div>

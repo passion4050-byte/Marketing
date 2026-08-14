@@ -41,7 +41,7 @@ const EN_LABELS: GuideLabels = {
   ctaTitle: "Planning treatment in Korea?",
   ctaBody:
     "Message us with your questions. We help you compare clinics, get quotes and book. Free for you.",
-  ctaBtn: "Chat on WhatsApp",
+  ctaBtn: "Get my free quote",
 };
 
 export default async function EnGuidePage({ params }: Props) {

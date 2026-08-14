@@ -17,7 +17,7 @@ const ZH_LABELS: GuideLabels = {
   updated: "更新于",
   ctaTitle: "对这家诊所感兴趣吗？",
   ctaBody: "欢迎咨询。我们协助您确认档期、获取报价并完成预约，对您完全免费。",
-  ctaBtn: "立即咨询",
+  ctaBtn: "获取免费报价",
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

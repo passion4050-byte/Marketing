@@ -171,8 +171,14 @@
     @apply border border-line/70 px-3 py-2 text-left;
   }
   .prose-medimap th {
-    @apply bg-surface-alt font-semibold text-ink;
+    @apply bg-surface-alt font-semibold text-ink whitespace-nowrap;
   }
+  /* Round 145d — 가독성: 굵은 글씨가 본문 muted 색을 상속해 스캔 불가하던 문제 */
+  .prose-medimap strong { @apply font-semibold text-ink; }
+  /* 모바일 표 가로 스크롤 + 지브라 — 표 많은 의료 콘텐츠 이탈 방지 */
+  .prose-medimap table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .prose-medimap tbody tr:nth-child(even) { @apply bg-surface-alt/50; }
+  .prose-medimap h2 { @apply scroll-mt-24; }
   .heading-anchor {
     @apply no-underline text-ink hover:text-brand;
   }
@@ -186,6 +192,9 @@
   .db-html-content h2 { @apply mt-12 mb-4 text-[28px] font-bold tracking-tight; }
   .db-html-content h3 { @apply mt-9 mb-3 text-xl font-bold; }
   .db-html-content p { @apply my-4 leading-[1.8] text-ink-muted; }
+  .db-html-content strong { @apply font-semibold text-ink; }
+  .db-html-content table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .db-html-content tbody tr:nth-child(even) { @apply bg-surface-alt/50; }
   .db-html-content a {
     @apply text-brand underline decoration-brand/30 underline-offset-4 transition hover:decoration-brand;
   }

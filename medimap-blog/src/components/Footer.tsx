@@ -42,7 +42,7 @@ export function Footer() {
             <FooterColumn
               overline="Contact"
               items={[
-                { label: "카카오톡 상담", href: kakaoTrackHrefSelf(), external: true },
+                { label: "카카오톡 무료 상담", href: kakaoTrackHrefSelf(), external: true },
                 { label: "제휴 문의", href: "/contact" },
                 { label: "passion4050@gmail.com", href: "mailto:passion4050@gmail.com" },
               ]}
@@ -80,7 +80,7 @@ export function Footer() {
             rel="noopener noreferrer"
             className="group inline-flex items-center justify-between gap-4 border border-stone-900 bg-stone-900 px-6 py-4 text-white transition hover:bg-stone-800"
           >
-            <span className="text-sm font-bold tracking-tight">카카오톡으로 상담</span>
+            <span className="text-sm font-bold tracking-tight">카카오톡으로 무료 상담</span>
             <ArrowUpRight size={16} strokeWidth={2} className="transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
           </a>
         </div>

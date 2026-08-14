@@ -53,7 +53,7 @@ export default function EnContactPage() {
                 </span>
               ))}
             </div>
-            <ContactButtons lang="en" waLabel="Chat on WhatsApp" lineLabel="LINE" className="mt-5" />
+            <ContactButtons lang="en" waLabel="Get my free quote" lineLabel="LINE" className="mt-5" />
           </div>
           <div className="rounded-2xl border border-stone-200 bg-white p-7">
             <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-stone-500">For clinics</div>

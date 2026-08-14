@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getOverseasPartners } from "@/lib/guides";
+import { getOverseasClinicDirectory } from "@/lib/guides";
 import { OverseasListing } from "@/components/OverseasListing";
 import { overseasAlternates } from "@/lib/hreflang";
 
@@ -33,14 +33,14 @@ export default async function EnClinicCategoryPage({ params }: Props) {
   const { category } = await params;
   if (!CAT_LABELS[category]) notFound();
   const label = CAT_LABELS[category];
-  const all = await getOverseasPartners("en");
-  const partners = all.filter((p) => p.partner_category === category);
+  const all = await getOverseasClinicDirectory("en");
+  const partners = all.filter((p) => p.category === category);
   const cards = partners.map((p) => ({
     slug: p.partner_slug,
     title: p.name,
-    excerpt: `${p.count} guide${p.count === 1 ? "" : "s"}`,
+    excerpt: p.guides > 0 ? `${p.guides} guide${p.guides === 1 ? "" : "s"}` : "Clinic profile",
     cover_image_url: p.cover_image_url,
-    partner_category: p.partner_category,
+    partner_category: p.category,
     partner_slug: p.partner_slug,
     is_partner: true,
   }));

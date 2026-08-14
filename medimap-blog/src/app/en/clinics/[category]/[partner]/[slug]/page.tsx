@@ -18,7 +18,7 @@ const EN_LABELS: GuideLabels = {
   ctaTitle: "Interested in this clinic?",
   ctaBody:
     "Message us with your questions. We help you check availability, get a quote and book. Free for you.",
-  ctaBtn: "Chat on WhatsApp",
+  ctaBtn: "Get my free quote",
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

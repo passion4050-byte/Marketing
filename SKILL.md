@@ -5408,6 +5408,39 @@ self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 3
 
 ## 미완/대기
 - ⏳ 사용자: Vercel LINE env All Environments 수정 + Redeploy (이거 없으면 LINE 버튼 여전히 죽음).
-- 클리닉 등재 갭(#8: 가이드 속 안과 3곳이 /en/clinics 부재 — 데이터 작업) · dear 중복 글(#9) · JA 윤문(#19).
+- dear 중복 글(#9 데이터) · JA 윤문(#19).
 - KR 홈 브랜드 혼재(#12)·통계 위젯(#20)은 현행 코드에 부재 — 감사가 본 것은 스테일 캐시 추정, Redeploy 후 재검증.
+
+---
+
+# Round 145d (2026-08-15) — 클리닉 3단 IA + 가독성·benefit 카피 (같은 날 이어서)
+
+> 사용자 실사용 피드백 2건: ① "/en/clinics 에 청담디어 1곳뿐 — KR 처럼 진료항목별로" ② "콘텐츠
+> 레이아웃 가독성 낮아 이탈 우려 + CTA 를 '나에게 맞는 무료 혜택' benefit 형으로".
+
+## ① 클리닉 3단 IA — 엔티티 디렉토리 (감사 #8 근본 해소)
+- 원인: getOverseasPartners 가 "해당 언어 발행 콘텐츠 있는" 파트너만 반환 → EN=dear 1곳.
+- `guides.ts getOverseasClinicDirectory(langPath)` 신설: **tenant_products(해외 언어 상품 활성) 기준
+  엔티티 등재** + 콘텐츠 수 LEFT JOIN — 콘텐츠 0 이어도 노출. self 제외. `DOMAIN_TO_OVERSEAS_CAT`
+  (안과→eyeclinic 등 scheduler 와 동일 체계). OVERSEAS_PARTNER_DISPLAY 6곳 추가(brighteye·bgn·gangnamyonsei·mowoolim·partner-20 등).
+- `/{lang}/clinics` ×3 재작성: KR /with-partners 미러 — 번호 섹션(01 Ophthalmology 眼科 · N clinics · M guides) → 카테고리 허브.
+- 카테고리 허브 ×3: 디렉토리 기반(0-guide 병원 "Clinic profile" 카드 포함).
+- 파트너 허브 ×3: **콘텐츠 0 폴백** = 프로필(주소·홈페이지) + "가이드 준비중" + benefit CTA.
+  title 도 표시명으로(#9 "dear — Clinic Content" raw slug 수정).
+
+## ② 가독성 패스 (globals.css — prose-medimap + db-html-content 공통)
+- 🔴 **strong 이 본문 muted 색 상속** → 굵은 글씨 스캔 불가였음 → text-ink 강제.
+- **모바일 표 가로 스크롤**(display:block+overflow-x-auto) + tbody 지브라 + th nowrap + h2 scroll-mt.
+
+## ③ benefit 형 CTA 카피 전면 (사용자 지시: "나에게 맞는 무료상담 혜택 확인" 방향)
+- 채널명 라벨 → 혜택 라벨: en "Get my free quote" · ja 「LINEで無料見積もり」 · zh 「获取免费报价」.
+  가이드 말미 7파일·인라인·플로팅(en "Free quote")·컨택 환자 카드 전부.
+- **본문 중간 CTA 주입** `injectMidCta`: 3번째 h2 직전 1회(h2<4 짧은 글은 skip) — "이 시술, 내 경우 얼마?"
+  compact 바. Tailwind 클래스는 소스 문자열이라 JIT 스캔 포함.
+- KR benefit: 헤더/푸터 "카카오톡 무료 상담", 파트너 글 "카카오톡으로 무료 상담받기". 파트너 페이지 4번째 "No cover"도 워드마크로.
+
+## 게이트
+- 이번 배치 29파일 esbuild ALL_PASS(/tmp 스냅샷 — 마운트 timeout 회피: mount 에서 npx 반복 실행하면
+  느려서 177초 타임아웃 남 → **src 통째 /tmp 복사 후 게이트**가 빠르고 확실). em-dash 신규 카피 0
+  (title 구분자 "— WECIRCLE Global" 는 사이트 전체 관례라 유지).
 

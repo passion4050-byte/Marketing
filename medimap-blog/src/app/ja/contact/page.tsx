@@ -53,7 +53,7 @@ export default function JaContactPage() {
                 </span>
               ))}
             </div>
-            <ContactButtons lang="ja" waLabel="WhatsApp" lineLabel="LINEで相談" className="mt-5" />
+            <ContactButtons lang="ja" waLabel="WhatsApp" lineLabel="LINEで無料見積もり" className="mt-5" />
           </div>
           <div className="rounded-2xl border border-stone-200 bg-white p-7">
             <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-stone-500">クリニックさまへ</div>
@@ -61,7 +61,7 @@ export default function JaContactPage() {
             <p className="mt-2 text-sm leading-relaxed text-stone-600">
               20分の相談で、あなたの施術についてAIが今どの競合を引用しているかをお見せします。
             </p>
-            <ContactButtons lang="ja" waLabel="WhatsApp" lineLabel="LINEで相談" className="mt-5" />
+            <ContactButtons lang="ja" waLabel="WhatsApp" lineLabel="LINEで無料見積もり" className="mt-5" />
           </div>
         </div>
       </section>
