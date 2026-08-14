@@ -5291,3 +5291,68 @@ himedi 1순위 추천 = **"Bright Eye Clinic"** = **밝은눈안과 강남점**(
 6. 학습 인사이트를 T1 citation 기반으로 재설계 후 AUTO 재활성화
 7. 밝은눈안과 강남점 해외 가이드 파트너 노출 동의 확인
 
+---
+
+# Round 145 (2026-08-13~14) — 전수조사 → 발행 커버리지 대수술 · 온보딩 갭 해소
+
+> 노트북 세션. 시작 시 🔴 클론이 origin/main 보다 45커밋 스테일(260713 베이스)이었음 —
+> **세션 시작 = git fetch 로 origin/main 대조 먼저**(CLAUDE.md 루틴). fetch 후 144c(04afa32) 정합,
+> 이날 오전 커밋(auto-learn 헤더·통계 디렉티브·해외 about/contact 미러)은 전부 정본에 흡수돼 무손실.
+
+## 1. 🔴🔴 라운드로빈 인덱스 고착 — 콘텐츠 커버리지 붕괴 (핵심 수정)
+
+`daily_auto_content_job` 의 `kw_rows[i % len]` 이 daily_count=1 이면 **매일 같은 첫 키워드(최소 id)만** 픽.
+실증(llm_call_logs): **t17 청담디어 11일간 "필러" 단일 키워드 ×22회**, t16 모우림 "韓国 植毛 費用" ×20회.
+→ 71편 발행의 주제 다양성 사실상 붕괴 + 해외 키워드(청담 24개) 영원히 미도달 = zh 11일 0건의 주범.
+**수정**: `scheduler.py` 에 `_rot_offset = (date.toordinal() + tenant_id) % len(kw_rows)` 결정적 로테이션
+(같은 날 재실행 동일 픽 = 중복 없음, A/B 재현성 유지). 커밋 `9c420bb`.
+
+## 2. 측정 엔진 절반 사망 (⏳ 사용자 액션 — 결제)
+
+8/2부터 매일 수백 건: **OpenAI 429 "no credits" + Claude 400 "credit balance"** → 측정 사실상 gemini 단독.
+"인용 0" 판정 자체가 반쪽 표본. 어드민 랜딩 "4 엔진 100%" 카피도 현재 사실과 불일치.
+→ **크레딧 충전이 최고 ROI 액션.** (충전만 하면 코드 무변경으로 커버리지 복원.)
+
+## 3. v2 `/r/[slug]` 유령 스키마 수정 (144c 후보 4 소화)
+
+`lib/funnel/short-link.ts` 가 존재하지 않는 `short_links/destination_url/funnel_events` 참조
+→ 실 DB `shortlinks(target_url, is_active, click_count)/shortlink_clicks(shortlink_id, referer)` 정합.
+`api/short-link` 도 tenantId:number·targetUrl 시그니처(구 destinationUrl 하위호환). build-gate PASS. `9c420bb`.
+
+## 4. 온보딩 갭 해소 — "상품 활성인데 생성 0" 3테넌트 (DB)
+
+감사: 해외 상품 12행 중 **생성 가능 조합이 2개뿐**이었음. 원인 분해 = (a) 키워드 0: t15 en·t19 en/zh·t20 en/zh
+(b) auto_content enabled=false: t19·t20 (c) 키워드 있어도 인덱스 고착(§1).
+**조치**: own 키워드 15개 시딩(t15 en3 · t19 en3+zh-Hant3 [Bright Eye Clinic Gangnam — himedi 가 파는 그 병원]
+· t20 en3+zh-Hant3 [Kwangdong, 한방·검진]) + t19/t20 enabled=true (해외=draft 전용이라 안전, 비용 가드 유효).
+→ **12행 전부 키워드>0 + enabled=true 확인.** 다음 해외 cron부터 전 테넌트·전 언어 로테이션 생성.
+되돌리기: `UPDATE auto_content_settings SET enabled=false WHERE tenant_id IN (19,20);`
+
+## 5. 이미지 결손 진단 — manual 삽입 경로 갭
+
+검수 큐 이미지 없음 신고 → 실측: cron 생성은 정상, **llm_provider='manual'(직접 삽입) 행만 커버 없음**
+(프롬프트만 저장, cover_image_generated_at=null). 리포에 전용 도구 이미 존재: `scripts/backfill_drafts_cover.py`
++ `backfill-drafts-cover.yml`(workflow_dispatch).
+🔴 함정 2개: (a) 워크플로 기본 `self_only=true` → 파트너 글 전부 제외돼 "대상 0건 초록" (b) 이 옛 워크플로 env 에
+**GEMINI_API_KEY 없음** → nano_banana 비활성 + STRICT=true 로 폴백도 안 타 fail.
+→ 해법: yml env 에 `GEMINI_API_KEY`/`GOOGLE_API_KEY`/`IMAGE_PROVIDER: nano_banana` 추가(웹 편집) 후
+self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 395·396 2건.)
+부수: auto-learn-own.yml 에 Step 2.5 백필 추가하다 **들여쓰기 0칸으로 YAML 깨짐**(빨간 X -1s) → `- name:` 앞 6칸 교정 필요.
+
+## 6. KPI 실측 스냅샷 (8/13)
+
+- CTA 추적 18클릭/11일 — 파이프라인 실동작. ⚠️ 8/12 12:51~53 KST 6파트너 클릭 클러스터 = 셀프테스트 의심.
+- 코호트: 6주+ 성숙 67편 · 인용 3(4.5%) — 가설 방향 유지. smile-lasik 8/2 보강 후 인용 0 (판정은 16~39일 소요, 대기).
+- auto-learn(경쟁사) 8/10 실행 확인 learned 28→30 — **오전 헤더 수정 실효 입증.**
+- 해외 생성 8건/11일(en1·ja7·zh0) — §1·§4 로 해소 예정, 다음 cron 실측 필요.
+
+## 다음 라운드 후보 (145 이후)
+
+1. ⏳ **다음 해외 cron(15:00 KST) 후 생성 실측** — 로테이션·시딩 효과: 테넌트별 다른 키워드 + en/zh 생성 재개 확인
+2. ⏳ OpenAI·Anthropic 크레딧 충전 후 측정 4엔진 복원 확인
+3. ⏳ backfill-drafts-cover.yml GEMINI 키 추가 + self_only 해제 Run (395·396)
+4. auto-learn-own.yml Step 2.5 들여쓰기 교정 (현재 YAML 깨져 매일 cron 빨간 X)
+5. 어드민에 "상품 활성인데 키워드 0 / enabled=false" 경고 배지 (온보딩 갭 재발 방지 UI)
+6. CTA 셀프클릭 필터(운영자 IP/UA 제외) 또는 라벨 정직화
+7. (기존 144c 후보 승계) 코호트 재판정 9/13 · 청담디어 효율 · 개인 로그인 · T1 학습 재설계
+
