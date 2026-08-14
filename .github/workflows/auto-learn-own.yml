@@ -94,7 +94,16 @@ jobs:
           IMAGE_PROVIDER: ${{ secrets.IMAGE_PROVIDER || 'nano_banana' }}
           IMAGE_STRICT: ${{ secrets.IMAGE_STRICT || 'true' }}
         run: python scripts/run_auto_content_once.py
-
+      - name: Step 2.5 — Backfill missing draft cover images
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          IMAGE_GEN_ENABLED: 'true'
+          IMAGE_PROVIDER: nano_banana
+        run: python scripts/backfill_drafts_cover.py || true
       # Step 3: Vercel 재배포 (신규 콘텐츠 즉시 라이브)
       - name: Step 3 — Trigger Vercel redeploy
         if: success()
