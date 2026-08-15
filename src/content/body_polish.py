@@ -75,24 +75,27 @@ _STYLE_P = (
     "font-size: 1.08em; line-height: 1.9; color: #1a1a1a; "
     "margin-bottom: 1.6em; font-weight: 400;"
 )
+# Round 146 Magazine B — 표: 세로 그리드선 제거, th 잉크 헤비룰 + td 헤어라인.
+#   (구 #cbd5e1 슬레이트 그리드는 사이트 에디토리얼 CSS 와 충돌 — globals.css 의
+#    [style] 소급 무력화와 반드시 같은 팔레트 유지)
 _STYLE_TABLE = (
     "width: 100%; border-collapse: collapse; margin-bottom: 2em; "
-    "font-size: 0.95em; border: 1px solid #cbd5e1;"
+    "font-size: 0.95em;"
 )
-_STYLE_TABLE_TR_HEADER = "background-color: #f1f5f9;"
-_STYLE_TABLE_TR_ALT = "background-color: #fafafa;"
+_STYLE_TABLE_TR_HEADER = "background-color: transparent;"
+_STYLE_TABLE_TR_ALT = "background-color: #F5F5F4;"
 _STYLE_TABLE_TH = (
-    "border: 1px solid #cbd5e1; padding: 14px 18px; text-align: left; "
-    "font-weight: 700; color: #0f172a;"
+    "border: 0; border-bottom: 2px solid #0C0A09; padding: 12px 14px; "
+    "text-align: left; font-weight: 700; color: #0f172a; background: transparent;"
 )
 _STYLE_TABLE_TD = (
-    "border: 1px solid #cbd5e1; padding: 14px 18px; color: #1e293b;"
+    "border: 0; border-bottom: 1px solid #E7E5E4; padding: 12px 14px; color: #1e293b;"
 )
 _STYLE_UL = "margin-bottom: 1.5em; line-height: 1.9; padding-left: 1.5em;"
 _STYLE_OL = _STYLE_UL
 _STYLE_LI = "margin-bottom: 0.5em;"
 _STYLE_FIGURE = "margin: 2.5em 0;"
-_STYLE_IMG = "width: 100%; height: auto; border-radius: 12px;"
+_STYLE_IMG = "width: 100%; height: auto; border-radius: 0;"  # Round 146 — 무프레임
 _STYLE_FIGCAPTION = (
     "text-align: center; color: #64748b; font-size: 0.9em; margin-top: 0.6em;"
 )
@@ -102,8 +105,10 @@ _STYLE_MARK = (
 )
 _STYLE_STRONG = "font-weight: 700; color: #0f172a;"
 _STYLE_BLOCKQUOTE = (
-    "border-left: 4px solid #cbd5e1; margin: 1.5em 0; "
-    "padding: 0.5em 1em; color: #475569; background: #f8fafc;"
+    # Round 146 Magazine B — 좌측 잉크 룰 + 투명 배경 + 이탤릭 (박스 장식 제거)
+    "border-left: 2px solid #0C0A09; margin: 2em 0; "
+    "padding: 0 0 0 1.25em; color: #44403c; background: transparent; "
+    "font-style: italic;"
 )
 
 

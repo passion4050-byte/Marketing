@@ -244,6 +244,28 @@
   /* meta 태그(<meta name=description>) 는 텍스트 흐름에서 숨김 */
   .db-html-content meta { display: none; }
 
+  /* Round 146 — legacy 인라인 스타일 소급 무력화.
+     body_polish v2 가 기존 발행분(215+편)에 심은 #cbd5e1 슬레이트 표 그리드·
+     박스형 블록쿼트·라운드 이미지가 인라인이라 위 에디토리얼 CSS 를 이김 (라이브 실측).
+     DB 재작성 없이 화면단에서 통일 — body_polish v3(신규 발행분)과 동일 팔레트. */
+  .db-html-content table[style] { border: 0 !important; }
+  .db-html-content thead tr[style] { background: transparent !important; }
+  .db-html-content th[style] {
+    border: 0 !important;
+    border-bottom: 2px solid #0C0A09 !important;
+    background: transparent !important;
+  }
+  .db-html-content td[style] {
+    border: 0 !important;
+    border-bottom: 1px solid #E7E5E4 !important;
+  }
+  .db-html-content blockquote[style] {
+    border-left: 2px solid #0C0A09 !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+  }
+  .db-html-content img[style] { border-radius: 0 !important; }
+
   /* POST-HERO 2026-05-24 — DB 자동 발행 글 hero image + db-html-content 본문 내 figure */
   .db-html-content figure.post-hero {
     /* Round 146 Magazine B — 프레임 장식 제거, 캡션은 헤어라인 위 좌측 정렬 */
