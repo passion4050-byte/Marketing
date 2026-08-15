@@ -30,7 +30,10 @@ const EMPTY_SETS: ClassifierSets = {
 };
 
 // 메디맵 카카오 채널 path — pf.kakao.com 의 메디맵 path 만 T1 처리, 일반은 NOISE
-export const MEDIMAP_KAKAO_PATHS = ['_xnWQkG'];
+// 🔴 Round 151 — '_xnWQkG' 는 전 직장(메디맵) 채널로 위서클과 무관 → T1 에서 제거.
+//   (남겨두면 옛 채널 인용이 자사 점유율로 오염됨. 위서클 카카오 정본은
+//    open.kakao.com/o/spyAz9Bi — 오픈채팅은 도메인 분류상 T1 대상 아님.)
+export const MEDIMAP_KAKAO_PATHS: string[] = [];
 
 // Round 38 후보 — 모듈 캐시 (process 메모리). serverless cold start 마다 재로드.
 let cachedSets: ClassifierSets | null = null;

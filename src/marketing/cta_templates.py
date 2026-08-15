@@ -12,7 +12,8 @@ from typing import Optional
 
 @dataclass(frozen=True)
 class CtaConfig:
-    kakao_channel_url: str = "https://pf.kakao.com/_xxxxx"
+    # Round 151 — 위서클 오픈채팅 정본 (구 placeholder/_xnWQkG 계열 금지)
+    kakao_channel_url: str = "https://open.kakao.com/o/spyAz9Bi"
     naver_place_url: str = "https://map.naver.com/v5/search/메디맵"
     phone: str = "02-0000-0000"
     brand_name: str = "메디맵"

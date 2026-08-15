@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, BarChart3, ExternalLink, Lock, MessageSquare, ShieldCheck, Sparkles, Stethoscope, Zap } from 'lucide-react';
 import { showToast } from '@/lib/clientActions';
 
-const KAKAO_CHANNEL = 'https://pf.kakao.com/_xnWQkG';
+// Round 151 — 옛 메디맵 채널(_xnWQkG) 제거, 위서클 오픈채팅으로.
+const KAKAO_CHANNEL = 'https://open.kakao.com/o/spyAz9Bi';
 
 export default function AdminLoginPage() {
   const router = useRouter();
