@@ -206,7 +206,7 @@ export default async function CategoryPage({ params }: PageProps) {
                       alt={p.cover_image_alt ?? p.title}
                       fill
                       sizes="(max-width: 768px) 100vw, 33vw"
-                      className="object-cover grayscale transition duration-[900ms] ease-out group-hover:scale-[1.03] group-hover:grayscale-0"
+                      className="object-cover transition duration-[900ms] ease-out group-hover:scale-[1.03]"
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center bg-gradient-to-br from-stone-100 to-stone-200 text-stone-300">

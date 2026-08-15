@@ -53,17 +53,22 @@ KEYWORD_MAP: dict[str, str] = {
 #   기존 "soft pastel" 계열이 스톡사진/일러스트 톤으로 수렴해 홈·리스트·본문 전체의
 #   감도를 낮추던 주범. 시네마틱 에디토리얼 그레이딩(절제된 채도·방향성 조명·
 #   네거티브 스페이스)을 전 이미지에 강제 — 사이트의 로우컬러 에디토리얼 디자인과 정합.
+# Round 149 (2026-08-15) — 무신사(recommend) 실측 반전.
+#   무신사 UI 토큰 실측: #000/#FFF·radius 0·8pt 그리드 — 크롬은 완전 무채색이고
+#   **색은 풀컬러 고선명 상업 사진이 전부 가져간다**. 148-D 의 muted/뮤트 톤은
+#   에디토리얼 크롬과 겹쳐 사이트 전체가 빛바래 보이는 역효과(사용자 실화면 피드백).
+#   → 생성 이미지는 상업 화보급 선명 컬러로, 크롬의 무채색과 대비시킨다.
 PROMPT_TEMPLATE = (
-    "{context}, cinematic editorial magazine photography, muted refined color palette, "
-    "soft directional light with deep shadows, generous negative space, film-like contrast, "
-    "fine detail, 8k uhd, "
+    "{context}, crisp commercial editorial photography, vivid true-to-life color, "
+    "clean bright daylight, punchy contrast, high clarity, premium magazine quality, "
+    "generous negative space, fine detail, 8k uhd, "
     "no people, no person, no face, no hands, no fingers, no body parts, no text, no logo, no watermark"
 )
 
 # 자사 인사이트 — documentary 톤 한 겹 추가
 PROMPT_TEMPLATE_REALISTIC = (
-    "{context}, documentary editorial photography, shot on DSLR, cinematic color grading, "
-    "muted tones, film-like contrast, sharp focus, fine detail, 8k uhd, magazine editorial quality, "
+    "{context}, documentary editorial photography, shot on DSLR, rich true-to-life color grading, "
+    "punchy contrast, sharp focus, high clarity, fine detail, 8k uhd, premium magazine quality, "
     "no people, no person, no face, no hands, no fingers, no body parts, no text, no logo, no watermark"
 )
 

@@ -149,7 +149,7 @@ export default async function PartnerListPage({ params }: PageProps) {
                           alt={p.cover_image_alt ?? p.title}
                           fill
                           sizes="180px"
-                          className="object-cover grayscale transition duration-700 group-hover:grayscale-0"
+                          className="object-cover transition duration-700 group-hover:scale-[1.02]"
                         />
                       </div>
                     ) : (

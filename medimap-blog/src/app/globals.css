@@ -132,7 +132,9 @@
   }
   .img-editorial {
     /* AI 생성 이미지 과채도를 로우컬러 톤으로 정합 */
-    filter: saturate(0.85) contrast(1.02);
+    /* Round 149 — 무신사 레퍼런스 반전: UI 는 무채색, 색은 사진이 전부 가져간다.
+       데새추(0.85)가 이미지를 죽이던 것을 걷어내고 상업 화보급 펀치로. */
+    filter: saturate(1.08) contrast(1.05);
   }
   .pill-stat {
     @apply inline-flex items-center gap-1 text-[12px] font-medium text-ink-muted num;
@@ -269,7 +271,9 @@
      과채도 AI 이미지를 로우컬러 톤으로 눌러 사이트 디자인과 감도 통일. */
   .db-html-content img,
   .prose-medimap img {
-    filter: saturate(0.85) contrast(1.02);
+    /* Round 149 — 무신사 레퍼런스 반전: UI 는 무채색, 색은 사진이 전부 가져간다.
+       데새추(0.85)가 이미지를 죽이던 것을 걷어내고 상업 화보급 펀치로. */
+    filter: saturate(1.08) contrast(1.05);
   }
 
   /* POST-HERO 2026-05-24 — DB 자동 발행 글 hero image + db-html-content 본문 내 figure */

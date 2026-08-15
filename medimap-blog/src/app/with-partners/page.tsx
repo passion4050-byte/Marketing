@@ -138,7 +138,7 @@ export default async function WithPartnersHubPage() {
                           alt=""
                           fill
                           sizes="240px"
-                          className="object-cover grayscale transition duration-700 group-hover:grayscale-0"
+                          className="object-cover transition duration-700 group-hover:scale-[1.02]"
                         />
                       </div>
                     ) : (
