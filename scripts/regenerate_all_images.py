@@ -78,8 +78,10 @@ def main() -> int:
             where_clauses.append("gc.tenant_id = :tid")
             params["tid"] = args.tenant_id
         if args.skip_existing_nano:
+            # Round 149 — v2(vivid 톤) 기준으로 skip. 구 nano_banana| (뮤트 톤) 은
+            # 재생성 대상. 중단 후 재실행하면 v2 완료분은 건너뛰고 이어서 처리.
             where_clauses.append(
-                "(gc.cover_image_prompt IS NULL OR gc.cover_image_prompt NOT LIKE 'nano_banana|%')"
+                "(gc.cover_image_prompt IS NULL OR gc.cover_image_prompt NOT LIKE 'nano_banana_v2|%')"
             )
         where_sql = " AND ".join(where_clauses)
         sql = f"""

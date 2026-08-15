@@ -37,7 +37,9 @@ concurrency:
 jobs:
   backfill:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # Round 149 — 전량(200+편) vivid 재생성 시 60분 초과 가능 → 상향.
+    #   skip_existing=true 면 중단돼도 재실행 시 이어서 처리됨(v2 마커 기준).
+    timeout-minutes: 300
 
     steps:
       - name: Checkout

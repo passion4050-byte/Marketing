@@ -146,15 +146,17 @@ def _build_korean_prompt(
     # Round 127 — 한글 title 을 프롬프트에 직접 넣지 않음 (이미지 속 깨진 글자 유발).
     # 글 맥락은 _generate_context_concept(영문 컨셉)가 담당 — title 은 LLM 입력으로만.
 
+    # Round 149 (2026-08-15) — 무신사 recommend 실측 반전: UI 는 무채색(#000/#FFF·radius 0),
+    #   색은 풀컬러 고선명 상업 사진이 독점. 기존 "warm film-like + muted palette" 가
+    #   에디토리얼 크롬과 겹쳐 사이트 전체를 빛바래 보이게 함(사용자 실화면 피드백).
+    #   → vivid true-to-life + punchy contrast 로 교체. 신규 발행 + 백필 공용 경로.
     return (
-        f"High-end editorial magazine photography, Musinsa magazine aesthetic, "
-        f"cinematic tone. Subject: {concept}. "
-        f"Cinematic natural window light, warm film-like tone, "
-        f"minimalist Korean aesthetic, clean composition. "
-        f"Shot on 35mm film camera, shallow depth of field, soft bokeh, "
-        f"editorial framing, magazine cover quality, "
-        f"8k UHD, sharp fine detail, professional color grading, "
-        f"muted sophisticated palette. "
+        f"High-end commercial editorial photography, Musinsa magazine aesthetic. "
+        f"Subject: {concept}. "
+        f"Clean bright natural daylight, vivid true-to-life color, punchy contrast, "
+        f"high clarity, minimalist Korean aesthetic, clean composition. "
+        f"Shallow depth of field, editorial framing, magazine cover quality, "
+        f"8k UHD, sharp fine detail, rich professional color grading. "
         f"No people, no person, no face, no hands, no body parts. "
         f"If the subject describes an illustration, render it as a clean minimal "
         f"illustration; otherwise photorealistic."
@@ -302,7 +304,8 @@ def generate_nano_banana_image(
     return {
         "url": public_url,
         "alt": f"{title or keyword}",
-        "prompt": f"nano_banana|{used_model}",
+        # Round 149 — v2 마커: vivid 톤 재생성 여부 판별용 (백필 skip 조건이 이 접두사를 봄)
+        "prompt": f"nano_banana_v2|{used_model}",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "source": f"nano_banana:{used_model}",
     }
