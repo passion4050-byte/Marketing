@@ -76,6 +76,7 @@ const NAV: NavGroup[] = [
   ]},
   { group: '클라이언트', items: [
     { href: '/admin/tenants', label: '클라이언트 목록', icon: Users, hint: '등록 · 요금 · 상태' },
+    { href: '/admin/clients', label: '병원 계정 발급', icon: UserCog, hint: '병원 전용 콘솔 id/pw' },
     { href: '/admin/keywords', label: '키워드 풀', icon: Tag, hint: '측정 대상 키워드' },
     { href: '/admin/calendar', label: '콘텐츠 캘린더', icon: CalendarDays, hint: '발행 일정' },
     { href: '/admin/overseas', label: '해외 관리', icon: Globe, hint: 'EN · JA · ZH 전용' },
