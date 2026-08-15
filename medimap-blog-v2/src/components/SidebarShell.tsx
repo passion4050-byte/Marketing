@@ -19,9 +19,13 @@ export function SidebarShell({ children }: { children: React.ReactNode }) {
   //   ⚠️ `/r/` 가 아니라 `/report/` — `/r/[slug]` 는 ShortLink 라우트라 세그먼트명이 충돌한다.
   const isClientReport = pathname?.startsWith('/report/') ?? false;
 
+  // Round 148 — 병원 클라이언트 포털(/client/*). 자체 셸(ClientShell)을 쓰고,
+  //   콘솔 사이드바가 보이면 타 병원명(현재 고객사 위젯)까지 노출됨 — 반드시 제외.
+  const isClientPortal = pathname === '/client' || (pathname?.startsWith('/client/') ?? false);
+
   // Admin pages render their own layout (AdminShell). Skip client Sidebar.
   // Marketing pages are prospect-facing — no console chrome.
-  if (isAdmin || isMarketing || isClientReport) {
+  if (isAdmin || isMarketing || isClientReport || isClientPortal) {
     return <>{children}</>;
   }
 

@@ -71,6 +71,22 @@ find src/app -type d -name '\[*\]' | while read d; do echo "$(dirname "$d")|$(ba
 fetchCache · dynamicParams · preferredRegion · maxDuration · generateStaticParams · config`
 공유가 필요하면 **별도 lib 파일로 분리**할 것.
 
+### 🔴 tsc 풀 타입체크 게이트 — 샌드박스에서 재현 가능 (실사고 Round 146→148)
+esbuild 게이트만 믿고 push 한 Round 146 커밋의 TS2352(Supabase FK 조인은 생성 타입
+없으면 **배열**로 추론 — 객체로 직접 `as` 캐스팅 금지, `as unknown as` + 배열/객체
+양쪽 런타임 처리)가 geo-v2 빌드를 2라운드 동안 조용히 깨뜨렸다(이전 빌드 서빙이라
+화면은 멀쩡). **npm install 이 샌드박스에서 됨이 확인됐으므로**(52초) v2 의 .ts/.tsx
+수정 시 아래를 esbuild 게이트에 추가로 실행:
+```bash
+cd /tmp && rm -rf v2build && mkdir v2build && cd v2build \
+ && cp -r <마운트>/medimap-blog-v2/src . \
+ && cp <마운트>/medimap-blog-v2/{package.json,tsconfig.json,next-env.d.ts} . \
+ && npm install --no-audit --no-fund --loglevel=error \
+ && npx tsc --noEmit   # errors=0 이어야 push
+```
+(설치 실패 시엔 기존 esbuild 게이트 + Supabase 조인 캐스팅 수동 검토로 대체하고
+"tsc 미검증" 을 명시할 것.)
+
 ### ✅ 게이트 스크립트 (push 전 1회 실행 — 손으로 치지 말 것)
 ```bash
 cd medimap-blog-v2 && bash scripts/build-gate.sh
