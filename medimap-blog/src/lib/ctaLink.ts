@@ -58,10 +58,23 @@ const WA_PREFILL: Record<string, string> = {
   zh: "您好！我在考虑赴韩接受治疗。\n项目：\n期望时间：\n可以获取合作诊所的免费报价吗？",
 };
 
-/** 언어별 프리필이 붙은 WhatsApp 링크. 알 수 없는 lang 은 en 프리필. */
-export function waHref(lang?: string): string {
+/**
+ * 언어별 프리필이 붙은 WhatsApp 링크. 알 수 없는 lang 은 en 프리필.
+ * Round 150 — clinic 인자: 클리닉 상세에서 누르면 병원명이 프리필 첫 줄에 박혀
+ * 상담 시작 즉시 어느 병원 문의인지 식별된다 (이탈 방지 인플랫폼 예약 동선).
+ */
+export function waHref(lang?: string, clinic?: string): string {
   const base = siteConfig.contact.whatsapp;
-  const text = WA_PREFILL[lang ?? "en"] ?? WA_PREFILL.en;
+  let text = WA_PREFILL[lang ?? "en"] ?? WA_PREFILL.en;
+  const c = (clinic ?? "").trim();
+  if (c) {
+    const clinicLine: Record<string, string> = {
+      en: `Clinic: ${c}\n`,
+      ja: `クリニック：${c}\n`,
+      zh: `诊所：${c}\n`,
+    };
+    text = (clinicLine[lang ?? "en"] ?? clinicLine.en) + text;
+  }
   try {
     const u = new URL(base);
     u.searchParams.set("text", text);

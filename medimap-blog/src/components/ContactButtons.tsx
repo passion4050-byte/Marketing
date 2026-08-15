@@ -13,12 +13,15 @@ export function ContactButtons({
   waLabel,
   lineLabel = "LINE",
   lang,
+  clinic,
   size = "md",
   className = "",
 }: {
   waLabel?: string;
   lineLabel?: string;
   lang?: string;
+  /** Round 150 — 클리닉 상세에서 병원명을 WhatsApp 프리필 첫 줄에 주입 */
+  clinic?: string;
   size?: "md" | "lg";
   className?: string;
 }) {
@@ -28,7 +31,7 @@ export function ContactButtons({
   const wa = (
     <a
       key="wa"
-      href={waHref(lang)}
+      href={waHref(lang, clinic)}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="WhatsApp chat"
