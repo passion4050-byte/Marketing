@@ -378,6 +378,17 @@ export async function POST(req: NextRequest) {
         .single();
       resolvedCategory = t?.domain_category ?? null;
     }
+
+    /*
+     * 🔴 Round 146 (B5) — category 없는 저장은 applied=false 로 강등.
+     * 8/3·8/10 실측: category=null 인 competitor 인사이트 6건이 applied=true 로
+     * 저장돼 주입 로더의 `or=(eq.{cat}, is.null)` 매칭을 타고 **전 진료과 프롬프트에
+     * 무차별 주입**됐음. 안과 경쟁사 패턴이 피부과 글 생성에 들어가는 구조.
+     * category 를 못 구하면 자동 주입 대상에서 제외하고(applied=false),
+     * 운영자가 학습 인사이트 화면에서 category 지정 후 수동 토글하게 한다.
+     */
+    const canAutoApply = Boolean(resolvedCategory);
+
     const { error } = await sb
       .from('learned_insights')
       .upsert(
@@ -396,8 +407,8 @@ export async function POST(req: NextRequest) {
             recommendations: body.recommendations ?? [],
           },
           notes: body.notes ?? null,
-          applied: true,
-          applied_at: new Date().toISOString(),
+          applied: canAutoApply,
+          applied_at: canAutoApply ? new Date().toISOString() : null,
         },
         { onConflict: 'source_url,keyword' }
       );

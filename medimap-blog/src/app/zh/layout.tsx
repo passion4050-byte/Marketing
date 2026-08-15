@@ -32,7 +32,7 @@ export default function ZhLayout({ children }: { children: React.ReactNode }) {
       lang="zh"
       nav={NAV}
       ctaLabel="预约咨询"
-      footerTagline="韩国诊所的AI搜索可见度"
+      footerTagline="韩国诊所的国际患者服务窗口"
     >
       {children}
       <FloatingConsult lang="zh" />

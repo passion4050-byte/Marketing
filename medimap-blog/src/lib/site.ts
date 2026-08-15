@@ -19,9 +19,12 @@ export const siteConfig = {
     // Round 145c (2026-08-14) — 카카오 채널 단일화 (감사 #14): 공식 채널 pf.kakao 로 통일.
     //   (기존 open.kakao 오픈채팅과 이원화돼 있던 것 정리. /r/k-* 숏링크 target 도 DB 에서 동기 변경.)
     kakao: "https://pf.kakao.com/_xnWQkG",
-    // 해외(en/ja/zh)용 상담 채널 — 실제 링크는 Vercel env 로 주입(추후 제공). 미설정 시 placeholder.
-    whatsapp: process.env.NEXT_PUBLIC_WHATSAPP || "https://wa.me/",
-    line: process.env.NEXT_PUBLIC_LINE || "https://line.me/",
+    // 해외(en/ja/zh)용 상담 채널.
+    // 🔴 Round 146 — fallback 이 placeholder(https://line.me/)라서 env 미주입/ISR 스테일
+    //   경로에서 **죽은 링크가 라이브에 노출**됐음(contact ×3 실측). fallback 자체를
+    //   실계정으로 교체 — env 가 있으면 그 값, 없어도 절대 placeholder 가 안 나감.
+    whatsapp: process.env.NEXT_PUBLIC_WHATSAPP || "https://wa.me/821083787555",
+    line: process.env.NEXT_PUBLIC_LINE || "https://line.me/ti/p/~passion4050",
     naverPlace: "https://map.naver.com/p/search/%EB%A9%94%EB%94%94%EB%A7%B5/place/1091694610?c=15.00,0,0,0,dh&placePath=/home?bk_query=%EB%A9%94%EB%94%94%EB%A7%B5&entry=bmp&from=map&fromPanelNum=2&timestamp=202605242051&locale=ko&svcName=map_pcv5&searchText=%EB%A9%94%EB%94%94%EB%A7%B5",
     phone: process.env.NEXT_PUBLIC_PHONE || "02-0000-0000",
     medimapMain: "https://medi-map.co.kr",

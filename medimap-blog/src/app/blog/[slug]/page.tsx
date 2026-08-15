@@ -349,7 +349,14 @@ export default async function BlogPostPage({
             )}
 
             <div className="mx-auto max-w-prose">
-              <CTABlock utmSource="blog" utmCampaign={`blog_${post.slug}`} />
+              {/* Round 146 (A2) — 파트너 글이면 환자 CTA + 그 병원 추적 링크.
+                  자사(위서클 인사이트) 글만 기존 B2B 카피 유지. */}
+              <CTABlock
+                utmSource="blog"
+                utmCampaign={`blog_${post.slug}`}
+                partnerSlug={post.partnerSlug}
+                partnerName={post.author}
+              />
             </div>
 
             {/* Round 109-B (2026-07-03) — 관련 파트너 콘텐츠 카드 (wecircle 내부 순환) */}

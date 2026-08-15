@@ -50,6 +50,16 @@ const config: Config = {
           hover: "#EEF1F8",
         },
         line: "#E4E7EC",
+        // Round 146 Magazine B — 에디토리얼 토큰 (공개 사이트 전용).
+        //   공개 페이지들이 stone-* 를 하드코딩해 온 것을 정식 토큰화. brand/accent 는
+        //   어드민·클라이언트 포털이 사용하므로 유지 — 공개 사이트에선 인터랙션
+        //   (hover·포커스)에만 brand 허용, 면(배경·그라데이션) 사용 금지.
+        paper: "#FAFAF7",
+        rule: {
+          DEFAULT: "#E7E5E4", // stone-200 — 기본 헤어라인
+          strong: "#D6D3D1",  // stone-300
+          heavy: "#0C0A09",   // stone-950 — 페이지당 1회 헤비룰
+        },
       },
       fontFamily: {
         sans: [

@@ -91,7 +91,8 @@
   }
   .card-accent-top::before {
     content: "";
-    @apply absolute inset-x-0 top-0 h-px scale-x-0 bg-gradient-to-r from-transparent via-brand to-accent transition-transform duration-300;
+    /* Round 146 Magazine B — 그라데이션 → 단색 잉크 헤어라인 (로우컬러 원칙) */
+    @apply absolute inset-x-0 top-0 h-px scale-x-0 bg-stone-900 transition-transform duration-300;
     transform-origin: left;
   }
   .card-accent-top:hover::before {
@@ -105,8 +106,9 @@
 
   /* Reading progress bar (client component sets --scroll-progress) */
   .reading-progress {
-    @apply pointer-events-none fixed inset-x-0 top-0 z-50 h-[3px] origin-left;
-    background: linear-gradient(90deg, #1B68FF 0%, #1AD2A4 100%);
+    @apply pointer-events-none fixed inset-x-0 top-0 z-50 h-[2px] origin-left;
+    /* Round 146 Magazine B — 브랜드 그라데이션 → 단색 잉크 (장식 유채색 0 원칙) */
+    background: #0C0A09;
     transform: scaleX(var(--scroll-progress, 0));
     will-change: transform;
     transition: transform 80ms linear;
@@ -118,6 +120,20 @@
 
   .num { font-variant-numeric: tabular-nums; }
   .meta-divider { @apply h-3 w-px bg-line; }
+
+  /* Round 146 Magazine B — 에디토리얼 프리미티브 (KR·해외 공용).
+     기존 페이지들이 임기응변으로 반복하던 패턴(overline 라벨·헤어라인·이미지 톤)을
+     부품화. 2단계에서 컴포넌트가 이 클래스를 참조하게 치환한다. */
+  .overline-label {
+    @apply text-[10px] font-semibold uppercase tracking-[0.28em] text-stone-500;
+  }
+  .section-rule {
+    @apply border-t border-stone-300/70;
+  }
+  .img-editorial {
+    /* AI 생성 이미지 과채도를 로우컬러 톤으로 정합 */
+    filter: saturate(0.85) contrast(1.02);
+  }
   .pill-stat {
     @apply inline-flex items-center gap-1 text-[12px] font-medium text-ink-muted num;
   }
@@ -136,20 +152,23 @@
   .prose-medimap p {
     @apply my-4 leading-[1.8] text-ink-muted;
   }
+  /* Round 146 Magazine B 1단계 — 본문 에디토리얼 정합.
+     리스트 페이지(잡지 톤)와 본문(SaaS 블루 톤)의 배신을 해소: 링크는 잉크+밑줄,
+     블록쿼트는 좌측 룰+세리프, 마커는 무채색. 유채색은 인터랙션(hover)에만. */
   .prose-medimap a {
-    @apply text-brand underline decoration-brand/30 underline-offset-4 transition hover:decoration-brand;
+    @apply text-stone-900 underline decoration-stone-400 underline-offset-4 transition hover:text-brand hover:decoration-brand;
   }
   .prose-medimap ul {
-    @apply my-4 list-disc pl-6 leading-[1.8] text-ink-muted marker:text-brand/60;
+    @apply my-4 list-disc pl-6 leading-[1.8] text-ink-muted marker:text-stone-400;
   }
   .prose-medimap ol {
-    @apply my-4 list-decimal pl-6 leading-[1.8] text-ink-muted marker:text-brand/60;
+    @apply my-4 list-decimal pl-6 leading-[1.8] text-ink-muted marker:text-stone-400;
   }
   .prose-medimap li {
     @apply my-1.5;
   }
   .prose-medimap blockquote {
-    @apply my-6 rounded-card border-l-4 border-brand-200 bg-brand-50/50 px-5 py-4 text-ink-muted;
+    @apply my-8 rounded-none border-l-2 border-stone-900 bg-transparent py-0 pl-5 pr-0 font-serif italic text-[17px] leading-[1.7] text-stone-700;
   }
   .prose-medimap code {
     @apply rounded bg-surface-alt px-1.5 py-0.5 font-mono text-sm text-brand-700;
@@ -161,23 +180,28 @@
     @apply my-10 border-line;
   }
   .prose-medimap img {
-    @apply my-6 rounded-card border border-line/70;
+    /* Round 146 Magazine B — 라운드·보더 제거 (사진이 주인공, 프레임 장식 0) */
+    @apply my-8 rounded-none border-0;
   }
   .prose-medimap table {
     @apply my-6 w-full border-collapse text-sm;
   }
+  /* Round 146 Magazine B — 표: 세로 그리드선 제거, th 는 잉크 헤비룰, td 는 헤어라인 */
   .prose-medimap th,
   .prose-medimap td {
-    @apply border border-line/70 px-3 py-2 text-left;
+    @apply px-3 py-2 text-left;
+  }
+  .prose-medimap td {
+    @apply border-b border-stone-200;
   }
   .prose-medimap th {
-    @apply bg-surface-alt font-semibold text-ink whitespace-nowrap;
+    @apply border-b-2 border-stone-900 bg-transparent font-semibold text-ink whitespace-nowrap;
   }
   /* Round 145d — 가독성: 굵은 글씨가 본문 muted 색을 상속해 스캔 불가하던 문제 */
   .prose-medimap strong { @apply font-semibold text-ink; }
   /* 모바일 표 가로 스크롤 + 지브라 — 표 많은 의료 콘텐츠 이탈 방지 */
   .prose-medimap table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .prose-medimap tbody tr:nth-child(even) { @apply bg-surface-alt/50; }
+  .prose-medimap tbody tr:nth-child(even) { @apply bg-stone-100/60; }
   .prose-medimap h2 { @apply scroll-mt-24; }
   .heading-anchor {
     @apply no-underline text-ink hover:text-brand;
@@ -194,24 +218,27 @@
   .db-html-content p { @apply my-4 leading-[1.8] text-ink-muted; }
   .db-html-content strong { @apply font-semibold text-ink; }
   .db-html-content table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .db-html-content tbody tr:nth-child(even) { @apply bg-surface-alt/50; }
+  .db-html-content tbody tr:nth-child(even) { @apply bg-stone-100/60; }
+  /* Round 146 Magazine B 1단계 — prose-medimap 과 반드시 쌍으로 동일 적용 */
   .db-html-content a {
-    @apply text-brand underline decoration-brand/30 underline-offset-4 transition hover:decoration-brand;
+    @apply text-stone-900 underline decoration-stone-400 underline-offset-4 transition hover:text-brand hover:decoration-brand;
   }
   .db-html-content ul {
-    @apply my-4 list-disc pl-6 leading-[1.8] text-ink-muted marker:text-brand/60;
+    @apply my-4 list-disc pl-6 leading-[1.8] text-ink-muted marker:text-stone-400;
   }
   .db-html-content ol {
-    @apply my-4 list-decimal pl-6 leading-[1.8] text-ink-muted marker:text-brand/60;
+    @apply my-4 list-decimal pl-6 leading-[1.8] text-ink-muted marker:text-stone-400;
   }
   .db-html-content li { @apply my-1.5; }
   .db-html-content blockquote {
-    @apply my-6 rounded-card border-l-4 border-brand-200 bg-brand-50/50 px-5 py-4 text-ink-muted;
+    @apply my-8 rounded-none border-l-2 border-stone-900 bg-transparent py-0 pl-5 pr-0 font-serif italic text-[17px] leading-[1.7] text-stone-700;
   }
   .db-html-content table { @apply my-6 w-full border-collapse text-sm; }
   .db-html-content th,
-  .db-html-content td { @apply border border-line/70 px-3 py-2 text-left; }
-  .db-html-content th { @apply bg-surface-alt font-semibold text-ink; }
+  .db-html-content td { @apply px-3 py-2 text-left; }
+  .db-html-content td { @apply border-b border-stone-200; }
+  .db-html-content th { @apply border-b-2 border-stone-900 bg-transparent font-semibold text-ink; }
+  .db-html-content img { @apply my-8 rounded-none border-0; }
   /* generator 가 본문 끝에 부착하는 표준 CTA aside — 자체 인라인 스타일 유지 */
   .db-html-content aside.cta-block { @apply my-10; }
   /* meta 태그(<meta name=description>) 는 텍스트 흐름에서 숨김 */
@@ -219,15 +246,16 @@
 
   /* POST-HERO 2026-05-24 — DB 자동 발행 글 hero image + db-html-content 본문 내 figure */
   .db-html-content figure.post-hero {
-    @apply my-6 overflow-hidden rounded-card border border-line/70 bg-surface-alt;
+    /* Round 146 Magazine B — 프레임 장식 제거, 캡션은 헤어라인 위 좌측 정렬 */
+    @apply my-8 overflow-hidden rounded-none border-0 bg-stone-100;
   }
   .db-html-content figure.post-hero img {
-    @apply w-full h-auto;
+    @apply w-full h-auto my-0 rounded-none;
     aspect-ratio: 16 / 9;
     object-fit: cover;
   }
   .db-html-content figure.post-hero figcaption {
-    @apply px-4 py-2 text-[11.5px] text-ink-subtle;
+    @apply mt-2 border-t border-stone-200 px-0 pt-2 pb-0 text-[11.5px] text-stone-500;
   }
     /* CTA-CLEANUP 2026-05-24 — generator 자동 부착 CTA aside 는 medimap-blog
      페이지 레이아웃의 "메디맵에 상담하기" 와 중복되어 숨김.

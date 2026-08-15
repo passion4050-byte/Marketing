@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { siteConfig } from "@/lib/site";
+import { waHref } from "@/lib/ctaLink";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 /**
@@ -19,9 +20,17 @@ export function OverseasShell({
   footerTagline: string;
   children: React.ReactNode;
 }) {
-  const WA = siteConfig.contact.whatsapp;
+  const WA = waHref(lang);
   const LINE = siteConfig.contact.line;
   const home = `/${lang}`;
+  /*
+   * Round 146 (A4) — JA 헤더 CTA 를 LINE 으로.
+   * 페르소나 감사: 일본 시장 지배 채널은 LINE 인데 첫 화면 우상단 유일 CTA
+   * 「相談する」가 WhatsApp 이었음. 145c 가 ContactButtons·Floating 은 고쳤지만
+   * 헤더는 누락 — 유키가 첫 화면만 보면 "이 사이트엔 LINE 이 없다"고 판단.
+   */
+  const headerCtaHref = lang === "ja" ? LINE : WA;
+  const headerCtaBg = lang === "ja" ? "bg-[#06C755]" : "bg-[#25D366]";
 
   return (
     <div className="flex min-h-screen flex-col bg-[#FAFAF7] text-stone-900">
@@ -43,10 +52,10 @@ export function OverseasShell({
           <div className="flex items-center gap-2">
             <LanguageSwitcher />
             <a
-              href={WA}
+              href={headerCtaHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-full bg-[#25D366] px-4 py-2 text-sm font-bold text-white transition hover:brightness-95"
+              className={`rounded-full ${headerCtaBg} px-4 py-2 text-sm font-bold text-white transition hover:brightness-95`}
             >
               {ctaLabel}
             </a>

@@ -113,6 +113,12 @@ export interface PostMeta {
   coverCredit?: { author: string; url: string };
   /** Round 16 — 자사 인사이트 카테고리 (content_marketing / ai_trend / hospital_marketing). 파트너 콘텐츠는 undefined. */
   blogCategory?: BlogCategorySlug;
+  /**
+   * Round 146 (A2) — 파트너 병원 글이면 tenants.partner_slug.
+   * /blog 말미 CTA 분기: 파트너 글 = 환자 카피 + /r/k-{partner} (그 병원 직행),
+   * 자사/self = 기존 B2B. self(wecircle-self)·mdx 글은 undefined.
+   */
+  partnerSlug?: string;
 }
 
 export interface Post extends PostMeta {
@@ -174,6 +180,8 @@ interface DbPostRow {
   id: number;
   tenant_id: number;
   tenant_name: string | null;
+  /** Round 146 (A2) — /blog 말미 CTA 파트너 분기용. self 면 B2B, 파트너면 환자 CTA. */
+  partner_slug: string | null;
   channel: string;
   keyword_text: string;
   body: string;
@@ -192,7 +200,7 @@ interface DbPostRow {
 }
 
 const DB_SELECT = `
-  gc.id, gc.tenant_id, t.name AS tenant_name,
+  gc.id, gc.tenant_id, t.name AS tenant_name, t.partner_slug,
   gc.channel, gc.keyword_text, gc.body,
   gc.compliance_status, gc.status,
   gc.slug, gc.title, gc.excerpt, gc.blog_category,
@@ -357,6 +365,11 @@ function dbRowToPostMeta(row: DbPostRow): PostMeta {
     category: blogCategoryMeta?.ko ?? "위서클 인사이트",
     tags: row.keyword_text ? [row.keyword_text] : undefined,
     author: row.tenant_name ?? undefined,
+    // 파트너 글만 채움 — self 는 B2B CTA 유지 대상이라 undefined 로 남긴다.
+    partnerSlug:
+      row.partner_slug && row.partner_slug.trim() && row.partner_slug !== "wecircle-self"
+        ? row.partner_slug.trim()
+        : undefined,
     readingMinutes: readingTimeMinutes(stripHtml(row.body)),
     source_type: "html",
     blogCategory: blogCategorySlug,

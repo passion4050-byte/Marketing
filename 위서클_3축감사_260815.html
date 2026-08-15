@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>위서클 3축 감사 — 전환·GEO·자동화루프 (2026-08-15)</title>
+<style>
+:root{--bg:#0d1117;--surface:#161b22;--surface2:#1c2128;--border:#30363d;--ink:#e6edf3;--ink-soft:#9198a1;--ink-faint:#6e7681;--teal:#15B8A6;--iris:#4F5DF8;--red:#f85149;--amber:#d29922;--green:#3fb950}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;line-height:1.7;font-size:15px}
+.wrap{max-width:1060px;margin:0 auto;padding:0 24px 100px}
+header{padding:52px 0 28px;border-bottom:1px solid var(--border);margin-bottom:28px}
+.eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);font-weight:700;margin-bottom:12px}
+h1{font-size:32px;line-height:1.25;letter-spacing:-.02em;margin-bottom:10px;font-weight:800}
+.sub{color:var(--ink-soft);font-size:14.5px}
+.hero{background:linear-gradient(135deg,rgba(63,185,80,.10),rgba(21,184,166,.05));border:1px solid rgba(63,185,80,.35);border-radius:14px;padding:24px;margin:24px 0}
+.hero h2{font-size:18px;margin-bottom:10px;color:#7ee787}
+nav{position:sticky;top:0;background:rgba(13,17,23,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);z-index:50;margin:0 -24px 32px;padding:12px 24px;display:flex;gap:6px;overflow-x:auto}
+nav button{background:transparent;border:1px solid transparent;color:var(--ink-soft);padding:7px 13px;border-radius:8px;font-size:13px;cursor:pointer;white-space:nowrap;font-family:inherit;font-weight:600}
+nav button:hover{color:var(--ink);background:var(--surface2)}
+nav button.on{background:var(--teal);color:#04211d}
+section{display:none}
+section.on{display:block;animation:fade .25s}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+h2.sec{font-size:23px;margin:0 0 8px;font-weight:800}
+h3{font-size:16.5px;margin:32px 0 10px;font-weight:700}
+p{margin-bottom:13px}
+.lead{color:var(--ink-soft);margin-bottom:24px;font-size:14px}
+table{width:100%;border-collapse:collapse;margin:14px 0 22px;font-size:13.5px}
+th{background:var(--surface2);text-align:left;padding:9px 12px;font-weight:700;color:var(--ink-soft);font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid var(--border)}
+td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+td.num{font-variant-numeric:tabular-nums;font-weight:700;text-align:right;white-space:nowrap}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin:14px 0}
+.card.red{border-left:3px solid var(--red)}
+.card.amber{border-left:3px solid var(--amber)}
+.card.green{border-left:3px solid var(--green)}
+.card.teal{border-left:3px solid var(--teal)}
+.card h4{margin:0 0 8px;font-size:14px;color:var(--teal);font-weight:700}
+.card.red h4{color:#ff8a80}
+.card.amber h4{color:#e3b341}
+.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
+.t-p0{background:rgba(248,81,73,.15);color:#ff8a80}
+.t-p1{background:rgba(210,153,34,.15);color:#e3b341}
+.t-p2{background:rgba(79,93,248,.15);color:#8b96ff}
+.t-ok{background:rgba(63,185,80,.15);color:#56d364}
+code{background:var(--surface2);padding:2px 6px;border-radius:5px;font-size:12.5px;font-family:'SF Mono',Consolas,monospace;color:#a5d6ff}
+pre{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;overflow-x:auto;margin:12px 0;font-size:12.5px;line-height:1.6}
+pre code{background:none;padding:0;color:var(--ink)}
+.ba{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:10px 0}
+.ba>div{padding:12px 14px;font-size:13px}
+.ba .b{background:rgba(248,81,73,.06);border-right:1px solid var(--border)}
+.ba .a{background:rgba(63,185,80,.06)}
+.ba .lb{font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:800;margin-bottom:6px;display:block}
+.ba .b .lb{color:var(--red)}.ba .a .lb{color:var(--green)}
+ul,ol{margin:0 0 14px 20px}
+li{margin-bottom:6px}
+.quote{border-left:3px solid var(--iris);padding:3px 0 3px 15px;margin:14px 0;color:var(--ink-soft);font-style:italic;font-size:13.5px}
+details{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin:10px 0;overflow:hidden}
+summary{padding:12px 15px;cursor:pointer;font-weight:700;font-size:13.5px;list-style:none;display:flex;align-items:center;gap:8px}
+summary::-webkit-details-marker{display:none}
+summary::before{content:'▸';color:var(--teal);transition:.2s}
+details[open] summary::before{transform:rotate(90deg)}
+details>div{padding:0 15px 15px;border-top:1px solid var(--border);padding-top:12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px;margin:20px 0}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px}
+.kpi .v{font-size:26px;font-weight:800;letter-spacing:-.03em;line-height:1.1}
+.kpi .l{font-size:10.5px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.07em;margin-top:5px;font-weight:700}
+.kpi .n{font-size:11.5px;color:var(--ink-soft);margin-top:4px}
+.v.ok{color:var(--green)}.v.bad{color:var(--red)}.v.warn{color:var(--amber)}.v.tl{color:var(--teal)}
+@media(max-width:700px){.ba{grid-template-columns:1fr}.ba .b{border-right:none;border-bottom:1px solid var(--border)}h1{font-size:25px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Round 146 · 3-Axis Audit · Live + Code + DB</div>
+  <h1>위서클 3축 감사<br>전환 · GEO 영향력 · 자동화 루프</h1>
+  <p class="sub">2026-08-15 · 페르소나 3인(🇺🇸🇯🇵🇰🇷) 라이브 여정 + 코드 실독 + Supabase 실측 · 145c/d 구현 검증 포함</p>
+</header>
+
+<div class="hero">
+  <h2>먼저 — 145c/d는 성공했습니다</h2>
+  <p style="margin:0">12일간 <strong>상담 클릭 24건</strong> — 이 제품 최초의 실측 전환. mid CTA·benefit 카피·파트너 병원 표·안심칩·LINE 실계정 전부 라이브 확인. 이번 감사는 그 위에서 <strong>"클릭을 상담으로, 상담을 루프의 연료로"</strong> 만드는 다음 단계를 다룹니다.</p>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="v ok">24건</div><div class="l">상담 클릭 (12일)</div><div class="n">순방문자 ~20 · referer 11종</div></div>
+  <div class="kpi"><div class="v tl">287편</div><div class="l">누적 발행 (+83)</div><div class="n">클라이언트 15곳</div></div>
+  <div class="kpi"><div class="v warn">6건</div><div class="l">자사 인용 (30일)</div><div class="n">클릭이 인용보다 4배 풍부</div></div>
+  <div class="kpi"><div class="v bad">2건</div><div class="l">A/B 또 무효</div><div class="n">8/3·8/10 양쪽 gemini</div></div>
+</div>
+
+<nav>
+  <button class="on" data-t="s0">요약 · 판정</button>
+  <button data-t="s1">🇺🇸🇯🇵🇰🇷 페르소나</button>
+  <button data-t="s2">GEO 영향력</button>
+  <button data-t="s3">자동화 루프</button>
+  <button data-t="s4">실행 계획 (승인)</button>
+</nav>
+
+<!-- == S0 == -->
+<section id="s0" class="on">
+  <h2 class="sec">요약 — 세 축의 판정</h2>
+
+  <div class="card green">
+    <h4>축1 전환 — 골격 완성, 마지막 3초가 비어 있음</h4>
+    <p style="margin:0">세 페르소나 모두 콘텐츠·CTA 카피까지는 통과. 공통 이탈점은 <strong>버튼을 누른 직후</strong> — 프리필 없는 빈 메신저("뭐라고 보내지?"). 그리고 실제 전환을 만드는 KR /blog 글의 말미 CTA가 <strong>여전히 B2B 카피</strong>입니다.</p>
+  </div>
+  <div class="card amber">
+    <h4>축2 GEO — 8/2 교훈이 자동 발행에 0% 반영</h4>
+    <p style="margin:0">"첫 문단에 답이 되는 숫자"(himedi 승리 요인)와 "파트너 실명 표"는 <strong>수동 3편에서 멈췄고</strong>, 매일 발행되는 신규 글은 여전히 일반론 도입부로 생성됩니다. 스키마는 이미 100%(렌더 레이어) — 남은 병목은 프롬프트와 렌더입니다.</p>
+  </div>
+  <div class="card red">
+    <h4>축3 루프 — 자기 성공을 못 보는 루프</h4>
+    <p style="margin:0">A/B 변형 <code>라섹-385</code>가 <strong>상담 3클릭</strong>을 만들었는데 루프는 "인용 0 — 표본 부족"으로 기록 중. 성공지표가 희소한 인용에만 묶여 있고, 풍부한 클릭 신호(24건)는 학습·판정 어디에도 연결돼 있지 않습니다. 게다가 A/B provider 처치는 <strong>세 번째 무효</strong>(런타임 크레딧 폴백을 strict가 못 잡음), 한글 슬러그는 <strong>인용 측정 자체가 원리적으로 불능</strong>입니다.</p>
+  </div>
+
+  <h3>이번 감사의 P0 (6건)</h3>
+  <table>
+    <tr><th>#</th><th>발견</th><th>축</th><th>한 줄</th></tr>
+    <tr><td><span class="tag t-p0">P0-1</span></td><td>/en·/ja·/zh contact 의 LINE 버튼 = <code>line.me</code> 홈 (죽은 링크 ×3)</td><td>전환</td><td>가이드는 실계정인데 contact 만 placeholder 잔존</td></tr>
+    <tr><td><span class="tag t-p0">P0-2</span></td><td>KR /blog 글 말미 CTA 가 환자 글에도 B2B 카피</td><td>전환</td><td>실제 상담 클릭을 만드는 페이지(필러-403)의 CTA 가 "위서클 파트너십 팀"</td></tr>
+    <tr><td><span class="tag t-p0">P0-3</span></td><td>상담 버튼 이후 경험 부재 (전 경로 빈 메신저)</td><td>전환</td><td>wa.me ?text= 프리필 / 공식계정 자동 인사말</td></tr>
+    <tr><td><span class="tag t-p0">P0-4</span></td><td>A/B strict 가 런타임 폴백을 못 잡음 — 3번째 무효</td><td>루프</td><td>Claude 400(크레딧) → FallbackProvider 가 조용히 gemini. strict 는 초기화만 검사</td></tr>
+    <tr><td><span class="tag t-p0">P0-5</span></td><td>한글 슬러그 인용 매칭 원리적 불능</td><td>루프</td><td><code>ILIKE '%라섹-385%'</code> vs DB 는 percent-encoded — A/B 지표가 영원히 0</td></tr>
+    <tr><td><span class="tag t-p0">P0-6</span></td><td>첫 문단 숫자 디렉티브 미반영</td><td>GEO</td><td>8/2 갭 분석 최대 교훈이 generator 프롬프트에 없음</td></tr>
+  </table>
+
+  <h3>해소 확인 (145c/d 검증)</h3>
+  <ul>
+    <li><span class="tag t-ok">✅</span> LINE env → 가이드 페이지 실계정 연결 (<code>~passion4050</code>)</li>
+    <li><span class="tag t-ok">✅</span> mid CTA·인라인 CTA·말미 블랙카드·안심칩 3개 언어 라이브</li>
+    <li><span class="tag t-ok">✅</span> /en/clinics 번호 진료과 디렉토리 (145d)</li>
+    <li><span class="tag t-ok">✅</span> KR 파트너 허브 환자 CTA — dossier D-1 라이브 재현 안 됨 (힐링안과 허브에 <code>/r/k-healingeye</code> 확인)</li>
+    <li><span class="tag t-ok">✅</span> FAQPage 스키마 렌더율 100% (8/2 이후 72편 전부 raw_qa_pairs 보유)</li>
+  </ul>
+</section>
+
+<!-- == S1 == -->
+<section id="s1">
+  <h2 class="sec">페르소나 3인 — 상담하고 싶어지는가</h2>
+  <p class="lead">각자 실제 여정(라이브 텍스트 인용)으로 "신뢰 형성 → 식는 순간 → CTA → 마지막 의심"을 기록.</p>
+
+  <details open><summary>🇺🇸 Sarah (34, -7D, 예산 $2,500, 의심 많음) — 콘텐츠 합격, 버튼 너머에서 정지</summary><div>
+    <p><strong>15초 합격:</strong> 첫 문단 "KRW 2,000,000–3,500,000 (~USD 1,400–2,500) · 1–2 days" — 예산 안에 상한이 걸리는 걸 15초 만에 확인.</p>
+    <p><strong>신뢰 형성:</strong> "Surgical volume for SMILE specifically — <em>not combined totals</em>" · "carries <em>no ranking</em>" · "determined <em>only by an in-person examination</em>" — 팔지 않는 문장들이 판다.</p>
+    <p><strong>식는 순간:</strong> 푸터 "AI search visibility for Korean clinics"(정체성 누출) · Contact 페이지가 100% B2B.</p>
+    <p><strong>CTA:</strong> "Get my free quote" 카피는 결과물을 약속하는데, 누르면 <strong>프리필 없는 빈 WhatsApp</strong>. 약속과 화면의 낙차 최대 지점.</p>
+    <p style="margin:0"><strong>결정적 개선:</strong> <code>wa.me/...?text=Hi, I'm considering SMILE in Korea. My prescription is ___ ...</code> — 빈칸만 채우면 되게.</p>
+  </div></details>
+
+  <details><summary>🇯🇵 유키 (29, LINE 필수, 격식 기대) — 첫 화면에서 감점, 중복 문단에서 신뢰 하락</summary><div>
+    <p><strong>감점 1 (P1):</strong> 첫 화면 우상단 유일 CTA 「相談する」가 <strong>WhatsApp</strong>. LINE 은 스크롤해야 나옴. 145c 가 ContactButtons·Floating 은 고쳤지만 <strong>Header 는 누락</strong>.</p>
+    <p><strong>감점 2 (P1):</strong> 「本ガイドでは…解説します」가 <strong>2회 반복</strong> + 「SMILE LASIKとは」 제목 밑에 정의가 아니라 비용 문단 — 8/2 삽입 위치 문제. 격식 민감 시장에서 "무검수 페이지" 신호.</p>
+    <p><strong>신뢰 형성:</strong> 「検査当日と手術当日に通訳が同席するか」 — 정확히 두려운 지점을 짚음 · 체류 일정표 + 「適応外と判断される場合もある」.</p>
+    <p><strong>CTA:</strong> 「この施術、自分の場合いくら？」는 3개 언어 중 최고 카피. 그러나 누르면 <strong>개인 LINE 계정(<code>ti/p/~passion4050</code>) 친구 추가</strong> — 일본 사용자는 의료 상담이면 녹색 배지 公式アカウント를 기대 (P2).</p>
+    <p style="margin:0"><strong>결정적 개선:</strong> ja 헤더를 LINE 으로 + 公式アカウント 자동 인사말("ご検討中の施術と希望時期をお送りください").</p>
+  </div></details>
+
+  <details><summary>🇰🇷 민지 (27, 필러·리쥬란, 광고 피로) — 글은 좋은데 병원에 물어볼 방법이 그 글에 없음</summary><div>
+    <p><strong>신뢰 형성:</strong> 필러 비교표의 단점 컬럼("칼슘 필러 — 시술 후 녹이기 어려움") · "즉시 병원에 연락" — 리스크를 숨기지 않는 병원 블로그는 드묾.</p>
+    <p><strong>치명 (P0-2):</strong> 글을 다 읽고 만나는 유일한 하단 CTA:</p>
+    <div class="ba">
+      <div class="b"><span class="lb">현재 (/blog 글 말미)</span>"AI 검색 시대의 의료 마케팅, <strong>위서클 파트너십 팀</strong>이 카카오톡으로 안내합니다" → 카카오톡으로 상담받기</div>
+      <div class="a"><span class="lb">있어야 할 것</span>"이 글의 시술, <strong>청담디어의원에 직접 물어보기</strong>" → /r/k-dear (파트너 태깅 분기)</div>
+    </div>
+    <p>필러 정보를 읽은 환자에게 마케팅 파트너십 상담을 권함 → "역시 전부 광고였네"로 피로감 확정. <strong>필러-403 은 실측 상담 클릭을 만든 페이지</strong>라 더 심각.</p>
+    <p><strong>부가:</strong> 8분 분량 글에 가격 0회 (EN 가이드와 정반대) · 링크 없는 권위 인용("학회 자료 2022").</p>
+    <p style="margin:0"><strong>결정적 개선:</strong> /blog 말미 CTA 를 파트너 태깅 기반 분기 — 파트너 글이면 환자 카피 + <code>/r/k-{partner}</code>.</p>
+  </div></details>
+
+  <h3>"상담하고 싶어지는 콘텐츠"의 조건 5 (실측 기반)</h3>
+  <ol>
+    <li><strong>첫 문단에 '내 경우의 숫자'</strong> — 숫자형 가이드가 클릭을 만들고, 필러-403(가격 0회)은 정보만 주고 보냄</li>
+    <li><strong>CTA 가 상담이 아니라 결과물을 판다</strong> — "Get my free quote" ○ / "무료 상담" △ / "파트너십 팀이 안내" ✕</li>
+    <li><strong>팔지 않는 문장이 하나 이상</strong> — 세 페르소나의 신뢰 순간이 전부 리스크 고지였음</li>
+    <li><strong>'누구와 대화하게 되는가'를 클릭 전에 공개</strong> — 중개의 이득(비교·무료·언어)을 먼저 말할 것</li>
+    <li><strong>버튼 너머 첫 메시지가 준비돼 있다</strong> — 마지막 3초 "뭐라고 보내지?"가 현재 전 경로의 공통 이탈점</li>
+  </ol>
+</section>
+
+<!-- == S2 == -->
+<section id="s2">
+  <h2 class="sec">GEO 영향력 — 인용을 만드는 콘텐츠인가</h2>
+  <p class="lead">8/2 갭 분석(himedi 해부)의 교훈이 자동 파이프라인에 반영됐는지 코드 실독 + DB 실측.</p>
+
+  <div class="card red">
+    <h4>a) 첫 문단 숫자 디렉티브 — 없음 (P0-6)</h4>
+    <p><code>generator.py:467</code> 통계 디렉티브는 "본문에 수치 2개"(위치 무관), <code>llm.py:617</code> 시스템 프롬프트 #5는 오히려 "첫 단락 = meta_description 반복"(요약 지시). himedi 식 <strong>답이 되는 첫 문단</strong>은 수동 3편뿐 — 매일 신규 발행은 여전히 일반론 도입부.</p>
+    <p style="margin:0"><strong>수정:</strong> <code>_ANSWER_FIRST_DIRECTIVE</code> 신설(~15줄) — "첫 문단에 가격 구간(KRW·해외는 +USD)+소요시간+회복기간. 확정가·최상급 금지".</p>
+  </div>
+
+  <div class="card red">
+    <h4>b) 파트너 실명 — 자동 경로에 없음. 수동 3편에서 정지</h4>
+    <p>generator 는 tenant <em>자기 자신</em>의 정보만 "본문 끝 안내"로 지시. 자사 키워드로 생성되는 해외 가이드는 <strong>파트너 실명 0곳</strong>으로 계속 생성 중 — "경쟁사는 우리 클라이언트를 팔고 우리는 안 넣는" 구조가 자동으로 재생산.</p>
+    <p style="margin:0"><strong>수정 (렌더 주입 권장):</strong> GuideArticle 에 파트너 표 컴포넌트 — <code>tenant_products</code>(해당 lang 활성) + 실명/주소, 동의 플래그 게이팅. LLM 에 실명을 맡기면 의료법·사실오류 리스크. 렌더 주입이면 전 가이드 소급 적용.</p>
+  </div>
+
+  <div class="card red">
+    <h4>c) 한글 슬러그 — 인용 실적 0 + 측정 코드도 원리적 불능 (P0-5)</h4>
+    <p>전 기간 자사 인용 URL = 전부 영문 슬러그. 한글 슬러그 인용 <strong>0회</strong> (수집 파이프라인은 인코딩 URL 을 잡음 — 경쟁사 인코딩 URL 수집 실증 → 실제 미인용). 8/2 이후 국내 발행 64편 중 <strong>41편(64%)이 한글 슬러그</strong>.</p>
+    <p style="margin:0">결정타: <code>run_ab_analysis.py:43</code> 이 raw 한글 <code>ILIKE</code> — AI 가 인용해도 DB 엔 <code>%EB%9D%BC%EC%84%B9-385</code> 로 저장되므로 <strong>A/B 인용 지표가 영원히 0</strong>. → <code>quote(slug)</code> 변형 OR 매칭 5줄.</p>
+  </div>
+
+  <div class="card green">
+    <h4>d) 스키마 — 결손 아님 (렌더율 100%)</h4>
+    <p style="margin:0">스키마는 body 가 아니라 렌더 레이어에서 생성 — 8/2 이후 72편 전부 <code>raw_qa_pairs</code> 보유 → FAQPage 100%. 국내 파트너 글은 MedicalWebPage 도 자동. <code>body LIKE '%FAQPage%'</code> 로 재면 안 됨(측정 방법 정정). 남은 병목은 스키마가 아니라 <strong>(a)와 (b)</strong>.</p>
+  </div>
+</section>
+
+<!-- == S3 == -->
+<section id="s3">
+  <h2 class="sec">자동화 루프 — 어디가 끊겼나</h2>
+  <p class="lead">목표: 발굴 → 학습 → 생성 → A/B → 선별 → 고도화, 전 단계 무인.</p>
+
+  <table>
+    <tr><th>단계</th><th>상태</th><th>진단</th></tr>
+    <tr><td>키워드 발굴</td><td><span class="tag t-ok">자동</span></td><td>keyword_discovery — 매일 3회(cron 3개 경유). 단 en 전용 + <code>keywords.created_at</code> 없어 유입 관측 불가</td></tr>
+    <tr><td>구조 학습</td><td><span class="tag t-p1">오염</span></td><td>learn-from-domain 이 저장 시 무조건 <code>applied=true</code>(검수 0) + <code>domain_category=null</code> → <strong>전 진료과 무차별 주입</strong>. T1 자사 학습은 워크플로 YAML 깨져 한 번도 성공 못함</td></tr>
+    <tr><td>생성·발행</td><td><span class="tag t-ok">자동</span></td><td>로테이션 145 수정 + 해외 자동발행(린터 게이트). ⚠ 8/14 이후 해외 생성 0건 — 다음 cron 실측 필요</td></tr>
+    <tr><td>A/B</td><td><span class="tag t-p0">3번째 무효</span></td><td>키는 전달됐지만 <strong>Claude 400(크레딧) → FallbackProvider 가 런타임에 조용히 gemini</strong>. 8/2 strict 는 초기화 실패만 검사 — 폴백 경로엔 미전달. + <code>LLM_PROVIDER</code> env 우회 구멍도 실재</td></tr>
+    <tr><td>효용 선별</td><td><span class="tag t-p0">눈이 먼 상태</span></td><td>인용만 보는데 인용은 희소+한글 슬러그 측정 불능 → 영원히 "표본 부족". <strong>라섹-385 가 상담 3클릭을 만들어도 루프는 모름</strong></td></tr>
+    <tr><td>고도화</td><td><span class="tag t-p2">미구현</span></td><td>승자가 나온 적이 없어 재적용 단계 자체가 없음</td></tr>
+  </table>
+
+  <h3>루프 완성 설계 — 상담 클릭을 북극성으로</h3>
+  <p>신호 밀도: 인용 6건/30일 vs <strong>클릭 24건/12일</strong>. 판정 가능한 신호가 4배 풍부한데 루프의 어떤 판정에도 안 쓰임.</p>
+  <pre><code>1) 클릭→콘텐츠 귀속   VIEW content_click_attribution
+   shortlink_clicks.referer → path 마지막 segment → percent-decode → slug 매칭
+   (한글 슬러그 대응 필수 — 지금 dossier 도 수작업 귀속이었음)
+
+2) A/B 판정에 클릭     run_ab_analysis: score = citations + clicks
+   + _count_citations 에 quote(slug) 변형 매칭 (P0-5 동시 해소)
+
+3) auto-learn 소스     인용 상위(공회전 중) → 클릭 상위 콘텐츠로 교체/병합
+   + 저장 시 domain_category 채움 (null 오염 동시 봉합)
+
+4) 발굴 확장           클릭 만든 콘텐츠의 keyword 인접 변형 추가 소스
+
+5) 고도화 (신설)       승자 변형의 (provider, insight_ids, structure_type)
+   → learned_insights source_tier='WINNER' 적립 → 기존 로더가 자동 주입</code></pre>
+  <p class="quote">이 루프의 핵심 전환: "AI 가 인용했는가"(희소·지연 16~39일·측정 불능)에서 "사람이 상담을 눌렀는가"(풍부·즉시·이미 적재 중)로. 인용은 계속 병행 추적하되, <strong>판정과 학습의 연료는 클릭</strong>.</p>
+</section>
+
+<!-- == S4 == -->
+<section id="s4">
+  <h2 class="sec">실행 계획 — 승인 요청</h2>
+  <p class="lead">P0 는 전부 소규모 수정(파일당 5~20줄 + 카피). 승인 주시면 순서대로 진행합니다.</p>
+
+  <h3>배치 A — 전환 즉효 (오늘 가능)</h3>
+  <table>
+    <tr><th>#</th><th>작업</th><th>파일</th><th>규모</th></tr>
+    <tr><td>A1</td><td>contact ×3 LINE 죽은 링크 → 실계정</td><td>en/ja/zh contact page</td><td>3줄</td></tr>
+    <tr><td>A2</td><td>KR /blog 말미 CTA 파트너 태깅 분기 (환자 카피 + /r/k-{partner})</td><td>blog/[slug]/page.tsx 또는 CTABlock</td><td>~30줄</td></tr>
+    <tr><td>A3</td><td>WhatsApp 전 CTA 에 ?text= 프리필 (EN/JA/ZH 언어별)</td><td>ctaLink 계열 + CTA 컴포넌트</td><td>~20줄</td></tr>
+    <tr><td>A4</td><td>JA 헤더 相談する → LINE</td><td>Header.tsx (lang 분기)</td><td>~10줄</td></tr>
+    <tr><td>A5</td><td>JA smile-lasik 도입 중복 정리 (DB 1건 — 구 도입 문단 삭제·숫자 문단 위치 교정, 백업 후)</td><td>SQL</td><td>1 UPDATE</td></tr>
+    <tr><td>A6</td><td>환자 페이지 푸터 B2B 태그라인 분기</td><td>Footer/OverseasShell</td><td>~15줄</td></tr>
+  </table>
+
+  <h3>배치 B — 루프 복구</h3>
+  <table>
+    <tr><th>#</th><th>작업</th><th>파일</th><th>비고</th></tr>
+    <tr><td>B1</td><td>strict 모드 = 체인 1개 제한(런타임 폴백 제거) + env 우회 차단</td><td>llm.py</td><td>⚠ 전제: Anthropic 크레딧 충전(사용자)</td></tr>
+    <tr><td>B2</td><td>한글 슬러그 quote() 변형 매칭</td><td>run_ab_analysis.py</td><td>5줄 — A/B 지표 측정 개시</td></tr>
+    <tr><td>B3</td><td>첫 문단 숫자 디렉티브</td><td>generator.py</td><td>~15줄 — 다음 cron 부터 적용</td></tr>
+    <tr><td>B4</td><td>auto-learn-own.yml YAML 수리 + domain_category 채워 저장</td><td>yml + route.ts</td><td>매일 빨간 X 해소</td></tr>
+    <tr><td>B5</td><td>learn-from-domain 저장 시 category 필수화</td><td>route.ts</td><td>null 오염 차단</td></tr>
+  </table>
+
+  <h3>배치 C — 클릭 북극성 루프 (다음 라운드, 설계 승인만)</h3>
+  <table>
+    <tr><th>#</th><th>작업</th></tr>
+    <tr><td>C1</td><td>content_click_attribution 뷰 + funnel 연결</td></tr>
+    <tr><td>C2</td><td>A/B 판정 score = citations + clicks</td></tr>
+    <tr><td>C3</td><td>auto-learn 소스를 클릭 상위로</td></tr>
+    <tr><td>C4</td><td>파트너 실명 표 렌더 자동화 (GuideArticle, 동의 플래그) — 병원 동의 확인 후</td></tr>
+    <tr><td>C5</td><td>승자 패턴 재적립 (source_tier='WINNER')</td></tr>
+  </table>
+
+  <div class="card amber">
+    <h4>사용자 액션 필요 (제가 못 하는 것)</h4>
+    <ul style="margin:0">
+      <li><strong>Anthropic 크레딧 충전</strong> — 없으면 B1 을 고쳐도 A/B B팔은 실패로 끝남 (이번엔 무음이 아니라 명시적 실패)</li>
+      <li><strong>LINE 公式アカウント 개설 검토</strong> (P2) — 일본 시장 신뢰. 개인 계정으론 자동 인사말도 불가</li>
+      <li><strong>파트너 실명 노출 동의</strong> — C4 전제. 특히 밝은눈안과 강남점</li>
+    </ul>
+  </div>
+</section>
+
+<div style="margin-top:56px;padding-top:20px;border-top:1px solid var(--border);color:var(--ink-faint);font-size:12px">
+  위서클 3축 감사 · 2026-08-15 · 방법: 브라우저 라이브 순회 + 페르소나 서브에이전트 2기(전환 3인/기술) + 코드 실독 + Supabase 실측 · 미검증 항목은 본문에 명시
+</div>
+
+</div>
+<script>
+document.querySelectorAll('nav button').forEach(b=>{b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('section').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');document.getElementById(b.dataset.t).classList.add('on');
+  window.scrollTo({top:0,behavior:'smooth'});
+};});
+</script>
+</body>
+</html>

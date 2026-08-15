@@ -638,7 +638,7 @@ def _generate_draft(
             if channel == "blog_html" and hasattr(obj, "slug"):
                 cur = (getattr(obj, "slug", None) or "").strip()
                 if not cur:
-                    obj.slug = _make_slug(keyword, obj.id)
+                    obj.slug = _make_slug(keyword, obj.id, lang)
             if hasattr(obj, "published_at") and getattr(obj, "published_at", None) is None:
                 from datetime import datetime as _dt2, timezone as _tz2
                 obj.published_at = _dt2.now(_tz2.utc)
@@ -667,7 +667,7 @@ def _generate_draft(
                         "                    THEN NOW() ELSE published_at END "
                         "WHERE id = :id"
                     ),
-                    {"slug": _make_slug(keyword, obj.id), "id": obj.id},
+                    {"slug": _make_slug(keyword, obj.id, lang), "id": obj.id},
                 )
                 s.commit()
             except Exception:
@@ -963,31 +963,44 @@ def _romanize_korean(text: str) -> str:
     return cleaned
 
 
-def _make_slug(keyword: str, content_id: int) -> str:
+def _make_slug(keyword: str, content_id: int, lang: str = "ko") -> str:
     """한글/영문 키워드를 URL-safe slug 로 변환. 항상 -{id} suffix 로 충돌 0.
 
     Round 29 (2026-05-30): 한글 키워드 → 영문 slug 매핑 우선 적용.
     매핑에 없으면 한글 제거 + 영문/숫자만 사용. id suffix 로 충돌 0.
+
+    Round 146-B (2026-08-15): 해외(lang != ko) 신규 발행 슬러그에 지역 접미사.
+    "skin clinic in korea" 상위 5사 실측 — 서비스 페이지 전수가 `-in-seoul`/
+    `-gangnam` 류 지역 접미사 영문 슬러그(2·3·4·5번 사이트 공통). 키워드에
+    이미 'in korea/seoul' 이 있으면 자연 포함되므로 없을 때만 `-in-korea` 추가.
+    기존 발행분 슬러그는 불변(신규만) — URL 유지 = 랭킹 유지 원칙.
     """
     import re as _re
     k = (keyword or "").strip()
 
+    base: str | None = None
     # 1) 정확 매칭 — KEYWORD_SLUG_MAP
     if k in KEYWORD_SLUG_MAP:
-        return f"{KEYWORD_SLUG_MAP[k]}-{content_id}"
+        base = KEYWORD_SLUG_MAP[k]
+    else:
+        # 2) 부분 매칭 — keyword 안에 매핑 키가 포함되면 그것 사용
+        for ko, en in KEYWORD_SLUG_MAP.items():
+            if ko in k:
+                base = en
+                break
 
-    # 2) 부분 매칭 — keyword 안에 매핑 키가 포함되면 그것 사용
-    for ko, en in KEYWORD_SLUG_MAP.items():
-        if ko in k:
-            return f"{en}-{content_id}"
+    if base is None:
+        # 3) Fallback — 영문/숫자만 추출
+        base = _re.sub(r"[^a-zA-Z0-9\-\s]+", "", k).strip().lower()
+        base = _re.sub(r"[\s_]+", "-", base).strip("-")
+        if not base:
+            # 한글만 있는 경우 — id 만 사용
+            base = "post"
+        base = base[:40]
 
-    # 3) Fallback — 영문/숫자만 추출
-    base = _re.sub(r"[^a-zA-Z0-9\-\s]+", "", k).strip().lower()
-    base = _re.sub(r"[\s_]+", "-", base).strip("-")
-    if not base:
-        # 한글만 있는 경우 — id 만 사용
-        base = "post"
-    base = base[:40]
+    # 해외 지역 접미사 — 이미 '-in-' 이 있으면(예: smile-lasik-in-korea) 중복 금지
+    if lang and lang != "ko" and "-in-" not in f"-{base}-":
+        base = f"{base[:30].rstrip('-')}-in-korea"
     return f"{base}-{content_id}"
 
 

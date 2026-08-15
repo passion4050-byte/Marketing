@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { siteConfig } from "@/lib/site";
+import { waHref } from "@/lib/ctaLink";
 
 /**
  * Round 145c (2026-08-14) — 해외(en/ja/zh) 모바일 플로팅 상담 버튼.
@@ -27,7 +28,7 @@ export function FloatingConsult({ lang }: { lang: "en" | "ja" | "zh" }) {
   const wa = (
     <a
       key="wa"
-      href={siteConfig.contact.whatsapp}
+      href={waHref(lang)}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="WhatsApp chat"

@@ -48,18 +48,29 @@ def _count_citations(session, slug: str | None) -> int:
     만 보고 cited_urls 는 무시.
     수정: 경로 접두사 무관하게 slug 를 source_domains + cited_urls 양쪽에서 매칭.
     (slug 는 고유값이라 `%{slug}%` 오탐 위험 낮음.)
+
+    🔴 Round 146 (2026-08-15) — 한글 슬러그 percent-encoded 매칭 추가.
+      A/B 7·8 의 변형 슬러그는 '라식-349' 류 한글인데, AI 가 인용한 URL 은 DB 에
+      '%EB%9D%BC%EC%84%B9-385' 로 percent-encoded 저장된다 (경쟁사 인코딩 URL
+      수집 실증). raw 한글 ILIKE 만으로는 **인용돼도 영원히 0** — 지표 측정
+      자체가 불능이던 상태. quote(slug) 변형을 OR 로 추가한다.
+      국내 발행의 64% 가 한글 슬러그라 이 매칭 없이는 A/B 판정이 성립 안 함.
     """
     if not slug:
         return 0
+    from urllib.parse import quote as _urlquote
+
+    encoded = _urlquote(slug, safe="-")  # '라식-349' → '%EB%9D%BC%EC%8B%9D-349'
     row = session.execute(
         text(
             "SELECT count(*) FROM responses r "
             "JOIN queries q ON q.id = r.query_id "
             "WHERE q.engine <> 'stub' "
             "AND r.created_at >= now() - make_interval(days => :days) "
-            "AND (r.source_domains::text ILIKE :pat OR r.cited_urls::text ILIKE :pat)"
+            "AND (r.source_domains::text ILIKE :pat OR r.cited_urls::text ILIKE :pat "
+            "     OR r.source_domains::text ILIKE :pat_enc OR r.cited_urls::text ILIKE :pat_enc)"
         ),
-        {"days": LOOKBACK_DAYS, "pat": f"%{slug}%"},
+        {"days": LOOKBACK_DAYS, "pat": f"%{slug}%", "pat_enc": f"%{encoded}%"},
     ).fetchone()
     return int(row[0]) if row and row[0] is not None else 0
 

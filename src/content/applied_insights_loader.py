@@ -50,14 +50,21 @@ def load_applied_insights_block(tenant_id: int, max_count: int = 5) -> Optional[
             if not category:
                 return None
             # 2) 같은 진료과의 적용된(applied) 인사이트
-            # Round 138+ (② 학습 루프 완결) — 같은 진료과 인사이트 + 전역(null) 자동패턴 인사이트.
-            #   자동패턴은 진료과 무관 구조 가이드라 domain_category=null → OR 조건으로 포함.
+            # 🔴 Round 146 (2026-08-15) — null 포함 매칭 제거.
+            #   기존 or=(eq.{cat}, is.null) 은 "전역 자동패턴" 의도였으나, 실측상
+            #   category=null 로 저장된 경쟁사 인사이트들(안과 bnviit 등)이 이 조건을
+            #   타고 **전 진료과 프롬프트에 무차별 주입**됐음(안과 패턴이 피부과 글에).
+            #   같은 진료과만 매칭. 전역 패턴이 필요하면 category 를 명시적 값
+            #   ('전역')으로 저장하는 별도 규약을 만들 것 — 조용한 null 포함은 금지.
+            #   + 정렬 미지정이라 어떤 5개가 주입되는지 비결정적이던 문제도 고정
+            #   (최신 적용 순).
             r = client.get(
                 f"{SUPABASE_URL}/rest/v1/learned_insights",
                 params={
                     "applied": "eq.true",
-                    "or": f"(domain_category.eq.{category},domain_category.is.null)",
+                    "domain_category": f"eq.{category}",
                     "select": "id,source_domain,keyword,patterns,notes",
+                    "order": "applied_at.desc",
                     "limit": str(max_count),
                 },
                 headers=headers,

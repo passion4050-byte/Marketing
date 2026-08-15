@@ -32,7 +32,7 @@ export default function JaLayout({ children }: { children: React.ReactNode }) {
       lang="ja"
       nav={NAV}
       ctaLabel="相談する"
-      footerTagline="韓国クリニックのAI検索可視化"
+      footerTagline="韓国クリニックの外国人患者サポート窓口"
     >
       {children}
       <FloatingConsult lang="ja" />

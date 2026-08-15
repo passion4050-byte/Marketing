@@ -3,6 +3,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { ContactButtons } from "@/components/ContactButtons";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { siteConfig } from "@/lib/site";
+import { waHref } from "@/lib/ctaLink";
 import type { Guide } from "@/lib/guides";
 
 export interface GuideLabels {
@@ -189,7 +190,7 @@ export function GuideArticle({
             guide.body,
             `<div class="not-prose my-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#1B68FF]/25 bg-[#1B68FF]/5 px-5 py-4">` +
               `<span class="text-sm font-semibold text-stone-800">${pc.midQ}</span>` +
-              `<a href="${langPath === "ja" ? siteConfig.contact.line : siteConfig.contact.whatsapp}" target="_blank" rel="noopener noreferrer" class="shrink-0 rounded-full ${langPath === "ja" ? "bg-[#06C755]" : "bg-[#25D366]"} px-4 py-2 text-[13px] font-bold text-white">${pc.midBtn}</a>` +
+              `<a href="${langPath === "ja" ? siteConfig.contact.line : waHref(langPath)}" target="_blank" rel="noopener noreferrer" class="shrink-0 rounded-full ${langPath === "ja" ? "bg-[#06C755]" : "bg-[#25D366]"} px-4 py-2 text-[13px] font-bold text-white">${pc.midBtn}</a>` +
               `</div>`
           ),
         }}

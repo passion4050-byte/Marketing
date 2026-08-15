@@ -1665,7 +1665,17 @@ def _build_provider_chain(prefer: str = "gemini", *, strict: bool = False) -> li
             raise RuntimeError(msg)
         logger.warning("llm.prefer_unavailable_fallback", prefer=p, detail=msg)
 
-    if p == "anthropic":
+    # 🔴🔴 Round 146 (2026-08-15) — strict 는 체인을 요청 provider **1개로 제한**.
+    #   Round 144 의 strict 는 "초기화 실패(키 누락)"만 잡았다. 그런데 8월 실측:
+    #   키는 있는데 Claude 가 400 "credit balance" → FallbackProvider._try_all 이
+    #   **호출 시점에** 예외를 잡고 조용히 gemini 로 넘어감 → A/B 7·8(라식·라섹)이
+    #   또 양쪽 gemini 로 생성돼 3번째 무효 실험이 됨.
+    #   폴백은 일반 발행에선 미덕이지만 A/B 에선 처치 소실이다. strict 면 폴백
+    #   후보 자체를 체인에 넣지 않는다 → 크레딧 소진 시 실험이 "조용히 오염"이
+    #   아니라 "명시적으로 실패"한다 (실패는 로그·워크플로에서 보인다).
+    if strict:
+        chain.append(_requested)  # _requested None 이면 위에서 이미 raise 됨
+    elif p == "anthropic":
         # 자사글 — Claude 우선 (깊이/문장 윤기) → Gemini → OpenAI
         for prov in (_anthropic, _gemini, _openai):
             if prov is not None:
@@ -1708,6 +1718,13 @@ def get_provider(
       못할 때 조용히 폴백하지 않고 RuntimeError. A/B 테스트처럼 provider 자체가
       **처치(treatment)** 인 경로에서 필수. 일반 발행 경로는 기본값 False 유지.
     """
+    # 🔴 Round 146 — strict_prefer 경로는 LLM_PROVIDER env 를 **무시**한다.
+    #   env 가 'gemini' 등으로 설정돼 있으면 아래 name 분기가 prefer/strict 를
+    #   완전히 우회해 GeminiProvider 를 바로 반환했음(A/B 무효의 두 번째 구멍).
+    #   A/B 처럼 provider 가 처치인 경로는 env 설정과 무관하게 prefer 를 강제.
+    if strict_prefer and provider_name is None:
+        return FallbackProvider(_build_provider_chain(prefer=prefer, strict=True))
+
     name = (provider_name or os.getenv("LLM_PROVIDER", "stub")).lower().strip()
 
     # Round 81 (2026-06-23) — 비밀값 오타 하나로 전체 파이프라인(발행·A/B)이 죽던 문제 방어.

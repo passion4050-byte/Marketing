@@ -477,22 +477,86 @@ _STATS_ENFORCE_DIRECTIVE = (
 )
 
 
+# 🔴 Round 146 (2026-08-15) — 첫 문단 answer-first 강제.
+#   8/2 갭 분석(.planning/overseas-gap-smile-lasik-in-korea.md)의 단일 최대 발견:
+#   경쟁 1위 himedi 는 스키마도 표도 우리보다 없었다. 이긴 이유는 단 하나 —
+#   첫 문단이 "인용하면 그대로 답이 되는 문장"(가격 구간 + 소요시간 + 회복기간)
+#   이었기 때문. 우리 첫 문단은 "한국은 인기 있는 목적지…" 류 일반론이었고,
+#   이 교훈이 수동 보강 3편에만 반영되고 자동 생성 프롬프트엔 0% 반영돼 있었다.
+#   (Round 141 통계 디렉티브는 "본문 어딘가에 수치 2개"라 위치 무관 — 별개 요건.)
+#   국내/해외 공용 주입. 상담 클릭 실측(12일 24건)에서도 숫자형 가이드가
+#   클릭을 만들고 가격 0회 글은 정보만 주고 보냈다.
+_ANSWER_FIRST_DIRECTIVE = (
+    "[첫 문단 = 답변 문단 — 필수]\n"
+    "- 글의 **첫 번째 문단**은 독자의 핵심 질문에 그대로 답하는 문단으로 작성하세요.\n"
+    "- 첫 문단에 반드시 포함: ① 비용 구간(원화 KRW 범위. 해외 독자 대상 글이면 USD 병기)"
+    " ② 시술/회복에 걸리는 기간(예: 일상 복귀 1~2일, 안정화 약 1개월) ③ 가능하면 소요 시간.\n"
+    "- 배경 설명·인사·일반론('한국은 인기 있는 목적지입니다' 류)으로 시작하지 마세요."
+    " 그런 내용은 두 번째 문단 이후로 보냅니다.\n"
+    "- 첫 문단에 핵심 개체명(시술명·장비명, 파트너 글이면 병원명) 2개 이상을 **굵게** 표기해"
+    " '질문 → 즉답' 형태를 만드세요 (상위노출 5사 실측 공통 패턴 — Round 146-B).\n"
+    "- 🔴 의료법: 비용은 반드시 **구간/범위**로만 (확정가·최저가·이벤트가 금지)."
+    " '병원·상태에 따라 다르며 검사 후 확정' 맥락을 같은 문단에 유지하세요.\n"
+    "- 이 문단만 떼어 AI 답변에 인용돼도 완결된 답이 되는지 스스로 검증하세요."
+)
+
+
+# 🔴 Round 146-B (2026-08-15) — "skin clinic in korea" 상위 5사 실측 공통 패턴 주입.
+#   Firecrawl 전수 해부(renovoskin/seoulorthopedics/enlienjang/gangnamobgyn/gangnamwomenshealth):
+#   5사 전원 JSON-LD 0개 — 구글이 이 SERP 에서 보상한 건 스키마가 아니라 **문서 구조**
+#   (고정필드 클리닉 블록 · 본문 Q&A 8~11개 · 개체명 밀도 · 답변형 첫 문단).
+#   FAQPage 스키마는 경쟁사가 안 하는 우리만의 우위로 유지하고, 본문 구조를
+#   이 실측 패턴으로 끌어올린다. 국내/해외 공용 주입.
+_SERP_PROVEN_DIRECTIVE = (
+    "[상위노출 실측 구조 — 필수]\n"
+    "- 병원·클리닉·시술 옵션을 소개하는 블록이 있으면 고정 필드 순서로 작성:"
+    " 위치(동네명) / 이런 분께(한 줄) / 주요 시술·장비(실명 나열) / 방문 흐름 / 방문 팁 1개.\n"
+    "- 블록 안에는 가격 숫자를 쓰지 말고 '상담 시 서면 견적 요청' 안내로 대체합니다"
+    " (첫 문단의 비용 구간 표기와는 별개 규칙).\n"
+    "- 본문 하단 FAQ 는 8개 이상: 질문은 실제 검색 질의형('몇 회 받아야 하나요',"
+    " '당일 시술 가능한가요', '민감성 피부도 되나요'), 답변 첫 문장은 숫자나 예/아니오 즉답.\n"
+    "- 가능하면 '증상·고민별 선택 가이드' 섹션 1개(예: 색소·기미면 A 방향, 모공·흉터면 B 방향)"
+    " 로 롱테일 질의를 흡수하세요.\n"
+    "- 개체명 밀도: 장비·시술 실명과 지역(동네)명을 문서 앞부분에 자연스럽게 배치합니다.\n"
+    "- 🔴 금지: 'No.1'·'최고'·'유일'·'1위' 등 최상급, 비교 우위 단정, 효과·성공률 보장."
+    " 신뢰어는 검증 가능한 사실만(전문의 직접 상담, 정품·정식 장비, 개원 연차 등)."
+)
+
+
 # 해외(overseas) SEO/GEO 아키타입 — 상위노출 레퍼런스 실측 골격
 #   (.planning/overseas-seo-geo-content-routine.md §2). lang != ko 일 때만 주입.
+#   Round 146-B 개정 — "skin clinic in korea" 상위 5사 실측 반영:
+#   ① 연도(2026) 타이틀 규칙 폐지: 5사 중 연도 사용 0곳, 대신 숫자·지역·타깃 밀도가 공식
+#   ② 클리닉 블록 고정필드화 ③ FAQ 4+→8+ ④ 여행자 실용 섹션 신설
+#   ⑤ 메신저 언어분기(EN→WhatsApp·JA→LINE·ZH→WeChat) 문구화 ⑥ 답변형 첫 문단 볼드 개체명.
 _OVERSEAS_ARCHETYPE_DIRECTIVE = (
     "[OVERSEAS PAGE ARCHETYPE — foreign-patient SEO/GEO, follow this proven structure]\n"
     "Use H2 sections in this order where they fit the topic:\n"
     "1) 'Who this guide helps' — the target reader.\n"
-    "2) The main list (clinics or treatment options) — each item with 'Best for', 'Popular services', 'Why go', 'Good to know'.\n"
+    "2) The main list (clinics or treatment options) — each item with fixed fields in this order: "
+    "'Location (neighborhood)', 'Best for (one line)', 'Popular services (real device/treatment names)', "
+    "'Visit flow (analysis→consult→treat→aftercare)', 'Visitor tip (stay-schedule advice)'.\n"
     "3) 'Booking steps' — include a ready-to-copy inquiry script in the target language AND in Korean.\n"
     "4) 'Price guide' — an itemized table of typical KRW ranges per procedure (concrete numbers AI can cite).\n"
     "5) 'How to choose' — a practical checklist (English/native support, device transparency, treatment plan, photos & aftercare).\n"
     "6) 'What to expect at your first visit' — numbered steps.\n"
-    "7) 'Aftercare' and 'Payment / VAT refund'.\n"
-    "8) An FAQ with 4+ Q&A pairs.\n"
-    "Put the year (2026) and the location/treatment in the H1, with 'English/foreigner-friendly' framing.\n"
+    "7) 'Traveler practicality' — recommended session count & spacing (e.g. 3–5 sessions, 3–6 weeks apart), "
+    "downtime, itinerary tips (consult + first treatment early in the stay, follow-up before departure), "
+    "and pre-treatment prep (e.g. pause retinoids/acids 3–5 days before).\n"
+    "8) 'Aftercare' and 'Payment / VAT refund'.\n"
+    "9) An FAQ with 8+ Q&A pairs — search-query style questions; first sentence of each answer gives "
+    "a number or a yes/no.\n"
+    "Title formula (measured top-ranking SERP pattern): '[Best|Top] {N} {keyword} in {area} for {audience}' "
+    "— do NOT put a year in the H1/title; {N} must match the actual item count. "
+    "Meta description: one question sentence + one answer sentence that names 3–4 neighborhoods "
+    "(Gangnam, Cheongdam, Hongdae, Myeongdong...) AND 3–4 treatments.\n"
+    "First paragraph: restate the query as a question, then answer immediately with 2+ **bold** entity names "
+    "(treatments/devices; partner clinic name if applicable), then the evidence sentence.\n"
+    "CTA messenger by language: EN → WhatsApp, JA → LINE, ZH → WeChat/WhatsApp. Name the messenger in the "
+    "CTA sentence, and right before the final CTA add one action line: 'Ask for a specialist consultation "
+    "first and request a written quote.'\n"
     "Medical-ad compliance: 'best/top' listicle framing is allowed for overseas, but NO efficacy guarantees, "
-    "success-rate claims, or competitor disparagement."
+    "success-rate claims, 'No.1' claims, or competitor disparagement."
 )
 
 
@@ -691,7 +755,14 @@ def generate_blog_post(
     _overseas_directive = _OVERSEAS_ARCHETYPE_DIRECTIVE if (lang and lang != "ko") else ""
     _combined_directive = "\n\n".join(
         d
-        for d in (_structure_directive, _STATS_ENFORCE_DIRECTIVE, _overseas_directive, _variation_block)
+        for d in (
+            _ANSWER_FIRST_DIRECTIVE,  # Round 146 — 첫 문단 answer-first (가장 앞에)
+            _structure_directive,
+            _STATS_ENFORCE_DIRECTIVE,
+            _SERP_PROVEN_DIRECTIVE,  # Round 146-B — 상위 5사 실측 구조 (국내/해외 공용)
+            _overseas_directive,
+            _variation_block,
+        )
         if d
     )
     if _combined_directive:

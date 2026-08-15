@@ -1,4 +1,5 @@
 import { siteConfig } from "@/lib/site";
+import { waHref } from "@/lib/ctaLink";
 
 /**
  * 해외(en/ja/zh) 상담 CTA — WhatsApp + LINE. 국내는 카카오(별도).
@@ -27,7 +28,7 @@ export function ContactButtons({
   const wa = (
     <a
       key="wa"
-      href={siteConfig.contact.whatsapp}
+      href={waHref(lang)}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="WhatsApp chat"

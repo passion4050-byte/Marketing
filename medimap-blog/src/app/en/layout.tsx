@@ -40,7 +40,7 @@ export default function EnLayout({ children }: { children: React.ReactNode }) {
       lang="en"
       nav={NAV}
       ctaLabel="Talk to us"
-      footerTagline="AI search visibility for Korean clinics"
+      footerTagline="International patient desk for Korean clinics"
     >
       {children}
       <FloatingConsult lang="en" />

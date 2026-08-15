@@ -127,6 +127,38 @@ export async function POST(req: NextRequest) {
     .sort((a, b) => b.count - a.count)
     .slice(0, topN);
 
+  /*
+   * 🔴 Round 146 — domain_category 채움 준비.
+   * 기존엔 저장 시 domain_category: null 로 넣어, 주입 로더의
+   * `or=(eq.{cat}, is.null)` 매칭에서 **전 진료과에 무차별 주입**되는 오염원이 됐음.
+   * 인용된 URL 의 slug → generated_contents → tenant → domain_category 로 역추적해 채운다.
+   */
+  const slugToCat = new Map<string, string>();
+  {
+    const { data: catRows } = await sb
+      .from('generated_contents')
+      .select('slug, tenants(domain_category)')
+      .eq('status', 'published')
+      .not('slug', 'is', null)
+      .limit(1000);
+    for (const row of (catRows ?? []) as Array<{
+      slug: string | null;
+      tenants: { domain_category: string | null } | null;
+    }>) {
+      const cat = row.tenants?.domain_category?.trim();
+      if (row.slug && cat) slugToCat.set(row.slug.toLowerCase(), cat);
+    }
+  }
+  const categoryForUrl = (url: string): string | null => {
+    try {
+      const path = decodeURIComponent(new URL(url).pathname).replace(/\/$/, '');
+      const last = path.split('/').pop() ?? '';
+      return slugToCat.get(last.toLowerCase()) ?? null;
+    } catch {
+      return null;
+    }
+  };
+
   if (candidates.length === 0) {
     return NextResponse.json({
       ok: true,
@@ -196,7 +228,8 @@ export async function POST(req: NextRequest) {
           source_url: cand.url,
           source_domain: cand.domain,
           source_tier: 'T1',
-          domain_category: null,
+          // Round 146 — 콘텐츠의 진료과로 채워 같은 진료과에만 주입되게 (null = 전역 오염)
+          domain_category: categoryForUrl(cand.url),
           keyword: keywordList,
           patterns: {
             word_count: analysis.word_count,
