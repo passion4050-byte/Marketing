@@ -10,7 +10,7 @@ export default function Loading() {
       <div className="mt-6 h-9 w-full rounded bg-stone-200" />
       <div className="mt-3 h-9 w-3/4 rounded bg-stone-200" />
       <div className="mt-6 h-3 w-52 rounded bg-stone-200" />
-      <div className="mt-10 aspect-[16/9] w-full rounded-xl bg-stone-200" />
+      <div className="mt-10 aspect-[16/9] w-full rounded-none bg-stone-200" />
       <div className="mt-10 space-y-4">
         <div className="h-4 w-full rounded bg-stone-100" />
         <div className="h-4 w-full rounded bg-stone-100" />

@@ -7,7 +7,7 @@ export default function Loading() {
       {/* Featured hero */}
       <div className="h-3 w-48 rounded bg-stone-200" />
       <div className="mt-8 grid gap-10 md:grid-cols-[1.4fr_1fr]">
-        <div className="aspect-[16/10] rounded-xl bg-stone-200" />
+        <div className="aspect-[16/10] rounded-none bg-stone-200" />
         <div className="space-y-4 pt-4">
           <div className="h-3 w-24 rounded bg-stone-100" />
           <div className="h-8 w-full rounded bg-stone-200" />

@@ -31,21 +31,29 @@ export async function GET() {
 
   const { data, error } = await sb
     .from('client_accounts')
-    .select('id, tenant_id, username, display_name, active, created_at, last_login_at, tenants(name)')
+    .select(
+      'id, tenant_id, username, display_name, active, created_at, last_login_at, access_code, tenants(name)'
+    )
     .order('created_at', { ascending: false })
     .limit(500);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
-  const accounts = ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({
-    id: r.id,
-    tenantId: r.tenant_id,
-    tenantName: (r.tenants as { name?: string } | null)?.name ?? `#${r.tenant_id}`,
-    username: r.username,
-    displayName: r.display_name,
-    active: r.active,
-    createdAt: r.created_at,
-    lastLoginAt: r.last_login_at,
-  }));
+  // supabase FK 조인은 생성 타입 없으면 배열 추론 — unknown 경유 (Round 148 실사고 규약)
+  const accounts = ((data ?? []) as Array<Record<string, unknown>>).map((r) => {
+    const t = r.tenants as { name?: string } | Array<{ name?: string }> | null;
+    const tenantName = (Array.isArray(t) ? t[0]?.name : t?.name) ?? `#${r.tenant_id}`;
+    return {
+      id: r.id,
+      tenantId: r.tenant_id,
+      tenantName,
+      username: r.username,
+      displayName: r.display_name,
+      active: r.active,
+      createdAt: r.created_at,
+      lastLoginAt: r.last_login_at,
+      accessCode: (r.access_code as string | null) ?? null,
+    };
+  });
   return NextResponse.json({ ok: true, accounts });
 }
 
@@ -73,6 +81,8 @@ export async function POST(req: NextRequest) {
   }
 
   const password = generatePassword();
+  // Round 148-d — 병원별 고유 진입 링크 코드 (/c/{code}). 소문자+숫자 10자.
+  const accessCode = generatePassword().toLowerCase();
   const { data, error } = await sb
     .from('client_accounts')
     .insert({
@@ -80,6 +90,7 @@ export async function POST(req: NextRequest) {
       username,
       password_hash: hashPassword(password),
       display_name: (body.displayName ?? '').trim() || null,
+      access_code: accessCode,
     })
     .select('id')
     .single();
@@ -88,7 +99,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: msg }, { status: 400 });
   }
   // 평문 비밀번호는 이 응답 1회만 — DB 에는 해시만 저장됨.
-  return NextResponse.json({ ok: true, id: (data as { id: number }).id, username, password });
+  return NextResponse.json({
+    ok: true,
+    id: (data as { id: number }).id,
+    username,
+    password,
+    accessCode,
+  });
 }
 
 export async function PATCH(req: NextRequest) {

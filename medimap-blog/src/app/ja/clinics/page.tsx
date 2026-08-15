@@ -45,7 +45,7 @@ export default async function JaClinicsIndex() {
               href={`/ja/clinics/${s.slug}`}
               className="group grid grid-cols-[56px_1fr_auto] items-center gap-5 py-8 md:grid-cols-[80px_1fr_auto] md:gap-8"
             >
-              <span className="text-3xl font-black tabular-nums text-stone-300 transition group-hover:text-[#1B68FF] md:text-4xl">
+              <span className="text-3xl font-black tabular-nums text-stone-300 transition group-hover:text-stone-900 md:text-4xl">
                 {String(i + 1).padStart(2, "0")}
               </span>
               <div className="min-w-0">

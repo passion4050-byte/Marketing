@@ -79,8 +79,8 @@ export function LanguageSwitcher({
               aria-current={active ? "true" : undefined}
               className={`rounded-full px-2.5 py-1 text-[12px] font-semibold transition ${
                 active
-                  ? "bg-[#1B68FF] text-white"
-                  : "border border-stone-300 text-stone-600 hover:border-[#1B68FF] hover:text-[#1B68FF]"
+                  ? "bg-stone-900 text-white"
+                  : "border border-stone-300 text-stone-600 hover:border-stone-900 hover:text-stone-900"
               }`}
             >
               {l.label}
@@ -113,7 +113,7 @@ export function LanguageSwitcher({
       {open && (
         <div
           role="listbox"
-          className="absolute right-0 z-50 mt-2 w-40 overflow-hidden rounded-xl border border-stone-200 bg-white py-1 shadow-lg"
+          className="absolute right-0 z-50 mt-2 w-40 overflow-hidden rounded-none border border-stone-200 bg-white py-1"
         >
           {LANGS.map((l) => {
             const active = l.code === curLang;
@@ -129,7 +129,7 @@ export function LanguageSwitcher({
                 hrefLang={l.code === "zh" ? "zh-Hans" : l.code}
               >
                 {l.label}
-                {active && <Check className="h-3.5 w-3.5 text-[#1B68FF]" />}
+                {active && <Check className="h-3.5 w-3.5 text-stone-900" />}
               </Link>
             );
           })}

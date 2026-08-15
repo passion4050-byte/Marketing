@@ -75,7 +75,7 @@ export function AboutInquiryForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-card bg-white p-6 shadow-card md:p-8"
+      className="rounded-none bg-white p-6 md:p-8"
     >
       <div
         role="tablist"
@@ -93,7 +93,7 @@ export function AboutInquiryForm() {
               onClick={() => setTab(t.id)}
               className={`flex-1 rounded-pill px-4 py-2.5 text-sm font-semibold transition ${
                 active
-                  ? "bg-white text-brand shadow-soft"
+                  ? "bg-white text-stone-900"
                   : "text-ink-muted hover:text-ink"
               }`}
             >
@@ -153,7 +153,7 @@ export function AboutInquiryForm() {
       <button
         type="submit"
         disabled={status === "sending"}
-        className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-pill bg-gradient-to-r from-brand to-accent px-6 py-3.5 text-base font-bold text-white shadow-cta transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glow disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+        className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-pill bg-gradient-to-r from-brand to-accent px-6 py-3.5 text-base font-bold text-white transition-all duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
       >
         {status === "sending" ? "전송 중…" : "문의하기"}
         {status !== "sending" && <Send size={16} />}
@@ -164,7 +164,7 @@ export function AboutInquiryForm() {
         onClose={() => setStatus("idle")}
       />
       {status === "error" && (
-        <div className="mt-4 flex items-start gap-2.5 rounded-card border border-red-200 bg-red-50 p-4 text-[13px] text-red-800">
+        <div className="mt-4 flex items-start gap-2.5 rounded-none border border-red-200 bg-red-50 p-4 text-[13px] text-red-800">
           <AlertCircle size={18} className="mt-0.5 shrink-0 text-red-600" />
           <div>
             <div className="font-semibold">전송 실패</div>

@@ -31,7 +31,7 @@ export default async function BlogPostOgImage({
           height: "100%",
           display: "flex",
           flexDirection: "column",
-          background: "linear-gradient(135deg, #1B68FF 0%, #1AD2A4 100%)",
+          background: "#0C0A09", // Round 148-d — 잉크 단색 (Magazine B 로우컬러)
           padding: 80,
           color: "#FFFFFF",
           fontFamily:

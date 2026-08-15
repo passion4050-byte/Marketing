@@ -17,7 +17,7 @@ export default function Loading() {
               <div className="h-6 w-40 rounded bg-stone-200" />
               <div className="h-3 w-52 rounded bg-stone-100" />
             </div>
-            <div className="aspect-[16/10] rounded-lg bg-stone-200" />
+            <div className="aspect-[16/10] rounded-none bg-stone-200" />
           </div>
         ))}
       </div>

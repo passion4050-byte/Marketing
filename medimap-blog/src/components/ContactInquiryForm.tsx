@@ -60,7 +60,7 @@ export function ContactInquiryForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-card bg-white p-7 shadow-card md:p-9"
+      className="rounded-none bg-white p-7 md:p-9"
     >
       <h3 className="text-2xl font-bold tracking-tight text-ink">문의하기</h3>
       <p className="mt-2 text-[14px] text-ink-muted">
@@ -140,7 +140,7 @@ export function ContactInquiryForm() {
       <button
         type="submit"
         disabled={status === "sending"}
-        className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-pill bg-gradient-to-r from-brand to-accent px-6 py-3.5 text-base font-bold text-white shadow-cta transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glow disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+        className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-pill bg-gradient-to-r from-brand to-accent px-6 py-3.5 text-base font-bold text-white transition-all duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
       >
         {status === "sending" ? "전송 중…" : "문의하기"}
         {status !== "sending" && <Send size={16} />}
@@ -151,7 +151,7 @@ export function ContactInquiryForm() {
         onClose={() => setStatus("idle")}
       />
       {status === "error" && (
-        <div className="mt-4 flex items-start gap-2.5 rounded-card border border-red-200 bg-red-50 p-4 text-[13px] text-red-800">
+        <div className="mt-4 flex items-start gap-2.5 rounded-none border border-red-200 bg-red-50 p-4 text-[13px] text-red-800">
           <AlertCircle size={18} className="mt-0.5 shrink-0 text-red-600" />
           <div>
             <div className="font-semibold">전송 실패</div>
@@ -203,7 +203,7 @@ function Field({
         className="mb-1.5 flex items-center gap-1 text-[13px] font-semibold text-ink-muted"
       >
         {label}
-        {required && <span className="text-brand">*</span>}
+        {required && <span className="text-stone-900">*</span>}
       </label>
       {children}
     </div>

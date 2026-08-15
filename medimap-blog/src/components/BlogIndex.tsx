@@ -60,8 +60,8 @@ export function BlogIndex({ posts, categories }: Props) {
             aria-pressed={active === ""}
             className={
               active === ""
-                ? "pill-tag border-brand-200 bg-brand-50 text-brand-700"
-                : "pill-tag transition hover:border-brand-100 hover:text-brand"
+                ? "pill-tag border-stone-300 bg-stone-100 text-stone-900"
+                : "pill-tag transition hover:border-stone-300 hover:text-stone-900"
             }
           >
             전체
@@ -74,8 +74,8 @@ export function BlogIndex({ posts, categories }: Props) {
               aria-pressed={active === c}
               className={
                 active === c
-                  ? "pill-tag border-brand-200 bg-brand-50 text-brand-700"
-                  : "pill-tag transition hover:border-brand-100 hover:text-brand"
+                  ? "pill-tag border-stone-300 bg-stone-100 text-stone-900"
+                  : "pill-tag transition hover:border-stone-300 hover:text-stone-900"
               }
             >
               {c}
@@ -87,18 +87,18 @@ export function BlogIndex({ posts, categories }: Props) {
       {!active && featured && (
         <Link
           href={`/blog/${encodeURIComponent(featured.slug)}`}
-          className="group mt-12 grid gap-6 overflow-hidden rounded-card border border-line/70 bg-white p-6 shadow-soft transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-brand-100 hover:shadow-card md:grid-cols-[1.4fr_1fr] md:p-8"
+          className="group mt-12 grid gap-6 overflow-hidden rounded-none border border-line/70 bg-white p-6 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-stone-300 md:grid-cols-[1.4fr_1fr] md:p-8"
         >
           <div>
             <div className="flex items-center gap-1.5">
               <span className="pill-label">최신 발행</span>
               {featured.reviewedBy && (
-                <span className="pill-tag border-brand-100 text-brand-700">
+                <span className="pill-tag border-stone-300 text-stone-900">
                   의료진 검수: {featured.reviewedBy}
                 </span>
               )}
             </div>
-            <h2 className="mt-3 text-[24px] font-bold tracking-tight transition-colors group-hover:text-brand md:text-[30px]">
+            <h2 className="mt-3 text-[24px] font-bold tracking-tight transition-colors group-hover:text-stone-900 md:text-[30px]">
               {featured.title}
             </h2>
             <p className="mt-3 line-clamp-3 leading-relaxed text-ink-muted">
@@ -111,11 +111,11 @@ export function BlogIndex({ posts, categories }: Props) {
                 </span>
               ))}
             </div>
-            <div className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-brand transition-transform group-hover:translate-x-0.5">
+            <div className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-stone-900 transition-transform group-hover:translate-x-0.5">
               가이드 읽기 <ArrowUpRight size={14} />
             </div>
           </div>
-          <div className="relative hidden items-center justify-center overflow-hidden rounded-card bg-gradient-to-br from-brand-50 via-white to-accent-50 md:flex">
+          <div className="relative hidden items-center justify-center overflow-hidden rounded-none bg-gradient-to-br from-brand-50 via-white to-accent-50 md:flex">
             {featured.cover_image_url ? (
               <img
                 src={featured.cover_image_url}
@@ -125,14 +125,14 @@ export function BlogIndex({ posts, categories }: Props) {
               />
             ) : (
               <>
-                <div className="absolute inset-6 rounded-card border border-brand-100/40" />
+                <div className="absolute inset-6 rounded-none border border-stone-300/40" />
                 <div
-                  className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-brand/10 blur-2xl"
+                  className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-stone-900/10 blur-2xl"
                   aria-hidden
                   style={{ transform: "translateZ(0)" }}
                 />
                 <div className="relative px-6 text-center">
-                  <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand-700">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-stone-900">
                     FEATURED
                   </div>
                   <div className="mt-2 text-3xl font-extrabold tracking-tight text-ink balance-text md:text-4xl">
@@ -152,7 +152,7 @@ export function BlogIndex({ posts, categories }: Props) {
           ))}
         </div>
       ) : (
-        <div className="mt-12 rounded-card border border-dashed border-line bg-white p-12 text-center">
+        <div className="mt-12 rounded-none border border-dashed border-line bg-white p-12 text-center">
           <div className="text-2xl">🔎</div>
           <p className="mt-3 text-ink-subtle">
             <span className="font-semibold text-ink-muted">{active}</span>{" "}

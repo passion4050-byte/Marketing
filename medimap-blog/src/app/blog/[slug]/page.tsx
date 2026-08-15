@@ -143,7 +143,7 @@ export default async function BlogPostPage({
   // DB 자동 발행 글은 generator 가 만든 HTML 을 그대로 노출 — 의료법 린터 통과한
   // 자기 콘텐츠라 XSS 위험 없음. mdx 글은 기존 compileMDX 파이프라인 유지.
   const heroImage = post.cover_image_url ? (
-    <figure className="post-hero -mt-4 mb-8 overflow-hidden rounded-card border border-line/70 bg-surface-alt">
+    <figure className="post-hero -mt-4 mb-8 overflow-hidden rounded-none border border-line/70 bg-surface-alt">
       <img
         src={post.cover_image_url}
         alt={post.cover_image_alt ?? post.title}
@@ -274,11 +274,11 @@ export default async function BlogPostPage({
           aria-label="Breadcrumb"
           className="flex items-center gap-1.5 text-sm text-ink-subtle"
         >
-          <Link href="/" className="hover:text-brand">
+          <Link href="/" className="hover:text-stone-900">
             홈
           </Link>
           <ChevronRight size={14} className="text-ink-subtle/60" />
-          <Link href="/blog" className="hover:text-brand">
+          <Link href="/blog" className="hover:text-stone-900">
             블로그
           </Link>
           <ChevronRight size={14} className="text-ink-subtle/60" />
@@ -293,7 +293,7 @@ export default async function BlogPostPage({
                   <span className="pill-label">{post.category}</span>
                 )}
                 {post.reviewedBy && (
-                  <span className="pill-tag border-brand-100 bg-brand-50 text-brand-700">
+                  <span className="pill-tag border-stone-300 bg-stone-100 text-stone-900">
                     의료진 검수: {post.reviewedBy}
                   </span>
                 )}
@@ -362,7 +362,7 @@ export default async function BlogPostPage({
             {/* Round 109-B (2026-07-03) — 관련 파트너 콘텐츠 카드 (wecircle 내부 순환) */}
             {relatedPartnerPosts.length > 0 && (
               <section className="mx-auto mt-16 max-w-4xl">
-                <div className="text-xs font-bold uppercase tracking-widest text-brand-700">
+                <div className="text-xs font-bold uppercase tracking-widest text-stone-900">
                   Related Partner Content
                 </div>
                 <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-ink">
@@ -379,7 +379,7 @@ export default async function BlogPostPage({
                       <Link
                         key={rp.id}
                         href={href}
-                        className="group block overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft transition hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-card"
+                        className="group block overflow-hidden rounded-none border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:border-stone-300"
                       >
                         {rp.cover_image_url && (
                           <div className="aspect-[16/10] w-full overflow-hidden bg-slate-100">
@@ -395,13 +395,13 @@ export default async function BlogPostPage({
                         <div className="p-4">
                           <div className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-wider">
                             {catMeta && (
-                              <span className="rounded-full bg-brand-50 px-2 py-0.5 text-brand-700">
+                              <span className="rounded-full bg-stone-100 px-2 py-0.5 text-stone-900">
                                 {catMeta.ko}
                               </span>
                             )}
                             <span className="text-ink-subtle">{rp.tenant_name}</span>
                           </div>
-                          <h3 className="mt-2 line-clamp-2 text-sm font-bold text-ink group-hover:text-brand">
+                          <h3 className="mt-2 line-clamp-2 text-sm font-bold text-ink group-hover:text-stone-900">
                             {rp.title}
                           </h3>
                           {rp.excerpt && (
@@ -409,7 +409,7 @@ export default async function BlogPostPage({
                               {rp.excerpt}
                             </p>
                           )}
-                          <div className="mt-3 text-[11px] font-semibold uppercase tracking-wider text-brand-700">
+                          <div className="mt-3 text-[11px] font-semibold uppercase tracking-wider text-stone-900">
                             자세히 보기 →
                           </div>
                         </div>

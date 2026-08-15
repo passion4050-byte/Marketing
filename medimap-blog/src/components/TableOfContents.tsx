@@ -68,8 +68,8 @@ export function TableOfContents() {
                   href={`#${h.id}`}
                   className={`block rounded py-1 transition ${
                     active
-                      ? "font-semibold text-brand"
-                      : "text-ink-muted hover:text-brand"
+                      ? "font-semibold text-stone-900"
+                      : "text-ink-muted hover:text-stone-900"
                   }`}
                   style={{
                     borderLeft: active ? "2px solid var(--color-brand)" : undefined,

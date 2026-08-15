@@ -10,7 +10,7 @@ export interface FAQItem {
 
 export function FAQAccordion({ items }: { items: FAQItem[] }) {
   return (
-    <div className="my-10 divide-y divide-line overflow-hidden rounded-card border border-line bg-white">
+    <div className="my-10 divide-y divide-line overflow-hidden rounded-none border border-line bg-white">
       {items.map((item, idx) => (
         <FAQRow key={idx} {...item} />
       ))}
@@ -29,12 +29,12 @@ function FAQRow({ question, answer }: FAQItem) {
         aria-expanded={open}
       >
         <span className="text-base font-semibold text-ink">
-          <span className="mr-2 text-brand">Q.</span>
+          <span className="mr-2 text-stone-900">Q.</span>
           {question}
         </span>
         <span
           className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-pill border border-line bg-white text-ink-subtle transition-transform duration-200 ${
-            open ? "rotate-180 border-brand-200 text-brand" : ""
+            open ? "rotate-180 border-stone-300 text-stone-900" : ""
           }`}
         >
           <ChevronDown size={16} />
@@ -47,7 +47,7 @@ function FAQRow({ question, answer }: FAQItem) {
       >
         <div className="min-h-0">
           <div className="px-6 pb-5 text-sm leading-relaxed text-ink-muted">
-            <span className="font-semibold text-brand">A. </span>
+            <span className="font-semibold text-stone-900">A. </span>
             {answer}
           </div>
         </div>

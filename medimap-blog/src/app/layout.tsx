@@ -43,7 +43,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1B68FF",
+  themeColor: "#FAFAF7", // Round 148-d — 에디토리얼 페이퍼 톤 (구 브랜드 블루)
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",

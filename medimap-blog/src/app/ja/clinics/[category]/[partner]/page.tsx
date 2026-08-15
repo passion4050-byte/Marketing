@@ -39,7 +39,7 @@ export default async function JaClinicPartnerPage({ params }: Props) {
           <p className="mt-3 text-stone-600">
             外国人患者を受け入れるWECIRCLE提携医療機関です。
           </p>
-          <dl className="mt-8 space-y-3 rounded-2xl border border-stone-200 bg-white p-6 text-sm">
+          <dl className="mt-8 space-y-3 rounded-none border border-stone-200 bg-white p-6 text-sm">
             {info?.address && (
               <div className="flex gap-3">
                 <dt className="w-24 shrink-0 font-semibold text-stone-800">住所</dt>
@@ -54,7 +54,7 @@ export default async function JaClinicPartnerPage({ params }: Props) {
                     href={info.homepage}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[#1B68FF] hover:underline"
+                    className="text-stone-900 hover:underline"
                   >
                     {info.homepage.replace(/^https?:\/\//, "")}
                   </a>
@@ -62,7 +62,7 @@ export default async function JaClinicPartnerPage({ params }: Props) {
               </div>
             )}
           </dl>
-          <div className="mt-8 rounded-2xl bg-stone-950 px-6 py-8 text-white">
+          <div className="mt-8 rounded-none bg-stone-950 px-6 py-8 text-white">
             <h2 className="text-xl font-black">このクリニックが気になりますか？</h2>
             <p className="mt-2 text-sm text-stone-300">
               ガイドは準備中です。LINEでご連絡いただければ、空き状況や費用を無料でお調べします。

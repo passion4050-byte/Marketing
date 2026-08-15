@@ -13,17 +13,17 @@ export default function Loading() {
       <div className="mt-3 h-4 w-1/2 rounded bg-stone-100" />
       <div className="mt-12 grid gap-8 md:grid-cols-3">
         <div className="space-y-3">
-          <div className="aspect-[16/10] rounded-xl bg-stone-200" />
+          <div className="aspect-[16/10] rounded-none bg-stone-200" />
           <div className="h-4 w-5/6 rounded bg-stone-100" />
           <div className="h-4 w-2/3 rounded bg-stone-100" />
         </div>
         <div className="space-y-3">
-          <div className="aspect-[16/10] rounded-xl bg-stone-200" />
+          <div className="aspect-[16/10] rounded-none bg-stone-200" />
           <div className="h-4 w-5/6 rounded bg-stone-100" />
           <div className="h-4 w-2/3 rounded bg-stone-100" />
         </div>
         <div className="space-y-3">
-          <div className="aspect-[16/10] rounded-xl bg-stone-200" />
+          <div className="aspect-[16/10] rounded-none bg-stone-200" />
           <div className="h-4 w-5/6 rounded bg-stone-100" />
           <div className="h-4 w-2/3 rounded bg-stone-100" />
         </div>

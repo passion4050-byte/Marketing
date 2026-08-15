@@ -16,6 +16,8 @@ interface AccountRow {
   active: boolean;
   createdAt: string | null;
   lastLoginAt: string | null;
+  /** Round 148-d — 병원별 고유 진입 링크 코드 ({origin}/c/{code}) */
+  accessCode: string | null;
 }
 
 interface TenantOpt {
@@ -34,8 +36,23 @@ export function ClientAccounts({ tenants }: { tenants: TenantOpt[] }) {
   const [displayName, setDisplayName] = useState('');
   const [creating, setCreating] = useState(false);
   // 발급 결과 (평문 1회 표시)
-  const [issued, setIssued] = useState<{ username: string; password: string } | null>(null);
+  const [issued, setIssued] = useState<{
+    username: string;
+    password: string;
+    accessCode?: string | null;
+  } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedLinkId, setCopiedLinkId] = useState<number | null>(null);
+
+  /** 병원에 전달하는 고유 진입 링크 */
+  const entryLink = (code: string) => `${window.location.origin}/c/${code}`;
+
+  async function copyEntryLink(a: AccountRow) {
+    if (!a.accessCode) return;
+    await navigator.clipboard.writeText(entryLink(a.accessCode));
+    setCopiedLinkId(a.id);
+    setTimeout(() => setCopiedLinkId(null), 1500);
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -70,13 +87,18 @@ export function ClientAccounts({ tenants }: { tenants: TenantOpt[] }) {
         ok?: boolean;
         username?: string;
         password?: string;
+        accessCode?: string;
         error?: string;
       };
       if (!json.ok) {
         setError(json.error ?? '발급 실패');
         return;
       }
-      setIssued({ username: json.username ?? username, password: json.password ?? '' });
+      setIssued({
+        username: json.username ?? username,
+        password: json.password ?? '',
+        accessCode: json.accessCode ?? null,
+      });
       setUsername('');
       setDisplayName('');
       void load();
@@ -110,7 +132,10 @@ export function ClientAccounts({ tenants }: { tenants: TenantOpt[] }) {
 
   async function copyIssued() {
     if (!issued) return;
-    const text = `위서클 병원 관리자 콘솔\n주소: ${window.location.origin}/client/login\n아이디: ${issued.username}\n비밀번호: ${issued.password}`;
+    const url = issued.accessCode
+      ? entryLink(issued.accessCode)
+      : `${window.location.origin}/client/login`;
+    const text = `위서클 병원 관리자 콘솔\n고유 접속 링크: ${url}\n아이디: ${issued.username}\n비밀번호: ${issued.password}`;
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
@@ -181,9 +206,12 @@ export function ClientAccounts({ tenants }: { tenants: TenantOpt[] }) {
                 {copied ? '복사됨 ✓' : '접속정보 복사'}
               </button>
             </div>
-            <p className="mt-2 text-[11px] text-emerald-700">
-              로그인 주소: 이 콘솔과 같은 도메인의 /client/login
-            </p>
+            {issued.accessCode ? (
+              <p className="mt-2 text-[11px] text-emerald-700">
+                고유 접속 링크: <span className="font-mono">{entryLink(issued.accessCode)}</span>{' '}
+                — 병원은 이 링크로 들어오면 아이디가 채워진 로그인 화면을 봅니다.
+              </p>
+            ) : null}
           </div>
         ) : null}
       </form>
@@ -207,6 +235,7 @@ export function ClientAccounts({ tenants }: { tenants: TenantOpt[] }) {
                   <th className="px-5 py-2.5 font-medium">병원</th>
                   <th className="px-3 py-2.5 font-medium">아이디</th>
                   <th className="px-3 py-2.5 font-medium">담당자</th>
+                  <th className="px-3 py-2.5 font-medium">고유링크</th>
                   <th className="px-3 py-2.5 font-medium">상태</th>
                   <th className="px-3 py-2.5 font-medium">최근 로그인</th>
                   <th className="px-3 py-2.5 font-medium">관리</th>
@@ -218,6 +247,22 @@ export function ClientAccounts({ tenants }: { tenants: TenantOpt[] }) {
                     <td className="px-5 py-3 font-medium text-ink">{a.tenantName}</td>
                     <td className="px-3 py-3 font-mono text-xs">{a.username}</td>
                     <td className="px-3 py-3 text-ink-muted">{a.displayName ?? '—'}</td>
+                    <td className="px-3 py-3">
+                      {a.accessCode ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-[11px] text-ink-subtle">/c/{a.accessCode}</span>
+                          <button
+                            onClick={() => void copyEntryLink(a)}
+                            className="rounded-lg border border-line px-2 py-1 text-[11px] text-ink-muted hover:border-ink hover:text-ink"
+                            title="병원에 전달할 고유 접속 링크 복사"
+                          >
+                            {copiedLinkId === a.id ? '복사됨 ✓' : '링크 복사'}
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-ink-subtle">—</span>
+                      )}
+                    </td>
                     <td className="px-3 py-3">
                       <span
                         className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${

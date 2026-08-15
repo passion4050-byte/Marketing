@@ -91,7 +91,7 @@ export default function TermsPage() {
 
           <h2>제7조 (개인정보 보호)</h2>
           <p>
-            회사의 개인정보 처리에 관한 사항은 <Link href="/privacy" className="text-brand hover:underline">개인정보처리방침</Link>을
+            회사의 개인정보 처리에 관한 사항은 <Link href="/privacy" className="text-stone-900 hover:underline">개인정보처리방침</Link>을
             따릅니다.
           </p>
 

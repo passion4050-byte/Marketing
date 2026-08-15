@@ -40,8 +40,8 @@ export default function ZhContactPage() {
           请选择您的咨询类型
         </h1>
         <div className="mt-8 grid gap-5 md:grid-cols-2">
-          <div className="rounded-2xl border-2 border-[#1B68FF]/30 bg-white p-7">
-            <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#1B68FF]">患者咨询</div>
+          <div className="rounded-none border-2 border-stone-300 bg-white p-7">
+            <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-stone-900">患者咨询</div>
             <h2 className="mt-2 text-xl font-bold text-stone-950">正在考虑赴韩就医</h2>
             <p className="mt-2 text-sm leading-relaxed text-stone-600">
               关于诊所、费用或预约的问题，欢迎随时咨询。
@@ -55,7 +55,7 @@ export default function ZhContactPage() {
             </div>
             <ContactButtons lang="zh" waLabel="获取免费报价" lineLabel="LINE" className="mt-5" />
           </div>
-          <div className="rounded-2xl border border-stone-200 bg-white p-7">
+          <div className="rounded-none border border-stone-200 bg-white p-7">
             <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-stone-500">诊所合作</div>
             <h2 className="mt-2 text-xl font-bold text-stone-950">您在韩国经营诊所吗？</h2>
             <p className="mt-2 text-sm leading-relaxed text-stone-600">
@@ -71,8 +71,8 @@ export default function ZhContactPage() {
           <h2 className="text-2xl font-black tracking-tight text-stone-950 md:text-3xl">接下来的流程</h2>
           <div className="mt-8 grid gap-6 md:grid-cols-3">
             {STEPS.map((s) => (
-              <div key={s.n} className="rounded-2xl border border-stone-200 bg-[#FAFAF7] p-6">
-                <div className="text-sm font-black text-[#1B68FF]">{s.n}</div>
+              <div key={s.n} className="rounded-none border border-stone-200 bg-[#FAFAF7] p-6">
+                <div className="text-sm font-black text-stone-900">{s.n}</div>
                 <div className="mt-2 text-lg font-bold text-stone-900">{s.t}</div>
                 <p className="mt-2 text-sm leading-relaxed text-stone-600">{s.d}</p>
               </div>
@@ -82,7 +82,7 @@ export default function ZhContactPage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-5 py-16">
-        <div className="grid gap-8 rounded-3xl border border-stone-200 bg-white p-8 md:grid-cols-2 md:p-12">
+        <div className="grid gap-8 rounded-none border border-stone-200 bg-white p-8 md:grid-cols-2 md:p-12">
           <div>
             <h2 className="text-xl font-bold tracking-tight text-stone-950">WECIRCLE</h2>
             <p className="mt-2 text-sm leading-relaxed text-stone-600">
@@ -104,14 +104,14 @@ export default function ZhContactPage() {
               <div className="flex gap-3">
                 <dt className="w-24 shrink-0 font-semibold text-stone-800">Email</dt>
                 <dd>
-                  <a className="text-[#1B68FF] hover:underline" href={`mailto:${siteConfig.contact.email}`}>
+                  <a className="text-stone-900 hover:underline" href={`mailto:${siteConfig.contact.email}`}>
                     {siteConfig.contact.email}
                   </a>
                 </dd>
               </div>
             </dl>
           </div>
-          <div className="flex flex-col justify-center gap-4 rounded-2xl bg-stone-950 p-8 text-white">
+          <div className="flex flex-col justify-center gap-4 rounded-none bg-stone-950 p-8 text-white">
             <div className="text-lg font-bold">最快的联系方式</div>
             <p className="text-sm text-stone-300">我们在韩国工作时间（KST）通过 WhatsApp、LINE 回复。</p>
             <ContactButtons waLabel="WhatsApp" lineLabel="LINE" />

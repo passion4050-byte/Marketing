@@ -91,7 +91,7 @@ export function OverseasBlogIndex({
             <Link
               key={c.slug}
               href={`/${lang}/guides/${c.slug}`}
-              className="group flex flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white transition hover:border-stone-900"
+              className="group flex flex-col overflow-hidden rounded-none border border-stone-200 bg-white transition hover:border-stone-900"
             >
               {c.cover_image_url && (
                 // eslint-disable-next-line @next/next/no-img-element

@@ -62,18 +62,18 @@ export function InquirySuccessModal({
       />
 
       {/* 카드 */}
-      <div className="relative w-full max-w-[400px] rounded-card bg-white p-7 shadow-glow animate-fade-in-up md:p-8">
+      <div className="relative w-full max-w-[400px] rounded-none bg-white p-7 animate-fade-in-up md:p-8">
         <button
           type="button"
           aria-label="닫기"
           onClick={onClose}
-          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-lg text-ink-subtle transition hover:bg-surface-alt hover:text-ink"
+          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-none text-ink-subtle transition hover:bg-surface-alt hover:text-ink"
         >
           <X size={18} />
         </button>
 
         <div className="flex flex-col items-center text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-brand to-accent text-white shadow-cta">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-brand to-accent text-white">
             <CheckCircle2 size={32} strokeWidth={2.4} />
           </div>
           <h3
@@ -89,7 +89,7 @@ export function InquirySuccessModal({
             ref={closeBtnRef}
             type="button"
             onClick={onClose}
-            className="mt-6 inline-flex w-full items-center justify-center rounded-pill bg-gradient-to-r from-brand to-accent px-6 py-3 text-[14px] font-bold text-white shadow-cta transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glow"
+            className="mt-6 inline-flex w-full items-center justify-center rounded-pill bg-gradient-to-r from-brand to-accent px-6 py-3 text-[14px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5"
           >
             확인
           </button>

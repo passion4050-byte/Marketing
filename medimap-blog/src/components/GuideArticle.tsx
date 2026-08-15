@@ -169,7 +169,7 @@ export function GuideArticle({
         <LanguageSwitcher variant="inline" />
       </div>
 
-      <p className="mt-4 border-l-2 border-[#1B68FF]/40 pl-3 text-[12.5px] leading-relaxed text-stone-500">
+      <p className="mt-4 border-l-2 border-stone-300 pl-3 text-[12.5px] leading-relaxed text-stone-500">
         {pc.trust}
       </p>
 
@@ -178,7 +178,7 @@ export function GuideArticle({
         <img
           src={guide.cover_image_url}
           alt={guide.cover_image_alt ?? guide.title}
-          className="mt-7 aspect-[16/9] w-full rounded-2xl border border-stone-200 object-cover"
+          className="mt-7 aspect-[16/9] w-full rounded-none border border-stone-200 object-cover"
           loading="eager"
         />
       )}
@@ -188,7 +188,7 @@ export function GuideArticle({
         dangerouslySetInnerHTML={{
           __html: injectMidCta(
             guide.body,
-            `<div class="not-prose my-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#1B68FF]/25 bg-[#1B68FF]/5 px-5 py-4">` +
+            `<div class="not-prose my-8 flex flex-wrap items-center justify-between gap-3 rounded-none border border-stone-300 bg-stone-100 px-5 py-4">` +
               `<span class="text-sm font-semibold text-stone-800">${pc.midQ}</span>` +
               `<a href="${langPath === "ja" ? siteConfig.contact.line : waHref(langPath)}" target="_blank" rel="noopener noreferrer" class="shrink-0 rounded-full ${langPath === "ja" ? "bg-[#06C755]" : "bg-[#25D366]"} px-4 py-2 text-[13px] font-bold text-white">${pc.midBtn}</a>` +
               `</div>`
@@ -197,7 +197,7 @@ export function GuideArticle({
       />
 
       {/* 인라인 환자 CTA — 본문을 다 읽기 전에도 상담 진입 가능 (감사 #7) */}
-      <div className="mt-10 rounded-2xl bg-stone-50 px-6 py-6 ring-1 ring-stone-200">
+      <div className="mt-10 rounded-none bg-stone-50 px-6 py-6 ring-1 ring-stone-200">
         <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <div className="text-base font-bold text-stone-900">{pc.inlineTitle}</div>
@@ -221,7 +221,7 @@ export function GuideArticle({
         </section>
       )}
 
-      <div className="mt-14 rounded-2xl bg-stone-950 px-6 py-10 text-center text-white">
+      <div className="mt-14 rounded-none bg-stone-950 px-6 py-10 text-center text-white">
         <h2 className="text-2xl font-black">{labels.ctaTitle}</h2>
         <p className="mx-auto mt-3 max-w-md text-sm text-stone-300">{labels.ctaBody}</p>
         <ContactButtons lang={langPath} waLabel={labels.ctaBtn} lineLabel={pc.line} className="mt-6 justify-center" />

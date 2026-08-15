@@ -66,7 +66,7 @@ export default function EnAboutPage() {
       {/* Hero */}
       <section className="mx-auto max-w-6xl px-5 pb-14 pt-16 md:pt-24">
         <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-stone-300 px-3 py-1 text-[12px] font-semibold text-stone-600">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#1B68FF]" />
+          <span className="h-1.5 w-1.5 rounded-full bg-stone-900" />
           About WECIRCLE
         </div>
         <div className="grid gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end">
@@ -93,9 +93,9 @@ export default function EnAboutPage() {
           </div>
           <div className="grid gap-6 md:grid-cols-2">
             {PRINCIPLES.map((p) => (
-              <div key={p.n} className="rounded-2xl border border-stone-200 bg-[#FAFAF7] p-6">
+              <div key={p.n} className="rounded-none border border-stone-200 bg-[#FAFAF7] p-6">
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-black text-[#1B68FF]">{p.n}</span>
+                  <span className="text-sm font-black text-stone-900">{p.n}</span>
                   <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-stone-500">
                     {p.over}
                   </span>
@@ -132,7 +132,7 @@ export default function EnAboutPage() {
 
       {/* Manifesto + CTA */}
       <section className="mx-auto max-w-6xl px-5 pb-24">
-        <div className="rounded-3xl bg-stone-950 px-8 py-14 text-white md:px-16">
+        <div className="rounded-none bg-stone-950 px-8 py-14 text-white md:px-16">
           <blockquote
             className="max-w-2xl text-2xl italic leading-tight md:text-4xl"
             style={{ fontFamily: "Fraunces, serif" }}
