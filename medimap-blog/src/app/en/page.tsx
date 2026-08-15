@@ -77,13 +77,13 @@ export default function EnHomePage() {
       {/* Hero */}
       <section className="mx-auto max-w-6xl px-5 pb-16 pt-16 md:pt-24">
         <div className="max-w-3xl">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-stone-300 px-3 py-1 text-[12px] font-semibold text-stone-600">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#1B68FF]" />
+          <div className="mb-5 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-stone-500">
+            <span className="h-1.5 w-1.5 bg-stone-900" />
             GEO / AEO for medical tourism
           </div>
           <h1 className="text-4xl font-black leading-[1.08] tracking-tight text-stone-950 md:text-6xl">
             When a foreign patient asks AI for the{" "}
-            <span className="text-[#1B68FF]">best clinic in Korea</span>, does it name{" "}
+            <span className="underline decoration-2 underline-offset-8">best clinic in Korea</span>, does it name{" "}
             <span className="italic" style={{ fontFamily: "Fraunces, serif" }}>
               yours
             </span>
@@ -99,7 +99,7 @@ export default function EnHomePage() {
             <ContactButtons waLabel="Book a call" />
             <Link
               href="/en/guides/best-skin-clinics-in-gangnam"
-              className="rounded-full border border-stone-300 px-6 py-3 text-sm font-bold text-stone-800 transition hover:border-stone-900"
+              className="rounded-none border border-stone-900 px-6 py-3 text-sm font-bold text-stone-900 transition hover:bg-stone-900 hover:text-white"
             >
               See a live sample
             </Link>
@@ -111,12 +111,12 @@ export default function EnHomePage() {
       <section className="mx-auto max-w-6xl px-5 pb-4">
         <Link
           href="/en/blog"
-          className="flex items-center justify-between gap-4 rounded-2xl border border-[#1B68FF]/25 bg-[#1B68FF]/5 px-6 py-4 transition hover:border-[#1B68FF]/50"
+          className="flex items-center justify-between gap-4 border-y border-stone-300/70 px-1 py-4 transition hover:bg-white"
         >
           <span className="text-sm font-semibold text-stone-800">
             Looking for treatment in Korea? Browse our patient guides
           </span>
-          <span className="shrink-0 text-sm font-bold text-[#1B68FF]">→</span>
+          <span className="shrink-0 text-sm font-bold text-stone-900">→</span>
         </Link>
       </section>
 
@@ -137,7 +137,7 @@ export default function EnHomePage() {
             </p>
           </div>
           <div>
-            <div className="text-3xl font-black text-[#1B68FF]">Citeable wins</div>
+            <div className="text-3xl font-black text-stone-950">Citeable wins</div>
             <p className="mt-2 text-sm leading-relaxed text-stone-600">
               AI quotes structured, factual content — prices, comparisons, FAQs. That&apos;s exactly
               what we build.
@@ -153,8 +153,8 @@ export default function EnHomePage() {
         </h2>
         <div className="mt-8 grid gap-6 md:grid-cols-3">
           {STEPS.map((s) => (
-            <div key={s.n} className="rounded-2xl border border-stone-200 bg-white p-6">
-              <div className="text-sm font-black text-[#1B68FF]">{s.n}</div>
+            <div key={s.n} className="border-t border-stone-300/70 pt-5">
+              <div className="text-3xl font-black tabular-nums text-stone-300">{s.n}</div>
               <div className="mt-2 text-lg font-bold text-stone-900">{s.t}</div>
               <p className="mt-2 text-sm leading-relaxed text-stone-600">{s.d}</p>
             </div>
@@ -172,13 +172,13 @@ export default function EnHomePage() {
             Most agencies post content and hope. We already run a live AI-citation measurement
             system for Korean clinics — the same engine now points at your foreign-patient funnel.
           </p>
-          <div className="mt-8 overflow-hidden rounded-2xl border border-stone-200">
+          <div className="mt-8 overflow-x-auto border-t-2 border-stone-900">
             <table className="w-full text-left text-sm">
-              <thead className="bg-stone-50 text-[12px] uppercase tracking-wider text-stone-500">
+              <thead className="border-b border-stone-300 text-[12px] uppercase tracking-wider text-stone-500">
                 <tr>
                   <th className="px-4 py-3 font-semibold"> </th>
                   <th className="px-4 py-3 font-semibold">Typical agency</th>
-                  <th className="px-4 py-3 font-semibold text-[#1B68FF]">WECIRCLE Global</th>
+                  <th className="px-4 py-3 font-semibold text-stone-900">WECIRCLE Global</th>
                 </tr>
               </thead>
               <tbody>
@@ -205,9 +205,12 @@ export default function EnHomePage() {
             <Link
               key={s.t}
               href={`/en/clinics/${SPECIALTY_CATS[i]}`}
-              className="block rounded-2xl border border-stone-200 bg-white p-5 transition hover:border-[#1B68FF] hover:shadow-sm"
+              className="group block border-t border-stone-300/70 py-4 transition hover:bg-white"
             >
-              <div className="font-bold text-stone-900">{s.t}</div>
+              <div className="text-2xl font-black tabular-nums text-stone-300 transition group-hover:text-stone-900">
+                {String(i + 1).padStart(2, "0")}
+              </div>
+              <div className="mt-1 font-bold text-stone-900">{s.t}</div>
               <div className="mt-1 text-[13px] text-stone-500">{s.ex}</div>
             </Link>
           ))}
@@ -216,7 +219,7 @@ export default function EnHomePage() {
 
       {/* Final CTA */}
       <section className="mx-auto max-w-6xl px-5 pb-24">
-        <div className="rounded-3xl bg-stone-950 px-8 py-14 text-center text-white md:px-16">
+        <div className="bg-stone-950 px-8 py-14 text-center text-white md:px-16">
           <h2 className="text-3xl font-black tracking-tight md:text-4xl">
             Be the clinic AI recommends.
           </h2>

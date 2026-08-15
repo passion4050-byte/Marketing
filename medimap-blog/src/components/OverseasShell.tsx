@@ -55,7 +55,7 @@ export function OverseasShell({
               href={headerCtaHref}
               target="_blank"
               rel="noopener noreferrer"
-              className={`rounded-full ${headerCtaBg} px-4 py-2 text-sm font-bold text-white transition hover:brightness-95`}
+              className={`rounded-none ${headerCtaBg} px-4 py-2 text-sm font-bold text-white transition hover:brightness-95`}
             >
               {ctaLabel}
             </a>
@@ -76,7 +76,7 @@ export function OverseasShell({
                 href={WA}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-full bg-[#25D366] px-3 py-1.5 text-xs font-bold text-white"
+                className="rounded-none bg-[#25D366] px-3 py-1.5 text-xs font-bold text-white"
               >
                 WhatsApp
               </a>
@@ -84,7 +84,7 @@ export function OverseasShell({
                 href={LINE}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-full bg-[#06C755] px-3 py-1.5 text-xs font-bold text-white"
+                className="rounded-none bg-[#06C755] px-3 py-1.5 text-xs font-bold text-white"
               >
                 LINE
               </a>

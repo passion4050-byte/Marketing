@@ -49,15 +49,21 @@ KEYWORD_MAP: dict[str, str] = {
 #   "AI 가 쓴 글" 티가 남 (사용자 지적). 사람 배제 원칙은 유지하되 카테고리별
 #   컨셉 풀(매크로 디테일·정물·추상 컨셉·아이소메트릭 일러스트·인테리어)을
 #   keyword+title+섹션 해시로 회전 — 같은 병원 글끼리도 매번 다른 비주얼.
+# Round 146-D (2026-08-15) — 감도 상향 (무신사 recommend · Magazine B 레퍼런스).
+#   기존 "soft pastel" 계열이 스톡사진/일러스트 톤으로 수렴해 홈·리스트·본문 전체의
+#   감도를 낮추던 주범. 시네마틱 에디토리얼 그레이딩(절제된 채도·방향성 조명·
+#   네거티브 스페이스)을 전 이미지에 강제 — 사이트의 로우컬러 에디토리얼 디자인과 정합.
 PROMPT_TEMPLATE = (
-    "{context}, editorial magazine quality, soft natural light, fine detail, 8k uhd, "
+    "{context}, cinematic editorial magazine photography, muted refined color palette, "
+    "soft directional light with deep shadows, generous negative space, film-like contrast, "
+    "fine detail, 8k uhd, "
     "no people, no person, no face, no hands, no fingers, no body parts, no text, no logo, no watermark"
 )
 
 # 자사 인사이트 — documentary 톤 한 겹 추가
 PROMPT_TEMPLATE_REALISTIC = (
-    "{context}, documentary editorial photography, shot on DSLR, professional color grading, "
-    "sharp focus, fine detail, 8k uhd, magazine editorial quality, "
+    "{context}, documentary editorial photography, shot on DSLR, cinematic color grading, "
+    "muted tones, film-like contrast, sharp focus, fine detail, 8k uhd, magazine editorial quality, "
     "no people, no person, no face, no hands, no fingers, no body parts, no text, no logo, no watermark"
 )
 
@@ -66,58 +72,58 @@ CONCEPT_POOLS: dict[str, list[str]] = {
     "eye": [
         "macro photography of a precision ophthalmic lens and optical examination equipment, cool clean tones",
         "still life of eyeglasses, an eye test chart and a contact lens case on a bright white desk",
-        "abstract concept of clear vision, light rays focusing through a lens into sharp focus, soft bokeh background",
-        "minimal 3d isometric illustration of an eye examination device and vision chart, soft pastel colors",
-        "modern ophthalmology equipment room, clean panoramic interior, natural daylight",
+        "abstract concept of clear vision, light rays focusing through a lens into sharp focus, dark elegant background",
+        "architectural detail of a modern ophthalmology clinic facade, strong light and shadow, minimal composition",
+        "modern ophthalmology equipment room, clean panoramic interior, dramatic natural daylight",
     ],
     "derma": [
         "macro photography of a skincare serum droplet and water texture on glass, soft studio light",
         "still life of a dermatology laser handpiece and minimal cosmetic bottles on a clean counter",
-        "abstract smooth gradient texture resembling healthy glowing skin, warm beige tones",
-        "minimal 3d isometric illustration of skin layers diagram, soft pastel palette",
-        "bright dermatology clinic treatment room, clean minimal interior",
+        "abstract smooth gradient texture resembling healthy glowing skin, muted warm beige tones, editorial minimalism",
+        "sculptural still life of cosmetic glass bottles casting long shadows on textured stone, gallery lighting",
+        "dermatology clinic treatment room, clean minimal interior, strong directional window light",
     ],
     "plastic": [
         "still life of surgical precision instruments neatly arranged on a sterile tray, cool tones",
         "abstract elegant curves and soft shadows, beauty aesthetic concept, warm beige tones",
-        "macro of measuring calipers and a face proportion sketch on a clean desk",
-        "minimal 3d isometric illustration of a medical consultation room, pastel colors",
-        "modern aesthetic clinic lounge, clean minimal interior, soft daylight",
+        "macro of measuring calipers and a face proportion sketch on a clean desk, dramatic side light",
+        "architectural interior of an aesthetic clinic with marble and glass, editorial magazine composition",
+        "modern aesthetic clinic lounge, clean minimal interior, cinematic daylight and shadow",
     ],
     "dental": [
         "macro photography of a dental mirror and instruments on a clean tray, cool tones",
-        "still life of clear dental aligners and a tooth model on a white desk",
-        "minimal 3d isometric illustration of a tooth with dental care icons, pastel colors",
-        "abstract clean white geometric shapes resembling healthy teeth, bright studio light",
+        "still life of clear dental aligners and a tooth model on a white desk, strong single-source light",
+        "sculptural macro of a ceramic tooth model on dark stone, gallery lighting, deep shadows",
+        "abstract clean white geometric shapes resembling healthy teeth, high-contrast studio light",
         "modern dental clinic treatment room, bright clean interior",
     ],
     "hair": [
         "macro photography of healthy hair strands texture in soft golden light",
         "still life of hair transplant precision instruments and a microscope on a tray",
-        "minimal 3d isometric illustration of hair follicle growth cycle, pastel colors",
-        "abstract flowing lines resembling smooth hair strands, warm elegant tones",
+        "extreme macro of a single hair strand catching golden light against a dark background",
+        "abstract flowing lines resembling smooth hair strands, warm muted tones, editorial minimalism",
         "modern hair clinic consultation room with scalp analysis equipment, clean interior",
     ],
     "oriental": [
         "still life of korean herbal medicine ingredients in wooden bowls, warm natural light",
         "macro photography of acupuncture needles and dried herbs on linen cloth, calm earthy tones",
         "traditional korean medicine cabinet with small wooden drawers, warm cozy interior",
-        "minimal flat illustration of herbal leaves and a teapot, muted earth tones",
+        "overhead still life of dried herbal leaves and a dark ceramic teapot on linen, muted earth tones, editorial composition",
         "abstract calm zen composition of smooth stones and herbs, soft daylight",
     ],
     "marketing": [
         "close-up of an analytics dashboard with charts on a laptop screen, modern minimal desk scene",
         "abstract data network visualization with glowing nodes and connections, deep navy background",
         "still life of printed growth charts, a notebook and pen on a minimal desk, morning light",
-        "minimal 3d isometric illustration of a search engine result page and content blocks, soft colors",
+        "close-up of typographic layouts and printed pages spread on a dark desk, editorial magazine scene, directional light",
         "abstract upward growth graph made of light streaks, dark elegant background",
     ],
     "generic": [
         "still life of a stethoscope and a medical chart on a clean desk, soft light",
         "macro photography of laboratory glassware with soft window light, clean tones",
-        "minimal 3d isometric illustration of a modern clinic building, pastel colors",
-        "abstract calm gradient composition with a subtle medical motif, clean tones",
-        "modern medical clinic corridor, bright minimal interior",
+        "architectural photograph of a modern clinic building facade, strong geometry, light and shadow",
+        "abstract calm gradient composition with a subtle medical motif, muted tones, generous negative space",
+        "modern medical clinic corridor, minimal interior, cinematic natural light",
     ],
 }
 

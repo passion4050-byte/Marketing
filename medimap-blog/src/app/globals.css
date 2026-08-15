@@ -265,6 +265,12 @@
     border-radius: 0 !important;
   }
   .db-html-content img[style] { border-radius: 0 !important; }
+  /* Round 146-D — AI 생성 이미지 채도 정합: 본문 이미지 전체에 에디토리얼 필터.
+     과채도 AI 이미지를 로우컬러 톤으로 눌러 사이트 디자인과 감도 통일. */
+  .db-html-content img,
+  .prose-medimap img {
+    filter: saturate(0.85) contrast(1.02);
+  }
 
   /* POST-HERO 2026-05-24 — DB 자동 발행 글 hero image + db-html-content 본문 내 figure */
   .db-html-content figure.post-hero {

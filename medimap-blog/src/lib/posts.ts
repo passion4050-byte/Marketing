@@ -336,16 +336,31 @@ function decodeEntities(s: string): string {
     .replace(/&amp;/gi, "&");
 }
 
+/**
+ * Round 146-D (2026-08-15) — 타이틀·설명 이모지 소급 제거.
+ * 구 발행분 타이틀의 🩺📌👀✨ 류 이모지가 홈 커버스토리·리스트·상세 헤드라인에
+ * 그대로 올라와 Magazine B 에디토리얼 톤을 깨는 최대 잡음원이었음 (라이브 실측).
+ * DB 는 건드리지 않고 렌더 단에서만 strip — 신규 발행분은 generator 디렉티브로 차단.
+ */
+function stripEmoji(s: string): string {
+  return s
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}]/gu, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function dbRowToPostMeta(row: DbPostRow): PostMeta {
   // DB 의 title/excerpt/published_at 컬럼 우선, 비었으면 본문 추출 폴백.
   // 날짜 변환은 toIsoDate 로 통일 — postgres.js 가 timestamptz 를 Date 객체로 줄 수 있음.
-  const title = decodeEntities((row.title || "").trim() || extractTitleFromBody(row.body, row.keyword_text));
+  const title = stripEmoji(
+    decodeEntities((row.title || "").trim() || extractTitleFromBody(row.body, row.keyword_text))
+  );
   const rawExcerpt = (row.excerpt || "").trim();
-  const description = decodeEntities(
+  const description = stripEmoji(decodeEntities(
     rawExcerpt
       ? (rawExcerpt.includes("<") ? stripHtml(rawExcerpt).trim().slice(0, 180) : rawExcerpt)
       : extractDescriptionFromBody(row.body, row.keyword_text)
-  );
+  ));
   const date =
     toIsoDate(row.published_at) ??
     toIsoDate(row.created_at) ??
