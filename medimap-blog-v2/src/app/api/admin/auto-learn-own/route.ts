@@ -141,11 +141,19 @@ export async function POST(req: NextRequest) {
       .eq('status', 'published')
       .not('slug', 'is', null)
       .limit(1000);
-    for (const row of (catRows ?? []) as Array<{
+    // 🔴 Round 148 — supabase-js 는 생성 타입 없이는 FK 조인(tenants)을 배열로 추론.
+    //   객체로 직접 as 캐스팅하면 TS2352 로 Vercel 빌드가 깨짐 (실사고: Round 146 푸시부터
+    //   geo-v2 가 이전 빌드를 서빙 중이었음). unknown 경유 + 배열/객체 양쪽 런타임 처리.
+    type CatRow = {
       slug: string | null;
-      tenants: { domain_category: string | null } | null;
-    }>) {
-      const cat = row.tenants?.domain_category?.trim();
+      tenants:
+        | { domain_category: string | null }
+        | Array<{ domain_category: string | null }>
+        | null;
+    };
+    for (const row of (catRows ?? []) as unknown as CatRow[]) {
+      const t = row.tenants;
+      const cat = (Array.isArray(t) ? t[0]?.domain_category : t?.domain_category)?.trim();
       if (row.slug && cat) slugToCat.set(row.slug.toLowerCase(), cat);
     }
   }
