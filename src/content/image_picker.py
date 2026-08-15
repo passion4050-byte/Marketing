@@ -536,6 +536,7 @@ def generate_body_illustration_for_section(
 
     # 섹션 제목에서 이모지/특수문자 제거 (Pollinations prompt 정화)
     clean_heading = re.sub(r"[^\w가-힣\s]+", " ", section_heading).strip()
+
     # Round 125-B — 섹션 제목+인덱스를 salt 로 컨셉 회전: 한 글 안의 본문 이미지들이
     # 서로 다른 샷 타입(매크로/정물/추상/일러스트/공간)을 갖는다. 사람 배제 유지.
     # Round 126-C — ① 섹션 헤딩을 주제로 직접 주입(글 맥락) ② 진료과 우선 매핑.
@@ -545,6 +546,50 @@ def generate_body_illustration_for_section(
     en_ctx = _people_free(
         pick_concept(keyword, salt=f"{clean_heading}:{index}", domain_category=domain_category)
     )
+
+    # 🔴 Round 150-b (2026-08-15) — 본문 figure 는 OpenAI 이미지 우선 (사용자 확정).
+    #   실사고(리쥬란-409): 본문만 Pollinations flux 직행이라 커버(Gemini)와 두 세대
+    #   품질 차 + flux 가 no-people 프롬프트를 무시하고 인물 얼굴을 렌더.
+    #   폴백 체인: OpenAI → nano_banana(Gemini) → Pollinations (figure 소실 방지).
+    #   프롬프트는 컨셉 회전(en_ctx) + Round 149 vivid 템플릿 그대로 — 커버와 톤 통일.
+    _alt = (section_heading or keyword)[:120]
+    _vivid_prompt = PROMPT_TEMPLATE.format(context=en_ctx)
+    try:
+        from src.content.openai_image_client import (
+            generate_openai_image,
+            is_openai_image_enabled,
+        )
+        if is_openai_image_enabled():
+            _url = generate_openai_image(
+                _vivid_prompt, name_hint=f"{keyword}-{index}", subdir="bodyv2"
+            )
+            if _url:
+                return {
+                    "url": _url,
+                    "alt": _alt,
+                    "caption": _alt,
+                    "prompt": f"openai_v1|body|{(clean_heading or keyword)[:60]}",
+                }
+    except Exception as e:  # noqa: BLE001
+        logger.warning("image_picker.body.openai_failed err=%s — nano fallback", e)
+    try:
+        from src.content.nano_banana_client import (
+            generate_nano_banana_image,
+            is_nano_banana_enabled,
+        )
+        if is_nano_banana_enabled():
+            nb = generate_nano_banana_image(
+                keyword, clean_heading or None, domain_category=domain_category
+            )
+            if nb and nb.get("url"):
+                return {
+                    "url": nb["url"],
+                    "alt": _alt,
+                    "caption": _alt,
+                    "prompt": f"nano_banana_v2|body|{(clean_heading or keyword)[:60]}",
+                }
+    except Exception as e:  # noqa: BLE001
+        logger.warning("image_picker.body.nano_failed err=%s — pollinations fallback", e)
     # Round 127-B — 사용자 요구 "반드시 감도 높은 연출": 본문도 커버(무신사 톤)와
     # 동급 — 시네마틱 필름톤·무디 라이팅·프리미엄 그레이딩 (사진/일러스트 중립 표현).
     prompt = (

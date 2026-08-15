@@ -1,0 +1,80 @@
+name: Backfill body images (OpenAI 재생성)
+
+# Round 150-b (2026-08-15) — 기존 발행분 본문 <figure> 이미지 일괄 재생성.
+# 커버(nano_banana v2)와 달리 본문은 구세대 Pollinations flux 산출물이라 저품질 +
+# 인물 누출(리쥬란-409 실사고). OpenAI(gpt-image-1) 우선, Gemini→flux 폴백.
+# 수동 트리거 전용. data-imgv2 마커로 멱등 — 중단돼도 재실행하면 이어서 처리.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tenant_id:
+        description: '특정 tenant 만 (빈값 = 전체)'
+        required: false
+        default: ''
+      content_id:
+        description: '특정 콘텐츠 id 만 (테스트용)'
+        required: false
+        default: ''
+      max_items:
+        description: '최대 처리 편 수 (빈값 = 무제한)'
+        required: false
+        default: ''
+      sleep_sec:
+        description: '편 사이 대기(초)'
+        required: false
+        default: '2'
+      dry_run:
+        description: 'dry-run (실제 UPDATE 안 함)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backfill-body-images
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify required secrets
+        run: |
+          [ -n "${{ secrets.DATABASE_URL }}" ] || { echo "::error::DATABASE_URL 없음"; exit 1; }
+          [ -n "${{ secrets.OPENAI_API_KEY }}" ] || { echo "::error::OPENAI_API_KEY 없음"; exit 1; }
+
+      - name: Run regenerate_body_images.py
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          ARGS=""
+          [ -n "${{ inputs.tenant_id }}" ] && ARGS="$ARGS --tenant-id ${{ inputs.tenant_id }}"
+          [ -n "${{ inputs.content_id }}" ] && ARGS="$ARGS --id ${{ inputs.content_id }}"
+          [ -n "${{ inputs.max_items }}" ] && ARGS="$ARGS --max ${{ inputs.max_items }}"
+          [ -n "${{ inputs.sleep_sec }}" ] && ARGS="$ARGS --sleep ${{ inputs.sleep_sec }}"
+          [ "${{ inputs.dry_run }}" = "true" ] && ARGS="$ARGS --dry-run"
+          echo "Running: python scripts/regenerate_body_images.py $ARGS"
+          python scripts/regenerate_body_images.py $ARGS

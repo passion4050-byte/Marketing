@@ -60,7 +60,7 @@ export function Header() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            카카오톡 무료 상담
+            나에게 맞는 병원혜택 상담
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden>
               <path stroke="currentColor" d="M7 17L17 7" />
               <path stroke="currentColor" d="M7 7h10v10" />
@@ -126,7 +126,7 @@ export function Header() {
             onClick={() => setOpen(false)}
             className="mt-6 flex w-full items-center justify-between border border-stone-900 bg-stone-900 px-5 py-4 text-white"
           >
-            <span className="text-sm font-bold tracking-tight">카카오톡 무료 상담</span>
+            <span className="text-sm font-bold tracking-tight">나에게 맞는 병원혜택 상담</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path stroke="currentColor" d="M7 17L17 7" />
               <path stroke="currentColor" d="M7 7h10v10" />
