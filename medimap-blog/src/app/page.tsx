@@ -31,7 +31,7 @@ export default async function HomePage() {
       seenTopic.add(key);
       return true;
     })
-    .slice(0, 3);
+    .slice(0, 9); // Round 152 — 무신사 밀도: 홈 Latest 3→9장 (이미지가 활력 담당)
   const totalPosts = blogPosts.length + partnerPosts.length;
   const today = new Date();
 
@@ -214,6 +214,39 @@ export default async function HomePage() {
                 <StatCell overline="Compliance" value="100%" caption="의료법 통과" />
               </dl>
             </div>
+
+            {/* Round 152 — 무신사 밀도: 파트너 최신 커버 4장 비주얼 스트립.
+                무채색 크롬 위에서 사진이 색·활력 담당. 모션은 hover scale 만. */}
+            {partnerPosts.filter((p) => p.cover_image_url).length >= 4 && (
+              <div className="mt-14 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+                {partnerPosts
+                  .filter((p) => p.cover_image_url)
+                  .slice(0, 4)
+                  .map((p) => (
+                    <Link
+                      key={`${p.partner_slug}-${p.slug}`}
+                      href={`/with-partners/${p.partner_category}/${p.partner_slug}/${p.slug}`}
+                      className="group relative block aspect-[4/5] overflow-hidden bg-stone-200"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={p.cover_image_url as string}
+                        alt={p.cover_image_alt ?? p.title}
+                        loading="lazy"
+                        className="absolute inset-0 h-full w-full object-cover transition duration-700 ease-out group-hover:scale-[1.03]"
+                      />
+                      <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-stone-950/70 to-transparent p-3 pt-8">
+                        <span className="block text-[10px] font-semibold uppercase tracking-[0.24em] text-stone-200">
+                          {p.tenant_name}
+                        </span>
+                        <span className="mt-1 line-clamp-2 block text-[13px] font-bold leading-snug text-white">
+                          {p.title}
+                        </span>
+                      </span>
+                    </Link>
+                  ))}
+              </div>
+            )}
           </div>
         </section>
 

@@ -112,16 +112,16 @@ export default async function ClientHomePage() {
       value: metrics.mentions30d,
       unit: '회 · 30일',
       sub: `측정 질의 ${metrics.queries30d}건 기준`,
-      href: null,
-      linkLabel: null,
+      href: '/client/mentions',
+      linkLabel: '세부 내역',
     },
     {
       label: 'AI 출처 인용',
       value: metrics.ownCitations30d + metrics.clientSiteCitations30d,
       unit: '건 · 30일',
       sub: `위서클 발행 ${metrics.ownCitations30d} · 병원 홈페이지 ${metrics.clientSiteCitations30d}`,
-      href: null,
-      linkLabel: null,
+      href: '/client/citations',
+      linkLabel: '세부 내역',
     },
     {
       label: '상담 클릭',
@@ -131,8 +131,8 @@ export default async function ClientHomePage() {
         clickDelta === null
           ? `최근 7일 ${clicks7}건`
           : `최근 7일 ${clicks7}건 (전주 대비 ${clickDelta >= 0 ? '+' : ''}${clickDelta}%)`,
-      href: null,
-      linkLabel: null,
+      href: '/client/clicks',
+      linkLabel: '세부 내역',
     },
   ];
 

@@ -81,8 +81,20 @@ export async function POST(req: NextRequest) {
   }
 
   const password = generatePassword();
-  // Round 148-d — 병원별 고유 진입 링크 코드 (/c/{code}). 소문자+숫자 10자.
-  const accessCode = generatePassword().toLowerCase();
+  // Round 152 — 고유링크를 병원 슬러그 기반으로 (사용자 요구: 랜덤 문자열이 아니라
+  // 병원 담당자가 자기 병원 URL 처럼 느끼도록). `{partner_slug}-{4자}` —
+  // 슬러그만으로는 추측 가능해 아이디가 노출되므로 짧은 suffix 로 열거 차단.
+  const { data: tRow } = await sb
+    .from('tenants')
+    .select('partner_slug, name')
+    .eq('id', tenantId)
+    .maybeSingle();
+  const slugBase =
+    ((tRow as { partner_slug?: string | null } | null)?.partner_slug ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '') || `clinic-${tenantId}`;
+  const accessCode = `${slugBase}-${generatePassword().toLowerCase().slice(0, 4)}`;
   const { data, error } = await sb
     .from('client_accounts')
     .insert({

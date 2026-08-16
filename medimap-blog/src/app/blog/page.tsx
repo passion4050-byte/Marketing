@@ -5,6 +5,7 @@ import { ArrowUpRight } from "lucide-react";
 import { JsonLd } from "@/components/JsonLd";
 import { breadcrumbLd } from "@/lib/schema";
 import { getAllPosts, BLOG_CATEGORIES } from "@/lib/posts";
+import { ArticleCard } from "@/components/ArticleCard";
 
 // Round 111 v2 (2026-07-02) — Editorial magazine index. featured cover-forward hero,
 // magazine index list, hairline dividers, warm off-white palette, tabular nums.
@@ -181,48 +182,13 @@ export default async function BlogIndexPage() {
               <span className="text-xs text-stone-500">시간 역순</span>
             </div>
 
-            <ol className="divide-y divide-stone-200/70">
-              {rest.map((p, i) => {
-                const num = String(i + 1).padStart(2, "0");
-                const overline = p.blogCategory ? CATEGORY_OVERLINE[p.blogCategory] ?? p.blogCategory : "Insights";
-                return (
-                  <li key={p.slug}>
-                    <Link
-                      href={`/blog/${p.slug}`}
-                      className="group grid grid-cols-[48px_1fr_auto] items-center gap-6 py-6 transition md:grid-cols-[64px_minmax(0,1fr)_minmax(0,180px)_auto] md:gap-10 md:py-8"
-                    >
-                      <span className="font-serif text-2xl font-light tabular-nums leading-none text-stone-400 transition group-hover:text-stone-900 md:text-3xl">
-                        {num}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-stone-500">
-                          {overline}
-                        </div>
-                        <h3 className="mt-1.5 text-[17px] font-bold tracking-tight text-stone-950 transition group-hover:text-stone-700 md:text-[19px]">
-                          {p.title}
-                        </h3>
-                        {p.description && (
-                          <p className="mt-1.5 line-clamp-1 text-sm text-stone-500">
-                            {p.description}
-                          </p>
-                        )}
-                      </div>
-                      <div className="hidden text-right text-xs text-stone-500 tabular-nums md:block">
-                        <div>
-                          {new Date(p.date).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
-                        </div>
-                        <div className="mt-0.5 text-stone-400">{p.readingMinutes} min</div>
-                      </div>
-                      <ArrowUpRight
-                        size={18}
-                        strokeWidth={1.5}
-                        className="text-stone-300 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-stone-900"
-                      />
-                    </Link>
-                  </li>
-                );
-              })}
-            </ol>
+            {/* Round 152 — 무신사 매거진 레퍼런스: 텍스트 목차 → 커버 포워드 이미지 그리드.
+                크롬은 무채색 유지, 생동감은 사진 밀도가 담당. 모션은 카드 내 hover scale 만(ease-out). */}
+            <div className="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+              {rest.map((p) => (
+                <ArticleCard key={p.slug} post={p} variant="default" />
+              ))}
+            </div>
 
             {total > rest.length + 1 && (
               <div className="mt-10 flex items-center justify-center border-t border-stone-200/70 pt-8">

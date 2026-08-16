@@ -12,7 +12,8 @@ export const dynamic = 'force-dynamic';
 export default async function ClientEntryPage({ params }: { params: { code: string } }) {
   const code = (params.code || '').trim();
   const sb = getServerClient();
-  if (sb && /^[a-z0-9]{6,20}$/i.test(code)) {
+  // Round 152 — 슬러그 기반 코드({partner_slug}-{4자}) 허용: 하이픈 포함 4~48자
+  if (sb && /^[a-z0-9][a-z0-9-]{3,47}$/i.test(code)) {
     const { data } = await sb
       .from('client_accounts')
       .select('username, active, tenants(name)')
