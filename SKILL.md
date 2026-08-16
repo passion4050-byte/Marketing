@@ -5444,3 +5444,89 @@ self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 3
   느려서 177초 타임아웃 남 → **src 통째 /tmp 복사 후 게이트**가 빠르고 확실). em-dash 신규 카피 0
   (title 구분자 "— WECIRCLE Global" 는 사이트 전체 관례라 유지).
 
+# Round 146~151 (2026-08-15) — 3축 감사 → 전환·루프 복구 · SERP 5사 · Magazine B 전면 · 포털 · 카카오 사고
+> 집PC 대형 세션. 3축 E2E 감사(고객전환·GEO영향력·자동화루프) → 배치 A/B → 상위 5사 해부 →
+> 디자인 전면 전환(국내외) → 병원 클라이언트 포털 → 이미지 품질 대수술 → 🔴 카카오 옛채널 사고 처리.
+
+## Round 146 — 배치 A(전환 6) + B(루프 5)
+- A: contact LINE 죽은링크(site.ts fallback 실계정화), blog CTA 파트너 분기(CTABlock partnerSlug/partnerName —
+  "{병원}에 물어보기" + kakaoTrackHref), WA 프리필 3언어(ctaLink.waHref ?text=), JA 헤더 CTA=LINE(OverseasShell 분기),
+  JA smile-lasik 도입 중복 SQL 정리(id205), 해외 푸터 태그라인.
+- B: 🔴 **strict_prefer 재수술** — 8/2 수정은 초기화 실패만 검사, Claude 400(크레딧)시 FallbackProvider 가
+  **런타임 무음 폴백** → strict 면 체인 1개 + env 우회 차단(llm.py). A/B 7·8 그래서 또 무효였음.
+- 🔴 **한글 슬러그 percent-encoded 매칭** — run_ab_analysis: DB 인용 URL 은 %EB%9D%BC... 로 저장,
+  raw 한글 ILIKE 는 영원히 0 → urllib.parse.quote(slug) 변형 OR 추가. 국내 발행 64%가 한글 슬러그.
+- learned_insights **category null 오염** — or=(eq,is.null) 이 전 진료과 무차별 주입 → 로더 eq 만,
+  저장측(auto-learn-own/learn-from-domain) domain_category 필수화, 기존 null 행 채움/격리. 검증 SQL: null이면서 주입중=0.
+- answer-first 디렉티브(_ANSWER_FIRST_DIRECTIVE) — 첫 문단=비용구간+기간(+볼드 개체명, 146-B 추가). 국내외 공용.
+
+## Round 146-B — "skin clinic in korea" 상위 5사 실측 + 반영 (.planning/serp5-magazineb-analysis-260815.md 정본)
+- 🔴 반전: **5사 전원 JSON-LD 0개** — 구글이 보상한 건 문서 구조(고정필드 클리닉 블록·본문 Q&A 8~11·
+  개체명 밀도·볼드 즉답 첫문단·연도 없는 Best/Top+N 타이틀). FAQPage 100% 는 우리만의 우위로 유지.
+- 2·4·5번은 (주)파인더패턴 위성網(푸터 크레딧 실측) — 링크網 모방 금지, 문서 포맷만 흡수.
+- 반영: _SERP_PROVEN_DIRECTIVE 신설(고정필드/FAQ8+/증상별 가이드/최상급 금지/이모지 금지),
+  _OVERSEAS_ARCHETYPE_DIRECTIVE 개정(연도 폐지→타이틀 공식, FAQ 8+, Traveler practicality,
+  메신저 언어분기 EN WA/JA LINE/ZH WeChat), 해외 신규 슬러그 `-in-korea` 접미사(_make_slug lang 인자, 기존 URL 불변).
+
+## Round 146-c~149 — Magazine B + 무신사 디자인 전면
+- **1단계(CSS)**: prose/db-html 에디토리얼(잉크 링크·좌룰 세리프 블록쿼트·헤비룰 표·무프레임 이미지),
+  reading-progress/card-accent 단색화, overline-label/section-rule 프리미티브, paper/rule 토큰.
+- 🔴 **body_polish 인라인이 CSS 를 이김**(라이브 실측: th 가 #cbd5e1) → ① globals 에 `[style]` 소급 무력화(!important)
+  ② body_polish 팔레트 자체를 에디토리얼로 교체. **CSS 바꿔도 안 변하면 인라인부터 의심**.
+- **148 글로벌 3언어 홈 전면**: 블루 하이라이트→잉크 밑줄, 파란 배너→헤어라인, 카드→넘버 오픈 레이아웃,
+  비교표→헤비룰, CTA 전부 각형(채널색 fill 만 유채색). **148-d 공개 29파일 일괄 스윕**(마운트 python 벌크
+  치환 — 호스트 Read 로 동기 검증 후 진행, 성공 실증) + OG 이미지/themeColor 잉크·페이퍼.
+- **이모지 소급 strip**(posts.ts stripEmoji — 렌더단, DB 무변경) + 신규분 디렉티브 금지.
+- **149 무신사 실측 반전**: firecrawl branding — 무신사 UI 는 순수 흑백(#000/#FFF·radius 0)이고
+  **색은 풀컬러 고선명 사진이 독점**. 우리 grayscale 5곳(홈 커버·디렉토리 3계층·ArticleCard) 제거,
+  saturate(0.85)→(1.08)·contrast(1.05), 생성 프롬프트 muted→vivid commercial.
+- **149-b 커버 240편 v2 백필**: regenerate_all_images + backfill-images.yml(timeout 300) —
+  nano_banana_v2| 마커 기준 skip → 중단/재실행 이어감. 240/240 완료 실측.
+  🔴 **SSG 함정**: 커버 URL 은 빌드에 구워짐 — DB 백필 후 **빈 커밋 재배포 필수**.
+
+## Round 147~148-e — 병원 클라이언트 포털 + 성능 수술
+- **포털**: client_accounts(scrypt salt:hash, RLS 잠금) + /client/login·/client(홈: reportMetrics 재사용
+  KPI 4종+AEO+월보고서 HMAC 링크)·/client/contents + /api/client/login(500ms 지연)·logout +
+  어드민 /admin/clients(발급·평문 1회 표시·복사·재발급·중지). 세션=HMAC 쿠키(admin 과 분리, CLIENT_SESSION_SECRET
+  fallback ADMIN_SESSION_SECRET). middleware 는 /client 무간섭.
+- **148-d 고유링크**: client_accounts.access_code + `/c/[code]` → /client/login?u=&h= 프리필
+  (login page 서버화+LoginForm 분리 — useSearchParams Suspense 함정 회피). 어드민 목록 링크복사 컬럼.
+- 🔴🔴 **geo-v2 빌드 146부터 실패**(TS2352: supabase FK 조인은 생성타입 없으면 **배열** 추론 —
+  객체 직캐스팅 금지, `as unknown as` + 배열/객체 양쪽 처리) — 이전 빌드 서빙이라 화면 멀쩡, 포털 404 로 발각.
+  ✅ **tsc 샌드박스 게이트 확립**: /tmp/v2build 에 src+package.json 복사 → npm install(52s 됨!) → tsc --noEmit=0.
+  CLAUDE.md 에 레시피 기록. v2 .ts/.tsx 수정 시 esbuild 에 추가 필수.
+- 🔴 **/client 에 콘솔 사이드바 노출**(타 병원명 '현재 고객사' 위젯) → SidebarShell 제외 목록 추가.
+- **148-e 어드민 12s→0.99s**: 실측 범인 /api/admin/ccs-trend 12,035ms. ① responses 에 created_at/query_id
+  인덱스 **부재**(전 측정 API 풀스캔) ② RPC citation_market_trend 가 전개 1.5만 행마다 T1 LIKE —
+  distinct 도메인(1.9k)당 1회로 재작성 + **AS MATERIALIZED 필수**(PG12+ CTE 인라인으로 EXISTS 가
+  도로 행별 실행되는 것 EXPLAIN 실측). 남은 ~1s = jsonb 해동(수용).
+
+## Round 150~150-b — 클리닉 인플랫폼 + 본문 이미지 OpenAI
+- **인플랫폼 프로필**(ClinicProfile 공용, en/ja/zh): 사용자 지시 "병원 홈페이지 보여주면 이탈" →
+  외부 링크 화면 노출 0(JSON-LD url 만 유지 — SEO 엔티티), 고정필드 헤더 + Why WECIRCLE 4 +
+  예약흐름 01~04 + 가이드 목록 + FAQ + 다크 CTA + 중개 고지. **waHref(lang, clinic)** — WA 프리필
+  첫 줄에 병원명 주입(ContactButtons clinic prop).
+- 🔴 **본문 figure 만 Pollinations flux 직행**이라 커버(Gemini)와 두 세대 품질差 + no-people 무시
+  (리쥬란-409 인물 얼굴 실사고). → **openai_image_client 신설**(gpt-image-1→dall-e-3, b64→
+  upload_bytes_to_storage subdir=bodyv2) + image_picker 본문 체인 OpenAI→nano→flux.
+  소급: **regenerate_body_images.py + backfill-body-images.yml** — figure 단위 data-imgv2 마커 멱등,
+  post-hero figure 는 v2 커버로 src 교체(무비용). 182편×~4장, ~$0.04/장. ISR 이라 재배포 없이 반영 실측.
+- KR 헤더 CTA "카카오톡 무료 상담"→**"나에게 맞는 병원혜택 상담"**(Header 2곳).
+
+## Round 151 — 🔴🔴 카카오 CTA 전량이 前직장(메디맵) 채널이었음
+- 실사고: /r/k-* 15행 전부 + site.ts fallback + admin/login 이 pf.kakao.com/_xnWQkG —
+  **사용자 전 직장 채널, 위서클 무관**. 뿌리는 145c "채널 단일화"때 정본을 잘못 잡은 것.
+- 처리: shortlinks 15행 → `https://open.kakao.com/o/spyAz9Bi`(**위서클 카카오 정본 — 오픈채팅**,
+  DB 즉시 반영·재배포 불필요, /r/k-bgn 302 실측), site.ts/admin login/cta_templates 교체,
+  🔴 domain-classifier MEDIMAP_KAKAO_PATHS=[] (옛채널 인용이 T1 자사 점유율로 오염되던 것 차단).
+- 기존 클릭 16건은 옛채널 유실분 — 오늘부터가 전환 측정 원점.
+
+## 다음 라운드 후보 (151 이후)
+- **배치 C — 클릭 북극성 루프** (146 감사에서 설계 승인, 미구현): C1 콘텐츠→클릭 귀속 뷰
+  (현행 shortlink 는 파트너 단위 — 콘텐츠 단위 슬러그 필요) → C2 A/B 승자판정에 클릭 신호 결합 →
+  C3 auto-learn 성공신호에 클릭 소스 → C5 WINNER 패턴 적립.
+- 본문 이미지 백필 완주 확인(중단 시 재실행 — data-imgv2 멱등) + 완료 후 리쥬란-409 외 표본 검수.
+- Magazine B 2단계 잔여: 글 상세 No./Issue 메타바, h2 CSS counter, SectionRule 부품 적용, JA/ZH Noto 스택.
+- 저자·검수·업데이트일 E-E-A-T 표기(경쟁 0/5 무주공산), 리스티클 슬러그 고정+숫자 증축 재발행 정책.
+- 대기 사용자 액션: Anthropic 크레딧(A/B B팔), LINE 공식계정(프리필), 파트너 실명 동의.
+
