@@ -413,6 +413,24 @@ def daily_auto_content_job(
                     return True
                 return (market, lang) in _active_products
 
+            # 🔴 Round 155 (2026-08-16) — 키워드당 발행 상한 (커버리지 게이트).
+            #   실측: "의료 GEO 최적화" 41편 + "필러" 38편 = 발행의 33% 가 단 2개
+            #   키워드에 집중 — 같은 주제 반복은 유입도 문의도 못 늘린다(카니벌라이즈).
+            #   상한 도달 키워드는 로테이션에서 제외 → 남은 키워드(롱테일)로 강제 순환.
+            _KW_PUBLISH_CAP = 12
+            from sqlalchemy import text as _sql_cap
+            _capped: set[str] = {
+                r[0]
+                for r in s.execute(
+                    _sql_cap(
+                        "SELECT keyword_text FROM generated_contents "
+                        "WHERE tenant_id = :tid AND status = 'published' "
+                        "AND channel = 'blog_html' AND keyword_text IS NOT NULL "
+                        "GROUP BY keyword_text HAVING count(*) >= :cap"
+                    ),
+                    {"tid": tenant_id, "cap": _KW_PUBLISH_CAP},
+                ).fetchall()
+            }
             # 키워드별 lang/market 동반 로드 + 발행 게이팅. 해외 키워드는 그 언어로 생성.
             kw_rows = [
                 (
@@ -421,7 +439,8 @@ def daily_auto_content_job(
                     (getattr(k, "market", "domestic") or "domestic"),
                 )
                 for k in kws
-                if _publish_ok(
+                if k.text not in _capped
+                and _publish_ok(
                     (getattr(k, "lang", "ko") or "ko"),
                     (getattr(k, "market", "domestic") or "domestic"),
                 )
@@ -430,6 +449,17 @@ def daily_auto_content_job(
                     or (getattr(k, "market", "domestic") or "domestic") == market_only
                 )
             ]
+            # 전 키워드 상한 도달 시 발행 중단이 아니라 전체 풀로 폴백 (발행 0 방지)
+            if not kw_rows and _capped:
+                kw_rows = [
+                    (k.text, (getattr(k, "lang", "ko") or "ko"),
+                     (getattr(k, "market", "domestic") or "domestic"))
+                    for k in kws
+                    if _publish_ok(
+                        (getattr(k, "lang", "ko") or "ko"),
+                        (getattr(k, "market", "domestic") or "domestic"),
+                    )
+                ]
         if not kw_rows:
             continue
 
