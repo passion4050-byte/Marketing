@@ -25,10 +25,12 @@ export default async function ClientMentionsPage() {
   if (!session || !sb) return null;
 
   const since = new Date(Date.now() - 30 * 86400_000).toISOString();
-  const { data } = await sb
+  // 🔴 Round 153 — keywords 의 실컬럼은 `text` (keyword 아님). 잘못된 조인은 PostgREST
+  //   400 인데 error 를 버리면 조용히 빈 목록이 됨(감사 P0-1 실사고) → error 표면화.
+  const { data, error } = await sb
     .from('mentions')
     .select(
-      'created_at, brand, context_snippet, position, responses(queries(engine, keywords(keyword)))'
+      'created_at, brand, context_snippet, position, responses(queries(engine, keywords(text)))'
     )
     .eq('tenant_id', session.tenantId)
     .eq('is_target', true)
@@ -53,14 +55,14 @@ export default async function ClientMentionsPage() {
     const q = one(resp?.queries as never) as
       | { engine?: string | null; keywords?: unknown }
       | undefined;
-    const kw = one(q?.keywords as never) as { keyword?: string | null } | undefined;
+    const kw = one(q?.keywords as never) as { text?: string | null } | undefined;
     return {
       date: r.created_at,
       brand: r.brand,
       snippet: r.context_snippet,
       position: r.position,
       engine: q?.engine ?? null,
-      keyword: kw?.keyword ?? null,
+      keyword: kw?.text ?? null,
     };
   });
 
@@ -77,7 +79,11 @@ export default async function ClientMentionsPage() {
         </p>
       </div>
 
-      {rows.length === 0 ? (
+      {error ? (
+        <p className="rounded-none border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+          데이터를 불러오는 중 일시적 오류가 발생했습니다. 잠시 후 새로고침해 주세요.
+        </p>
+      ) : rows.length === 0 ? (
         <p className="rounded-none border border-stone-200 bg-white p-6 text-sm text-stone-400">
           최근 30일 언급 기록이 없습니다.
         </p>

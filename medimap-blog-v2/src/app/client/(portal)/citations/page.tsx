@@ -42,7 +42,8 @@ export default async function ClientCitationsPage() {
       .maybeSingle(),
     sb
       .from('responses')
-      .select('created_at, source_domains, queries(engine, keywords(keyword, tenant_id))')
+      // Round 153 — keywords 실컬럼은 `text` (keyword 아님, 감사 P0-1과 동일 계열)
+      .select('created_at, source_domains, queries(engine, keywords(text))')
       .gte('created_at', since)
       .not('source_domains', 'is', null)
       .order('created_at', { ascending: false })
@@ -79,7 +80,7 @@ export default async function ClientCitationsPage() {
 
   for (const r of (respRes.data ?? []) as unknown as Row[]) {
     const q = one(r.queries as never) as { engine?: string | null; keywords?: unknown } | undefined;
-    const kw = one(q?.keywords as never) as { keyword?: string | null } | undefined;
+    const kw = one(q?.keywords as never) as { text?: string | null } | undefined;
     for (const sd of r.source_domains ?? []) {
       const url = sd?.final_url ?? '';
       if (!url) continue;
@@ -101,7 +102,7 @@ export default async function ClientCitationsPage() {
           url,
           kind,
           engine: q?.engine ?? null,
-          keyword: kw?.keyword ?? null,
+          keyword: kw?.text ?? null,
         });
       }
     }
@@ -121,8 +122,10 @@ export default async function ClientCitationsPage() {
       </div>
 
       {items.length === 0 ? (
-        <p className="rounded-none border border-stone-200 bg-white p-6 text-sm text-stone-400">
-          최근 30일 출처 인용 기록이 없습니다.
+        <p className="rounded-none border border-stone-200 bg-white p-6 text-sm leading-relaxed text-stone-500">
+          최근 30일 출처 인용 기록이 없습니다. 발행 후 AI 검색이 콘텐츠를 색인해 출처로 쓰기까지
+          <b className="text-stone-700"> 통상 5~6주</b>가 걸립니다 — 그 전에는 위의 &lsquo;병원 언급&rsquo;
+          지표가 먼저 움직입니다.
         </p>
       ) : (
         <div className="divide-y divide-stone-200 border-t-2 border-stone-900 bg-white">

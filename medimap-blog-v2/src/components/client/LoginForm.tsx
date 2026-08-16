@@ -88,9 +88,9 @@ export function LoginForm({
             {loading ? '확인 중…' : '로그인'}
           </button>
           <p className="mt-4 text-center text-[11px] leading-relaxed text-stone-400">
-            계정이 없거나 비밀번호를 잊으셨나요?
-            <br />
-            위서클 담당자에게 재발급을 요청해 주세요.
+            {initialUsername
+              ? '계정이 없거나 비밀번호를 잊으셨나요? 위서클 담당자에게 재발급을 요청해 주세요.'
+              : '받으신 병원 전용 링크(/c/…)로 접속하면 아이디가 자동으로 채워집니다. 비밀번호 재발급은 위서클 담당자에게 요청해 주세요.'}
           </p>
         </form>
       </div>

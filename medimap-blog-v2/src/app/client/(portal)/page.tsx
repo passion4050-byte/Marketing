@@ -83,8 +83,9 @@ export default async function ClientHomePage() {
   const clicks30 = clicks30Res.count ?? 0;
   const clicks7 = clicks7Res.count ?? 0;
   const clicksPrev7 = clicksPrev7Res.count ?? 0;
+  // Round 153 (감사 P1-6) — 소표본 % 는 공포만 유발("2→0 = -100%") → 전주 5건 미만이면 숨김
   const clickDelta =
-    clicksPrev7 > 0 ? Math.round(((clicks7 - clicksPrev7) / clicksPrev7) * 100) : null;
+    clicksPrev7 >= 5 ? Math.round(((clicks7 - clicksPrev7) / clicksPrev7) * 100) : null;
   const recent = (recentRes.data ?? []) as Array<{
     title: string | null;
     slug: string | null;
@@ -111,7 +112,8 @@ export default async function ClientHomePage() {
       label: 'AI 답변 속 병원 언급',
       value: metrics.mentions30d,
       unit: '회 · 30일',
-      sub: `측정 질의 ${metrics.queries30d}건 기준`,
+      // Round 153 (감사 P2-10) — "측정 질의" 내부용어 → 실무진 눈높이
+      sub: `AI 에 ${metrics.queries30d}번 물어본 결과 기준`,
       href: '/client/mentions',
       linkLabel: '세부 내역',
     },
@@ -119,7 +121,11 @@ export default async function ClientHomePage() {
       label: 'AI 출처 인용',
       value: metrics.ownCitations30d + metrics.clientSiteCitations30d,
       unit: '건 · 30일',
-      sub: `위서클 발행 ${metrics.ownCitations30d} · 병원 홈페이지 ${metrics.clientSiteCitations30d}`,
+      // Round 153 (감사 P1-5) — 0 에 맥락 부여: 보고서의 "첫 인용 통상 5~6주" 안내 이식
+      sub:
+        metrics.ownCitations30d + metrics.clientSiteCitations30d === 0
+          ? '발행 후 첫 인용까지 통상 5~6주 (색인 적재 기간)'
+          : `위서클 발행 ${metrics.ownCitations30d} · 병원 홈페이지 ${metrics.clientSiteCitations30d}`,
       href: '/client/citations',
       linkLabel: '세부 내역',
     },
@@ -141,7 +147,7 @@ export default async function ClientHomePage() {
       <div className="mb-6">
         <h1 className="text-xl font-bold tracking-tight">홈</h1>
         <p className="mt-1 text-sm text-stone-500">
-          AI 검색(ChatGPT · Perplexity · Gemini)에서 우리 병원이 어떻게 노출되는지 한눈에 확인하세요.
+          AI 검색(ChatGPT · Perplexity · Gemini · Claude)에서 우리 병원이 어떻게 노출되는지 한눈에 확인하세요.
         </p>
       </div>
 
@@ -212,7 +218,7 @@ export default async function ClientHomePage() {
         </section>
 
         <section className="lg:col-span-2">
-          <h2 className="text-sm font-bold">콘텐츠 품질 (AEO)</h2>
+          <h2 className="text-sm font-bold">AI 인용 적합도</h2>
           <div className="mt-3 rounded-2xl border border-stone-200 bg-white p-5">
             <div className="flex items-baseline gap-1.5">
               <span className="text-3xl font-bold tabular-nums">{metrics.avgAeo ?? '—'}</span>

@@ -69,7 +69,19 @@ export default async function ClientClicksPage() {
                   <td className="px-4 py-2.5 tabular-nums text-stone-700">{fmtDateTime(c.clicked_at)}</td>
                   <td className="px-4 py-2.5 text-stone-600">{c.country ?? '—'}</td>
                   <td className="max-w-[360px] truncate px-4 py-2.5 text-stone-500">
-                    {c.referer ? c.referer.replace(/^https?:\/\//, '') : '직접 접속'}
+                    {(() => {
+                      // Round 153 (감사 P2-12) — 긴 URL 대신 경로만 (모바일 가로스크롤 완화)
+                      if (!c.referer) return '직접 접속';
+                      try {
+                        const u = new URL(c.referer);
+                        const path = decodeURIComponent(u.pathname);
+                        return u.hostname.includes('wecircle')
+                          ? path
+                          : `${u.hostname.replace(/^www\./, '')}${path === '/' ? '' : path}`;
+                      } catch {
+                        return c.referer.replace(/^https?:\/\//, '');
+                      }
+                    })()}
                   </td>
                 </tr>
               ))}

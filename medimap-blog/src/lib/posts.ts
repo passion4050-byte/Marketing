@@ -352,8 +352,12 @@ function stripEmoji(s: string): string {
 function dbRowToPostMeta(row: DbPostRow): PostMeta {
   // DB 의 title/excerpt/published_at 컬럼 우선, 비었으면 본문 추출 폴백.
   // 날짜 변환은 toIsoDate 로 통일 — postgres.js 가 timestamptz 를 Date 객체로 줄 수 있음.
+  // Round 153 (포털 감사 P2-11) — "키워드 #id" 드래프트 제목이 그대로 발행된 23편 실측.
+  // DB 소급 정정(본문 헤딩 추출)으로 11편 해결, 헤딩 없는 잔여분은 렌더단에서 본문 추출 폴백.
+  const rawTitle = (row.title || "").trim();
+  const isDraftTitle = /#\d+\s*$/.test(rawTitle);
   const title = stripEmoji(
-    decodeEntities((row.title || "").trim() || extractTitleFromBody(row.body, row.keyword_text))
+    decodeEntities((!isDraftTitle && rawTitle) || extractTitleFromBody(row.body, row.keyword_text))
   );
   const rawExcerpt = (row.excerpt || "").trim();
   const description = stripEmoji(decodeEntities(

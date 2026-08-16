@@ -669,6 +669,18 @@ def _generate_draft(
                     ),
                     {"slug": _make_slug(keyword, obj.id, lang), "id": obj.id},
                 )
+                # Round 153 (2026-08-16) — 드래프트 제목("키워드 #id") 발행 차단.
+                #   포털 감사 실사고: 23편이 내부 명명 그대로 노출. 발행 시 본문 첫
+                #   h1(→h2) 텍스트로 교정. 헤딩이 없으면 렌더단(posts.ts) 폴백이 커버.
+                s.execute(
+                    _sql_slug(
+                        "UPDATE generated_contents SET title = COALESCE("
+                        "NULLIF(trim(regexp_replace(substring(body from '<h1[^>]*>([^§]+?)</h1>'), '<[^>]+>', '', 'g')), ''),"
+                        "NULLIF(trim(regexp_replace(substring(body from '<h2[^>]*>([^§]+?)</h2>'), '<[^>]+>', '', 'g')), ''),"
+                        "title) WHERE id = :id AND title ~ '#\\d+$'"
+                    ),
+                    {"id": obj.id},
+                )
                 s.commit()
             except Exception:
                 pass

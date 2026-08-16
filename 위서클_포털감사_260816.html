@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>위서클 병원 클라이언트 포털 E2E 감사 — 2026-08-16</title>
+<style>
+  body{font-family:'Pretendard',-apple-system,sans-serif;background:#FAFAF7;color:#1c1917;max-width:1080px;margin:0 auto;padding:48px 24px;line-height:1.65}
+  h1{font-size:26px;letter-spacing:-.02em;border-bottom:2px solid #0C0A09;padding-bottom:12px}
+  h2{font-size:18px;margin-top:40px}
+  .meta{color:#78716c;font-size:13px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:16px}
+  th{border-bottom:2px solid #0C0A09;text-align:left;padding:8px 10px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#57534e}
+  td{border-bottom:1px solid #e7e5e4;padding:10px;vertical-align:top}
+  .p0{background:#fef2f2;color:#b91c1c;font-weight:700;padding:2px 8px;font-size:12px}
+  .p1{background:#fffbeb;color:#b45309;font-weight:700;padding:2px 8px;font-size:12px}
+  .p2{background:#f5f5f4;color:#57534e;font-weight:700;padding:2px 8px;font-size:12px}
+  .done{color:#047857;font-weight:700;font-size:12px}
+  .next{color:#78716c;font-weight:700;font-size:12px}
+  code{background:#f5f5f4;padding:1px 5px;font-size:12px}
+  .top3{background:#fff;border:1px solid #e7e5e4;padding:20px 24px;margin-top:16px}
+  .top3 b{display:block;margin-top:12px}
+</style>
+</head>
+<body>
+<h1>병원 클라이언트 포털 E2E 감사 <span style="font-weight:400">— Round 153</span></h1>
+<p class="meta">2026-08-16 · 페르소나 2인 실브라우저 감사 (김수진 실장·안과 강남연세 / 박지은 대리·피부과 벨리셀) · 고유링크→로그인→홈→드릴다운 3종→콘텐츠→보고서→로그아웃 전 동선 실측 + DB·코드 근본원인 확인</p>
+
+<h2>발견 13건</h2>
+<table>
+<tr><th>#</th><th>심각도</th><th>화면</th><th>발견 (실측)</th><th>수정안</th><th>처리</th></tr>
+<tr><td>1</td><td><span class="p0">P0</span></td><td>/client/mentions·citations</td><td>홈 "언급 9회/225회"인데 세부는 0건 — 중첩 조인 <code>keywords(keyword)</code>가 실컬럼 <code>keywords.text</code>와 불일치 → PostgREST 400이 조용히 빈 목록으로</td><td>컬럼명 교정 + error 표면화</td><td class="done">✅ 즉시수정</td></tr>
+<tr><td>2</td><td><span class="p0">P0</span></td><td>측정 파이프라인</td><td>벨리셀 "언급 225회" 전부 <code>brand="피부과"</code> 일반명사 — alias 생성이 병원명을 공백분리하며 진료과명을 target으로 주입</td><td>제네릭 토큰에 진료과명 추가 + 기존 오염 is_target=false</td><td class="done">✅ 즉시수정</td></tr>
+<tr><td>3</td><td><span class="p0">P0</span></td><td>/report 월간보고서</td><td>"AI가 실제로 답한 내용" 5건 전부 경쟁병원(뷰·창·V&amp;MJ·W) 굵게 노출 — 원장 신뢰 사고</td><td>tenant명 포함 스니펫만 노출하는 방어</td><td class="done">✅ 즉시수정</td></tr>
+<tr><td>4</td><td><span class="p1">P1</span></td><td>/report</td><td>스니펫에 raw markdown(<code>**</code>·<code>[텍스트](url)</code>) 깨져 노출</td><td>렌더 전 markdown strip</td><td class="done">✅ 즉시수정</td></tr>
+<tr><td>5</td><td><span class="p1">P1</span></td><td>포털 인용 0건</td><td>0에 대한 맥락 부재 — 보고서에만 있는 "첫 인용 통상 5~6주" 안내가 포털엔 없음</td><td>홈 카드·citations 빈 상태에 이식</td><td class="done">✅ 즉시수정</td></tr>
+<tr><td>6</td><td><span class="p1">P1</span></td><td>/client 홈</td><td>"최근 7일 0건 (전주 대비 -100%)" — 표본 2건에 백분율, 공포 유발</td><td>전주 5건 미만이면 % 숨김</td><td class="done">✅ 즉시수정</td></tr>
+<tr><td>7</td><td><span class="p1">P1</span></td><td>포털 전체</td><td>추이 부재 — 모든 지표가 30일 단일 숫자, "어제보다 늘었나" 답 불가</td><td>주간 스파크라인/일별 집계</td><td class="next">→ 배치 C와 함께</td></tr>
+<tr><td>8</td><td><span class="p1">P1</span></td><td>/client/clicks</td><td>어느 글에서 눌렸는지 없음(콘텐츠 단위 미귀속) + 국가 "US"만</td><td>콘텐츠 단위 shortlink = 배치 C1</td><td class="next">→ 배치 C1</td></tr>
+<tr><td>9</td><td><span class="p1">P1</span></td><td>홈↔보고서</td><td>"3개 엔진" vs "4개 엔진" 카피 불일치 + 보고서만 SaaS 파랑 톤</td><td>4개 엔진 정정(즉시) / 보고서 톤 통일(후속)</td><td class="done">✅ 카피 즉시</td></tr>
+<tr><td>10</td><td><span class="p2">P2</span></td><td>/client 홈</td><td>"AEO"·"측정 질의 N건" 내부용어 — 실장 눈높이 아님</td><td>"AI 인용 적합도" / "AI에 N번 물어본 결과 중"</td><td class="done">✅ 즉시수정</td></tr>
+<tr><td>11</td><td><span class="p2">P2</span></td><td>발행 콘텐츠</td><td>제목 "라식 #273" — 내부 드래프트 명명 그대로 발행</td><td>해당 건 정정 + <code>#\d+</code> 제목 발행 차단</td><td class="done">✅ 즉시수정</td></tr>
+<tr><td>12</td><td><span class="p2">P2</span></td><td>모바일(코드 실측)</td><td>반응형 클래스 정상 — 단 clicks 긴 URL 가로 스크롤</td><td>referer 경로만 표시</td><td class="done">✅ 즉시수정</td></tr>
+<tr><td>13</td><td><span class="p2">P2</span></td><td>재로그인</td><td>로그아웃 후 /client/login엔 프리필 없음</td><td>고유링크 재사용 안내 문구</td><td class="done">✅ 즉시수정</td></tr>
+</table>
+
+<h2>실장이 원장에게 보고할 때 막히는 지점 Top 3</h2>
+<div class="top3">
+<b>1. 숫자를 못 믿는다</b> 홈 "언급 9회" → 세부 누르면 "기록 없음"(#1). 벨리셀은 225회가 뜨지만 실체는 일반명사 "피부과" 카운트(#2). "이게 우리 병원 얘기 맞아?"에 대답이 무너진다.
+<b>2. "효과 있나요?"에 답할 화면이 없다</b> 핵심 지표(출처 인용)가 0인데 왜 0인지·언제 기대되는지 안내가 없고(#5), 추이도 없으며(#7), 유일한 증감 표기가 "-100%"(#6).
+<b>3. 보고서를 그대로 내밀 수 없다</b> 원장 보고용 화면이 경쟁병원 이름을 굵게 보여주고(#3) 마크다운이 깨져 나온다(#4).
+</div>
+
+<p class="meta" style="margin-top:32px">정상 확인: 고유링크 프리필·로그인/세션가드/로그아웃·글보기 새탭·보고서의 지표구분 설명·clicks 수치 홈-세부 일치. 감사 계정(audit-gy/audit-bl)은 검증 후 비활성화 예정.</p>
+</body>
+</html>

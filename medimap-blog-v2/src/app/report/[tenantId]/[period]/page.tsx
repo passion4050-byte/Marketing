@@ -160,6 +160,18 @@ async function loadReport(tenantId: number, period: string): Promise<ReportData 
       respToQuery.set(r.id, r.query_id),
     );
   }
+  // 🔴 Round 153 (감사 P0-3·P1-4) — 스니펫 방어 2종.
+  //   ① 병원명이 실제 포함된 스니펫만 노출: 오염 멘션(일반명사 brand)이 섞이면
+  //      "AI 가 실제로 답한 내용"에 경쟁병원 이름이 굵게 등장 — 원장 신뢰 사고.
+  //   ② raw markdown(**, [텍스트](url), 리스트 마커) strip — 실장 눈높이에서 깨진 화면.
+  const nameVariants = [tenant.name, tenant.name.replace(/\s+/g, '')].filter(Boolean);
+  const cleanSnippet = (raw: string) =>
+    raw
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+      .replace(/\*\*|__/g, '')
+      .replace(/^\s*[*\-•]\s*/gm, '')
+      .replace(/\s+/g, ' ')
+      .trim();
   const seenKw = new Set<string>();
   const samples: MentionSample[] = [];
   for (const s of (sampleRows ?? []) as Array<{
@@ -171,11 +183,13 @@ async function loadReport(tenantId: number, period: string): Promise<ReportData 
     const qm = qid ? queryMeta.get(qid) : undefined;
     const kw = qm ? kwText.get(qm.keyword_id) ?? '' : '';
     if (!kw || seenKw.has(kw)) continue; // 키워드당 1개만 — 같은 문구 반복 방지
+    const snip = cleanSnippet(s.context_snippet || '');
+    if (!nameVariants.some((v) => snip.includes(v))) continue; // 병원명 미포함 스니펫 제외
     seenKw.add(kw);
     samples.push({
       engine: qm?.engine ?? '-',
       keyword: kw,
-      snippet: (s.context_snippet || '').replace(/\s+/g, ' ').trim().slice(0, 220),
+      snippet: snip.slice(0, 220),
       at: s.created_at.slice(0, 10),
     });
     if (samples.length >= 5) break;
