@@ -299,8 +299,13 @@ export default async function FunnelPage() {
       {/* Round 156 — 사이트 유입 실측 (GSC · GA4). 최근 28일 */}
       <section className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className="card card-pad">
-          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-ink-muted">
-            <Search className="h-3 w-3" /> Google 검색 유입 (GSC · 28일)
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-ink-muted">
+              <Search className="h-3 w-3" /> Google 검색 유입 (GSC · 28일)
+            </div>
+            <a href="/admin/traffic" className="text-[10px] font-bold text-accent-deep hover:underline">
+              유입 분석 →
+            </a>
           </div>
           {traffic.gscDays > 0 ? (
             <>

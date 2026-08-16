@@ -6,7 +6,7 @@
  * 데이터: search-traffic-sync cron → gsc_daily·gsc_query_daily·ga4_daily·ga4_source_daily.
  * 집계: SQL RPC traffic_* · 귀속: src/lib/traffic.ts.
  */
-import { Search, Bot, MousePointerClick, Eye } from 'lucide-react';
+import { Search, Bot, MousePointerClick, Eye, TrendingUp } from 'lucide-react';
 import { fetchTrafficDashboard } from '@/lib/traffic';
 import { TrafficTrendChart } from '@/components/admin/TrafficTrendChart';
 
@@ -64,12 +64,19 @@ export default async function TrafficPage() {
         </div>
         <div className="card card-pad">
           <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-ink-muted">
-            <Search className="h-3 w-3" /> 전체 세션 (GA4)
+            <Search className="h-3 w-3" /> 실질 외부 세션 (GA4)
           </div>
-          <div className="mt-1 text-2xl font-bold text-ink">
-            {ga4Live ? totals.ga4Sessions.toLocaleString() : '—'}
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-ink">
+              {ga4Live ? totals.externalSessions.toLocaleString() : '—'}
+            </span>
+            {ga4Live && (
+              <span className="text-xs text-ink-muted">/ 전체 {totals.ga4Sessions.toLocaleString()}</span>
+            )}
           </div>
-          <div className="text-[10px] text-ink-muted">{ga4Live ? `적재 ${totals.ga4Days}일` : 'GA4 수집 대기'}</div>
+          <div className="text-[10px] text-ink-muted">
+            {ga4Live ? `운영자 direct·개발 트래픽 제외 · 적재 ${totals.ga4Days}일` : 'GA4 수집 대기'}
+          </div>
         </div>
         <div className="card card-pad">
           <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-ink-muted">
@@ -100,6 +107,64 @@ export default async function TrafficPage() {
             }))}
           />
         </div>
+      </section>
+
+      {/* Round 158 — 순위 레버: 1페이지 직전 검색어 */}
+      <section className="card mb-6">
+        <header className="border-b border-border px-5 py-3">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-accent-deep" />
+            <h2 className="section-title">순위 레버 — 1페이지 진입 직전 검색어 (4~20위)</h2>
+          </div>
+          <div className="mt-1 text-[11px] text-ink-muted">
+            Google 이 이미 관련성을 인정했고 순위만 오르면 클릭이 생기는 검색어. 3일 주기 자동 분석이
+            입점 병원 매칭 시 키워드 시딩, 미입점 수요는 이메일로 알립니다.
+          </div>
+        </header>
+        {data.levers.length === 0 ? (
+          <div className="px-5 py-10 text-center text-sm text-ink-muted">
+            {gscLive ? '현재 4~20위 구간 검색어가 없습니다.' : 'GSC 수집 대기 — 적재 후 표시됩니다.'}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-xs">
+              <thead className="bg-surface-subtle text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+                <tr>
+                  <th className="px-3 py-2.5 text-left">검색어</th>
+                  <th className="px-3 py-2.5 text-right">평균 순위</th>
+                  <th className="px-3 py-2.5 text-right">노출</th>
+                  <th className="px-3 py-2.5 text-right">클릭</th>
+                  <th className="px-3 py-2.5 text-left">상태</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.levers.map((l) => (
+                  <tr key={l.query} className="border-t border-border hover:bg-surface-subtle">
+                    <td className="px-3 py-2.5 text-sm font-semibold text-ink">{l.query}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-sm font-bold text-accent-deep">
+                      {l.avgPosition.toFixed(1)}위
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-mono text-xs">{l.impressions.toLocaleString()}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-xs">
+                      {l.clicks > 0 ? l.clicks.toLocaleString() : '—'}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {l.matchedKeyword ? (
+                        <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[10px] font-bold text-ink-soft">
+                          측정중 · {l.matchedKeyword}
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-status-warningSoft px-2 py-0.5 text-[10px] font-bold text-status-warning">
+                          미커버 — 자동 분석 대상
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       {/* 병원별 */}
@@ -283,6 +348,11 @@ export default async function TrafficPage() {
                       {s.isAi && (
                         <span className="ml-1.5 rounded-full bg-accent-deep/10 px-2 py-0.5 text-[10px] font-bold text-accent-deep">
                           AI
+                        </span>
+                      )}
+                      {s.isInternal && (
+                        <span className="ml-1.5 rounded-full bg-surface-muted px-2 py-0.5 text-[10px] font-bold text-ink-faint">
+                          내부·개발 추정
                         </span>
                       )}
                     </td>

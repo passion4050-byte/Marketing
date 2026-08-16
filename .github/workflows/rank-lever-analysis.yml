@@ -1,0 +1,68 @@
+name: Rank lever analysis (every 3 days 08:00 KST)
+
+# Round 158 (2026-08-16) — 순위 레버 자동 분석.
+# GSC 28일 집계에서 "1페이지 직전(4~20위)" 검색어를 검출해:
+#   - 입점 병원 매칭 → keywords 자동 시딩 (다음 발행 로테이션에 반영)
+#   - 미입점 수요 → 운영자 이메일 (신규 영업/콘텐츠 기획 후보)
+# 상세: scripts/analyze_rank_levers.py docstring.
+#
+# secrets: DATABASE_URL(필수) · RESEND_API_KEY(이메일용 — 없으면 이메일만 생략)
+# 선행: search-traffic-sync 가 gsc_query_daily 를 채우고 있어야 함.
+
+on:
+  schedule:
+    - cron: '0 23 */3 * *'   # 3일마다 23:00 UTC = 08:00 KST (search-traffic-sync 07:30 이후)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'DRY_RUN (1 = DB 쓰기·이메일 없이 분석만)'
+        type: choice
+        options: ['0', '1']
+        default: '0'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rank-lever-analysis
+  cancel-in-progress: false
+
+jobs:
+  analyze:
+    name: Detect page-1 levers, seed keywords, notify gaps
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run analysis
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM: ${{ vars.RESEND_FROM || 'onboarding@resend.dev' }}
+          NOTIFY_EMAIL: ${{ vars.NOTIFY_EMAIL || 'passion4050@gmail.com' }}
+          DRY_RUN: ${{ inputs.dry_run || '0' }}
+        run: |
+          python scripts/analyze_rank_levers.py
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## 순위 레버 분석 (3일 주기)"
+            echo "- 시딩된 키워드는 /admin/keywords · 다음 발행 로테이션에 자동 반영"
+            echo "- 미입점 수요는 이메일 + rank_lever_log(action=emailed)"
+            echo "- 전체 현황: /admin/traffic 순위 레버 섹션"
+          } >> "$GITHUB_STEP_SUMMARY"

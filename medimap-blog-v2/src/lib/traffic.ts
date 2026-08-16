@@ -55,6 +55,17 @@ export interface SourceTraffic {
   medium: string;
   sessions: number;
   isAi: boolean;
+  /** Round 158 — direct·vercel·GSC 콘솔 클릭 등 운영/개발 추정 트래픽. 실질 외부 유입에서 제외. */
+  isInternal: boolean;
+}
+
+/** Round 158 — 1페이지 직전 순위 레버 (analyze_rank_levers.py 와 동일 기준) */
+export interface LeverQuery {
+  query: string;
+  impressions: number;
+  clicks: number;
+  avgPosition: number;
+  matchedKeyword: string | null; // 측정 키워드 풀 매칭 → 커버 중
 }
 
 export interface TrafficDashboard {
@@ -63,15 +74,28 @@ export interface TrafficDashboard {
   contents: ContentTraffic[];
   queries: QueryTraffic[];
   sources: SourceTraffic[];
+  levers: LeverQuery[];
   totals: {
     gscClicks: number;
     gscImpressions: number;
     ga4Sessions: number;
     aiSessions: number;
+    /** 내부·개발 추정 트래픽 제외 세션 (Round 158) */
+    externalSessions: number;
     gscDays: number;
     ga4Days: number;
   };
   errors: string[];
+}
+
+/** 운영자 direct·개발(vercel)·GSC 콘솔 경유 등 — 실질 외부 유입이 아닌 소스 */
+export function isInternalSource(source: string, medium: string): boolean {
+  const s = (source || '').toLowerCase();
+  if (s === '(direct)' && (medium || '(none)') === '(none)') return true;
+  if (s.includes('vercel.')) return true;
+  if (s === 'search.google.com') return true; // GSC 콘솔에서 운영자가 클릭한 것
+  if (s.includes('localhost')) return true;
+  return false;
 }
 
 interface ContentRow {
@@ -145,12 +169,12 @@ function buildResolver(contents: ContentRow[], partnerSlugToTenant: Map<string, 
 export async function fetchTrafficDashboard(days = 28): Promise<TrafficDashboard> {
   const errors: string[] = [];
   const emptyTotals = {
-    gscClicks: 0, gscImpressions: 0, ga4Sessions: 0, aiSessions: 0, gscDays: 0, ga4Days: 0,
+    gscClicks: 0, gscImpressions: 0, ga4Sessions: 0, aiSessions: 0, externalSessions: 0, gscDays: 0, ga4Days: 0,
   };
   const sb = getServerClient();
   if (!sb) {
     return {
-      series: [], tenants: [], contents: [], queries: [], sources: [],
+      series: [], tenants: [], contents: [], queries: [], sources: [], levers: [],
       totals: emptyTotals, errors: ['Supabase 미연결'],
     };
   }
@@ -283,7 +307,22 @@ export async function fetchTrafficDashboard(days = 28): Promise<TrafficDashboard
     medium: r.medium,
     sessions: Number(r.sessions) || 0,
     isAi: Boolean(r.is_ai),
+    isInternal: isInternalSource(r.source, r.medium),
   }));
+  const externalSessions = sources.filter((s) => !s.isInternal).reduce((a, s) => a + s.sessions, 0);
+
+  // Round 158 — 1페이지 직전 레버 (4~20위 & 노출 3+). 노출 많은 순.
+  const levers: LeverQuery[] = queries
+    .filter((q) => q.avgPosition >= 4 && q.avgPosition <= 20 && q.impressions >= 3)
+    .map((q) => ({
+      query: q.query,
+      impressions: q.impressions,
+      clicks: q.clicks,
+      avgPosition: q.avgPosition,
+      matchedKeyword: q.matchedKeyword,
+    }))
+    .sort((a, b) => b.impressions - a.impressions)
+    .slice(0, 20);
 
   const series: DailyPoint[] = (
     (seriesRes.data ?? []) as {
@@ -304,6 +343,7 @@ export async function fetchTrafficDashboard(days = 28): Promise<TrafficDashboard
     gscImpressions: windowStart.reduce((a, p) => a + p.gscImpressions, 0),
     ga4Sessions: windowStart.reduce((a, p) => a + p.ga4Sessions, 0),
     aiSessions: windowStart.reduce((a, p) => a + p.aiSessions, 0),
+    externalSessions,
     gscDays: windowStart.filter((p) => p.gscClicks > 0 || p.gscImpressions > 0).length,
     ga4Days: windowStart.filter((p) => p.ga4Sessions > 0).length,
   };
@@ -318,7 +358,192 @@ export async function fetchTrafficDashboard(days = 28): Promise<TrafficDashboard
     contents: contentRows.slice(0, 30),
     queries: queries.slice(0, 30),
     sources,
+    levers,
     totals,
+    errors,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Round 158 — 병원(클라이언트 포털) 스코프 유입 데이터
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * analyze_rank_levers.py GENERIC_TOKENS 와 동기 유지 —
+ * 진료과명·지역명은 병원 alias 가 아니다 (Round 153 측정 alias 오염 실사고).
+ */
+const GENERIC_TOKENS = new Set([
+  '잠실', '서울', '강남', '부산', '분당', '송파', '용산', '신촌',
+  '병원', '의원', '클리닉', '센터', '본점', '지점', '강남구', '송파구',
+  '피부과', '안과', '성형외과', '치과', '내과', '외과', '정형외과', '산부인과',
+  '한의원', '한방병원', '이비인후과', '비뇨기과', '신경외과', '가정의학과',
+  'clinic', 'hospital', 'korea', 'seoul', 'gangnam', 'busan',
+]);
+
+function normQuery(s: string): string {
+  return (s || '').toLowerCase().replace(/\s+/g, '');
+}
+
+/** tenant name/partner_slug → 브랜드 alias (2자+ 토큰, generic 제외) */
+export function buildTenantAliases(name: string, partnerSlug: string | null): string[] {
+  const out = new Set<string>();
+  const full = normQuery(name);
+  if (full.length >= 2) out.add(full);
+  (name || '').split(/[\s\-_/·]+/).forEach((tok) => {
+    const t = normQuery(tok);
+    if (t.length >= 2 && !GENERIC_TOKENS.has(t)) out.add(t);
+  });
+  if (partnerSlug && partnerSlug.length >= 3) out.add(normQuery(partnerSlug));
+  return Array.from(out).sort((a, b) => b.length - a.length);
+}
+
+export interface TenantQueryRow {
+  query: string;
+  impressions: number;
+  clicks: number;
+  avgPosition: number;
+}
+
+export interface TenantContentRow {
+  path: string;
+  title: string | null;
+  gscClicks: number;
+  gscImpressions: number;
+  avgPosition: number | null;
+  ga4Sessions: number;
+}
+
+export interface TenantTrafficData {
+  brandQueries: TenantQueryRow[];    // 검색어에 병원명(alias) 포함 — "우리 병원을 찾아본 검색"
+  procedureQueries: TenantQueryRow[]; // 이 병원의 측정 키워드와 매칭 — "시술 수요 검색"
+  contents: TenantContentRow[];       // 이 병원 콘텐츠 페이지 유입
+  totals: {
+    brandImpressions: number;
+    brandClicks: number;
+    contentSessions: number;
+    contentClicks: number;
+    contentImpressions: number;
+  };
+  hasGsc: boolean; // GSC 적재 자체가 있는지 (없으면 "수집 준비 중" 안내)
+  errors: string[];
+}
+
+export async function fetchTenantTraffic(tenantId: number, days = 28): Promise<TenantTrafficData> {
+  const empty: TenantTrafficData = {
+    brandQueries: [], procedureQueries: [], contents: [],
+    totals: { brandImpressions: 0, brandClicks: 0, contentSessions: 0, contentClicks: 0, contentImpressions: 0 },
+    hasGsc: false,
+    errors: [],
+  };
+  const sb = getServerClient();
+  if (!sb) return { ...empty, errors: ['Supabase 미연결'] };
+  const errors: string[] = [];
+
+  const [tenantRes, keywordsRes, contentsRes, queriesRes, gscPagesRes, ga4PagesRes] = await Promise.all([
+    sb.from('tenants').select('id, name, partner_slug').eq('id', tenantId).maybeSingle(),
+    sb.from('keywords').select('text').eq('tenant_id', tenantId).eq('is_active', true),
+    sb.from('generated_contents')
+      .select('id, slug, title, tenant_id, keyword_text, lang')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'published'),
+    sb.rpc('traffic_gsc_queries', { p_days: days, p_limit: 2000 }),
+    sb.rpc('traffic_gsc_pages', { p_days: days, p_limit: 2000 }),
+    sb.rpc('traffic_ga4_pages', { p_days: days, p_limit: 2000 }),
+  ]);
+  // 🔴 Round 153 교훈 — error 표면화
+  if (tenantRes.error) errors.push(`tenant: ${tenantRes.error.message}`);
+  if (keywordsRes.error) errors.push(`keywords: ${keywordsRes.error.message}`);
+  if (contentsRes.error) errors.push(`contents: ${contentsRes.error.message}`);
+  if (queriesRes.error) errors.push(`queries: ${queriesRes.error.message}`);
+  if (gscPagesRes.error) errors.push(`gsc_pages: ${gscPagesRes.error.message}`);
+  if (ga4PagesRes.error) errors.push(`ga4_pages: ${ga4PagesRes.error.message}`);
+
+  const tenant = tenantRes.data as { id: number; name: string; partner_slug: string | null } | null;
+  if (!tenant) return { ...empty, errors: [...errors, '병원 정보를 찾을 수 없습니다'] };
+
+  const aliases = buildTenantAliases(tenant.name ?? '', tenant.partner_slug);
+  const kwNorms = ((keywordsRes.data ?? []) as { text: string | null }[])
+    .map((k) => normQuery(k.text ?? ''))
+    .filter((t) => t.length >= 2);
+
+  const allQueries = ((queriesRes.data ?? []) as {
+    query: string; clicks: number; impressions: number; avg_position: number | null;
+  }[]).map((r) => ({
+    query: r.query,
+    clicks: Number(r.clicks) || 0,
+    impressions: Number(r.impressions) || 0,
+    avgPosition: Number(r.avg_position) || 0,
+  }));
+  const hasGsc = allQueries.length > 0 || ((gscPagesRes.data ?? []) as unknown[]).length > 0;
+
+  const brandQueries = allQueries.filter((q) => {
+    const qn = normQuery(q.query);
+    return aliases.some((a) => qn.includes(a));
+  });
+  const brandSet = new Set(brandQueries.map((q) => q.query));
+  const procedureQueries = allQueries.filter((q) => {
+    if (brandSet.has(q.query)) return false;
+    const qn = normQuery(q.query);
+    return kwNorms.some((k) => qn.includes(k) || k.includes(qn));
+  });
+
+  // 이 병원 콘텐츠 페이지 유입 — 전역 resolver 재사용
+  const contentRows = (contentsRes.data ?? []) as ContentRow[];
+  const partnerMap = new Map<string, number>();
+  if (tenant.partner_slug) partnerMap.set(tenant.partner_slug.toLowerCase(), tenant.id);
+  const resolve = buildResolver(contentRows, partnerMap);
+
+  interface Agg { path: string; title: string | null; gscClicks: number; gscImpressions: number; posWeighted: number; ga4Sessions: number; }
+  const byPath = new Map<string, Agg>();
+  const touch = (path: string, title: string | null): Agg => {
+    const found = byPath.get(path);
+    if (found) { if (!found.title && title) found.title = title; return found; }
+    const fresh: Agg = { path, title, gscClicks: 0, gscImpressions: 0, posWeighted: 0, ga4Sessions: 0 };
+    byPath.set(path, fresh);
+    return fresh;
+  };
+  ((gscPagesRes.data ?? []) as { page: string; clicks: number; impressions: number; avg_position: number | null }[])
+    .forEach((r) => {
+      const path = normalizePath(r.page);
+      const { content, tenantId: tid } = resolve(path);
+      if (tid !== tenant.id) return;
+      const agg = touch(path, content?.title ?? null);
+      agg.gscClicks += Number(r.clicks) || 0;
+      agg.gscImpressions += Number(r.impressions) || 0;
+      agg.posWeighted += (Number(r.avg_position) || 0) * (Number(r.impressions) || 0);
+    });
+  ((ga4PagesRes.data ?? []) as { page_path: string; sessions: number }[]).forEach((r) => {
+    const path = normalizePath(r.page_path);
+    const { content, tenantId: tid } = resolve(path);
+    if (tid !== tenant.id) return;
+    const agg = touch(path, content?.title ?? null);
+    agg.ga4Sessions += Number(r.sessions) || 0;
+  });
+
+  const contents: TenantContentRow[] = Array.from(byPath.values())
+    .map((a) => ({
+      path: a.path,
+      title: a.title,
+      gscClicks: a.gscClicks,
+      gscImpressions: a.gscImpressions,
+      avgPosition: a.gscImpressions > 0 ? a.posWeighted / a.gscImpressions : null,
+      ga4Sessions: a.ga4Sessions,
+    }))
+    .sort((a, b) => b.gscClicks - a.gscClicks || b.ga4Sessions - a.ga4Sessions || b.gscImpressions - a.gscImpressions)
+    .slice(0, 20);
+
+  return {
+    brandQueries: brandQueries.sort((a, b) => b.impressions - a.impressions).slice(0, 20),
+    procedureQueries: procedureQueries.sort((a, b) => b.impressions - a.impressions).slice(0, 20),
+    contents,
+    totals: {
+      brandImpressions: brandQueries.reduce((a, q) => a + q.impressions, 0),
+      brandClicks: brandQueries.reduce((a, q) => a + q.clicks, 0),
+      contentSessions: contents.reduce((a, c) => a + c.ga4Sessions, 0),
+      contentClicks: contents.reduce((a, c) => a + c.gscClicks, 0),
+      contentImpressions: contents.reduce((a, c) => a + c.gscImpressions, 0),
+    },
+    hasGsc,
     errors,
   };
 }

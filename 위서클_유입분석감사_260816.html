@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>위서클 유입 분석 시스템 감사 — 2026.08.16 (Round 158)</title>
+<style>
+  :root { --ink:#1c1917; --muted:#78716c; --line:#e7e5e4; --bg:#fafaf9; --accent:#7c3aed; --ok:#059669; --warn:#d97706; --danger:#dc2626; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Pretendard','Apple SD Gothic Neo',sans-serif; background:var(--bg); color:var(--ink); line-height:1.65; padding:48px 24px; }
+  .wrap { max-width:860px; margin:0 auto; }
+  h1 { font-size:26px; font-weight:800; letter-spacing:-0.5px; }
+  .sub { color:var(--muted); font-size:13px; margin-top:6px; }
+  h2 { font-size:17px; font-weight:800; margin:40px 0 12px; padding-bottom:8px; border-bottom:2px solid var(--ink); }
+  h3 { font-size:14px; font-weight:700; margin:20px 0 8px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:20px 24px; margin:12px 0; }
+  table { width:100%; border-collapse:collapse; font-size:13px; margin:10px 0; }
+  th { text-align:left; padding:8px 10px; border-bottom:2px solid var(--ink); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; }
+  td { padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .badge { display:inline-block; padding:2px 10px; border-radius:99px; font-size:11px; font-weight:700; }
+  .b-fix { background:#ecfdf5; color:var(--ok); }
+  .b-warn { background:#fffbeb; color:var(--warn); }
+  .b-info { background:#f5f3ff; color:var(--accent); }
+  .b-hold { background:#f5f5f4; color:var(--muted); }
+  .kpi { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:16px 0; }
+  .kpi > div { background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px; }
+  .kpi .n { font-size:22px; font-weight:800; }
+  .kpi .l { font-size:11px; color:var(--muted); }
+  .muted { color:var(--muted); font-size:12px; }
+  code { background:#f5f5f4; padding:1px 6px; border-radius:4px; font-size:12px; }
+  ul { padding-left:20px; }
+  li { margin:4px 0; font-size:13px; }
+  @media (max-width:640px){ .kpi{grid-template-columns:repeat(2,1fr);} body{padding:24px 12px;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>유입 분석 시스템 감사 보고서</h1>
+  <div class="sub">2026.08.16 · Round 158 · 페르소나: 병원 실무자(포털) + 운영자(어드민) · 관점: 기능 / UI·UX / 디자인 / 카피라이팅</div>
+
+  <h2>0. 실측 기준 데이터 (감사 당시 DB)</h2>
+  <div class="kpi">
+    <div><div class="n">245</div><div class="l">GSC 노출 (38일)</div></div>
+    <div><div class="n">4</div><div class="l">GSC 클릭</div></div>
+    <div><div class="n">~17</div><div class="l">실질 외부 세션 (71일)</div></div>
+    <div><div class="n">0</div><div class="l">AI referral 세션</div></div>
+  </div>
+  <div class="muted">GA4 세션 331 중 direct 250 + vercel 45 + GSC콘솔 19 = 314가 내부·개발 추정 → 대시보드가 이를 분리 표기하도록 개선(아래 A-1).</div>
+
+  <h2>1. 어드민 /admin/traffic — 운영자 페르소나</h2>
+  <div class="card">
+    <table>
+      <tr><th style="width:56px">구분</th><th>발견</th><th style="width:90px">조치</th></tr>
+      <tr><td>기능</td><td><strong>A-1. "전체 세션"이 운영 실상을 왜곡</strong> — direct(운영자)·vercel(개발)·GSC콘솔 클릭이 세션의 95%를 차지해 "유입이 있다"는 착시를 만듦. → KPI를 <strong>실질 외부 세션</strong>으로 교체하고 소스 표에 "내부·개발 추정" 배지 추가.</td><td><span class="badge b-fix">반영</span></td></tr>
+      <tr><td>기능</td><td><strong>A-2. 순위 레버가 1회성 분석에 갇혀 있음</strong> — "1페이지 직전 검색어" 인사이트가 대화에만 존재. → 전용 섹션 신설(4~20위 & 노출 3+, 커버 여부 배지) + 3일 주기 자동 분석 크론과 연동.</td><td><span class="badge b-fix">반영</span></td></tr>
+      <tr><td>UX</td><td><strong>A-3. funnel ↔ traffic 단절</strong> — funnel의 GSC 카드에서 상세로 갈 길이 없음. → "유입 분석 →" 링크 추가.</td><td><span class="badge b-fix">반영</span></td></tr>
+      <tr><td>카피</td><td>A-4. 레버 섹션에 "왜 중요한가" 설명 부재 위험 → "Google이 이미 관련성을 인정했고 순위만 오르면 클릭이 생기는 검색어" 한 줄 명시.</td><td><span class="badge b-fix">반영</span></td></tr>
+      <tr><td>디자인</td><td>A-5. 어드민 토큰(card·ink·accent-deep) 일관 사용, recharts 스택 기존(ReportTrendChart)과 동일 — 신규 의존성 0.</td><td><span class="badge b-info">통과</span></td></tr>
+    </table>
+  </div>
+
+  <h2>2. 병원 포털 /client/traffic — 병원 실무자 페르소나</h2>
+  <div class="card">
+    <table>
+      <tr><th style="width:56px">구분</th><th>발견</th><th style="width:90px">조치</th></tr>
+      <tr><td>기능</td><td><strong>B-1. 병원 관점 3분류 설계</strong> — ① 우리 병원을 찾아본 검색(브랜드) ② 시술 수요 검색(키워드 매칭, "1페이지 임박" 배지) ③ 우리 콘텐츠 방문. 타 병원 데이터 비노출(세션 tenantId 강제 + 자기 콘텐츠만 귀속).</td><td><span class="badge b-fix">구현</span></td></tr>
+      <tr><td>기능</td><td><strong>B-2. alias 오염 방지</strong> — 병원명 토큰화 시 진료과명·지역명(피부과·안과·부산 등) 제외. Round 153 "벨리셀 피부과→피부과 225건 허수" 실사고 재발 방지 규약을 TS·Python 양쪽에 동일 적용.</td><td><span class="badge b-fix">구현</span></td></tr>
+      <tr><td>카피</td><td><strong>B-3. 시술 검색어의 소유 표현 정정</strong> — 시술 검색어 노출은 발행 채널 전체 실적이므로 "우리가 공략 중인"→"발행 채널 전체 기준" 명시(성과 부풀림 방지, Round 144 보고서 사고 교훈).</td><td><span class="badge b-fix">반영</span></td></tr>
+      <tr><td>카피</td><td><strong>B-4. 기대 관리 문단 신설</strong> — "색인→노출→순위→클릭 순서로 수 주", "20위→10위 진입 시 클릭 시작". 소표본 % 미표기(전주<5 가드 규약 준수), 0 상태마다 원인 설명 카피.</td><td><span class="badge b-fix">구현</span></td></tr>
+      <tr><td>UX</td><td><strong>B-5. 모바일 표 깨짐 위험</strong> — 병원 실무자는 모바일 접속 비중 높음. 표 3개에 가로 스크롤 래퍼 + min-width 적용.</td><td><span class="badge b-fix">반영</span></td></tr>
+      <tr><td>디자인</td><td>B-6. 포털 stone 팔레트·바비톡 레퍼런스 레이아웃 유지, SaaS 파랑 미사용(감사 #9 방향 준수).</td><td><span class="badge b-info">통과</span></td></tr>
+    </table>
+  </div>
+
+  <h2>3. 자동화 — 3일 주기 순위 레버 분석</h2>
+  <div class="card">
+    <ul>
+      <li><strong>검출</strong>: GSC 28일 집계에서 평균순위 4~20위 & 노출 3회 이상.</li>
+      <li><strong>입점 병원 매칭</strong> → <code>keywords</code> 자동 시딩(기존 키워드에서 category·target_brand·market·lang 상속 — Round 155 규약) → 다음 발행 로테이션에 자동 반영.</li>
+      <li><strong>기커버</strong>(키워드 풀·발행 콘텐츠 존재) → <code>rank_lever_log</code>에 1회 기록만.</li>
+      <li><strong>미입점 수요</strong> → <code>passion4050@gmail.com</code> 이메일(Resend) — 신규 영업/콘텐츠 기획 후보. 같은 검색어 14일 재알림 억제.</li>
+      <li>실행: <code>rank-lever-analysis.yml</code> 3일마다 08:00 KST (traffic sync 07:30 이후). DRY_RUN 수동 테스트 지원.</li>
+    </ul>
+    <div class="muted" style="margin-top:8px">현 데이터 기준 예상 첫 실행 결과: "이마 라인 교정"(18.8위) → 모아름 시딩 매칭 검토 · "dear clinic"(7.0위) · "glutathione injection price"(10.0위) → 미입점/해외 수요 이메일 후보.</div>
+  </div>
+
+  <h2>4. 보류 항목</h2>
+  <div class="card">
+    <table>
+      <tr><th>항목</th><th>사유</th><th style="width:90px">상태</th></tr>
+      <tr><td>실브라우저 E2E 라운드 (스크린샷·클릭 동선)</td><td>Chrome 확장 연결 확인(Connect) 2회 시간 초과 — 연결 시 즉시 수행 가능. 본 감사는 코드·실데이터 기반으로 대체 수행.</td><td><span class="badge b-hold">대기</span></td></tr>
+      <tr><td>이메일 발송 실가동</td><td>GitHub secret <code>RESEND_API_KEY</code> 등록 필요 (미등록 시 분석·시딩만 수행되고 이메일만 생략).</td><td><span class="badge b-warn">사용자</span></td></tr>
+      <tr><td>포털 traffic 페이지 실계정 검수</td><td>배포 후 병원 계정으로 1회 로그인 확인 권장 (감사용 계정은 Round 153 후 비활성화됨).</td><td><span class="badge b-warn">사용자</span></td></tr>
+    </table>
+  </div>
+
+  <div class="muted" style="margin-top:32px">작성: Claude (Round 158 세션) · 근거: Supabase 실측 쿼리 + 코드 정적 감사 · 반영 코드는 tsc·build-gate 통과 후 커밋됨</div>
+</div>
+</body>
+</html>

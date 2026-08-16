@@ -11,6 +11,7 @@ import { usePathname, useRouter } from 'next/navigation';
 const NAV = [
   { href: '/client', label: '홈' },
   { href: '/client/contents', label: '발행 콘텐츠' },
+  { href: '/client/traffic', label: '검색 유입' },
 ];
 
 export function ClientShell({
