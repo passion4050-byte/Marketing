@@ -1,0 +1,56 @@
+name: Map-axis monitor (every 3 days 08:30 KST)
+
+# Round 162 (2026-08-16) — 지도 축 모니터 (경쟁사 growly 분석 반영).
+# 1) 구글 리뷰 동기화 — 공식 Places API 로 파트너 병원의 평점·리뷰수·최신 리뷰
+#    (최대 5건)를 tenants/google_reviews 에 저장 → v1 NAP 카드·프로필 자동 점등.
+#    GOOGLE_MAPS_API_KEY 미설정 시 이 단계만 skip (정상 종료).
+# 2) Reddit 언급 모니터 — 브랜드 검색어 신규 언급을 reddit_mentions 에 적재,
+#    신규 발견 시 passion4050@gmail.com 이메일. 참여는 하지 않음(모니터 전용).
+#
+# secrets: DATABASE_URL(필수) · GOOGLE_MAPS_API_KEY(리뷰 동기화) · RESEND_API_KEY(알림)
+
+on:
+  schedule:
+    - cron: '30 23 */3 * *'   # 3일마다 23:30 UTC = 08:30 KST (rank-lever 08:00 이후)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: map-axis-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    name: Sync Google reviews + monitor Reddit mentions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Sync Google reviews (Places API)
+        continue-on-error: true   # 리뷰 동기화 실패가 Reddit 모니터를 막지 않음
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+        run: python scripts/fetch_google_reviews.py
+
+      - name: Monitor Reddit mentions
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM: ${{ secrets.RESEND_FROM }}
+        run: python scripts/monitor_reddit_mentions.py

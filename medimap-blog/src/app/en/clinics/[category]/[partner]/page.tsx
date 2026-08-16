@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { getOverseasCards, getPartnerBySlug, overseasPartnerName } from "@/lib/guides";
+import { getGoogleReviews, getOverseasCards, getPartnerBySlug, overseasPartnerName } from "@/lib/guides";
 import { OverseasClinicSchema } from "@/components/OverseasClinicSchema";
 import { ClinicProfile } from "@/components/ClinicProfile";
+import { ClinicNAP } from "@/components/ClinicNAP";
 import { overseasAlternates } from "@/lib/hreflang";
 
 export const revalidate = 60;
@@ -28,9 +29,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  */
 export default async function EnClinicPartnerPage({ params }: Props) {
   const { category, partner } = await params;
-  const [cards, info] = await Promise.all([
+  const [cards, info, gReviews] = await Promise.all([
     getOverseasCards("en", { kind: "clinic", category, partner }),
     getPartnerBySlug(partner),
+    getGoogleReviews(partner, 2), // Round 162 — 구글 리뷰 스니펫
   ]);
   const name = overseasPartnerName(partner, "en", info?.name ?? partner);
 
@@ -44,6 +46,7 @@ export default async function EnClinicPartnerPage({ params }: Props) {
         address={info?.address}
         cards={cards}
         hrefFor={(c) => `/en/clinics/${category}/${partner}/${c.slug}`}
+        nap={info ? <ClinicNAP lang="en" clinic={info} reviews={gReviews} /> : null}
       />
     </>
   );

@@ -259,6 +259,7 @@ export function ClinicProfile({
   address,
   cards,
   hrefFor,
+  nap,
 }: {
   lang: Lang;
   name: string;
@@ -266,6 +267,8 @@ export function ClinicProfile({
   address?: string | null;
   cards: OverseasCard[];
   hrefFor: (c: OverseasCard) => string;
+  /** Round 162 — GBP 일치 영문 NAP 카드(ClinicNAP) 슬롯. 고정필드 스트립 아래 렌더. */
+  nap?: React.ReactNode;
 }) {
   const t = L10N[lang];
   const treatments = TREATMENTS[category]?.[lang];
@@ -298,6 +301,9 @@ export function ClinicProfile({
           </div>
         ) : null}
       </dl>
+
+      {/* Round 162 — GBP 일치 영문 NAP 카드 (지도 축) */}
+      {nap}
 
       {/* 상단 CTA — 병원명 프리필 */}
       <div className="mt-8">

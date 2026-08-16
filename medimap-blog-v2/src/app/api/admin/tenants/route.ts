@@ -22,6 +22,8 @@ const ALLOWED_INSERT = new Set([
   'partner_slug', 'status', 'publish_count', 'monthly_cost', 'joined_at',
   'report_send_day', // Round 53 (2026-05-31) — 월간 보고서 발송일 (1~28)
   'publish_plan',    // Round 83 (2026-06-28) — A: 주3회(월/수/금), B: 매일
+  // Round 162 (2026-08-16) — GBP 일치 영문 NAP (지도 축): 콘텐츠 NAP 카드·리뷰 퍼널에 사용
+  'name_en', 'address_en', 'transit_en', 'gmaps_url', 'google_review_url',
 ]);
 
 const NOT_NULL_PROTECT = new Set(['name', 'domain_category', 'region', 'business_model']);

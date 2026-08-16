@@ -296,6 +296,15 @@ export interface PartnerClinicInfo {
   phone: string | null;
   domain_category: string | null;
   partner_slug: string;
+  // Round 162 (2026-08-16) — GBP 일치 영문 NAP (지도 축).
+  //   클라이언트 메뉴에서 입력·수정. 콘텐츠·프로필에 항상 함께 렌더된다.
+  name_en: string | null;
+  address_en: string | null;
+  transit_en: string | null;
+  gmaps_url: string | null;
+  google_review_url: string | null;
+  google_rating: number | null;
+  google_review_count: number | null;
 }
 
 /** partner_slug 로 병원 엔티티 메타 조회 (구조화 데이터·상세용). */
@@ -304,7 +313,9 @@ export async function getPartnerBySlug(slug: string): Promise<PartnerClinicInfo 
   if (!sql) return null;
   try {
     const rows = await sql.unsafe<Array<Record<string, unknown>>>(
-      `SELECT name, homepage, address, region, phone, domain_category, partner_slug
+      `SELECT name, homepage, address, region, phone, domain_category, partner_slug,
+              name_en, address_en, transit_en, gmaps_url, google_review_url,
+              google_rating, google_review_count
        FROM tenants WHERE partner_slug = $1 LIMIT 1`,
       [slug]
     );
@@ -318,9 +329,53 @@ export async function getPartnerBySlug(slug: string): Promise<PartnerClinicInfo 
       phone: (r.phone as string) ?? null,
       domain_category: (r.domain_category as string) ?? null,
       partner_slug: String(r.partner_slug ?? slug),
+      name_en: (r.name_en as string) ?? null,
+      address_en: (r.address_en as string) ?? null,
+      transit_en: (r.transit_en as string) ?? null,
+      gmaps_url: (r.gmaps_url as string) ?? null,
+      google_review_url: (r.google_review_url as string) ?? null,
+      google_rating: r.google_rating != null ? Number(r.google_rating) : null,
+      google_review_count: r.google_review_count != null ? Number(r.google_review_count) : null,
     };
   } catch {
     return null;
+  }
+}
+
+// ── Round 162 (2026-08-16) — 구글 리뷰 스니펫 (지도 축 사회적 증거) ──
+//   google_reviews 는 공식 Places API 동기화 스크립트(fetch_google_reviews.py)가 채움.
+//   비어 있으면 빈 배열 → 렌더 안 함 (무회귀).
+
+export interface GoogleReviewSnippet {
+  author: string;
+  rating: number | null;
+  body: string;
+  publish_time: string | null;
+}
+
+export async function getGoogleReviews(
+  partnerSlug: string,
+  limit = 2
+): Promise<GoogleReviewSnippet[]> {
+  const sql = getSql();
+  if (!sql) return [];
+  try {
+    const rows = await sql.unsafe<Array<Record<string, unknown>>>(
+      `SELECT r.author, r.rating, r.body, r.publish_time
+       FROM google_reviews r JOIN tenants t ON t.id = r.tenant_id
+       WHERE t.partner_slug = $1 AND r.body IS NOT NULL AND length(r.body) > 20
+       ORDER BY r.publish_time DESC NULLS LAST
+       LIMIT $2`,
+      [partnerSlug, String(limit)]
+    );
+    return rows.map((r) => ({
+      author: String(r.author ?? "Google user"),
+      rating: r.rating != null ? Number(r.rating) : null,
+      body: String(r.body ?? ""),
+      publish_time: r.publish_time ? String(r.publish_time) : null,
+    }));
+  } catch {
+    return [];
   }
 }
 

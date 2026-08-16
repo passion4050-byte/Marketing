@@ -5626,3 +5626,55 @@ self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 3
 - **효율 키워드 전 언어 복제 (레버 루틴 확장)**: analyze_rank_levers.py — 레버(신규 시딩+기커버)가 **해외 상품 활성 tenant** 소속이면 활성 언어들로 Claude 트랜스크리에이션(직역 아님, 실검색어) → keywords 시딩 → 다음 로테이션에서 각 언어 생성. rank_lever_log action='seeded_multilang' (1회 억제). ANTHROPIC_API_KEY 미설정 시 복제만 생략.
 - **확장 스위치 = tenant_products**: 다른 병원을 전 언어로 올리려면 어드민에서 언어 상품만 활성화 — 데일리 로테이션+레버 복제가 자동으로 집어감. 생성기는 zh-Hant 포함 4개 언어 트랜스크리에이션 기지원(§5 스타일).
 - 비용 가드 기존 유지: MAX_DAILY_USD·MAX_CONTENT_GEN_PER_DAY — brighteye 데일리 +5편/일. /admin/cost 모니터.
+
+# Round 161 (2026-08-16) — 해외 자동발행 전환 + 경쟁사(Growly) 분석 반영
+
+- **해외 자동발행 ON** (사용자 명시 결정: "해외는 오히려 의료법이 더 규약이 없어서 괜찮아 자동발행해줘"):
+  DB에서 `UPDATE auto_content_settings SET auto_publish = true, channels = '["blog_html"]'::json WHERE tenant_id = 19` 실행.
+  코드 변경 불필요 — Round 145부터 scheduler 가 auto_publish 게이트를 이미 지원.
+  compliance 린터 warn/fail → 무조건 draft 가드는 그대로 유지 (우회 불가).
+- **경쟁사 분석**: growlyadvisory.com 6페이지 Firecrawl 전문 수집·해부.
+  핵심 프레임 = AI 노출 2축: ① 지도 축 (Gemini Grounding with Google Maps, GBP·리뷰)
+  ② 텍스트 축 (ChatGPT, 웹·커뮤니티 — Reddit AI 인용 40.1% 1위).
+  우리 갭: 텍스트 축 생산·측정 우위 / 지도 축(GBP)·커뮤니티·실증사례 열위.
+  보고서: Marketing/위서클_경쟁사분석_growly_260816.html
+- **생성 디렉티브 3종 패치** (src/content/generator.py `_OVERSEAS_ARCHETYPE_DIRECTIVE`):
+  ① 커뮤니티 미러 FAQ — FAQ 중 최소 3개를 실제 포럼 질문 표현 그대로 ("Is X in Korea worth it?")
+  ② 신규 "10) Getting there" 섹션 — 구글맵 영문 표기와 글자 단위 일치하는 주소(NAP) + 지하철역·출구
+  ③ Evidence style — 주장+숫자+출처 한 문장(인용 단위), 통계·후기 날조 명시적 금지, 검증불가 숫자는 범위+'typically'
+- **Reddit 방침**: 인위 참여 대행 비권장 (적발 리스크 — 경쟁사 스스로 인정). 콘텐츠가 커뮤니티 질문의
+  인용 가능한 답이 되게 하는 방식 채택. 언급 모니터링은 차기 라운드 후보.
+- **사용자 액션 (지도 축, 자동화 불가)**: brighteye GBP 진단·정비 (카테고리/영문 NAP 일치/속성/사진),
+  영어 리뷰 축적 구조 (QR 등, 병원 협의), Reddit 대응 방침 결정.
+
+# Round 162 (2026-08-16) — 지도 축 실장: NAP 카드·리뷰 퍼널·구글리뷰 동기화·Reddit 모니터
+
+사용자 결정 3건에 대한 처리: ① wecircle 자체 GBP 등록 → **방향 정정** (지도 축은 장소 단위 —
+플랫폼 GBP 는 brighteye AI 노출에 기여 0, 대면 영업장 요건 미달로 정지 리스크. brighteye GBP 정비로 전환)
+② 리뷰 자동화 → **요청 자동화만 구축** (리뷰 생성·대리 작성은 Google 정책 위반 = 리뷰 전체 삭제 리스크로 거부)
+③ Reddit 인위 참여 강행 요청 → **거부** (환자 기만 + 실효성 낮음) — 모니터링+공개 신분 참여 가이드로 대체, 사용자 수용.
+
+- **실측 (중요)**: brighteye GBP 는 이미 존재 — "Bright Eye Clinic" **★5.0 · 리뷰 2.2K**,
+  531 Gangnam-daero (B722 Tower) 이전 반영 완료. cid=493951678039689862.
+  발견 이슈: en 홈페이지 리뷰 버튼이 옛 교보타워 리스팅 표기 하드코딩 / 유사명 타병원
+  리스팅("gangnam seoul bright eye clinic" 역삼동 ★4.8·37) 혼동 리스크.
+- **DB (migrations 2건)**: tenants += name_en·address_en·transit_en·gmaps_url·google_review_url·
+  google_rating·google_review_count·google_place_id (tenant 19 시딩 완료);
+  review_funnel_events(scan/click); reddit_mentions(permalink unique); google_reviews(Places API 동기화분).
+- **v1 (medimap-blog)**: ClinicNAP.tsx 신규 — GBP 일치 영문 NAP 카드(4개 언어), 모든 해외 파트너
+  콘텐츠(GuideArticle clinic prop)+클리닉 프로필(ClinicProfile nap slot)에 상시 렌더, 구글 리뷰
+  스니펫 자동 점등(getGoogleReviews). OverseasClinicSchema 영문 NAP·hasMap 강화.
+  /review/[code] 리뷰 요청 퍼널 (5개 언어 자동, noindex, scan/click 추적) + /review/[code]/go 302.
+  guides.ts: PartnerClinicInfo 확장 + getGoogleReviews. tsc 게이트 통과.
+- **v2 (medimap-blog-v2)**: 어드민 클라이언트 편집 모달에 "GBP·영문 NAP" 섹션 5필드 +
+  tenants API POST/PATCH 화이트리스트 확장. tsc 게이트 통과.
+- **백엔드 (Marketing 루트)**: scripts/fetch_google_reviews.py (공식 Places API — 스크래핑 아님;
+  GOOGLE_MAPS_API_KEY 없으면 skip), scripts/monitor_reddit_mentions.py (공개 검색 JSON 읽기 전용,
+  신규만 이메일), .github/workflows/map-axis-monitor.yml (3일마다 08:30 KST).
+  generator.py: 해외 생성 시 검증된 NAP 블록 주입 (Getting there 를 DB 원본으로 — 날조 차단).
+- **산출물**: Marketing/brighteye_GBP_필드시트_260816.html (실측+입력값+운영 루틴+Reddit 공개 참여 가이드),
+  brighteye_review_QR.png (wecircle.co.kr/review/brighteye).
+- **사용자 액션**: GOOGLE_MAPS_API_KEY secret 등록 → Map-axis monitor 수동 1회 /
+  병원에 en 홈페이지 낡은 리뷰 링크 교체 + GBP 리뷰 짧은 링크 수령 → 어드민 입력 / QR 비치 협의.
+- 교훈: 구글 리뷰 원문 대량 수집은 CAPTCHA — 우회하지 않고 공식 API 경로로 설계 (Places API 는
+  최신 리뷰 5건 한도. 집계+스니펫으로 충분).

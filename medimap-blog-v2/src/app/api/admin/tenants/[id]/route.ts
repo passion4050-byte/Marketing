@@ -14,6 +14,8 @@ const ALLOWED_PATCH = new Set([
   'partner_slug', 'status', 'publish_count', 'monthly_cost', 'joined_at',
   'report_send_day',  // 누락 보완 (POST 에는 있는데 PATCH 만 빠져있었음)
   'publish_plan',     // Round 83 (2026-06-28) — A: 주3회, B: 매일
+  // Round 162 (2026-08-16) — GBP 일치 영문 NAP (지도 축): 콘텐츠 NAP 카드·리뷰 퍼널에 사용
+  'name_en', 'address_en', 'transit_en', 'gmaps_url', 'google_review_url',
 ]);
 
 interface RouteCtx { params: Promise<{ id: string }>; }

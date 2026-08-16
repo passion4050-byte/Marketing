@@ -19,6 +19,12 @@ interface SbTenant {
   naver_place_url: string | null;
   phone: string | null;
   homepage: string | null;
+  // Round 162 — GBP 일치 영문 NAP (지도 축). 해외 콘텐츠 NAP 카드·리뷰 퍼널에 사용.
+  name_en: string | null;
+  address_en: string | null;
+  transit_en: string | null;
+  gmaps_url: string | null;
+  google_review_url: string | null;
   email: string | null;
   partner_slug: string | null;
   status: TenantStatus | null;
@@ -349,6 +355,25 @@ export default function TenantsPage() {
                 value={draft.address ?? ''} onChange={(v) => setDraft((p) => ({ ...p, address: v }))} />
               <Field label="네이버 플레이스 URL" placeholder="https://map.naver.com/p/..."
                 value={draft.naver_place_url ?? ''} onChange={(v) => setDraft((p) => ({ ...p, naver_place_url: v }))} />
+
+              {/* Round 162 — GBP 일치 영문 NAP (지도 축). 여기 입력값이 해외 콘텐츠의
+                  NAP 카드·MedicalClinic 스키마·리뷰 퍼널(/review/{slug})에 그대로 렌더됨.
+                  ⚠ 구글 비즈니스 프로필(구글맵) 표기와 "글자 단위" 일치가 원칙. */}
+              <div className="rounded-md border border-border bg-surface-subtle px-3 py-3">
+                <div className="mb-2 text-xs font-bold text-ink">GBP · 영문 NAP (해외 콘텐츠 지도 축)</div>
+                <div className="space-y-3">
+                  <Field label="영문 병원명 (구글맵 표기와 동일)" placeholder="Bright Eye Clinic"
+                    value={draft.name_en ?? ''} onChange={(v) => setDraft((p) => ({ ...p, name_en: v }))} />
+                  <Field label="영문 주소 (구글맵 표기와 동일)" placeholder="531 Gangnam-daero, Seocho-gu, Seoul"
+                    value={draft.address_en ?? ''} onChange={(v) => setDraft((p) => ({ ...p, address_en: v }))} />
+                  <Field label="영문 교통 안내" placeholder="Nonhyeon Station (Line 7) Exit 4 ..."
+                    value={draft.transit_en ?? ''} onChange={(v) => setDraft((p) => ({ ...p, transit_en: v }))} />
+                  <Field label="구글맵 URL" placeholder="https://maps.google.com/?cid=..."
+                    value={draft.gmaps_url ?? ''} onChange={(v) => setDraft((p) => ({ ...p, gmaps_url: v }))} />
+                  <Field label="구글 리뷰 작성 URL (GBP 대시보드 '리뷰 요청' 짧은 링크 권장)" placeholder="https://g.page/r/.../review"
+                    value={draft.google_review_url ?? ''} onChange={(v) => setDraft((p) => ({ ...p, google_review_url: v }))} />
+                </div>
+              </div>
               <Field label="홈페이지" placeholder="https://example.com"
                 value={draft.homepage ?? ''} onChange={(v) => setDraft((p) => ({ ...p, homepage: v }))} />
               <Field label="전화번호" placeholder="02-0000-0000"

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getClinicContent } from "@/lib/guides";
+import { getClinicContent, getPartnerBySlug } from "@/lib/guides";
 import { overseasAlternates } from "@/lib/hreflang";
 import { GuideArticle, type GuideLabels } from "@/components/GuideArticle";
 import { OverseasClinicSchema } from "@/components/OverseasClinicSchema";
@@ -34,12 +34,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function EnClinicDetailPage({ params }: Props) {
   const { partner, slug } = await params;
-  const guide = await getClinicContent("en", partner, slug);
+  const [guide, clinic] = await Promise.all([
+    getClinicContent("en", partner, slug),
+    getPartnerBySlug(partner), // Round 162 — NAP 카드용
+  ]);
   if (!guide) redirect(`/en/guides/${slug}`);
   return (
     <>
       <OverseasClinicSchema partnerSlug={partner} lang="en" />
-      <GuideArticle guide={guide} langPath="en" inLang="en" labels={EN_LABELS} />
+      <GuideArticle guide={guide} langPath="en" inLang="en" labels={EN_LABELS} clinic={clinic} />
     </>
   );
 }

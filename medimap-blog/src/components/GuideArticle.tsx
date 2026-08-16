@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { JsonLd } from "@/components/JsonLd";
 import { ContactButtons } from "@/components/ContactButtons";
+import { ClinicNAP } from "@/components/ClinicNAP";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { siteConfig } from "@/lib/site";
 import { waHref } from "@/lib/ctaLink";
-import type { Guide } from "@/lib/guides";
+import type { Guide, PartnerClinicInfo } from "@/lib/guides";
 
 export interface GuideLabels {
   guides: string;
@@ -86,11 +87,14 @@ export function GuideArticle({
   langPath,
   inLang,
   labels,
+  clinic,
 }: {
   guide: Guide;
   langPath: string;
   inLang: string;
   labels: GuideLabels;
+  /** Round 162 — 파트너 콘텐츠일 때 병원 NAP 카드(지도 축) 렌더용. */
+  clinic?: PartnerClinicInfo | null;
 }) {
   const base = `${siteConfig.url}/${langPath}/guides/${guide.slug}`;
   const pc = PATIENT_COPY[langPath] ?? PATIENT_COPY.en;
@@ -195,6 +199,14 @@ export function GuideArticle({
           ),
         }}
       />
+
+      {/* Round 162 — 병원 NAP 카드: GBP 일치 영문 이름·주소·교통 (모든 파트너 콘텐츠 상시 노출) */}
+      {clinic ? (
+        <ClinicNAP
+          lang={(["en", "ja", "zh", "tw"].includes(langPath) ? langPath : "en") as "en" | "ja" | "zh" | "tw"}
+          clinic={clinic}
+        />
+      ) : null}
 
       {/* 인라인 환자 CTA — 본문을 다 읽기 전에도 상담 진입 가능 (감사 #7) */}
       <div className="mt-10 rounded-none bg-stone-50 px-6 py-6 ring-1 ring-stone-200">

@@ -547,7 +547,14 @@ _OVERSEAS_ARCHETYPE_DIRECTIVE = (
     "and pre-treatment prep (e.g. pause retinoids/acids 3–5 days before).\n"
     "8) 'Aftercare' and 'Payment / VAT refund'.\n"
     "9) An FAQ with 8+ Q&A pairs — search-query style questions; first sentence of each answer gives "
-    "a number or a yes/no.\n"
+    "a number or a yes/no. Phrase at least 3 questions EXACTLY like real community/forum posts foreigners "
+    "write (e.g. 'Is {treatment} in Korea worth it?', 'How much did you actually pay for {treatment} in "
+    "Gangnam?', 'Can I do this as a foreigner without speaking Korean?') — AI engines retrieve these "
+    "long-tail community phrasings, and the only written answer should be ours.\n"
+    "10) 'Getting there' — the clinic/area address EXACTLY as written on Google Maps in English, nearest "
+    "subway station + exit number, and one line inviting the reader to search the clinic name on Google "
+    "Maps (AI local recommendations are retrieved from map databases — our text must match the map "
+    "listing verbatim so engines can join the two).\n"
     "Title formula (measured top-ranking SERP pattern): '[Best|Top] {N} {keyword} in {area} for {audience}' "
     "— do NOT put a year in the H1/title; {N} must match the actual item count. "
     "Meta description: one question sentence + one answer sentence that names 3–4 neighborhoods "
@@ -557,6 +564,10 @@ _OVERSEAS_ARCHETYPE_DIRECTIVE = (
     "CTA messenger by language: EN → WhatsApp, JA → LINE, ZH → WeChat/WhatsApp. Name the messenger in the "
     "CTA sentence, and right before the final CTA add one action line: 'Ask for a specialist consultation "
     "first and request a written quote.'\n"
+    "Evidence style: prefer concrete verifiable numbers (KRW ranges, session counts, MFDS/FDA clearance "
+    "years, device model names) over adjectives. Write key claims so a single sentence can be lifted "
+    "verbatim as an AI answer: claim + number + plain-language source. Never invent statistics, reviews "
+    "or community quotes — if a number is not verifiable, give a range and say 'typically'.\n"
     "Medical-ad compliance: 'best/top' listicle framing is allowed for overseas, but NO efficacy guarantees, "
     "success-rate claims, 'No.1' claims, or competitor disparagement."
 )
@@ -755,6 +766,37 @@ def generate_blog_post(
     _variation_block = _build_variation_block(variation_seed)
     # 해외(lang != ko)만 아키타입 골격 주입 — 국내는 완전 무변경.
     _overseas_directive = _OVERSEAS_ARCHETYPE_DIRECTIVE if (lang and lang != "ko") else ""
+    # Round 162 (2026-08-16) — 검증된 NAP 주입 (지도 축).
+    #   'Getting there' 를 모델 기억이 아니라 DB 원본(tenants.name_en/address_en/...)으로
+    #   쓰게 한다 — GBP 표기와 글자 단위 일치(경쟁사 growly 분석: NAP 인용 일관성이
+    #   Gemini 'Grounding with Google Maps' 매칭의 재료). 값 없으면 블록 생략(무회귀).
+    _nap_directive = ""
+    if lang and lang != "ko":
+        try:
+            from sqlalchemy import text as _sql_text
+            _nap_row = session.execute(
+                _sql_text(
+                    "SELECT name_en, address_en, transit_en, phone FROM tenants WHERE id = :tid"
+                ),
+                {"tid": tenant_id},
+            ).fetchone()
+            if _nap_row and (_nap_row[0] or _nap_row[1]):
+                _nap_lines = ["VERIFIED CLINIC NAP (use these strings EXACTLY, verbatim — do not rewrite):"]
+                if _nap_row[0]:
+                    _nap_lines.append(f"- Clinic name (as on Google Maps): {_nap_row[0]}")
+                if _nap_row[1]:
+                    _nap_lines.append(f"- Address (as on Google Maps): {_nap_row[1]}")
+                if _nap_row[2]:
+                    _nap_lines.append(f"- Getting there: {_nap_row[2]}")
+                if _nap_row[3]:
+                    _nap_lines.append(f"- Phone: {_nap_row[3]}")
+                _nap_lines.append(
+                    "Use these in the 'Getting there' section and anywhere the clinic is named. "
+                    "Never invent an address, floor, station, or phone number."
+                )
+                _nap_directive = "\n".join(_nap_lines)
+        except Exception:  # noqa: BLE001
+            _nap_directive = ""
     _combined_directive = "\n\n".join(
         d
         for d in (
@@ -763,6 +805,7 @@ def generate_blog_post(
             _STATS_ENFORCE_DIRECTIVE,
             _SERP_PROVEN_DIRECTIVE,  # Round 146-B — 상위 5사 실측 구조 (국내/해외 공용)
             _overseas_directive,
+            _nap_directive,  # Round 162 — 검증된 NAP (지도 축)
             _variation_block,
         )
         if d

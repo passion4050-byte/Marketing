@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>brighteye GBP 필드 시트 + 지도 축 운영 가이드 (2026.08.16)</title>
+<style>
+  :root { --ink:#1c1917; --muted:#78716c; --line:#e7e5e4; --bg:#fafaf9; --ok:#059669; --warn:#d97706; --danger:#dc2626; --accent:#0d9488; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Pretendard','Apple SD Gothic Neo',sans-serif; background:var(--bg); color:var(--ink); line-height:1.7; padding:48px 24px; }
+  .wrap { max-width:880px; margin:0 auto; }
+  h1 { font-size:26px; font-weight:800; letter-spacing:-0.5px; }
+  .sub { color:var(--muted); font-size:13px; margin-top:6px; }
+  h2 { font-size:17px; font-weight:800; margin:40px 0 12px; padding-bottom:8px; border-bottom:2px solid var(--ink); }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:20px 24px; margin:12px 0; }
+  table { width:100%; border-collapse:collapse; font-size:13px; margin:10px 0; }
+  th { text-align:left; padding:8px 10px; border-bottom:2px solid var(--ink); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; }
+  td { padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .badge { display:inline-block; padding:2px 10px; border-radius:99px; font-size:11px; font-weight:700; }
+  .b-done { background:#ecfdf5; color:var(--ok); }
+  .b-user { background:#fffbeb; color:var(--warn); }
+  .b-risk { background:#fef2f2; color:var(--danger); }
+  .mono { font-family:ui-monospace,Consolas,monospace; font-size:12.5px; background:#f5f5f4; padding:1px 6px; border-radius:4px; word-break:break-all; }
+  p { font-size:14px; margin:8px 0; }
+  blockquote { border-left:3px solid var(--accent); padding:6px 14px; margin:12px 0; color:#44403c; font-size:13.5px; background:#f0fdfa; border-radius:0 8px 8px 0; }
+  ul { padding-left:20px; } li { margin:5px 0; font-size:13.5px; }
+  .num { font-size:22px; font-weight:800; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>brighteye GBP 필드 시트 + 지도 축 운영 가이드</h1>
+  <div class="sub">2026.08.16 · Round 162 · 밝은눈안과 강남 (tenant 19) · 구글 실측 기반 — 그대로 GBP/어드민에 입력·확인용</div>
+
+  <h2>0. 실측 결과 — 예상보다 훨씬 좋은 출발점</h2>
+  <div class="card">
+    <p><span class="num">★ 5.0 · 리뷰 약 2,200개</span></p>
+    <p>brighteye 는 GBP 가 이미 존재하고, <strong>5.0점에 리뷰 2.2K</strong>라는 대형 자산을 보유 중입니다 (구글 검색 패널 실측). 2026년 교보타워→B722타워(논현역) 이전도 GBP 에 반영 완료 — 리스팅명 "Bright Eye Clinic", 주소 531 Gangnam-daero 로 갱신되어 있습니다. 즉 갭은 "GBP 부재"가 아니라 <strong>①영어 리뷰의 최신성 ②웹 인용(NAP) 일관성 ③이름 혼동 리스크</strong>입니다.</p>
+    <table>
+      <tr><th>발견</th><th>내용</th><th style="width:90px">판정</th></tr>
+      <tr><td>GBP 본체</td><td>"Bright Eye Clinic" · ★5.0 (2.2K) · Seocho District · 02-1544-3994 · 9:30 오픈 · 주소 531 반영 완료</td><td><span class="badge b-done">양호</span></td></tr>
+      <tr><td>영문 홈페이지의 낡은 링크</td><td>en.brighteyesclinic.com 의 "Write a Google review" 버튼이 <strong>옛 리스팅명("Kyobo Tower (former BGN), 465 Gangnam-daero")</strong>을 하드코딩 — 웹 인용 불일치 신호</td><td><span class="badge b-user">병원 전달</span></td></tr>
+      <tr><td>이름 혼동 리스팅</td><td>"gangnam seoul bright eye clinic" (★4.8·37, 역삼동, smartlasik.co.kr) — <strong>다른 병원</strong>이 유사 영문명으로 노출. 외국인이 "bright eye clinic gangnam" 검색 시 오인 유입 가능</td><td><span class="badge b-risk">주시</span></td></tr>
+      <tr><td>리뷰 언어 구성</td><td>2.2K 중 영어 리뷰 비중·최신성은 소유자만 정확히 확인 가능 — Gemini 영어 질의 응답의 재료는 영어 리뷰</td><td><span class="badge b-user">확인 필요</span></td></tr>
+    </table>
+  </div>
+
+  <h2>1. GBP 필드 시트 — 대시보드에서 이대로 확인·입력</h2>
+  <div class="card">
+    <table>
+      <tr><th style="width:170px">필드</th><th>권장 값 (실측·우리 콘텐츠와 글자 단위 일치)</th></tr>
+      <tr><td>비즈니스 이름</td><td><span class="mono">Bright Eye Clinic</span> — 현재 값 유지. 키워드 붙이기(예: "…LASIK SMILE Gangnam")는 정지 사유 — 금지</td></tr>
+      <tr><td>카테고리 (기본)</td><td><span class="mono">Ophthalmologist</span> (현재) 유지 + 추가 카테고리: <span class="mono">Lasik surgeon</span>, <span class="mono">Eye care center</span></td></tr>
+      <tr><td>주소</td><td><span class="mono">531 Gangnam-daero (B722 Tower), Seocho-gu, Seoul</span> — 어드민 클라이언트 메뉴에 이 값 입력 완료. GBP 대시보드의 실제 표기와 다르면 <strong>GBP 쪽 표기를 어드민에 복사</strong>(글자 단위 일치가 원칙)</td></tr>
+      <tr><td>전화</td><td><span class="mono">02-1544-3994</span> (GBP 표기) · 외국인용 WhatsApp <span class="mono">+82 10-4409-3994</span> 은 홈페이지·콘텐츠용</td></tr>
+      <tr><td>영업시간</td><td>월·화·목·금 09:30–18:30 / 토 08:30–17:00 / 수·일 휴진 — 홈페이지와 동일하게. <strong>공휴일 특별시간</strong>도 매번 갱신(최신성 신호)</td></tr>
+      <tr><td>속성(Attributes)</td><td>"영어 응대 가능(Language assistance)", 예약 필수, 화장실 등 — 채울 수 있는 속성 전부</td></tr>
+      <tr><td>웹사이트</td><td><span class="mono">https://en.brighteyesclinic.com/</span> (영문 페이지 연결이 외국인 질의 매칭에 유리)</td></tr>
+      <tr><td>설명문(영문 750자)</td><td><span class="mono">Bright Eye Clinic is a vision-correction specialty clinic in Gangnam, Seoul, performing SMILE, LASIK, LASEK, ICL and cataract surgery. Opened in 2009, the clinic was the first in Asia to install the ZEISS VisuMax and is officially certified by ZEISS for 100,000+ SMILE cases. It is a KAHF-accredited medical institution for international patients (Korean Ministry of Health and Welfare). English consultation is available. Located at 531 Gangnam-daero (B722 Tower), Seocho-gu, Seoul — right outside Nonhyeon Station Exit 4.</span></td></tr>
+      <tr><td>사진 체크리스트</td><td>외관(B722 타워 입구·간판) 3+ / 1F 접수·검사 공간 3+ / B1F 수술·외래 3+ / 장비(VisuMax 800) 2+ / 의료진 2+ — <strong>이전 후 새 건물 사진</strong>으로 교체됐는지 확인</td></tr>
+      <tr><td>리뷰 요청 짧은 링크</td><td>GBP 대시보드 → "리뷰 요청" → <span class="mono">g.page/r/…/review</span> 복사 → <strong>어드민 클라이언트 편집 &gt; "구글 리뷰 작성 URL"에 붙여넣기</strong>. (현재는 검색 딥링크로 임시 설정 — 공식 짧은 링크가 더 안정적)</td></tr>
+    </table>
+  </div>
+
+  <h2>2. 오늘 구축 완료 — 시스템이 하는 일</h2>
+  <div class="card">
+    <table>
+      <tr><th>구축</th><th>내용</th></tr>
+      <tr><td>① NAP 카드 (콘텐츠 상시 노출)</td><td>모든 해외 파트너 콘텐츠·클리닉 프로필에 <strong>GBP 일치 영문 이름·주소·교통·★5.0(2.2K) 배지</strong> 카드가 자동 렌더. 데이터는 어드민 클라이언트 메뉴(신규 'GBP·영문 NAP' 섹션)에서 관리 — LLM 생성이 아닌 DB 원본이라 표기가 흔들리지 않음. MedicalClinic 스키마도 영문 NAP + hasMap 으로 강화.</td></tr>
+      <tr><td>② 콘텐츠 생성기 NAP 주입</td><td>해외 글 생성 시 'Getting there' 섹션이 DB 의 검증된 NAP 문자열을 그대로 쓰도록 프롬프트에 주입 — 주소·역·전화 날조 원천 차단.</td></tr>
+      <tr><td>③ 리뷰 요청 퍼널</td><td><span class="mono">wecircle.co.kr/review/brighteye</span> — QR/링크 → 5개 언어 자동 랜딩 → 구글 리뷰 원탭. 스캔·클릭이 DB(review_funnel_events)에 기록됨. <strong>리뷰 내용 생성·대리 작성·선별 유도(게이팅)는 하지 않음</strong> — Google 정책 위반 시 리뷰 전체 삭제 리스크. 모든 고객에게 동일 링크.</td></tr>
+      <tr><td>④ 구글 리뷰 자동 동기화</td><td>공식 Places API 로 평점·리뷰수·최신 리뷰 5건을 3일마다 저장 → 콘텐츠 카드에 실리뷰 인용 자동 점등. GitHub secret <span class="mono">GOOGLE_MAPS_API_KEY</span> 등록 필요 (섹션 4).</td></tr>
+      <tr><td>⑤ Reddit 언급 모니터</td><td>3일마다 브랜드 검색어 신규 언급 수집 → passion4050@gmail.com 이메일. 참여는 하지 않음 — 대응은 아래 가이드로 사람이 결정.</td></tr>
+    </table>
+  </div>
+
+  <h2>3. 리뷰 요청 운영 루틴 (병원 동의 확보분)</h2>
+  <div class="card">
+    <p><strong>QR 파일: brighteye_review_QR.png</strong> (함께 전달) — 인쇄해서 수납/상담 데스크·회복실에 비치.</p>
+    <ul>
+      <li><strong>타이밍</strong>: 시술 후 경과 확인 시점(당일 퇴원 안내 또는 다음날 팔로업 메시지)에 링크 전달 — 만족도가 가장 높은 순간.</li>
+      <li><strong>스크립트(영어)</strong>: "If you have a minute, an honest Google review helps other international patients — here's the direct link." — <strong>'만족하셨다면'이라는 조건을 붙이지 않기</strong> (게이팅 금지), 별점 요구·대가 제공 금지.</li>
+      <li><strong>측정</strong>: 스캔→클릭 전환이 DB에 쌓임. 리뷰 수 변화는 3일마다 자동 동기화(④)로 추적 — "요청 루틴이 실제 리뷰 증가로 이어지는가"를 숫자로 검증.</li>
+    </ul>
+  </div>
+
+  <h2>4. 사용자 액션 3가지</h2>
+  <div class="card">
+    <table>
+      <tr><th style="width:36px">#</th><th>액션</th><th>소요</th></tr>
+      <tr><td>1</td><td><strong>GOOGLE_MAPS_API_KEY 등록</strong>: console.cloud.google.com → 기존 프로젝트에서 "Places API (New)" 사용 설정 → API 키 생성(Places API로 제한) → GitHub repo Secrets 에 <span class="mono">GOOGLE_MAPS_API_KEY</span> 추가 → Actions 에서 "Map-axis monitor" 수동 실행 1회. 이후 리뷰 동기화 자동.</td><td>10분</td></tr>
+      <tr><td>2</td><td><strong>병원에 전달</strong>: (a) en 홈페이지의 리뷰 버튼이 옛 교보타워 리스팅 표기를 하드코딩 — 새 링크로 교체 요청 (b) GBP 대시보드에서 섹션 1 필드 확인·보강 (c) "리뷰 요청" 짧은 링크를 우리에게 전달 → 어드민에 입력.</td><td>병원 협의</td></tr>
+      <tr><td>3</td><td><strong>QR 비치 협의</strong>: 섹션 3 루틴을 병원 데스크 실무자와 확정 (전달 시점·스크립트).</td><td>병원 협의</td></tr>
+    </table>
+  </div>
+
+  <h2>5. Reddit 공개 신분 참여 가이드 (인위 참여 대체)</h2>
+  <div class="card">
+    <blockquote>원칙: 위장 계정·연출 후기는 하지 않는다. 발견된 스레드에는 <strong>공개 신분 + 실질적 도움</strong>으로만 참여한다. 적발 리스크가 없는 유일한 참여법이며, 계정이 오래 살아남아 오히려 인용 자산이 된다.</blockquote>
+    <table>
+      <tr><th>상황</th><th>대응</th></tr>
+      <tr><td>질문 스레드 ("Is SMILE in Korea worth it?")</td><td>사실 정보로 답변(가격 범위·절차·회복 기간) + 말미에 짧은 공개: "Disclosure: I work with Korean clinics on international patient marketing." 서브레딧 규칙(자기홍보 조항) 먼저 확인. 링크는 요청받을 때만.</td></tr>
+      <tr><td>brighteye 긍정 언급</td><td>개입하지 않음 (자연 성장). 필요 시 감사 코멘트도 병원 공식 계정으로만.</td></tr>
+      <tr><td>부정 언급·불만</td><td>병원에 즉시 전달 → 사실관계 확인 → 병원 공식 계정으로 정중히 대응(변명 아닌 해결 제안). 논쟁 금지 — 스레드를 키우지 않는 것이 원칙.</td></tr>
+      <tr><td>후기 요청 스레드</td><td>실제 시술받은 외국인 고객에게 "레딧에도 경험을 공유해주실 수 있느냐"고 <strong>요청만</strong> — 내용·문구는 일절 제공하지 않음.</td></tr>
+    </table>
+    <p class="sub">주요 감시 서브레딧: r/koreatravel · r/Living_in_Korea · r/lasik · r/glasses · r/kbeauty (모니터가 전체 검색으로 커버, 신규 언급은 이메일로 도착)</p>
+  </div>
+
+  <div class="sub" style="margin-top:32px">작성: Claude (Round 162) · 실측: Google 검색 패널·구글맵 directions·en.brighteyesclinic.com·brighteyesclinic.com (2026-08-16) · 리뷰 집계(★5.0/2.2K)는 구글 표시값 — 소수 단위는 GBP 대시보드에서 확인</div>
+</div>
+</body>
+</html>

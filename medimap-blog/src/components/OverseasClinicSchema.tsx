@@ -32,18 +32,22 @@ export async function OverseasClinicSchema({
     ? SPECIALTY[info.domain_category]
     : undefined;
 
+  // Round 162 — 영문 NAP(GBP 일치) 우선: AI/검색이 지도 축 엔티티와 동일 표기로 매칭.
+  const streetAddress = info.address_en ?? info.address;
   const data: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "MedicalClinic",
-    name,
+    name: info.name_en ?? name,
+    ...(info.name_en && info.name_en !== name ? { alternateName: name } : {}),
     areaServed: "KR",
     address: {
       "@type": "PostalAddress",
       addressCountry: "KR",
       addressRegion: "Seoul",
-      ...(info.address ? { streetAddress: info.address } : {}),
+      ...(streetAddress ? { streetAddress } : {}),
     },
   };
+  if (info.gmaps_url) data.hasMap = info.gmaps_url;
   if (info.homepage) data.url = info.homepage;
   if (info.phone) data.telephone = info.phone;
   if (specialty) data.medicalSpecialty = specialty;
