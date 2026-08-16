@@ -25,3 +25,7 @@ psycopg2-binary>=2.9
 
 # Phase 8 — GA4 Data API (선택적 — GA4_PROPERTY_ID 미설정 시 silent no-op)
 google-analytics-data>=0.18
+
+# Round 156 — GSC Search Analytics API (search-traffic-sync cron)
+google-auth>=2.23
+requests>=2.31

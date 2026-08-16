@@ -1,0 +1,82 @@
+name: Search traffic sync (daily 07:30 KST)
+
+# Round 156 (2026-08-16) — GA4/GSC 유입 실측 수집.
+# "3개월 문의 0" 진단(Round 155)의 마지막 미지수(절대 유입량) 해소.
+#
+# - GSC Search Analytics → gsc_daily / gsc_query_daily (Google 검색 노출·클릭·순위)
+# - GA4 Data API → ga4_daily / ga4_source_daily (AI 엔진 referral 포함 전체 유입)
+#
+# 필요 secrets:
+#   DATABASE_URL                — 기존 secret 재사용
+#   GOOGLE_SERVICE_ACCOUNT_JSON — GCP 서비스계정 키 JSON 전체
+#                                 (GSC 속성 사용자 + GA4 Viewer 로 추가 필요)
+#   GA4_PROPERTY_ID             — GA4 속성 숫자 ID (선택 — 미설정 시 GA4 스킵)
+#
+# 최초 1회: workflow_dispatch 에서 backfill_days=480 으로 GSC 소급 적재 (멱등).
+
+on:
+  schedule:
+    - cron: '30 22 * * *'   # 매일 22:30 UTC = 07:30 KST
+  workflow_dispatch:
+    inputs:
+      backfill_days:
+        description: '소급 일수 (기본 4 — GSC 지연 커버. 최초 적재는 480)'
+        type: string
+        default: '4'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: search-traffic-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Fetch GSC + GA4 into DB
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify required secrets
+        run: |
+          if [ -z "${{ secrets.DATABASE_URL }}" ]; then
+            echo "::error::DATABASE_URL 미설정"; exit 1
+          fi
+          if [ -z "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}" ]; then
+            echo "::error::GOOGLE_SERVICE_ACCOUNT_JSON 미설정 — GCP 서비스계정 키를 등록하세요"; exit 1
+          fi
+
+      - name: Run sync
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
+          GSC_SITE_URL: ${{ vars.GSC_SITE_URL || 'sc-domain:wecircle.co.kr' }}
+          BACKFILL_DAYS: ${{ inputs.backfill_days || '4' }}
+        run: |
+          echo "BACKFILL_DAYS=$BACKFILL_DAYS"
+          python scripts/fetch_search_traffic.py
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## 유입 실측 수집"
+            echo "- GSC → gsc_daily / gsc_query_daily"
+            echo "- GA4 → ga4_daily / ga4_source_daily (GA4_PROPERTY_ID 설정 시)"
+            echo "- 확인: 어드민 /admin/funnel 유입 섹션"
+          } >> "$GITHUB_STEP_SUMMARY"

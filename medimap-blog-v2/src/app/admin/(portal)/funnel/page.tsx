@@ -8,7 +8,7 @@
  *   - 멘션/측정 비율, 클릭/멘션 비율 등 conversion 카드
  *   - 빈 단계는 명시적 안내 (mock 없음)
  */
-import { LinkIcon, FileText, Target, MousePointerClick, Zap } from 'lucide-react';
+import { LinkIcon, FileText, Target, MousePointerClick, Zap, Search, Bot } from 'lucide-react';
 import { getServerClient } from '@/lib/supabase';
 
 export const runtime = 'nodejs';
@@ -35,6 +35,98 @@ interface FunnelRow {
    * 운영자 입장에선 "등록했는데 없다"로 보여 온보딩 누락을 못 잡는다.
    */
   stage: 'measuring' | 'published_only' | 'awaiting_setup';
+}
+
+/**
+ * Round 156 (2026-08-16) — 사이트 유입 실측 (GSC + GA4).
+ * "3개월 문의 0" 진단의 마지막 미지수 = 절대 유입량.
+ * 적재는 search-traffic-sync.yml cron → gsc_daily / ga4_source_daily.
+ */
+interface TrafficSummary {
+  gscDays: number; // 적재된 일수 (0 = 크론 미가동)
+  gscClicks: number;
+  gscImpressions: number;
+  gscAvgPosition: number; // 노출 가중 평균
+  ga4Days: number;
+  ga4Sessions: number;
+  aiSessions: number; // AI 엔진 referral 세션
+  aiTop: { source: string; sessions: number }[];
+}
+
+const AI_SOURCE_PATTERNS = [
+  'chatgpt', 'openai', 'perplexity', 'gemini', 'claude', 'anthropic',
+  'copilot', 'you.com', 'felo', 'liner', 'wrtn',
+];
+
+function isAiSource(source: string): boolean {
+  const s = source.toLowerCase();
+  return AI_SOURCE_PATTERNS.some((p) => s.includes(p));
+}
+
+async function fetchTraffic(): Promise<TrafficSummary> {
+  const empty: TrafficSummary = {
+    gscDays: 0, gscClicks: 0, gscImpressions: 0, gscAvgPosition: 0,
+    ga4Days: 0, ga4Sessions: 0, aiSessions: 0, aiTop: [],
+  };
+  const sb = getServerClient();
+  if (!sb) return empty;
+
+  const since = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
+  // 🔴 드릴다운 조용한 400 교훈(Round 153) — error 를 버리지 않는다.
+  const [gscRes, ga4Res] = await Promise.all([
+    sb.from('gsc_daily').select('date, clicks, impressions, position').gte('date', since),
+    sb.from('ga4_source_daily').select('date, source, sessions').gte('date', since),
+  ]);
+  if (gscRes.error) console.error('[funnel] gsc_daily 조회 실패:', gscRes.error.message);
+  if (ga4Res.error) console.error('[funnel] ga4_source_daily 조회 실패:', ga4Res.error.message);
+
+  const gscRows = (gscRes.data ?? []) as {
+    date: string; clicks: number; impressions: number; position: number;
+  }[];
+  const ga4Rows = (ga4Res.data ?? []) as {
+    date: string; source: string; sessions: number;
+  }[];
+
+  const gscDates = new Set<string>();
+  let gscClicks = 0;
+  let gscImpressions = 0;
+  let posWeighted = 0;
+  gscRows.forEach((r) => {
+    gscDates.add(r.date);
+    gscClicks += r.clicks ?? 0;
+    gscImpressions += r.impressions ?? 0;
+    posWeighted += (r.position ?? 0) * (r.impressions ?? 0);
+  });
+
+  const ga4Dates = new Set<string>();
+  let ga4Sessions = 0;
+  const aiBySource = new Map<string, number>();
+  ga4Rows.forEach((r) => {
+    ga4Dates.add(r.date);
+    ga4Sessions += r.sessions ?? 0;
+    if (isAiSource(r.source ?? '')) {
+      aiBySource.set(r.source, (aiBySource.get(r.source) ?? 0) + (r.sessions ?? 0));
+    }
+  });
+  const aiTop = Array.from(aiBySource.entries())
+    .map(([source, sessions]) => ({ source, sessions }))
+    .sort((a, b) => b.sessions - a.sessions)
+    .slice(0, 5);
+  const aiSessions = Array.from(aiBySource.values()).reduce((acc, v) => acc + v, 0);
+
+  return {
+    gscDays: gscDates.size,
+    gscClicks,
+    gscImpressions,
+    gscAvgPosition: gscImpressions > 0 ? posWeighted / gscImpressions : 0,
+    ga4Days: ga4Dates.size,
+    ga4Sessions,
+    aiSessions,
+    aiTop,
+  };
 }
 
 async function fetchData() {
@@ -127,7 +219,7 @@ async function fetchData() {
 }
 
 export default async function FunnelPage() {
-  const { rows, error } = await fetchData();
+  const [{ rows, error }, traffic] = await Promise.all([fetchData(), fetchTraffic()]);
 
   const totals = rows.reduce(
     (acc, r) => ({
@@ -201,6 +293,60 @@ export default async function FunnelPage() {
           </div>
           <div className="mt-1 text-2xl font-bold text-status-success">{totals.clicks.toLocaleString()}</div>
           <div className="text-[10px] text-ink-muted">CTR {overallCtr.toFixed(2)}%</div>
+        </div>
+      </section>
+
+      {/* Round 156 — 사이트 유입 실측 (GSC · GA4). 최근 28일 */}
+      <section className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className="card card-pad">
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-ink-muted">
+            <Search className="h-3 w-3" /> Google 검색 유입 (GSC · 28일)
+          </div>
+          {traffic.gscDays > 0 ? (
+            <>
+              <div className="mt-1 flex items-baseline gap-3">
+                <span className="text-2xl font-bold text-ink">{traffic.gscClicks.toLocaleString()}</span>
+                <span className="text-xs text-ink-muted">클릭</span>
+                <span className="text-sm font-semibold text-ink-soft">{traffic.gscImpressions.toLocaleString()}</span>
+                <span className="text-xs text-ink-muted">노출</span>
+              </div>
+              <div className="mt-1 text-[10px] text-ink-muted">
+                평균 순위 {traffic.gscAvgPosition.toFixed(1)}위
+                {' · '}CTR {traffic.gscImpressions > 0 ? ((traffic.gscClicks / traffic.gscImpressions) * 100).toFixed(2) : '0.00'}%
+                {' · '}적재 {traffic.gscDays}일
+              </div>
+            </>
+          ) : (
+            <div className="mt-1 text-sm text-ink-muted">
+              수집 대기 — <code className="rounded bg-surface-subtle px-1 py-0.5 text-[11px]">search-traffic-sync</code> 크론
+              첫 실행 전입니다 (secret 등록 필요).
+            </div>
+          )}
+        </div>
+        <div className="card card-pad">
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-ink-muted">
+            <Bot className="h-3 w-3" /> 전체 세션 · AI 엔진 유입 (GA4 · 28일)
+          </div>
+          {traffic.ga4Days > 0 ? (
+            <>
+              <div className="mt-1 flex items-baseline gap-3">
+                <span className="text-2xl font-bold text-ink">{traffic.ga4Sessions.toLocaleString()}</span>
+                <span className="text-xs text-ink-muted">세션</span>
+                <span className="text-sm font-bold text-accent-deep">{traffic.aiSessions.toLocaleString()}</span>
+                <span className="text-xs text-ink-muted">AI 엔진 referral</span>
+              </div>
+              <div className="mt-1 text-[10px] text-ink-muted">
+                {traffic.aiTop.length > 0
+                  ? traffic.aiTop.map((s) => `${s.source} ${s.sessions}`).join(' · ')
+                  : 'AI referral 아직 없음'}
+                {' · '}적재 {traffic.ga4Days}일
+              </div>
+            </>
+          ) : (
+            <div className="mt-1 text-sm text-ink-muted">
+              수집 대기 — GA4 태그 배포 + 속성 생성 후 데이터가 쌓입니다.
+            </div>
+          )}
         </div>
       </section>
 
