@@ -5617,3 +5617,12 @@ self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 3
 - hreflang: overseasAlternates 에 zh-Hant 추가 + 인라인 languages 맵 16파일 일괄 치환(python regex — 문자열/템플릿 리터럴 양쪽).
 - 게이트: v1 클라우드 tsc 재현 확립(/tmp/v1build, npm 1분) — **0 errors**. middleware/next.config 에 로케일 제약 없음 확인(/tw 즉시 동작).
 - ⚠️ 후속: **zh-Hant 발행 콘텐츠 0편**(en 17·ja 28·zh-Hans 12) — tw 블로그가 채워지려면 keywords lang='zh-Hant' 시딩 + auto-publish-overseas 파이프라인의 zh-Hant 생성 지원 확인 필요. 그전까지 tw 홈 showcase 는 자동 생략, 클리닉 디렉토리는 tenant_products(zh-Hant) 기준 노출.
+
+# Round 160 (2026-08-16) — 전 언어 배포 루틴 (수익 클라이언트 중심 재편)
+- **비즈니스 상태**: 유일 유료 = 밝은눈안과 강남점(brighteye, tenant 19, 3개월 테스트). 나머지는 영향력 증명용.
+- **brighteye 매일 5개 언어**: `daily-brighteye-all-langs.yml` 매일 07:00 KST — ko·en·ja·zh-Hans·zh-Hant 각 1회 생성 (LANG_ONLY 타깃, 언어별 continue-on-error). ko 는 즉시발행, 해외 4개는 **draft**(의료법 — /admin/content-queue 검수 후 발행, 기존 규약 유지).
+- **LANG_ONLY 지원**: scheduler.daily_auto_content_job + run_auto_content_once.py 에 lang_only 파라미터 (미지정 무변경).
+- **DB 시딩**: tenant_products (19, overseas, ja/zh-Hans) active 추가 → 5개 언어 완비. 키워드 ja 4개·zh-Hans 4개 시딩 (ko 12·en 4·zh-Hant 3 기존) — 대륙/대만 용어 분리(激光 vs 雷射).
+- **효율 키워드 전 언어 복제 (레버 루틴 확장)**: analyze_rank_levers.py — 레버(신규 시딩+기커버)가 **해외 상품 활성 tenant** 소속이면 활성 언어들로 Claude 트랜스크리에이션(직역 아님, 실검색어) → keywords 시딩 → 다음 로테이션에서 각 언어 생성. rank_lever_log action='seeded_multilang' (1회 억제). ANTHROPIC_API_KEY 미설정 시 복제만 생략.
+- **확장 스위치 = tenant_products**: 다른 병원을 전 언어로 올리려면 어드민에서 언어 상품만 활성화 — 데일리 로테이션+레버 복제가 자동으로 집어감. 생성기는 zh-Hant 포함 4개 언어 트랜스크리에이션 기지원(§5 스타일).
+- 비용 가드 기존 유지: MAX_DAILY_USD·MAX_CONTENT_GEN_PER_DAY — brighteye 데일리 +5편/일. /admin/cost 모니터.

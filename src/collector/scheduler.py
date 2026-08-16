@@ -194,6 +194,7 @@ def daily_auto_content_job(
     target_tenant_id: int | None = None,
     target_keyword: str | None = None,
     market_only: str | None = None,
+    lang_only: str | None = None,
 ) -> dict:
     """활성 ``AutoContentSetting`` 마다 ``daily_count`` 만큼 ``draft`` 콘텐츠 생성.
 
@@ -460,6 +461,10 @@ def daily_auto_content_job(
                         (getattr(k, "market", "domestic") or "domestic"),
                     )
                 ]
+        # Round 160 (2026-08-16) — LANG_ONLY 타깃: brighteye 전 언어 데일리 워크플로가
+        #   언어별로 1회씩 호출한다 (ko/en/ja/zh-Hans/zh-Hant). 미지정 시 무변경.
+        if lang_only is not None:
+            kw_rows = [r for r in kw_rows if r[1] == lang_only]
         if not kw_rows:
             continue
 

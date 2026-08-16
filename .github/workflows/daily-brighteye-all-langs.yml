@@ -1,0 +1,107 @@
+name: Daily brighteye ALL languages (07:00 KST)
+
+# Round 160 (2026-08-16) — 유료 클라이언트(밝은눈안과 강남점, tenant 19, 3개월 테스트)
+# 콘텐츠를 매일 5개 언어(ko·en·ja·zh-Hans·zh-Hant) 전부 생성하는 전용 워크플로.
+#
+# 일반 로테이션(auto-publish/auto-publish-overseas)은 tenant 순환이라 특정 병원의
+# "매일 전 언어"를 보장하지 못함 → LANG_ONLY 타깃(Round 160 scheduler)으로 언어별 1회씩.
+#
+# 발행 규약: ko 는 compliance pass + auto_publish 설정 시 즉시 published,
+# 해외 4개 언어는 **draft** (의료법 — 어드민 검수 후 발행. 기존 규약 유지).
+# 언어별 continue-on-error — 한 언어 실패가 나머지를 막지 않는다.
+
+on:
+  schedule:
+    - cron: '0 22 * * *'   # 매일 22:00 UTC = 07:00 KST
+  workflow_dispatch:
+    inputs:
+      langs:
+        description: '생성할 언어 (콤마구분, 기본 전체)'
+        type: string
+        default: 'ko,en,ja,zh-Hans,zh-Hant'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-brighteye
+  cancel-in-progress: false
+
+env:
+  BRIGHTEYE_TENANT_ID: '19'
+
+jobs:
+  generate:
+    name: Generate brighteye content in all languages
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Generate per language
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          LLM_PROVIDER: ${{ secrets.LLM_PROVIDER || 'gemini' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ secrets.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001' }}
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          MAX_DAILY_USD: ${{ secrets.MAX_DAILY_USD || '10' }}
+          MAX_CONTENT_GEN_PER_DAY: ${{ secrets.MAX_CONTENT_GEN_PER_DAY || '50' }}
+          IMAGE_GEN_ENABLED: ${{ secrets.IMAGE_GEN_ENABLED || 'true' }}
+          IMAGE_PROVIDER: ${{ secrets.IMAGE_PROVIDER || 'nano_banana' }}
+          IMAGE_STRICT: ${{ secrets.IMAGE_STRICT || 'true' }}
+          IMAGE_STRICT_DALLE: ${{ secrets.IMAGE_STRICT_DALLE || 'true' }}
+          TARGET_TENANT_ID: '19'
+          LANGS: ${{ inputs.langs || 'ko,en,ja,zh-Hans,zh-Hant' }}
+        run: |
+          FAIL=0
+          IFS=',' read -ra ARR <<< "$LANGS"
+          for L in "${ARR[@]}"; do
+            L="$(echo "$L" | xargs)"
+            if [ "$L" = "ko" ]; then M=""; else M="overseas"; fi
+            echo "════ lang=$L market=${M:-rotation} ════"
+            if LANG_ONLY="$L" MARKET_ONLY="$M" python scripts/run_auto_content_once.py; then
+              echo "  → OK"
+            else
+              echo "  → FAILED (lang=$L)"; FAIL=$((FAIL+1))
+            fi
+          done
+          echo "failed_langs=$FAIL" >> "$GITHUB_OUTPUT" || true
+          # 전 언어 실패 시에만 워크플로 실패
+          TOTAL=${#ARR[@]}
+          if [ "$FAIL" -ge "$TOTAL" ]; then exit 1; fi
+
+      - name: Trigger Vercel deploy hook — medimap-blog
+        if: success()
+        env:
+          VERCEL_DEPLOY_HOOK_BLOG: ${{ secrets.VERCEL_DEPLOY_HOOK_BLOG }}
+        run: |
+          if [ -n "$VERCEL_DEPLOY_HOOK_BLOG" ]; then curl -sS -X POST "$VERCEL_DEPLOY_HOOK_BLOG" || true; fi
+          echo ""
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## brighteye 전 언어 데일리 (tenant 19)"
+            echo "- ko: compliance pass 시 즉시 발행 · en/ja/zh-Hans/zh-Hant: draft (어드민 검수 후 발행)"
+            echo "- 검수: geo-v2 /admin/content-queue"
+          } >> "$GITHUB_STEP_SUMMARY"

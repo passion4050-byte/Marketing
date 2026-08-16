@@ -72,6 +72,52 @@ def build_tenant_aliases(name: str, partner_slug: str | None) -> list[str]:
     return sorted(aliases, key=len, reverse=True)
 
 
+def translate_keyword(text: str, langs: list[str]) -> dict[str, str] | None:
+    """Round 160 — 효율 키워드의 전 언어 복제용 번역 (검색어 트랜스크리에이션).
+
+    직역이 아니라 그 언어 사용자가 실제로 입력할 검색어로 변환.
+    ANTHROPIC_API_KEY 미설정/실패 시 None (복제만 생략 — 나머지 분석 무영향).
+    """
+    api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if not api_key or not langs:
+        return None
+    try:
+        import anthropic
+
+        client = anthropic.Anthropic(api_key=api_key)
+        model = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
+        lang_names = {
+            "en": "English", "ja": "Japanese",
+            "zh-Hans": "Simplified Chinese (mainland terms, e.g. 激光/种植牙)",
+            "zh-Hant": "Traditional Chinese (Taiwan terms, e.g. 雷射/植牙)",
+        }
+        wanted = ", ".join(f'"{l}" ({lang_names.get(l, l)})' for l in langs)
+        msg = client.messages.create(
+            model=model,
+            max_tokens=300,
+            messages=[{
+                "role": "user",
+                "content": (
+                    "You localize Korean medical-tourism SEARCH KEYWORDS. "
+                    "Rewrite the keyword as a natural search query a native speaker would type "
+                    "(transcreation, not literal translation; keep it short like a real query).\n"
+                    f'Keyword: "{text}"\n'
+                    f"Target languages: {wanted}\n"
+                    'Reply with ONLY a JSON object mapping lang code to keyword, e.g. {"en": "..."}'
+                ),
+            }],
+        )
+        raw = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
+        raw = raw[raw.find("{"): raw.rfind("}") + 1]
+        import json as _json
+
+        out = _json.loads(raw)
+        return {k: str(v).strip() for k, v in out.items() if k in langs and str(v).strip()}
+    except Exception as e:  # noqa: BLE001
+        logger.warning("번역 실패 (%s): %s — 다국어 복제 생략", text, e)
+        return None
+
+
 def send_email(subject: str, html: str) -> bool:
     api_key = os.getenv("RESEND_API_KEY", "").strip()
     to = os.getenv("NOTIFY_EMAIL", "passion4050@gmail.com").strip()
@@ -145,6 +191,17 @@ def main() -> int:
                 """
             )
         ).fetchall()
+        # Round 160 — 전 언어 복제 대상: 해외 상품 활성 tenant 의 언어 목록
+        active_products = conn.execute(
+            text(
+                "SELECT tenant_id, lang FROM tenant_products "
+                "WHERE market = 'overseas' AND status = 'active'"
+            )
+        ).fetchall()
+
+    tenant_langs: dict[int, list[str]] = {}
+    for r in active_products:
+        tenant_langs.setdefault(int(r.tenant_id), []).append(str(r.lang))
 
     logged: dict[tuple[str, str], object] = {(r.query, r.action): r.last_at for r in recent_log}
     kw_norms = [(k, norm(k.text)) for k in keywords if k.text]
@@ -156,6 +213,9 @@ def main() -> int:
     seeded: list[str] = []
     covered: list[str] = []
     email_items: list[dict] = []
+    # Round 160 — 효율(레버) 키워드의 전 언어 복제 대상 (tenant, 원문 키워드)
+    multilang_targets: list[tuple[int, str]] = []
+    multilang_done: list[str] = []
 
     from datetime import datetime, timedelta, timezone
 
@@ -179,6 +239,10 @@ def main() -> int:
             )
 
             if kw_hit is not None or content_hit is not None:
+                # Round 160 — 커버된 레버 = 검증된 효율 키워드 → 전 언어 복제 후보
+                _mt_tid = kw_hit.tenant_id if kw_hit is not None else (content_hit[2] if content_hit else None)
+                if _mt_tid is not None and int(_mt_tid) in tenant_langs and (q, "seeded_multilang") not in logged:
+                    multilang_targets.append((int(_mt_tid), q))
                 # 이미 측정/커버 중 — 최초 1회만 기록 (레버 현황 대시보드용)
                 if (q, "covered") not in logged:
                     if not dry:
@@ -237,6 +301,9 @@ def main() -> int:
                         },
                     )
                 seeded.append(f"{q} → {tenant_hit.name} ({avg_pos:.1f}위·{impr}회)")
+                # Round 160 — 신규 시딩 키워드도 전 언어 복제 후보
+                if int(tenant_hit.id) in tenant_langs and (q, "seeded_multilang") not in logged:
+                    multilang_targets.append((int(tenant_hit.id), q))
                 continue
 
             # 미입점 수요 — 이메일 후보 (14일 억제)
@@ -244,6 +311,58 @@ def main() -> int:
             if last is not None and (now - last) < timedelta(days=suppress_days):  # type: ignore[operator]
                 continue
             email_items.append({"query": q, "pos": avg_pos, "impr": impr, "clicks": int(row.clicks or 0)})
+
+        # Round 160 — 효율 키워드 전 언어 복제: 레버(신규 시딩+기커버)를 해외 상품
+        # 활성 언어들로 트랜스크리에이션해 시딩 → 다음 발행 로테이션에서 각 언어 생성.
+        # 전략(사용자 지시): "키워드·자사명·경쟁사 분석으로 찾은 효율 콘텐츠를
+        # 모든 언어 버전으로 배포"의 자동화 지점.
+        for tid, src_q in multilang_targets:
+            langs = tenant_langs.get(tid, [])
+            if not langs:
+                continue
+            translated = None if dry else translate_keyword(src_q, langs)
+            if dry:
+                multilang_done.append(f"{src_q} → {langs} (DRY)")
+                continue
+            if not translated:
+                continue
+            donor_os = next(
+                (k for k in keywords if k.tenant_id == tid and (k.market or "") == "overseas"),
+                None,
+            )
+            inserted_langs = []
+            for l, kw_text in translated.items():
+                exists = conn.execute(
+                    text("SELECT 1 FROM keywords WHERE tenant_id = :tid AND lower(text) = lower(:t) LIMIT 1"),
+                    {"tid": tid, "t": kw_text},
+                ).fetchone()
+                if exists:
+                    continue
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO keywords (tenant_id, text, category, target_brand, purpose, is_active, market, lang)
+                        VALUES (:tid, :t, :cat, :brand, 'own', true, 'overseas', :lang)
+                        """
+                    ),
+                    {
+                        "tid": tid, "t": kw_text, "lang": l,
+                        "cat": donor_os.category if donor_os is not None else None,
+                        "brand": donor_os.target_brand if donor_os is not None else None,
+                    },
+                )
+                inserted_langs.append(f"{l}:{kw_text}")
+            if inserted_langs:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO rank_lever_log (query, action, detail, tenant_id)
+                        VALUES (:q, 'seeded_multilang', :d, :tid)
+                        """
+                    ),
+                    {"q": src_q, "tid": tid, "d": " · ".join(inserted_langs)[:900]},
+                )
+                multilang_done.append(f"{src_q} → {', '.join(inserted_langs)}")
 
         # 이메일 본문 구성·발송
         if email_items:
@@ -285,10 +404,12 @@ def main() -> int:
                         {"q": e["query"], "p": e["pos"], "i": e["impr"], "d": "미입점 수요 이메일 발송"},
                     )
 
-    logger.info("레버 %d건 — 시딩 %d · 기커버 %d · 이메일 후보 %d",
-                len(levers), len(seeded), len(covered), len(email_items))
+    logger.info("레버 %d건 — 시딩 %d · 기커버 %d · 전언어복제 %d · 이메일 후보 %d",
+                len(levers), len(seeded), len(covered), len(multilang_done), len(email_items))
     for s in seeded:
         logger.info("  [시딩] %s", s)
+    for m in multilang_done:
+        logger.info("  [전언어] %s", m)
     for e in email_items:
         logger.info("  [미입점] %s (%.1f위·%d회)", e["query"], e["pos"], e["impr"])
     return 0

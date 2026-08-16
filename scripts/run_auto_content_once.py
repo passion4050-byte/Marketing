@@ -36,6 +36,9 @@ def main() -> int:
     # 해외 전용 생성(국내/해외 분리 운영). MARKET_ONLY='overseas' 면 해외 키워드만 생성.
     #   미지정(빈 문자열)이면 기존 로테이션(국내 포함) 그대로 — 백워드 무변경.
     market_only = (os.environ.get("MARKET_ONLY") or "").strip() or None
+    # Round 160 (2026-08-16) — 언어 타깃 실행 (brighteye 전 언어 데일리).
+    #   LANG_ONLY='ja' 등 지정 시 해당 언어 키워드만 로테이션. 미지정 무변경.
+    lang_only = (os.environ.get("LANG_ONLY") or "").strip() or None
 
     try:
         result = daily_auto_content_job(
@@ -43,6 +46,7 @@ def main() -> int:
             target_tenant_id=target_tenant_id,
             target_keyword=target_keyword,
             market_only=market_only,
+            lang_only=lang_only,
         )
     except Exception as e:  # pragma: no cover
         print(f"ERROR: daily_auto_content_job 실패: {e}", file=sys.stderr)
