@@ -5521,12 +5521,57 @@ self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 3
   🔴 domain-classifier MEDIMAP_KAKAO_PATHS=[] (옛채널 인용이 T1 자사 점유율로 오염되던 것 차단).
 - 기존 클릭 16건은 옛채널 유실분 — 오늘부터가 전환 측정 원점.
 
-## 다음 라운드 후보 (151 이후)
-- **배치 C — 클릭 북극성 루프** (146 감사에서 설계 승인, 미구현): C1 콘텐츠→클릭 귀속 뷰
-  (현행 shortlink 는 파트너 단위 — 콘텐츠 단위 슬러그 필요) → C2 A/B 승자판정에 클릭 신호 결합 →
-  C3 auto-learn 성공신호에 클릭 소스 → C5 WINNER 패턴 적립.
-- 본문 이미지 백필 완주 확인(중단 시 재실행 — data-imgv2 멱등) + 완료 후 리쥬란-409 외 표본 검수.
-- Magazine B 2단계 잔여: 글 상세 No./Issue 메타바, h2 CSS counter, SectionRule 부품 적용, JA/ZH Noto 스택.
-- 저자·검수·업데이트일 E-E-A-T 표기(경쟁 0/5 무주공산), 리스티클 슬러그 고정+숫자 증축 재발행 정책.
-- 대기 사용자 액션: Anthropic 크레딧(A/B B팔), LINE 공식계정(프리필), 파트너 실명 동의.
+# Round 152~155 (2026-08-16) — 무신사 밀도 · 포털 드릴다운 · 실무진 감사 · 배치 C 완성 · "문의 0" 진단
+> 같은 세션 후반. /design-taste·emil·tailwind 스킬 적용(Design Read: 에디토리얼 크롬 유지 +
+> 사진이 색·활력 독점, MOTION 4 hover ease-out만, AI-디폴트 배제).
+
+## Round 152 — 무신사 이미지 밀도 + 포털 드릴다운 + 고유링크 슬러그화
+- 홈 Latest 3→9장 + 파트너 최신 커버 4장 스트립(4:5 오버레이). /blog 텍스트 목차→**커버 포워드
+  3열 그리드**(ArticleCard). 라이브 확정(빌드 큐로 ~20분 지연됐었음 — tsc·lint 재현 깨끗하면 큐 의심).
+- 포털 KPI 카드 클릭 → /client/mentions·citations·clicks 드릴다운 3페이지 신설.
+- 고유링크 `{partner_slug}-{4자}` (예: /c/brighteye-230d) — 랜덤 문자열→병원 연관 URL(사용자 요구).
+  기존 계정 백필. 열거 차단용 4자 suffix 유지.
+
+## Round 153 — 병원 실무진 페르소나 2인 실브라우저 E2E 감사 → 13건 (아티팩트: 위서클_포털감사_260816.html)
+- 감사용 계정 DB 직발급 성공 사례: **Python hashlib.scrypt(n=16384,r=8,p=1,dklen=32,
+  maxmem=64MB, salt=hex문자열.encode())가 Node scryptSync 와 호환** — 검증 완료. 감사 후 비활성화.
+- 🔴 P0-2 **측정 alias 오염**: "벨리셀 피부과" 공백분리로 "피부과"가 target alias →
+  일반명사 멘션 225건이 목표 멘션으로(포털·보고서 허수 + 경쟁병원 스니펫 노출의 원천).
+  run_measurement_batch._GENERIC_KOREAN_TOKENS 에 진료과명 14종 추가 + 오염 is_target=false (벨리셀 225→0).
+- 🔴 P0-1 **드릴다운 조용한 400**: 중첩 조인 `keywords(keyword)` — 실컬럼은 **keywords.text**.
+  error 버리면 빈 목록으로 위장 → `{data,error}` 받아 표면화. (교훈: supabase 중첩 조인 컬럼명은 실스키마 확인)
+- 🔴 P0-3 **보고서에 경쟁병원 굵게 노출**: 병원명 포함 스니펫만 + markdown strip 방어.
+- 카피 일괄: 소표본 % 가드(전주<5 숨김), 인용 0 "첫 인용 통상 5~6주", "측정 질의"→"AI에 N번 물어본",
+  AEO→"AI 인용 적합도", 엔진 4개 정정, clicks URL 경로만, 재로그인 안내.
+- **드래프트 제목("키워드 #id") 23편 발행 실측** → DB 소급(h1→h2 추출, 태그중첩은 regexp_replace)
+  11편 + 렌더 폴백(posts.ts isDraftTitle→extractTitleFromBody) + scheduler 발행 시 자동 교정 SQL.
+
+## Round 154 — 배치 C 완성 (루프 폐환)
+- C1: 콘텐츠 shortlink `p{content_id}` (240편 백필 + 발행훅). ⚠️ shortlinks.blog_id 는 **별도
+  blogs 테이블 FK** — 콘텐츠 귀속은 slug 파싱으로. slug UNIQUE 인덱스도 이때 신설.
+  kakaoTrackHrefContent(contentId, partnerSlug폴백) — CTABlock·파트너 상세 연결. PostMeta.contentId.
+  포털 clicks 에 "글" 컬럼(slug p\d+ → title 조인).
+- C2: run_ab_analysis 판정 = **인용+클릭 결합 점수** (ab_tests.variant_a/b_clicks 컬럼 신설).
+- C3: auto-learn-own 에 클릭 신호 후보(30일 클릭≥2 상위 3, notes/diagnosis '상담 클릭' 분기).
+- C5: concluded 시 승자 body 구조(H2/단어/표/리스트/이미지) → learned_insights
+  source_tier='AB_WINNER' applied=true (category 없으면 미적립 — null 오염 규약 준수).
+
+## Round 155 — "3개월 문의 0" 실측 진단 (사용자 핵심 질문)
+- **결론: 클릭 저조가 아니라 파이프 부재였다.**
+  ① 클릭 측정은 8/2 시작(2주) — 총 56건, **최근 7일 46건 가속 중** ② 그 클릭 전원이 오늘까지
+  前직장 채널로 유출(Round 151) — **문의 측정 원점 = 2026-08-16** ③ 발행 33%가 단 2개 키워드
+  ("의료 GEO 최적화" 41 + "필러" 38 — 41편은 B2B라 환자 문의 불가 주제) ④ 도메인 7주차·성숙 5~6주
+  ⑤ 절대 유입량(GA4/GSC)은 DB에 없어 미지수.
+- 조치: **키워드당 발행 상한 12편**(scheduler 로테이션 제외 + 전량 상한 시 풀 폴백) +
+  **환자 전환형 키워드 22개 시딩**(활성 파트너 11곳 × "시술 비용/후기" — category/target_brand 상속).
+- 판정 지표: 2주 뒤 주간 클릭 46건 유지·상승 여부.
+
+## 다음 라운드 후보 (155 이후)
+- 🔴 **GA4/GSC 유입 실측 연결** — "문의 0" 진단의 마지막 미지수(유입 절대량). GSC API 크론 →
+  DB 적재 → 포털·어드민 유입 지표. 유입이 병목인지 확정하는 열쇠.
+- 포털 추이 스파크라인(감사 #7) — 클릭·언급 일별 집계 (배치 C 데이터로 이제 가능).
+- 포털 mentions 스니펫 markdown strip (report 에만 적용됨 — 잔여).
+- 보고서 SaaS 파랑 톤 → 포털 stone 통일(감사 #9 후반).
+- 본문 이미지 백필 완주 확인 + 표본 검수. Magazine B 2단계 잔여. E-E-A-T 표기.
+- 대기 사용자 액션: Anthropic 크레딧, LINE 공식계정, 파트너 실명 동의.
 
