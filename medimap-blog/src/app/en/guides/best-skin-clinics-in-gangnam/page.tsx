@@ -19,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
       languages: {
         en: `/en/guides/${SLUG}`,
         ja: `/ja/guides/${SLUG}`,
-        "zh-Hans": `/zh/guides/${SLUG}`,
+        "zh-Hans": `/zh/guides/${SLUG}`, "zh-Hant": `/tw/guides/${SLUG}`,
       },
     },
     openGraph: {

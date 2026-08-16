@@ -93,10 +93,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 해외(overseas) — 홈 + 블로그 인덱스 + 클리닉 허브 + 콘텐츠 상세(canonical URL)
   //   파트너 콘텐츠는 canonical 이 /{lang}/clinics/{cat}/{partner}/{slug} (guides 는 301 리다이렉트),
   //   비파트너(블로그)는 /{lang}/guides/{slug}. 국내 2단 구조를 해외에도 그대로 반영.
-  const OVERSEAS_LANGS: Array<{ code: "en" | "ja" | "zh"; db: string }> = [
+  const OVERSEAS_LANGS: Array<{ code: "en" | "ja" | "zh" | "tw"; db: string }> = [
     { code: "en", db: "en" },
     { code: "ja", db: "ja" },
     { code: "zh", db: "zh-Hans" },
+    { code: "tw", db: "zh-Hant" }, // Round 159b — 대만(번체)
   ];
   const overseasStatic: MetadataRoute.Sitemap = [
     ...OVERSEAS_LANGS.flatMap((l) => [

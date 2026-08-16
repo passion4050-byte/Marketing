@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd } from "@/components/JsonLd";
 import { ContactButtons } from "@/components/ContactButtons";
+import { OverseasHomeShowcase } from "@/components/OverseasHomeShowcase";
 import { siteConfig } from "@/lib/site";
+
+// Round 159b — 홈에 최신 가이드·클리닉 커버 섹션(DB) 추가 → ISR 60s
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Get Your Korean Clinic Cited by ChatGPT, Perplexity & Gemini",
@@ -48,7 +52,7 @@ const COMPARE = [
   ["Structure", "Blog posts", "AEO-optimized: schema, price guides, FAQ, tables"],
 ];
 
-export default function EnHomePage() {
+export default async function EnHomePage() {
   const serviceLd = {
     "@context": "https://schema.org",
     "@type": "Service",
@@ -119,6 +123,19 @@ export default function EnHomePage() {
           <span className="shrink-0 text-sm font-bold text-stone-900">→</span>
         </Link>
       </section>
+
+      {/* Round 159b — 무신사 이미지 밀도: 최신 가이드 + 클리닉 커버 (국내 홈 미러) */}
+      <OverseasHomeShowcase
+        lang="en"
+        labels={{
+          latestOverline: "Latest Stories",
+          latestTitle: "Guides for your visit to Korea",
+          viewAll: "View all",
+          clinicsOverline: "Partner Clinics",
+          clinicsTitle: "Clinics we publish for",
+          guidesCount: (n) => `${n} guide${n === 1 ? "" : "s"}`,
+        }}
+      />
 
       {/* The shift */}
       <section className="border-y border-stone-200/70 bg-white">

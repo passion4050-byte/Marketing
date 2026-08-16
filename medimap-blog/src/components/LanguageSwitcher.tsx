@@ -9,7 +9,9 @@ const LANGS = [
   { code: "ko", label: "한국어", short: "KO" },
   { code: "en", label: "English", short: "EN" },
   { code: "ja", label: "日本語", short: "JA" },
-  { code: "zh", label: "中文", short: "ZH" },
+  { code: "zh", label: "简体中文", short: "ZH" },
+  // Round 159b — 대만(번체) 추가. hreflang 은 zh-Hant.
+  { code: "tw", label: "繁體中文", short: "TW" },
 ] as const;
 
 type LangCode = (typeof LANGS)[number]["code"];
@@ -21,7 +23,7 @@ type LangCode = (typeof LANGS)[number]["code"];
  *   - 국내(prefix 없음) → 해외는 각 언어 홈, ko 는 현재 경로 유지.
  */
 function targetPath(pathname: string, code: LangCode): string {
-  const m = pathname.match(/^\/(en|ja|zh)(\/.*)?$/);
+  const m = pathname.match(/^\/(en|ja|zh|tw)(\/.*)?$/);
   const curLang: LangCode = m ? (m[1] as LangCode) : "ko";
   const rest = m ? m[2] || "" : "";
   if (code === curLang) return pathname;
@@ -35,7 +37,7 @@ function targetPath(pathname: string, code: LangCode): string {
 }
 
 function useCurLang(pathname: string): LangCode {
-  const m = pathname.match(/^\/(en|ja|zh)(\/.*)?$/);
+  const m = pathname.match(/^\/(en|ja|zh|tw)(\/.*)?$/);
   return m ? (m[1] as LangCode) : "ko";
 }
 
@@ -75,7 +77,7 @@ export function LanguageSwitcher({
               key={l.code}
               href={targetPath(pathname, l.code)}
               lang={l.code}
-              hrefLang={l.code === "zh" ? "zh-Hans" : l.code}
+              hrefLang={l.code === "zh" ? "zh-Hans" : l.code === "tw" ? "zh-Hant" : l.code}
               aria-current={active ? "true" : undefined}
               className={`rounded-full px-2.5 py-1 text-[12px] font-semibold transition ${
                 active
@@ -126,7 +128,7 @@ export function LanguageSwitcher({
                   active ? "font-bold text-stone-900" : "text-stone-600"
                 }`}
                 lang={l.code}
-                hrefLang={l.code === "zh" ? "zh-Hans" : l.code}
+                hrefLang={l.code === "zh" ? "zh-Hans" : l.code === "tw" ? "zh-Hant" : l.code}
               >
                 {l.label}
                 {active && <Check className="h-3.5 w-3.5 text-stone-900" />}

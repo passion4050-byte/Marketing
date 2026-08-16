@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     "WECIRCLE 将诊所的诊疗理念，重新编辑为通过医疗法、可被AI引用的内容资产。编辑、医疗法合规、引用计量在同一条流水线完成。",
   alternates: {
     canonical: "/zh/about",
-    languages: { en: "/en/about", ja: "/ja/about", "zh-Hans": "/zh/about", ko: "/about" },
+    languages: { en: "/en/about", ja: "/ja/about", "zh-Hans": "/zh/about", "zh-Hant": "/tw/about", ko: "/about" },
   },
 };
 

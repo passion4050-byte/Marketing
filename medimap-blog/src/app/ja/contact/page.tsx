@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     "20分の相談で、今どの競合がAIに引用されているかをお見せします。韓国クリニックのための英語・日本語・中国語GEO/AEO。",
   alternates: {
     canonical: "/ja/contact",
-    languages: { en: "/en/contact", ja: "/ja/contact", "zh-Hans": "/zh/contact", ko: "/contact" },
+    languages: { en: "/en/contact", ja: "/ja/contact", "zh-Hans": "/zh/contact", "zh-Hant": "/tw/contact", ko: "/contact" },
   },
 };
 

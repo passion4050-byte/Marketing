@@ -5610,3 +5610,10 @@ self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 3
 - 교체 지점 전수: ①DB shortlinks 257행 target_url (즉시 라이브 — /r/ 라우트가 DB 조회, 재배포 불필요. /r/k-wecircle-self 302 실측 확인) ②v1 site.ts contact.kakao ③v2 admin login·scanner 페이지·scanner lead API ④domain-classifier MEDIMAP_KAKAO_PATHS=['_xouLiX'] — 자사 채널 인용을 T1 로 분류 (오픈채팅 시절엔 T1 대상 아니었음 → pf.kakao 는 path 매칭으로 T1 가능해짐) ⑤python cta_templates 기본값·scheduler INSERT 기본값.
 - 🔴 함정: 문자열 치환 시 **트레일링 콤마 뒤에 // 주석이 붙으면 콤마가 주석에 삼켜져 구문 깨짐** — site.ts 실사고, 주석은 별도 줄로. 치환 후 반드시 tsc/구문 검증.
 - http:// 로 받은 URL 은 https:// 로 통일 (혼합 콘텐츠 방지).
+
+# Round 159b (2026-08-16) — 해외판(en/ja/zh) 무신사 전환 + tw(대만·번체) 로케일 신설
+- **해외 4개 언어 무신사·Round 152 미러**: OverseasBlogIndex 전면 재작성(featured hero 4/5 커버+5fr/7fr split, 커버 포워드 그리드, hover scale 1.03 900ms ease-out, 보더 카드 제거), OverseasListing 커버 포워드 전환, **OverseasHomeShowcase 신설**(최신 가이드 9장 그리드 + 클리닉 4:5 오버레이 스트립 — 4개 홈에 1줄 삽입, 콘텐츠 0이면 렌더 생략). 홈 3개는 DB 섹션 추가로 static→ISR 60s + async 전환.
+- **tw 로케일**: app/tw 12파일(번체·대만 용어: 雷射·植牙·健檢·植髮·攻略). 콘텐츠 lang=**zh-Hant**, 상품 lang=zh-Hant(측정계는 zh 와 공유). 타입 확장: hreflang·overseasBlog·OverseasShell·ClinicProfile(L10N/TREATMENTS tw)·FloatingConsult·LanguageSwitcher(繁體中文, regex en|ja|zh|tw)·ctaLink(WA 프리필 번체)·guides(디렉토리 tw 분기, PARTNER_DISPLAY zh-Hant)·sitemap(tw 4번째 언어).
+- hreflang: overseasAlternates 에 zh-Hant 추가 + 인라인 languages 맵 16파일 일괄 치환(python regex — 문자열/템플릿 리터럴 양쪽).
+- 게이트: v1 클라우드 tsc 재현 확립(/tmp/v1build, npm 1분) — **0 errors**. middleware/next.config 에 로케일 제약 없음 확인(/tw 즉시 동작).
+- ⚠️ 후속: **zh-Hant 발행 콘텐츠 0편**(en 17·ja 28·zh-Hans 12) — tw 블로그가 채워지려면 keywords lang='zh-Hant' 시딩 + auto-publish-overseas 파이프라인의 zh-Hant 생성 지원 확인 필요. 그전까지 tw 홈 showcase 는 자동 생략, 클리닉 디렉토리는 tenant_products(zh-Hant) 기준 노출.

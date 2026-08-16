@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   description: "K-beauty, K-medical excellence and insider tips for foreign patients considering care in Korea.",
   alternates: {
     canonical: "/en/blog",
-    languages: { en: "/en/blog", ja: "/ja/blog", "zh-Hans": "/zh/blog" },
+    languages: { en: "/en/blog", ja: "/ja/blog", "zh-Hans": "/zh/blog", "zh-Hant": "/tw/blog" },
   },
 };
 

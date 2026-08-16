@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   description: "K-ビューティー・K-医療の実力、そして韓国での施術を検討する外国人患者向けの活用のコツ。",
   alternates: {
     canonical: "/ja/blog",
-    languages: { en: "/en/blog", ja: "/ja/blog", "zh-Hans": "/zh/blog" },
+    languages: { en: "/en/blog", ja: "/ja/blog", "zh-Hans": "/zh/blog", "zh-Hant": "/tw/blog" },
   },
 };
 

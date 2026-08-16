@@ -75,6 +75,8 @@ const WA_PREFILL: Record<string, string> = {
   en: "Hi! I'm considering treatment in Korea.\nProcedure: \nPreferred dates: \nCould I get a free quote from partner clinics?",
   ja: "こんにちは。韓国での施術を検討しています。\n施術内容：\n希望時期：\n無料見積もりをお願いできますか？",
   zh: "您好！我在考虑赴韩接受治疗。\n项目：\n期望时间：\n可以获取合作诊所的免费报价吗？",
+  // Round 159b — 대만(번체)
+  tw: "您好！我正在考慮赴韓接受治療。\n項目：\n期望時間：\n可以取得合作診所的免費報價嗎？",
 };
 
 /**
@@ -91,6 +93,7 @@ export function waHref(lang?: string, clinic?: string): string {
       en: `Clinic: ${c}\n`,
       ja: `クリニック：${c}\n`,
       zh: `诊所：${c}\n`,
+      tw: `診所：${c}\n`,
     };
     text = (clinicLine[lang ?? "en"] ?? clinicLine.en) + text;
   }

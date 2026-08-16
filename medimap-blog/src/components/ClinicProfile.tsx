@@ -15,43 +15,51 @@ import type { OverseasCard } from "@/lib/guides";
  * 의료법: 최상급·효과 보장 없음, 중개 고지 명시. WhatsApp 프리필에 병원명 주입.
  */
 
-type Lang = "en" | "ja" | "zh";
+// Round 159b (2026-08-16) — tw(대만·번체) 추가. 대만 용어: 雷射·植牙·健檢·植髮.
+type Lang = "en" | "ja" | "zh" | "tw";
 
 const TREATMENTS: Record<string, Record<Lang, string>> = {
   eyeclinic: {
     en: "SMILE LASIK · LASIK · LASEK · ICL · cataract",
     ja: "スマイルラシック · ラシック · ラセック · ICL · 白内障",
     zh: "SMILE全飞秒 · LASIK · LASEK · ICL · 白内障",
+    tw: "SMILE全飛秒 · LASIK · LASEK · ICL · 白內障",
   },
   derma: {
     en: "acne scars · pigmentation · laser toning · skin boosters · lifting",
     ja: "ニキビ跡 · 色素沈着 · レーザートーニング · スキンブースター · リフティング",
     zh: "痘坑 · 色素沉着 · 激光净肤 · 水光针 · 提升",
+    tw: "痘疤 · 色素沉澱 · 雷射淨膚 · 水光針 · 拉提",
   },
   plastic: {
     en: "rhinoplasty · eyelid surgery · facial contouring",
     ja: "鼻整形 · 目元整形 · 輪郭形成",
     zh: "隆鼻 · 双眼皮 · 面部轮廓",
+    tw: "隆鼻 · 雙眼皮 · 臉部輪廓",
   },
   dental: {
     en: "implants · veneers · orthodontics",
     ja: "インプラント · ラミネート · 歯列矯正",
     zh: "种植牙 · 贴面 · 正畸",
+    tw: "植牙 · 陶瓷貼片 · 齒列矯正",
   },
   hair: {
     en: "FUE hair transplant · hairline design · crown restoration",
     ja: "FUE植毛 · ヘアライン矯正 · 頭頂部移植",
     zh: "FUE植发 · 发际线设计 · 头顶加密",
+    tw: "FUE植髮 · 髮際線設計 · 頭頂加密",
   },
   internal: {
     en: "premium health checkup · IV therapy",
     ja: "プレミアム健診 · 点滴療法",
     zh: "高端体检 · 输液疗法",
+    tw: "高階健檢 · 點滴療程",
   },
   oriental: {
     en: "herbal medicine · diet program · body balancing",
     ja: "韓方薬 · ダイエットプログラム · 体質改善",
     zh: "韩方药 · 减重项目 · 体质调理",
+    tw: "韓方藥 · 減重療程 · 體質調理",
   },
 };
 
@@ -207,6 +215,40 @@ const L10N: Record<
     ctaBtn: "免费获取报价",
     disclosure: (n) =>
       `WECIRCLE是${n}的市场与协调合作方。所有医疗咨询、诊断与治疗均由诊所医疗团队提供。`,
+  },
+  tw: {
+    partnerClinic: "合作診所",
+    intro: (n) =>
+      `${n}是WECIRCLE的合作診所。關於這家診所的諮詢與預約安排，我們免費為您代辦。`,
+    location: "位置",
+    treatments: "熱門項目",
+    whyTitle: "透過WECIRCLE預約的好處",
+    why: [
+      { t: "完全免費", d: "無預約費、無加價。" },
+      { t: "先拿書面報價", d: "治療前我們為您向診所索取分項書面報價。" },
+      { t: "中文支援", d: "用中文溝通即可 — 與診所的韓語對接由我們完成。" },
+      { t: "一個對話搞定", d: "檔期、價格、日程安排，都在一個聊天裡完成。" },
+    ],
+    flowTitle: "預約流程",
+    flow: [
+      { t: "發訊息給我們", d: "告訴我們項目與期望時間。" },
+      { t: "書面報價", d: "我們帶回診所的分項報價與解答。" },
+      { t: "確定日程", d: "與診所確認您的面診日期。" },
+      { t: "到院與術後", d: "到院之後，恢復期內也可隨時聯繫我們。" },
+    ],
+    guidesTitle: (n) => `${n}相關攻略`,
+    guidesEmpty: "這家診所的詳細攻略即將上線。有問題可直接發訊息 — 我們直接解答。",
+    faqTitle: "常見問題",
+    faq: [
+      { q: "諮詢真的免費嗎？", a: "是的。您只需支付診所的治療費用，WECIRCLE的協調服務對患者免費。" },
+      { q: "不會韓語可以嗎？", a: "可以。到院前我們用中文為您協調，並準備好櫃檯出示的說明。" },
+      { q: "報價多久能拿到？", a: "告知項目與大致時間後，通常1個工作天內送達。" },
+    ],
+    ctaTitle: "對這家診所感興趣？",
+    ctaDesc: (n) => `先請求專科醫師面診，並向${n}索取書面報價。我們免費為您安排。`,
+    ctaBtn: "免費取得報價",
+    disclosure: (n) =>
+      `WECIRCLE是${n}的行銷與協調合作方。所有醫療諮詢、診斷與治療均由診所醫療團隊提供。`,
   },
 };
 

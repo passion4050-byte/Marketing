@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   description: "韩国美容与医疗的实力，以及面向计划来韩就诊的外国患者的就诊攻略。",
   alternates: {
     canonical: "/zh/blog",
-    languages: { en: "/en/blog", ja: "/ja/blog", "zh-Hans": "/zh/blog" },
+    languages: { en: "/en/blog", ja: "/ja/blog", "zh-Hans": "/zh/blog", "zh-Hant": "/tw/blog" },
   },
 };
 

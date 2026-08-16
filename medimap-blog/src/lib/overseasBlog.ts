@@ -15,7 +15,8 @@ export const OVERSEAS_BLOG_CATEGORIES: OverseasBlogCategory[] = [
   "k_tips",
 ];
 
-export type OverseasLang = "en" | "ja" | "zh";
+// Round 159b (2026-08-16) — tw(대만·번체) 추가.
+export type OverseasLang = "en" | "ja" | "zh" | "tw";
 
 interface CatLabel {
   label: string;
@@ -67,6 +68,21 @@ export const OVERSEAS_BLOG_LABELS: Record<
     k_tips: {
       label: "韩国医美就诊攻略",
       desc: "如何选择诊所、费用、预约与首次就诊。",
+    },
+  },
+  // Round 159b — 대만(번체). 대만 용어: 雷射(激光)·植牙(种植牙)·健檢(体检).
+  tw: {
+    k_beauty: {
+      label: "韓國醫美的實力",
+      desc: "韓國在醫美與皮膚治療領域的領先之處。",
+    },
+    k_medical: {
+      label: "韓國醫療的實力",
+      desc: "眼科、牙科等韓國專科醫療的優勢。",
+    },
+    k_tips: {
+      label: "韓國醫美就診攻略",
+      desc: "如何選擇診所、費用、預約與首次就診。",
     },
   },
 };

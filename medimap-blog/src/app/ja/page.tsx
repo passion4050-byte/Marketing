@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ContactButtons } from "@/components/ContactButtons";
+import { OverseasHomeShowcase } from "@/components/OverseasHomeShowcase";
+
+// Round 159b — 홈에 최신 가이드·클리닉 커버 섹션(DB) 추가 → ISR 60s
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "韓国クリニックをChatGPT・Perplexity・Geminiに引用させる",
@@ -12,7 +16,7 @@ export const metadata: Metadata = {
 const SPECIALTIES = ["皮膚科・美容皮膚", "美容外科（鼻・目・輪郭）", "視力矯正（SMILE・LASIK）", "植毛（FUE）", "歯科（インプラント）", "健康診断・アンチエイジング"];
 const SPECIALTY_CATS = ["derma", "plastic", "eyeclinic", "hair", "dental", "internal"];
 
-export default function JaHome() {
+export default async function JaHome() {
   return (
     <>
       <section className="mx-auto max-w-6xl px-5 pb-16 pt-16 md:pt-24">
@@ -48,6 +52,19 @@ export default function JaHome() {
           <span className="shrink-0 text-sm font-bold text-stone-900">→</span>
         </Link>
       </section>
+
+      {/* Round 159b — 무신사 이미지 밀도: 최신 가이드 + 클리닉 커버 (국내 홈 미러) */}
+      <OverseasHomeShowcase
+        lang="ja"
+        labels={{
+          latestOverline: "Latest Stories",
+          latestTitle: "韓国医療・美容ガイド",
+          viewAll: "すべて見る",
+          clinicsOverline: "Partner Clinics",
+          clinicsTitle: "提携クリニック",
+          guidesCount: (n) => `ガイド${n}本`,
+        }}
+      />
 
       <section className="mx-auto max-w-6xl px-5 py-14">
         <div className="grid gap-8 md:grid-cols-3">

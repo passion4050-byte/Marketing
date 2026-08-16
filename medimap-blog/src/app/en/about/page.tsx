@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     "WECIRCLE turns a Korean clinic's clinical philosophy into compliant, AI-citeable content assets — editorial, medical-law compliance and citation measurement in one pipeline.",
   alternates: {
     canonical: "/en/about",
-    languages: { en: "/en/about", ja: "/ja/about", "zh-Hans": "/zh/about", ko: "/about" },
+    languages: { en: "/en/about", ja: "/ja/about", "zh-Hans": "/zh/about", "zh-Hant": "/tw/about", ko: "/about" },
   },
 };
 

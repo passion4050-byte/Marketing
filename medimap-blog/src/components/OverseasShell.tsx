@@ -14,7 +14,7 @@ export function OverseasShell({
   footerTagline,
   children,
 }: {
-  lang: "en" | "ja" | "zh";
+  lang: "en" | "ja" | "zh" | "tw";
   nav: { href: string; label: string }[];
   ctaLabel: string;
   footerTagline: string;

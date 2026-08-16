@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     "Patients: free help comparing Korean clinics and booking. Clinics: see which competitors AI cites for your treatments. English, Japanese and Chinese support.",
   alternates: {
     canonical: "/en/contact",
-    languages: { en: "/en/contact", ja: "/ja/contact", "zh-Hans": "/zh/contact", ko: "/contact" },
+    languages: { en: "/en/contact", ja: "/ja/contact", "zh-Hans": "/zh/contact", "zh-Hant": "/tw/contact", ko: "/contact" },
   },
 };
 

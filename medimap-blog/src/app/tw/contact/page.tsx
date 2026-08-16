@@ -2,30 +2,28 @@ import type { Metadata } from "next";
 import { JsonLd } from "@/components/JsonLd";
 import { ContactButtons } from "@/components/ContactButtons";
 import { siteConfig } from "@/lib/site";
+import { overseasAlternates } from "@/lib/hreflang";
 
 export const metadata: Metadata = {
-  title: "联系 WECIRCLE",
+  title: "聯絡 WECIRCLE",
   description:
-    "20分钟通话，我们将展示目前哪些竞争对手正被AI引用。为韩国诊所提供英语、日语、中文的 GEO/AEO。",
-  alternates: {
-    canonical: "/zh/contact",
-    languages: { en: "/en/contact", ja: "/ja/contact", "zh-Hans": "/zh/contact", "zh-Hant": "/tw/contact", ko: "/contact" },
-  },
+    "20分鐘通話，我們將展示目前哪些競爭對手正被AI引用。為韓國診所提供英語、日語、中文的 GEO/AEO。",
+  alternates: overseasAlternates("tw", "/contact"),
 };
 
 const STEPS = [
-  { n: "01", t: "与我们联系", d: "通过 WhatsApp 或 LINE 发送您的诊所名称与主要施术项目。无需表单，无需承诺。" },
-  { n: "02", t: "即时AI引用诊断", d: "针对您的施术，查看 ChatGPT、Perplexity、Gemini 目前以英语、日语、中文引用了哪些竞争对手。" },
-  { n: "03", t: "为您呈现方案", d: "20分钟通话：差距在哪、用什么内容填补，以及此后如何计量每一次AI引用。" },
+  { n: "01", t: "與我們聯絡", d: "透過 WhatsApp 或 LINE 傳送您的診所名稱與主要施術項目。無需表單，無需承諾。" },
+  { n: "02", t: "即時AI引用診斷", d: "針對您的施術，查看 ChatGPT、Perplexity、Gemini 目前以英語、日語、中文引用了哪些競爭對手。" },
+  { n: "03", t: "為您呈現方案", d: "20分鐘通話：差距在哪、用什麼內容填補，以及此後如何計量每一次AI引用。" },
 ];
 
-export default function ZhContactPage() {
+export default function TwContactPage() {
   const contactLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "WECIRCLE",
     legalName: "주식회사 위서클",
-    url: `${siteConfig.url}/zh`,
+    url: `${siteConfig.url}/tw`,
     email: siteConfig.contact.email,
     address: { "@type": "PostalAddress", addressLocality: "Seoul", addressCountry: "KR" },
   };
@@ -34,41 +32,41 @@ export default function ZhContactPage() {
     <>
       <JsonLd data={contactLd} />
 
-      {/* Round 145c — 환자/병원 듀얼 패스 (감사 #4) */}
+      {/* 환자/병원 듀얼 패스 (Round 145c 미러) */}
       <section className="mx-auto max-w-6xl px-5 pb-14 pt-16 md:pt-24">
         <h1 className="max-w-3xl text-4xl font-black leading-[1.1] tracking-tight text-stone-950 md:text-6xl">
-          请选择您的咨询类型
+          請選擇您的諮詢類型
         </h1>
         <div className="mt-8 grid gap-5 md:grid-cols-2">
           <div className="rounded-none border-2 border-stone-300 bg-white p-7">
-            <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-stone-900">患者咨询</div>
-            <h2 className="mt-2 text-xl font-bold text-stone-950">正在考虑赴韩就医</h2>
+            <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-stone-900">患者諮詢</div>
+            <h2 className="mt-2 text-xl font-bold text-stone-950">正在考慮赴韓就醫</h2>
             <p className="mt-2 text-sm leading-relaxed text-stone-600">
-              关于诊所、费用或预约的问题，欢迎随时咨询。
+              關於診所、費用或預約的問題，歡迎隨時諮詢。
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
-              {["免费", "中文可沟通", "1个工作日内回复"].map((c) => (
+              {["免費", "中文可溝通", "1個工作天內回覆"].map((c) => (
                 <span key={c} className="rounded-full bg-stone-100 px-3 py-1 text-[11px] font-semibold text-stone-700">
                   {c}
                 </span>
               ))}
             </div>
-            <ContactButtons lang="zh" waLabel="获取免费报价" lineLabel="LINE" className="mt-5" />
+            <ContactButtons lang="tw" waLabel="免費取得報價" lineLabel="LINE" className="mt-5" />
           </div>
           <div className="rounded-none border border-stone-200 bg-white p-7">
-            <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-stone-500">诊所合作</div>
-            <h2 className="mt-2 text-xl font-bold text-stone-950">您在韩国经营诊所吗？</h2>
+            <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-stone-500">診所合作</div>
+            <h2 className="mt-2 text-xl font-bold text-stone-950">您在韓國經營診所嗎？</h2>
             <p className="mt-2 text-sm leading-relaxed text-stone-600">
-              20分钟通话，我们将展示AI目前为您的施术引用了哪些竞争对手。
+              20分鐘通話，我們將展示AI目前為您的施術引用了哪些競爭對手。
             </p>
-            <ContactButtons lang="zh" waLabel="预约通话" lineLabel="LINE" className="mt-5" />
+            <ContactButtons lang="tw" waLabel="預約通話" lineLabel="LINE" className="mt-5" />
           </div>
         </div>
       </section>
 
       <section className="border-y border-stone-200/70 bg-white">
         <div className="mx-auto max-w-6xl px-5 py-16">
-          <h2 className="text-2xl font-black tracking-tight text-stone-950 md:text-3xl">接下来的流程</h2>
+          <h2 className="text-2xl font-black tracking-tight text-stone-950 md:text-3xl">接下來的流程</h2>
           <div className="mt-8 grid gap-6 md:grid-cols-3">
             {STEPS.map((s) => (
               <div key={s.n} className="rounded-none border border-stone-200 bg-[#FAFAF7] p-6">
@@ -86,7 +84,7 @@ export default function ZhContactPage() {
           <div>
             <h2 className="text-xl font-bold tracking-tight text-stone-950">WECIRCLE</h2>
             <p className="mt-2 text-sm leading-relaxed text-stone-600">
-              让韩国诊所在外国患者的AI检索中被引用的可计量、合规、多语言 GEO/AEO 内容发布。
+              讓韓國診所在外國患者的AI檢索中被引用的可計量、合規、多語言 GEO/AEO 內容發布。
             </p>
             <dl className="mt-6 space-y-2 text-sm text-stone-600">
               <div className="flex gap-3">
@@ -98,7 +96,7 @@ export default function ZhContactPage() {
                 <dd>Seoul, Korea</dd>
               </div>
               <div className="flex gap-3">
-                <dt className="w-24 shrink-0 font-semibold text-stone-800">营业执照号</dt>
+                <dt className="w-24 shrink-0 font-semibold text-stone-800">營業執照號</dt>
                 <dd>798-67-00527</dd>
               </div>
               <div className="flex gap-3">
@@ -112,9 +110,9 @@ export default function ZhContactPage() {
             </dl>
           </div>
           <div className="flex flex-col justify-center gap-4 rounded-none bg-stone-950 p-8 text-white">
-            <div className="text-lg font-bold">最快的联系方式</div>
-            <p className="text-sm text-stone-300">我们在韩国工作时间（KST）通过 WhatsApp、LINE 回复。</p>
-            <ContactButtons waLabel="WhatsApp" lineLabel="LINE" />
+            <div className="text-lg font-bold">最快的聯絡方式</div>
+            <p className="text-sm text-stone-300">我們在韓國工作時間（KST）透過 WhatsApp、LINE 回覆。</p>
+            <ContactButtons lang="tw" waLabel="WhatsApp" lineLabel="LINE" />
           </div>
         </div>
       </section>

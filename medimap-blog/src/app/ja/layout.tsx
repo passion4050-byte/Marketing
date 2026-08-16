@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
   alternates: {
     canonical: "/ja",
-    languages: { en: "/en", ja: "/ja", "zh-Hans": "/zh", ko: "/" },
+    languages: { en: "/en", ja: "/ja", "zh-Hans": "/zh", "zh-Hant": "/tw", ko: "/" },
   },
 };
 

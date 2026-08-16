@@ -16,9 +16,10 @@ const LABELS: Record<string, { wa: string; line: string }> = {
   en: { wa: "Free quote", line: "LINE" },
   ja: { wa: "WhatsApp", line: "無料見積もり" },
   zh: { wa: "免费报价", line: "LINE" },
+  tw: { wa: "免費報價", line: "LINE" }, // Round 159b — 대만(번체)
 };
 
-export function FloatingConsult({ lang }: { lang: "en" | "ja" | "zh" }) {
+export function FloatingConsult({ lang }: { lang: "en" | "ja" | "zh" | "tw" }) {
   const pathname = usePathname();
   if (!pathname || pathname.endsWith("/contact")) return null;
 

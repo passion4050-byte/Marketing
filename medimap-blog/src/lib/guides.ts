@@ -233,14 +233,15 @@ const OVERSEAS_PARTNER_DISPLAY: Record<string, Record<string, string>> = {
     en: "Cheongdam Dear Clinic",
     ja: "清潭ディア医院",
     "zh-Hans": "清潭Dear医院",
+    "zh-Hant": "清潭Dear醫院", // Round 159b — 대만(번체)
   },
   // Round 145d (2026-08-15) — 엔티티 디렉토리 등재용 (감사 #8). 브랜드 라틴 표기는 전 언어 공통 안전.
-  gangnamyonsei: { en: "Gangnam Yonsei Eye Clinic", ja: "Gangnam Yonsei Eye Clinic", "zh-Hans": "Gangnam Yonsei Eye Clinic" },
-  brighteye: { en: "Bright Eye Clinic Gangnam", ja: "Bright Eye Clinic Gangnam", "zh-Hans": "Bright Eye Clinic Gangnam" },
-  bgn: { en: "BGN Eye Clinic Jamsil", ja: "BGN Eye Clinic Jamsil", "zh-Hans": "BGN Eye Clinic Jamsil" },
-  "bgn-busan": { en: "BGN Eye Clinic Busan", ja: "BGN Eye Clinic Busan", "zh-Hans": "BGN Eye Clinic Busan" },
-  mowoolim: { en: "Mowoolim Clinic", ja: "Mowoolim Clinic", "zh-Hans": "Mowoolim Clinic" },
-  "partner-20": { en: "Kwangdong Hospital", ja: "Kwangdong Hospital", "zh-Hans": "Kwangdong Hospital" },
+  gangnamyonsei: { en: "Gangnam Yonsei Eye Clinic", ja: "Gangnam Yonsei Eye Clinic", "zh-Hans": "Gangnam Yonsei Eye Clinic", "zh-Hant": "Gangnam Yonsei Eye Clinic" },
+  brighteye: { en: "Bright Eye Clinic Gangnam", ja: "Bright Eye Clinic Gangnam", "zh-Hans": "Bright Eye Clinic Gangnam", "zh-Hant": "Bright Eye Clinic Gangnam" },
+  bgn: { en: "BGN Eye Clinic Jamsil", ja: "BGN Eye Clinic Jamsil", "zh-Hans": "BGN Eye Clinic Jamsil", "zh-Hant": "BGN Eye Clinic Jamsil" },
+  "bgn-busan": { en: "BGN Eye Clinic Busan", ja: "BGN Eye Clinic Busan", "zh-Hans": "BGN Eye Clinic Busan", "zh-Hant": "BGN Eye Clinic Busan" },
+  mowoolim: { en: "Mowoolim Clinic", ja: "Mowoolim Clinic", "zh-Hans": "Mowoolim Clinic", "zh-Hant": "Mowoolim Clinic" },
+  "partner-20": { en: "Kwangdong Hospital", ja: "Kwangdong Hospital", "zh-Hans": "Kwangdong Hospital", "zh-Hant": "Kwangdong Hospital" },
 };
 
 /** partner_slug + lang → 표시명(폴백: 한국어 name). */
@@ -344,12 +345,12 @@ const DOMAIN_TO_OVERSEAS_CAT: Record<string, string> = {
   internal: "internal", hair: "hair", oriental: "oriental",
 };
 
-/** langPath("en"|"ja"|"zh") → 상품 lang(측정계: zh-Hant) / 콘텐츠 lang(zh-Hans). */
+/** langPath("en"|"ja"|"zh"|"tw") → 상품 lang(측정계: zh 계열은 zh-Hant) / 콘텐츠 lang(zh→zh-Hans, tw→zh-Hant). */
 export async function getOverseasClinicDirectory(langPath: string): Promise<OverseasClinicEntry[]> {
   const sql = getSql();
   if (!sql) return [];
-  const productLang = langPath === "zh" ? "zh-Hant" : langPath;
-  const contentLang = langPath === "zh" ? "zh-Hans" : langPath;
+  const productLang = langPath === "zh" || langPath === "tw" ? "zh-Hant" : langPath;
+  const contentLang = langPath === "zh" ? "zh-Hans" : langPath === "tw" ? "zh-Hant" : langPath;
   try {
     const rows = await sql.unsafe<Array<Record<string, unknown>>>(
       `SELECT t.partner_slug, t.name, t.domain_category,

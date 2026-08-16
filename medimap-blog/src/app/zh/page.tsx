@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ContactButtons } from "@/components/ContactButtons";
+import { OverseasHomeShowcase } from "@/components/OverseasHomeShowcase";
+
+// Round 159b — 홈에 최신 가이드·클리닉 커버 섹션(DB) 추가 → ISR 60s
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "让ChatGPT、Perplexity、Gemini引用您的韩国诊所",
@@ -12,7 +16,7 @@ export const metadata: Metadata = {
 const SPECIALTIES = ["皮肤科・医美", "整形外科（鼻・眼・轮廓）", "视力矫正（SMILE・LASIK）", "植发（FUE）", "牙科（种植牙）", "体检・抗衰老"];
 const SPECIALTY_CATS = ["derma", "plastic", "eyeclinic", "hair", "dental", "internal"];
 
-export default function ZhHome() {
+export default async function ZhHome() {
   return (
     <>
       <section className="mx-auto max-w-6xl px-5 pb-16 pt-16 md:pt-24">
@@ -48,6 +52,19 @@ export default function ZhHome() {
           <span className="shrink-0 text-sm font-bold text-stone-900">→</span>
         </Link>
       </section>
+
+      {/* Round 159b — 무신사 이미지 밀도: 최신 가이드 + 클리닉 커버 (국내 홈 미러) */}
+      <OverseasHomeShowcase
+        lang="zh"
+        labels={{
+          latestOverline: "Latest Stories",
+          latestTitle: "韩国医疗·医美攻略",
+          viewAll: "查看全部",
+          clinicsOverline: "Partner Clinics",
+          clinicsTitle: "合作诊所",
+          guidesCount: (n) => `${n}篇指南`,
+        }}
+      />
 
       <section className="mx-auto max-w-6xl px-5 py-14">
         <div className="grid gap-8 md:grid-cols-3">
