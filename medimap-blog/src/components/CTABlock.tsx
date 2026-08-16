@@ -1,6 +1,6 @@
 import { siteConfig } from "@/lib/site";
 import { TrackedLink } from "./TrackedLink";
-import { kakaoTrackHref, kakaoTrackHrefSelf } from "@/lib/ctaLink";
+import { kakaoTrackHrefContent, kakaoTrackHrefSelf } from "@/lib/ctaLink";
 
 interface CTABlockProps {
   title?: string;
@@ -15,6 +15,8 @@ interface CTABlockProps {
    * "이 글의 시술, {병원}에 직접 물어보기" + /r/k-{partner} 로.
    */
   partnerSlug?: string;
+  /** Round 154 (배치 C1) — 콘텐츠 단위 클릭 귀속(/r/p{id}). 없으면 파트너 링크 폴백 */
+  contentId?: number;
   partnerName?: string;
 }
 
@@ -41,6 +43,7 @@ export function CTABlock({
   utmSource = "blog",
   utmCampaign = "blog_cta",
   partnerSlug,
+  contentId,
   partnerName,
 }: CTABlockProps) {
   /*
@@ -49,7 +52,7 @@ export function CTABlock({
    *   B2B 카피는 자사(위서클 인사이트) 글에만.
    */
   const isPartner = Boolean(partnerSlug);
-  const kakao = isPartner ? kakaoTrackHref(partnerSlug) : kakaoTrackHrefSelf();
+  const kakao = isPartner ? kakaoTrackHrefContent(contentId, partnerSlug) : kakaoTrackHrefSelf();
   const heading =
     title ?? (isPartner ? "이 글의 시술, 궁금한 점이 있다면." : "더 자세한 상담이 필요하다면.");
   const desc =

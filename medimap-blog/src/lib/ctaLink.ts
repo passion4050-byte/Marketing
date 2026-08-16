@@ -37,6 +37,25 @@ export function kakaoTrackHrefSelf(): string {
 }
 
 /**
+ * Round 154 (배치 C1) — 콘텐츠 단위 클릭 귀속.
+ * 기존 k-{partner} 는 파트너 단위라 "어느 글이 클릭을 만들었나"를 알 수 없었음
+ * (자동 루프의 성공 신호 최소 단위가 콘텐츠라 측정이 성립 안 함 — 감사 #8).
+ * slug 규칙: `p{content_id}` — 결정적. shortlinks 행은 발행 시 자동 발급 + 기존분 백필.
+ * 행이 없으면 /r 라우트가 404 대신 파트너 링크로 못 넘기므로, 호출부에서
+ * contentId 없을 때만 파트너 폴백을 쓰는 게 아니라 **행 존재가 보장된 경우에만**
+ * 사용해야 함 — 백필+발행훅으로 published 전량 보장됨.
+ */
+export function kakaoTrackHrefContent(
+  contentId?: number | null,
+  partnerSlug?: string | null,
+): string {
+  if (contentId && Number.isFinite(contentId) && contentId > 0) {
+    return `/r/p${contentId}`;
+  }
+  return kakaoTrackHref(partnerSlug);
+}
+
+/**
  * 추적 링크는 같은 도메인 경유라 target="_blank" 를 쓰면 중간 탭이 열린다.
  * `/r/*` 가 302 로 카카오로 넘기므로 새 탭 자체는 유지하되 rel 은 유지.
  */

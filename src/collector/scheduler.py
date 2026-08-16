@@ -669,6 +669,20 @@ def _generate_draft(
                     ),
                     {"slug": _make_slug(keyword, obj.id, lang), "id": obj.id},
                 )
+                # Round 154 (배치 C1) — 콘텐츠 단위 클릭 귀속 shortlink 자동 발급.
+                #   slug 'p{id}' 결정적 · target=위서클 오픈채팅. CTA 렌더
+                #   (kakaoTrackHrefContent)가 이 행의 존재를 전제한다.
+                s.execute(
+                    _sql_slug(
+                        "INSERT INTO shortlinks "
+                        "(tenant_id, slug, target_url, label, is_active, click_count, created_at, updated_at) "
+                        "SELECT gc.tenant_id, 'p' || gc.id, "
+                        "'https://open.kakao.com/o/spyAz9Bi', 'content-kakao', true, 0, now(), now() "
+                        "FROM generated_contents gc WHERE gc.id = :id "
+                        "ON CONFLICT (slug) DO NOTHING"
+                    ),
+                    {"id": obj.id},
+                )
                 # Round 153 (2026-08-16) — 드래프트 제목("키워드 #id") 발행 차단.
                 #   포털 감사 실사고: 23편이 내부 명명 그대로 노출. 발행 시 본문 첫
                 #   h1(→h2) 텍스트로 교정. 헤딩이 없으면 렌더단(posts.ts) 폴백이 커버.

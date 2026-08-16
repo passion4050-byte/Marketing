@@ -75,8 +75,89 @@ def _count_citations(session, slug: str | None) -> int:
     return int(row[0]) if row and row[0] is not None else 0
 
 
+def _count_clicks(session, content_id) -> int:
+    """Round 154 (배치 C2) — 변형 콘텐츠의 상담 클릭 수 (콘텐츠 shortlink 'p{id}').
+
+    인용만으로는 표본이 희소해 A/B 가 수개월 무승부로 남는다(실측: 3연속 무효).
+    클릭은 실제 전환 신호이자 훨씬 조기 관측 가능 — 판정 점수에 결합한다.
+    """
+    if not content_id:
+        return 0
+    row = session.execute(
+        text(
+            "SELECT count(*) FROM shortlink_clicks sc "
+            "JOIN shortlinks sl ON sl.id = sc.shortlink_id "
+            "WHERE sl.slug = :slug "
+            "AND sc.clicked_at >= now() - make_interval(days => :days)"
+        ),
+        {"slug": f"p{content_id}", "days": LOOKBACK_DAYS},
+    ).fetchone()
+    return int(row[0]) if row and row[0] is not None else 0
+
+
+def _archive_winner_pattern(session, test_id: int, content_id) -> bool:
+    """Round 154 (배치 C5) — 승자 변형의 구조 패턴을 learned_insights 에 적립.
+
+    concluded 되는 순간 승자 body 의 구조(H2/단어/표/리스트)를 스냅샷해
+    같은 진료과 신규 생성 프롬프트에 자동 주입(applied=true — 로더가 즉시 소비).
+    중복 방지: 같은 test_id 로 이미 적립돼 있으면 skip.
+    """
+    import re as _re
+
+    if not content_id:
+        return False
+    dup = session.execute(
+        text("SELECT 1 FROM learned_insights WHERE notes LIKE :pat LIMIT 1"),
+        {"pat": f"AB_WINNER test={test_id}%"},
+    ).fetchone()
+    if dup:
+        return False
+    row = session.execute(
+        text(
+            "SELECT gc.body, gc.keyword_text, gc.slug, t.domain_category "
+            "FROM generated_contents gc LEFT JOIN tenants t ON t.id = gc.tenant_id "
+            "WHERE gc.id = :id"
+        ),
+        {"id": content_id},
+    ).fetchone()
+    if not row or not row[0]:
+        return False
+    body, keyword, slug, category = row[0], row[1] or "", row[2] or "", (row[3] or "").strip()
+    if not category:
+        return False  # category 없으면 주입 안 함 (Round 146 null 오염 규약)
+    plain = _re.sub(r"<[^>]+>", " ", body)
+    patterns = {
+        "h2_count": len(_re.findall(r"<h2[\s>]", body, _re.IGNORECASE)),
+        "word_count": len(plain.split()),
+        "table_count": len(_re.findall(r"<table[\s>]", body, _re.IGNORECASE)),
+        "ul_ol_count": len(_re.findall(r"<[uo]l[\s>]", body, _re.IGNORECASE)),
+        "image_count": len(_re.findall(r"<img[\s>]", body, _re.IGNORECASE)),
+    }
+    import json as _json
+
+    session.execute(
+        text(
+            "INSERT INTO learned_insights "
+            "(source_url, source_domain, source_tier, domain_category, keyword, patterns, "
+            " diagnosis, recommendations, notes, applied, applied_at) "
+            "VALUES (:url, 'wecircle.co.kr', 'AB_WINNER', :cat, :kw, cast(:pat AS jsonb), "
+            " :diag, :rec, :notes, true, now())"
+        ),
+        {
+            "url": f"https://wecircle.co.kr/blog/{slug}",
+            "cat": category,
+            "kw": keyword[:120],
+            "pat": _json.dumps({"scope": "ab_winner", "per_url": [patterns]}),
+            "diag": "A/B 테스트 승자 변형 — 인용+클릭 결합 점수 우세. 구조를 동일 진료과에 재적용.",
+            "rec": "✅ 승자 구조 반복 적용 (A/B 실측 검증됨)",
+            "notes": f"AB_WINNER test={test_id} content={content_id}",
+        },
+    )
+    return True
+
+
 def analyze(session_factory) -> dict:
-    summary = {"tests": 0, "concluded": 0, "details": []}
+    summary = {"tests": 0, "concluded": 0, "winner_archived": 0, "details": []}
     with session_factory() as s:
         tests = s.execute(
             text(
@@ -91,33 +172,56 @@ def analyze(session_factory) -> dict:
             b_slug = _slug(s, b_id)
             a_cit = _count_citations(s, a_slug)
             b_cit = _count_citations(s, b_slug)
+            # Round 154 (배치 C2) — 클릭 결합 점수: score = 인용 + 클릭.
+            #   두 신호 모두 '성공'이며 클릭이 조기 신호. 임계값은 기존 유지.
+            a_clk = _count_clicks(s, a_id)
+            b_clk = _count_clicks(s, b_id)
+            a_score = a_cit + a_clk
+            b_score = b_cit + b_clk
 
             winner: str | None = None
             status = "running"
-            total = a_cit + b_cit
+            total = a_score + b_score
             if total >= MIN_TOTAL_CITATIONS:
-                if a_cit > b_cit and a_cit >= b_cit * WIN_RATIO:
+                if a_score > b_score and a_score >= b_score * WIN_RATIO:
                     winner, status = "A", "concluded"
-                elif b_cit > a_cit and b_cit >= a_cit * WIN_RATIO:
+                elif b_score > a_score and b_score >= a_score * WIN_RATIO:
                     winner, status = "B", "concluded"
 
             s.execute(
                 text(
                     "UPDATE ab_tests SET "
                     "variant_a_citations = :a, variant_b_citations = :b, "
+                    "variant_a_clicks = :ac, variant_b_clicks = :bc, "
                     "last_measured_at = now(), status = :st, winner = :w, "
                     "concluded_at = CASE WHEN :st = 'concluded' THEN now() ELSE concluded_at END "
                     "WHERE id = :id"
                 ),
-                {"a": a_cit, "b": b_cit, "st": status, "w": winner, "id": tid},
+                {
+                    "a": a_cit, "b": b_cit, "ac": a_clk, "bc": b_clk,
+                    "st": status, "w": winner, "id": tid,
+                },
             )
+            # Round 154 (배치 C5) — 승자 패턴 적립 (같은 트랜잭션)
+            if status == "concluded" and winner:
+                win_id = a_id if winner == "A" else b_id
+                try:
+                    if _archive_winner_pattern(s, tid, win_id):
+                        summary["winner_archived"] += 1
+                except Exception as e:  # noqa: BLE001
+                    print(f"WARN winner archive 실패 test={tid}: {e}", file=sys.stderr)
             s.commit()
 
         summary["tests"] += 1
         if status == "concluded":
             summary["concluded"] += 1
         summary["details"].append(
-            {"test_id": tid, "a_citations": a_cit, "b_citations": b_cit, "winner": winner}
+            {
+                "test_id": tid,
+                "a_citations": a_cit, "b_citations": b_cit,
+                "a_clicks": a_clk, "b_clicks": b_clk,
+                "winner": winner,
+            }
         )
     return summary
 

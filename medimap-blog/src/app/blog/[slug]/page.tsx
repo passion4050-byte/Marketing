@@ -352,6 +352,7 @@ export default async function BlogPostPage({
               {/* Round 146 (A2) — 파트너 글이면 환자 CTA + 그 병원 추적 링크.
                   자사(위서클 인사이트) 글만 기존 B2B 카피 유지. */}
               <CTABlock
+                contentId={post.contentId}
                 utmSource="blog"
                 utmCampaign={`blog_${post.slug}`}
                 partnerSlug={post.partnerSlug}

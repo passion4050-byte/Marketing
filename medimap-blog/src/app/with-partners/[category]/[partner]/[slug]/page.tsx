@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCategoryMeta, getPartnerPost, getPartnerPostsByPartner } from "@/lib/partners";
 import { siteConfig, absoluteUrl } from "@/lib/site";
-import { kakaoTrackHref, TRACK_LINK_REL } from "@/lib/ctaLink";
+import { kakaoTrackHrefContent, TRACK_LINK_REL } from "@/lib/ctaLink";
 // Round 129 (2026-07-05) — SEO: 파트너 글 BreadcrumbList (3단 경로 구조화)
 import { JsonLd } from "@/components/JsonLd";
 import { breadcrumbLd, faqPageLd } from "@/lib/schema";
@@ -196,7 +196,7 @@ export default async function PartnerPostPage({ params }: PageProps) {
             /r/k-{partner_slug} → shortlink_clicks 적재 → 302 로 카카오 이동.
           */}
           <a
-            href={kakaoTrackHref(post.partner_slug ?? partner)}
+            href={kakaoTrackHrefContent(post.id, post.partner_slug ?? partner)}
             target="_blank"
             rel={TRACK_LINK_REL}
             className="group inline-flex items-center justify-between gap-4 border border-stone-900 bg-stone-900 px-6 py-5 text-white transition hover:bg-stone-800"

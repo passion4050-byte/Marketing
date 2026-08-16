@@ -122,10 +122,84 @@ export async function POST(req: NextRequest) {
   );
 
   // 4. 인용 횟수 상위 topN 선택
-  const candidates = Array.from(urlAgg.values())
+  type Cand = {
+    url: string;
+    domain: string;
+    count: number;
+    keywords: Set<string>;
+    dates: string[];
+    /** Round 154 (배치 C3) — 성공 신호 종류: 'citation' | 'click' */
+    signal?: string;
+  };
+  const candidates: Cand[] = Array.from(urlAgg.values())
     .filter((e) => e.count >= minCitations && !recentUrls.has(e.url))
     .sort((a, b) => b.count - a.count)
-    .slice(0, topN);
+    .slice(0, topN)
+    .map((e) => ({ ...e, signal: 'citation' }));
+
+  // Round 154 (배치 C3) — 클릭 신호 후보. 인용은 희소·후행이라 학습 루프가
+  // 수 주간 굶는다. 상담 클릭(콘텐츠 shortlink 'p{id}')이 2회 이상인 콘텐츠는
+  // "실제 전환을 만든 구조"이므로 학습 후보에 결합한다 (상위 3, 중복 제외).
+  try {
+    const { data: clickRows } = await sb
+      .from('shortlink_clicks')
+      .select('shortlink_id, clicked_at, shortlinks(slug)')
+      .gte('clicked_at', since)
+      .limit(5000);
+    const clickAgg = new Map<number, { count: number; dates: string[] }>();
+    for (const c of (clickRows ?? []) as unknown as Array<{
+      clicked_at: string;
+      shortlinks: { slug?: string | null } | Array<{ slug?: string | null }> | null;
+    }>) {
+      const slug = (Array.isArray(c.shortlinks) ? c.shortlinks[0]?.slug : c.shortlinks?.slug) ?? '';
+      const m = slug.match(/^p(\d+)$/);
+      if (!m) continue;
+      const cid = Number(m[1]);
+      const e = clickAgg.get(cid) ?? { count: 0, dates: [] };
+      e.count++;
+      e.dates.push((c.clicked_at ?? '').slice(0, 10));
+      clickAgg.set(cid, e);
+    }
+    const topClickIds = [...clickAgg.entries()]
+      .filter(([, v]) => v.count >= 2)
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 3)
+      .map(([id]) => id);
+    if (topClickIds.length > 0) {
+      const { data: ccRows } = await sb
+        .from('generated_contents')
+        .select('id, slug, keyword_text, is_partner_content, partner_category, tenants(partner_slug)')
+        .in('id', topClickIds)
+        .eq('status', 'published');
+      for (const row of (ccRows ?? []) as unknown as Array<{
+        id: number;
+        slug: string | null;
+        keyword_text: string | null;
+        is_partner_content: boolean | null;
+        partner_category: string | null;
+        tenants: { partner_slug?: string | null } | Array<{ partner_slug?: string | null }> | null;
+      }>) {
+        if (!row.slug) continue;
+        const ps = Array.isArray(row.tenants) ? row.tenants[0]?.partner_slug : row.tenants?.partner_slug;
+        const url =
+          row.is_partner_content && row.partner_category && ps
+            ? `https://wecircle.co.kr/with-partners/${row.partner_category}/${ps}/${row.slug}`
+            : `https://wecircle.co.kr/blog/${row.slug}`;
+        if (recentUrls.has(url) || candidates.some((c) => c.url === url)) continue;
+        const agg = clickAgg.get(row.id)!;
+        candidates.push({
+          url,
+          domain: 'wecircle.co.kr',
+          count: agg.count,
+          keywords: new Set(row.keyword_text ? [row.keyword_text] : []),
+          dates: agg.dates,
+          signal: 'click',
+        });
+      }
+    }
+  } catch {
+    // 클릭 후보 실패는 학습 자체를 막지 않음
+  }
 
   /*
    * 🔴 Round 146 — domain_category 채움 준비.
@@ -213,10 +287,13 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 성공 패턴 요약 생성
+      // 성공 패턴 요약 생성 (Round 154 — 신호 종류별 문구 분기)
       const keywordList = Array.from(cand.keywords).join(', ') || '(키워드 미확인)';
       const latestDate = [...new Set(cand.dates)].sort().reverse()[0] ?? '날짜 미상';
-      const notes = `자동학습(자사 인용) — 최근 ${days}일 ${cand.count}회 AI 인용된 위서클 콘텐츠. 키워드: ${keywordList}. 최근 인용: ${latestDate}.`;
+      const isClick = cand.signal === 'click';
+      const notes = isClick
+        ? `자동학습(상담 클릭) — 최근 ${days}일 상담 클릭 ${cand.count}회를 만든 위서클 콘텐츠. 키워드: ${keywordList}. 최근 클릭: ${latestDate}.`
+        : `자동학습(자사 인용) — 최근 ${days}일 ${cand.count}회 AI 인용된 위서클 콘텐츠. 키워드: ${keywordList}. 최근 인용: ${latestDate}.`;
 
       // 성공 패턴 권장사항 자동 구성
       const recommendations = [
@@ -249,7 +326,9 @@ export async function POST(req: NextRequest) {
             citation_count: cand.count,
             citation_keywords: Array.from(cand.keywords),
           },
-          diagnosis: `위서클 자사 콘텐츠가 AI 에 ${cand.count}회 실제 인용됨 (최근 ${days}일). 키워드: ${keywordList}. 이 콘텐츠의 구조적 특징을 동일 카테고리 신규 콘텐츠에 재적용한다.`,
+          diagnosis: isClick
+            ? `위서클 콘텐츠가 상담 클릭 ${cand.count}회를 실제로 만들어냄 (최근 ${days}일). 키워드: ${keywordList}. 전환을 만든 구조를 동일 카테고리 신규 콘텐츠에 재적용한다.`
+            : `위서클 자사 콘텐츠가 AI 에 ${cand.count}회 실제 인용됨 (최근 ${days}일). 키워드: ${keywordList}. 이 콘텐츠의 구조적 특징을 동일 카테고리 신규 콘텐츠에 재적용한다.`,
           recommendations,
           notes,
           applied: true,   // 즉시 Python 생성기에 반영

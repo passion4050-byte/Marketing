@@ -119,6 +119,8 @@ export interface PostMeta {
    * 자사/self = 기존 B2B. self(wecircle-self)·mdx 글은 undefined.
    */
   partnerSlug?: string;
+  /** Round 154 — 콘텐츠 단위 클릭 귀속 shortlink(/r/p{id})용 DB id (DB 발행글만) */
+  contentId?: number;
 }
 
 export interface Post extends PostMeta {
@@ -389,6 +391,8 @@ function dbRowToPostMeta(row: DbPostRow): PostMeta {
       row.partner_slug && row.partner_slug.trim() && row.partner_slug !== "wecircle-self"
         ? row.partner_slug.trim()
         : undefined,
+    // Round 154 (배치 C1) — 콘텐츠 단위 클릭 귀속용 DB id
+    contentId: row.id,
     readingMinutes: readingTimeMinutes(stripHtml(row.body)),
     source_type: "html",
     blogCategory: blogCategorySlug,

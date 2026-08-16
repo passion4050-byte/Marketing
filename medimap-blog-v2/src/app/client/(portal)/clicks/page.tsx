@@ -21,19 +21,51 @@ export default async function ClientClicksPage() {
   if (!session || !sb) return null;
 
   const since = new Date(Date.now() - 30 * 86400_000).toISOString();
+  // Round 154 (배치 C1 · 감사 P1-8) — shortlink slug('p{content_id}') 파싱으로
+  // "어느 글에서 눌렸는지" 귀속. 구 k-{partner} 클릭은 글 미상으로 표기.
   const { data } = await sb
     .from('shortlink_clicks')
-    .select('clicked_at, country, referer')
+    .select('clicked_at, country, referer, shortlinks(slug)')
     .eq('tenant_id', session.tenantId)
     .gte('clicked_at', since)
     .order('clicked_at', { ascending: false })
     .limit(200);
 
-  const rows = (data ?? []) as Array<{
+  type ClickRow = {
     clicked_at: string | null;
     country: string | null;
     referer: string | null;
-  }>;
+    shortlinks: { slug?: string | null } | Array<{ slug?: string | null }> | null;
+  };
+  const raw = (data ?? []) as unknown as ClickRow[];
+  const contentIds = new Set<number>();
+  const slugOf = (r: ClickRow) => {
+    const s = Array.isArray(r.shortlinks) ? r.shortlinks[0]?.slug : r.shortlinks?.slug;
+    return (s ?? '').trim();
+  };
+  for (const r of raw) {
+    const m = slugOf(r).match(/^p(\d+)$/);
+    if (m) contentIds.add(Number(m[1]));
+  }
+  const titleById = new Map<number, string>();
+  if (contentIds.size > 0) {
+    const { data: titles } = await sb
+      .from('generated_contents')
+      .select('id, title')
+      .in('id', [...contentIds].slice(0, 200));
+    for (const t of (titles ?? []) as Array<{ id: number; title: string | null }>) {
+      if (t.title) titleById.set(t.id, t.title);
+    }
+  }
+  const rows = raw.map((r) => {
+    const m = slugOf(r).match(/^p(\d+)$/);
+    return {
+      clicked_at: r.clicked_at,
+      country: r.country,
+      referer: r.referer,
+      contentTitle: m ? titleById.get(Number(m[1])) ?? null : null,
+    };
+  });
 
   return (
     <div>
@@ -59,6 +91,7 @@ export default async function ClientClicksPage() {
             <thead>
               <tr className="border-b border-stone-200 text-left text-xs text-stone-500">
                 <th className="px-4 py-2.5 font-medium">시각</th>
+                <th className="px-4 py-2.5 font-medium">글</th>
                 <th className="px-4 py-2.5 font-medium">국가</th>
                 <th className="px-4 py-2.5 font-medium">유입 경로</th>
               </tr>
@@ -67,6 +100,9 @@ export default async function ClientClicksPage() {
               {rows.map((c, i) => (
                 <tr key={i} className="border-b border-stone-100 last:border-0">
                   <td className="px-4 py-2.5 tabular-nums text-stone-700">{fmtDateTime(c.clicked_at)}</td>
+                  <td className="max-w-[280px] truncate px-4 py-2.5 text-stone-700">
+                    {c.contentTitle ?? <span className="text-stone-400">글 미상 (구 링크)</span>}
+                  </td>
                   <td className="px-4 py-2.5 text-stone-600">{c.country ?? '—'}</td>
                   <td className="max-w-[360px] truncate px-4 py-2.5 text-stone-500">
                     {(() => {
