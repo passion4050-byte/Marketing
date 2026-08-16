@@ -12,7 +12,7 @@ import { useState } from 'react';
 import { ChevronDown, Lock, X } from 'lucide-react';
 import type { ScanReport, ScanItem } from '@/lib/scanner/scan';
 
-const KAKAO = 'https://open.kakao.com/o/spyAz9Bi';
+const KAKAO = 'https://pf.kakao.com/_xouLiX/chat';
 
 const GRADE_COLOR: Record<string, string> = {
   A: 'text-emerald-600', B: 'text-brand', C: 'text-amber-500', D: 'text-rose-500'

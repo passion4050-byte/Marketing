@@ -19,7 +19,8 @@ export const siteConfig = {
     // 🔴 Round 151 (2026-08-15) — pf.kakao.com/_xnWQkG 는 **전 직장(메디맵) 채널**로
     //   위서클과 무관 (사용자 실사고 신고). 위서클 정본 = 오픈채팅.
     //   /r/k-* 숏링크 target 15행도 DB 에서 동기 교체 완료. 카카오 CTA 는 전부 이 링크.
-    kakao: "https://open.kakao.com/o/spyAz9Bi",
+    // Round 159 — 신규 비즈니스채널 (구 오픈채팅 open.kakao.com/o/spyAz9Bi 에서 이전)
+    kakao: "https://pf.kakao.com/_xouLiX/chat",
     // 해외(en/ja/zh)용 상담 채널.
     // 🔴 Round 146 — fallback 이 placeholder(https://line.me/)라서 env 미주입/ISR 스테일
     //   경로에서 **죽은 링크가 라이브에 노출**됐음(contact ×3 실측). fallback 자체를

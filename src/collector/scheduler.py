@@ -707,7 +707,7 @@ def _generate_draft(
                         "INSERT INTO shortlinks "
                         "(tenant_id, slug, target_url, label, is_active, click_count, created_at, updated_at) "
                         "SELECT gc.tenant_id, 'p' || gc.id, "
-                        "'https://open.kakao.com/o/spyAz9Bi', 'content-kakao', true, 0, now(), now() "
+                        "'https://pf.kakao.com/_xouLiX/chat', 'content-kakao', true, 0, now(), now() "
                         "FROM generated_contents gc WHERE gc.id = :id "
                         "ON CONFLICT (slug) DO NOTHING"
                     ),

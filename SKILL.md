@@ -5575,3 +5575,38 @@ self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 3
 - 본문 이미지 백필 완주 확인 + 표본 검수. Magazine B 2단계 잔여. E-E-A-T 표기.
 - 대기 사용자 액션: Anthropic 크레딧, LINE 공식계정, 파트너 실명 동의.
 
+
+# Round 156~158 (2026-08-16) — GA4/GSC 유입 실측 스택 완성 · "문의 0" 병목 확정 · 레버 자동화
+
+## Round 156 — GA4/GSC 연결 (유입 절대량 미지수 해소)
+- 🔴 **리포 구조 오진 교훈**: "wecircle에 GA4 없다"는 v2만 grep한 오진 — **블로그(wecircle.co.kr)=`medimap-blog`(v1, GA4 가동 중), SaaS 콘솔=`medimap-blog-v2`**. 진단 전 두 리포 모두 확인.
+- GA4 = Phase 8 속성 "GEO 컨텐츠 블로그" **재사용** (property **535901659**, 5월부터 데이터 누적). SA 도 Phase 8 `geo-644@project-95f4c8e9-...` 재사용(새 JSON 키만 발급 — 키는 재다운로드 불가).
+- 🔴 **GSC 는 URL 접두어 속성 `https://wecircle.co.kr/`** — `sc-domain:` 으로 호출 시 403. repo Variable `GSC_SITE_URL` 로 주입 (workflow 가 vars 우선).
+- DB 4테이블(gsc_daily·gsc_query_daily·ga4_daily·ga4_source_daily, RLS on 정책 없음) + `scripts/fetch_search_traffic.py`(upsert 멱등·BACKFILL_DAYS) + `search-traffic-sync.yml` 매일 07:30 KST. 480일 백필 실측: gsc 185행/38일(7/5~), ga4 647행/71일(5/4~).
+- geo-v2 layout.tsx 에 env 게이트 GA4 태그(`NEXT_PUBLIC_GA4_ID` 미설정 시 no-op — 콘솔용, 블로그는 기존 태그).
+- 사용자 PC PowerShell 5.1 은 `&&` 미지원 — git 명령은 줄 분리로 안내.
+
+## Round 157 — /admin/traffic 유입 분석 대시보드
+- 집계는 SQL RPC `traffic_*` 5종 (supabase-js **요청당 1000행 캡 + group by 불가** 회피), 귀속은 `src/lib/traffic.ts` (풀URL→path decode→마지막 세그먼트 slug 매칭·언어 프리픽스로 변형 구분·with-partners 3세그=partner_slug 폴백).
+- 병원별·검색어별(측정 키워드 매칭 "측정중" 배지)·콘텐츠별·소스별 + 90일 추이(recharts).
+- **🔴 유입 병목 확정 (Round 155 최종 답)**: GSC 38일 노출 245·클릭 4. GA4 세션 331 중 direct 250+vercel 45+GSC콘솔 19 = 내부·개발 → **실질 외부 ≈17세션/71일, AI referral 0**. 문의 0 = 유입 절대량의 산술적 귀결. 레버 = dear clinic 7.0위·이마 라인 교정 18.8위·부산 밝은눈안과 18.9위.
+
+## Round 158 — 고도화 + 병원 포털 + 3일 주기 자동화
+- 어드민: KPI "실질 외부 세션"(내부 소스 분리 `isInternalSource`), **순위 레버 섹션**(4~20위&노출3+), 소스 표 AI/내부 배지, funnel→traffic 링크.
+- **/client/traffic** (병원 포털 3번째 메뉴): 병원 관점 3분류 ① 우리 병원을 찾아본 검색(브랜드 alias) ② 시술 수요 검색("1페이지 임박" 배지) ③ 우리 콘텐츠 방문 + "이 숫자 이렇게 읽으세요" 기대 카피. alias 는 GENERIC_TOKENS(진료과·지역명) 제외 — **TS(traffic.ts)·py(analyze_rank_levers.py) 양쪽 동기 유지** (Round 153 오염 방지).
+- **`rank-lever-analysis.yml` 3일마다 08:00 KST**: 레버 검출 → ①입점 매칭 시 keywords 자동 시딩(같은 tenant donor 키워드에서 category/target_brand/market/lang 상속) ②기커버는 rank_lever_log 기록만 ③미입점 수요는 **passion4050@gmail.com Resend 이메일**(14일 재알림 억제). DRY_RUN 지원. secret RESEND_API_KEY.
+- 첫 실행 실측: covered 2(부산 밝은눈·dear clinic) + emailed 1(**이마 라인 교정** — 모아름 "헤어라인교정"과 의미 유사하나 표기 달라 어휘 매칭 미통과 → 사람 판단으로 넘긴 설계 의도대로 동작).
+- 페르소나 감사(병원 실무자·운영자, 코드+실데이터): 11건 발견·9건 반영(내부 트래픽 착시, 모바일 표 스크롤, 시술 검색어 소유 표현 정정 등). 산출물 `위서클_유입분석감사_260816.html`. 실브라우저 라운드는 Chrome 확장 Connect 시간초과로 보류.
+
+## 다음 라운드 후보 (158 이후)
+- 실브라우저 E2E 라운드: /client/traffic 병원 실계정 검수 + /admin/traffic 실화면.
+- 레버 시맨틱 매칭 보강 (이마 라인↔헤어라인 같은 유사어 — LLM 1콜 분류 검토).
+- GA4 데이터 스트림 URL 표기 정리(medimap-blog-phi→wecircle.co.kr) + GA4↔GSC 계정 연결(권장 카드).
+- 포털 추이 스파크라인 · mentions 스니펫 strip 잔여 · 보고서 stone 톤 · 본문 이미지 백필 잔여 1편(id 42) · E-E-A-T 표기.
+- 판정: 2주 뒤 주간 shortlink 클릭 46 유지 + GSC 클릭 추이 (traffic 대시보드로 상시 확인 가능).
+
+# Round 159 (2026-08-16) — 카카오 정본 교체: 신규 비즈니스채널 pf.kakao.com/_xouLiX/chat
+- 구 정본 오픈채팅(open.kakao.com/o/spyAz9Bi) → **신규 카카오 비즈니스채널 https://pf.kakao.com/_xouLiX/chat** 전량 이전. (🔴 '_xnWQkG' 는 여전히 前직장 채널 — 절대 사용 금지, 잔존 0 확인.)
+- 교체 지점 전수: ①DB shortlinks 257행 target_url (즉시 라이브 — /r/ 라우트가 DB 조회, 재배포 불필요. /r/k-wecircle-self 302 실측 확인) ②v1 site.ts contact.kakao ③v2 admin login·scanner 페이지·scanner lead API ④domain-classifier MEDIMAP_KAKAO_PATHS=['_xouLiX'] — 자사 채널 인용을 T1 로 분류 (오픈채팅 시절엔 T1 대상 아니었음 → pf.kakao 는 path 매칭으로 T1 가능해짐) ⑤python cta_templates 기본값·scheduler INSERT 기본값.
+- 🔴 함정: 문자열 치환 시 **트레일링 콤마 뒤에 // 주석이 붙으면 콤마가 주석에 삼켜져 구문 깨짐** — site.ts 실사고, 주석은 별도 줄로. 치환 후 반드시 tsc/구문 검증.
+- http:// 로 받은 URL 은 https:// 로 통일 (혼합 콘텐츠 방지).

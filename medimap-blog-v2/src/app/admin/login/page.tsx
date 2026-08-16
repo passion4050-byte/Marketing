@@ -6,7 +6,8 @@ import { ArrowRight, BarChart3, ExternalLink, Lock, MessageSquare, ShieldCheck, 
 import { showToast } from '@/lib/clientActions';
 
 // Round 151 — 옛 메디맵 채널(_xnWQkG) 제거, 위서클 오픈채팅으로.
-const KAKAO_CHANNEL = 'https://open.kakao.com/o/spyAz9Bi';
+// Round 159 — 카카오 정본 = 신규 비즈니스채널 (구 오픈채팅에서 이전)
+const KAKAO_CHANNEL = 'https://pf.kakao.com/_xouLiX/chat';
 
 export default function AdminLoginPage() {
   const router = useRouter();
