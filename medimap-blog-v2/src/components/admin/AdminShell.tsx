@@ -20,6 +20,7 @@ import {
   LogOut,
   Menu,
   Plug,
+  BarChart3,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -73,6 +74,7 @@ const NAV: NavGroup[] = [
     { href: '/admin/citations', label: 'AI 인용 추적', icon: Zap, hint: '실제 출처 인용 (북극성)' },
     { href: '/admin/reports', label: '월간 보고서', icon: FileText, hint: '클라이언트 발송' },
     { href: '/admin/funnel', label: '유입 · 전환', icon: LinkIcon, hint: '발행 → 언급 → 클릭' },
+    { href: '/admin/traffic', label: '유입 분석', icon: BarChart3, hint: 'GSC · GA4 실측 (병원·검색어·콘텐츠)' },
   ]},
   { group: '클라이언트', items: [
     { href: '/admin/tenants', label: '클라이언트 목록', icon: Users, hint: '등록 · 요금 · 상태' },
