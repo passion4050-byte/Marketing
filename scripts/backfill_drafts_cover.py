@@ -56,7 +56,7 @@ def main(self_only: bool = False, dry_run: bool = False) -> int:
                t.business_model, t.partner_slug
         FROM generated_contents gc
         JOIN tenants t ON t.id = gc.tenant_id
-        WHERE gc.status = 'draft'
+        WHERE gc.status IN ('draft', 'published')  -- Round 163c: 커버 없는 발행글도 백필
           AND (gc.cover_image_url IS NULL OR gc.cover_image_url = '')
           AND gc.channel = 'blog_html'
           {where_self}

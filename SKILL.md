@@ -5711,3 +5711,18 @@ self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 3
   domain-context(테넌트 스코프 소량), content-queue/calendar/audit(명시 limit 소량), nav-badges(count head),
   partner-leaderboard(RPC 기사용), reportMetrics(테넌트×월 스코프 — 당분간 캡 미달, 주시 대상).
 - 규약: 대량 원본 행 수집은 fetchAllRows 필수, 핫패스(대시보드 초기 로드)는 RPC jsonb 단일값 우선.
+
+# Round 163c (2026-08-17) — 전 클라이언트 자동발행 전환 + 검수 대기 5건 처리
+
+- 사용자 결정: "모든 클라이언트 콘텐츠 자동발행". auto_content_settings 실측 결과 대부분 이미
+  auto_publish=true — 남은 청담디어(17)·광동(20, channels null 도 보정) ON. **위서클 자사(12)는 유지**
+  (자사 인사이트는 클라이언트 아님 — 원하면 별도 결정).
+- 검수 대기 6건의 정체: BGN 잠실 ko 5건(id 422~426)은 **llm_provider='manual', 동일 타임스탬프 벌크
+  INSERT** — 생성 파이프라인 밖에서 들어온 행이라 auto_publish 게이트(scheduler 내부)가 적용되지 않고
+  draft 로 남은 것. 의료법 pass·slug·파트너 필드 완비 확인 후 SQL 로 즉시 발행 (어드민 승인과 동일 효과).
+  ⚠ 출처 미상 — 다른 세션/도구의 삽입으로 추정, 사용자 확인 필요. 나머지 1건(#412 brighteye schema_org,
+  제목 '강남안과 #412')은 파이프라인 아티팩트 — 발행 부적합, 방치.
+- 썸네일 엑박 = draft 라 커버 미생성. scripts/backfill_drafts_cover.py 대상을
+  draft → draft+published(커버 NULL만) 로 확장 — "Backfill drafts cover" 워크플로를 self_only=false 로
+  수동 실행하면 방금 발행한 5건 커버 생성 + 블로그 재배포 훅.
+- 규약 재확인: 자동발행은 어디까지나 **의료법 린터 pass 게이트 뒤** — warn/fail 은 여전히 draft.
