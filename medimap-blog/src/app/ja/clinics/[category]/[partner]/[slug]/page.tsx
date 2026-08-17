@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getClinicContent, getPartnerBySlug } from "@/lib/guides";
+import { getClinicContent, getGoogleReviews, getPartnerBySlug } from "@/lib/guides";
 import { overseasAlternates } from "@/lib/hreflang";
 import { GuideArticle, type GuideLabels } from "@/components/GuideArticle";
 import { OverseasClinicSchema } from "@/components/OverseasClinicSchema";
@@ -34,15 +34,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function JaClinicDetailPage({ params }: Props) {
   const { partner, slug } = await params;
-  const [guide, clinic] = await Promise.all([
+  const [guide, clinic, gReviews] = await Promise.all([
     getClinicContent("ja", partner, slug),
     getPartnerBySlug(partner), // Round 162 — NAP 카드용
+    getGoogleReviews(partner, 2), // Round 162b — 글 상세 리뷰 인용
   ]);
   if (!guide) redirect(`/ja/guides/${slug}`);
   return (
     <>
       <OverseasClinicSchema partnerSlug={partner} lang="ja" />
-      <GuideArticle guide={guide} langPath="ja" inLang="ja" labels={JA_LABELS} clinic={clinic} />
+      <GuideArticle guide={guide} langPath="ja" inLang="ja" labels={JA_LABELS} clinic={clinic} reviews={gReviews} />
     </>
   );
 }

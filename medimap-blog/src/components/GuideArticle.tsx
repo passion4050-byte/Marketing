@@ -5,7 +5,7 @@ import { ClinicNAP } from "@/components/ClinicNAP";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { siteConfig } from "@/lib/site";
 import { waHref } from "@/lib/ctaLink";
-import type { Guide, PartnerClinicInfo } from "@/lib/guides";
+import type { Guide, GoogleReviewSnippet, PartnerClinicInfo } from "@/lib/guides";
 
 export interface GuideLabels {
   guides: string;
@@ -88,6 +88,7 @@ export function GuideArticle({
   inLang,
   labels,
   clinic,
+  reviews,
 }: {
   guide: Guide;
   langPath: string;
@@ -95,6 +96,8 @@ export function GuideArticle({
   labels: GuideLabels;
   /** Round 162 — 파트너 콘텐츠일 때 병원 NAP 카드(지도 축) 렌더용. */
   clinic?: PartnerClinicInfo | null;
+  /** Round 162b — 구글 리뷰 스니펫: 글 상세에도 실리뷰 인용 (사용자 지시). */
+  reviews?: GoogleReviewSnippet[];
 }) {
   const base = `${siteConfig.url}/${langPath}/guides/${guide.slug}`;
   const pc = PATIENT_COPY[langPath] ?? PATIENT_COPY.en;
@@ -205,6 +208,7 @@ export function GuideArticle({
         <ClinicNAP
           lang={(["en", "ja", "zh", "tw"].includes(langPath) ? langPath : "en") as "en" | "ja" | "zh" | "tw"}
           clinic={clinic}
+          reviews={reviews}
         />
       ) : null}
 
