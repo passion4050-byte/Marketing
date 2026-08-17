@@ -17,6 +17,15 @@
  *   - selected_tenant: 선택된 tenant 정보
  *   - keyword_breakdown: 키워드별 mention/source 통계
  *   - competitor_breakdown: 도메인별 + 인용된 키워드 top 3
+ *
+ * Round 163 (2026-08-17) — 성능·정합성 재수술.
+ *   기존: mentions/queries/responses 원본 행을 supabase-js 로 8회 순차 왕복 후 JS 집계.
+ *   실측 30일 = queries 3,949행 · responses 1,840행(source_domains 3.6MB)
+ *   → 🔴 supabase-js 1,000행 캡으로 집계가 조용히 잘려 있었음 (느림 + 수치 오류).
+ *   변경: citations_dashboard(p_days, p_tenant, p_lang) RPC 단일 왕복 —
+ *   SQL 에서 조인·(일×키워드×엔진×도메인×URL) 단위 접기 후 jsonb 하나로 반환
+ *   (jsonb 단일값 = PostgREST 행 캡 미적용). tier 분류(T1~T5)는 기존
+ *   classifyDomain(JS) 유지 — cnt 가중치로 동일 집계. 응답 shape 무변경.
  */
 import { NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
@@ -25,9 +34,6 @@ import { classifyDomain, loadClassifierSets, type Tier } from '@/lib/domain-clas
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Round 37 C (2026-05-31) — 5-tier 분류 사전이 domain_classifications 테이블로 이전.
-// 하드코딩 Set + classify 함수 제거. lib/domain-classifier 의 공용 헬퍼 사용.
-
 function extractDomainFromUrl(url: string | null): string | null {
   if (!url) return null;
   try {
@@ -35,6 +41,16 @@ function extractDomainFromUrl(url: string | null): string | null {
   } catch {
     return null;
   }
+}
+
+/** RPC sources 행: [date, tenant_id, keyword_id, engine, domain, final_url, is_self, cnt] */
+type SourceRow = [string, number, number, string, string | null, string | null, boolean, number];
+
+interface CitationsRpcPayload {
+  sources: SourceRow[];
+  keywords: Record<string, string>;
+  mention_by_date: Array<[string, number]>;
+  keyword_mentions: Array<[number, number]>;
 }
 
 export async function GET(req: Request) {
@@ -50,27 +66,27 @@ export async function GET(req: Request) {
   const daysParam = url.searchParams.get('days');
   const days = daysParam ? Math.max(1, Math.min(365, Number(daysParam) || 30)) : 30;
 
-  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-  const classifierSets = await loadClassifierSets();
-
-  // 언어 스코프 (keywords.lang). scope≠all 이면 해당 lang keyword_id 집합으로
-  // ownKwQuery/queriesQuery 를 걸어 도메인·키워드·경쟁사·인용률 전 지표를 필터.
+  // 언어 스코프 (keywords.lang)
   const scopeParam = url.searchParams.get('scope') || 'all';
   const kwLang =
     scopeParam === 'ko' ? 'ko' : scopeParam === 'en' ? 'en' : scopeParam === 'ja' ? 'ja' : scopeParam === 'zh' ? 'zh-Hant' : null;
-  let langKwIds: number[] | null = null;
-  if (kwLang) {
-    const { data: lkw } = await sb.from('keywords').select('id').eq('lang', kwLang);
-    langKwIds = (lkw ?? []).map((k: { id: number }) => k.id);
-  }
 
-  // 1. 전체 tenants (selector 용)
-  // Round 36 (2026-05-31): additional_domains 도 함께 가져와 T2 분류에 사용.
-  const { data: tenantsAll } = await sb
-    .from('tenants')
-    .select('id, name, homepage, business_model, partner_slug, additional_domains')
-    .order('id');
-  const tenantsList = (tenantsAll ?? []).map(
+  // Round 163 — 병렬 3콜: 분류 사전 + tenants(selector) + RPC(전 집계 원자료)
+  const [classifierSets, tenantsRes, rpcRes] = await Promise.all([
+    loadClassifierSets(),
+    sb
+      .from('tenants')
+      .select('id, name, homepage, business_model, partner_slug, additional_domains')
+      .order('id'),
+    sb.rpc('citations_dashboard', {
+      p_days: days,
+      p_tenant: tenantIdFilter,
+      p_lang: kwLang,
+    }),
+  ]);
+
+  const tenantsAll = tenantsRes.data ?? [];
+  const tenantsList = tenantsAll.map(
     (t: { id: number; name: string; homepage: string | null; business_model: string | null; partner_slug: string | null }) => ({
       id: t.id,
       name: t.name,
@@ -79,7 +95,7 @@ export async function GET(req: Request) {
   );
   // Round 36 — tenant 별 자체 도메인 set (homepage + additional_domains 통합).
   const tenantDomainsMap = new Map<number, Set<string>>();
-  (tenantsAll ?? []).forEach(
+  tenantsAll.forEach(
     (t: { id: number; homepage: string | null; additional_domains: string[] | null }) => {
       const set = new Set<string>();
       const main = extractDomainFromUrl(t.homepage);
@@ -97,89 +113,20 @@ export async function GET(req: Request) {
     ? tenantDomainsMap.get(tenantIdFilter) ?? null
     : null;
 
-  // 2. mentions — tenant 필터. 언어 스코프 시 respRows/validQueryIds 계산 후 필터(아래).
-  let mentionsQuery = sb
-    .from('mentions')
-    .select('created_at, tenant_id, is_target, response_id')
-    .gte('created_at', cutoff)
-    .eq('is_target', true);
-  if (tenantIdFilter) {
-    mentionsQuery = mentionsQuery.eq('tenant_id', tenantIdFilter);
+  if (rpcRes.error) {
+    return NextResponse.json({ ok: false, error: rpcRes.error.message }, { status: 500 });
   }
-  const { data: mentionRows } = await mentionsQuery;
+  const payload = (rpcRes.data ?? {
+    sources: [],
+    keywords: {},
+    mention_by_date: [],
+    keyword_mentions: [],
+  }) as CitationsRpcPayload;
 
-  // Round 34 phase 2 — purpose='own' 키워드만 (자사 추적 페이지)
-  // competitor_landscape 키워드 (BGN '라식', '라섹' 등) 는 별도 /admin/competitors 페이지에서 표시.
-  let ownKwQuery = sb
-    .from('keywords')
-    .select('id, text, tenant_id')
-    .or('purpose.eq.own,purpose.is.null') // null 도 자사로 (기존 데이터 호환)
-    .eq('is_active', true);
-  if (tenantIdFilter) ownKwQuery = ownKwQuery.eq('tenant_id', tenantIdFilter);
-  if (langKwIds) ownKwQuery = ownKwQuery.in('id', langKwIds);
-  const { data: ownKeywords } = await ownKwQuery;
-  const ownKwIds = new Set(
-    (ownKeywords ?? []).map((k: { id: number }) => k.id)
+  // mention trend — RPC 일자 집계를 최근 days 축에 투영
+  const mentionByDate = new Map<string, number>(
+    (payload.mention_by_date ?? []).map(([d, cnt]) => [d, cnt])
   );
-
-  // 3. queries 의 tenant_id 매핑 (responses 의 tenant 필터링용)
-  // Round 36 fix 2 (2026-05-31) — stub engine 제외, production 측정만.
-  let queriesQuery = sb
-    .from('queries')
-    .select('id, tenant_id, keyword_id, engine')  // Round 64 — engine 추가 (드릴다운)
-    .neq('engine', 'stub')
-    .gte('requested_at', cutoff);
-  if (tenantIdFilter) {
-    queriesQuery = queriesQuery.eq('tenant_id', tenantIdFilter);
-  }
-  if (langKwIds) queriesQuery = queriesQuery.in('keyword_id', langKwIds);
-  const { data: queriesRows } = await queriesQuery;
-  const queryTenantMap = new Map<number, number>();
-  const queryKeywordMap = new Map<number, number>();
-  const queryEngineMap = new Map<number, string>();  // Round 64 — query → 엔진
-  (queriesRows ?? []).forEach((q: { id: number; tenant_id: number; keyword_id: number; engine: string }) => {
-    // own 키워드만 포함
-    if (!ownKwIds.has(q.keyword_id)) return;
-    queryTenantMap.set(q.id, q.tenant_id);
-    queryKeywordMap.set(q.id, q.keyword_id);
-    queryEngineMap.set(q.id, q.engine);
-  });
-  const validQueryIds = new Set(queryTenantMap.keys());
-
-  // 4. keywords 정보 (text 매핑)
-  const keywordIds = Array.from(new Set(Array.from(queryKeywordMap.values())));
-  const keywordTextMap = new Map<number, string>();
-  if (keywordIds.length > 0) {
-    const { data: kws } = await sb.from('keywords').select('id, text').in('id', keywordIds);
-    (kws ?? []).forEach((k: { id: number; text: string }) => {
-      keywordTextMap.set(k.id, k.text);
-    });
-  }
-
-  // 5. responses 의 source_domains — tenant 필터링 후 집계
-  const { data: respRows } = await sb
-    .from('responses')
-    .select('id, query_id, source_domains, created_at')
-    .gte('created_at', cutoff)
-    .not('source_domains', 'is', null);
-  const filteredResp = (respRows ?? []).filter(
-    (r: { query_id: number }) => validQueryIds.has(r.query_id)
-  );
-
-  // mention trend 집계 — 언어 스코프 시 respRows→query 로 lang 쿼리 소속 mention 만 카운트.
-  const respToQueryIdForTrend = new Map<number, number>();
-  (respRows ?? []).forEach((r: { id: number; query_id: number }) => {
-    respToQueryIdForTrend.set(r.id, r.query_id);
-  });
-  const mentionByDate = new Map<string, number>();
-  (mentionRows ?? []).forEach((m: { created_at: string; response_id: number | null }) => {
-    if (langKwIds) {
-      const qid = m.response_id != null ? respToQueryIdForTrend.get(m.response_id) : undefined;
-      if (qid == null || !validQueryIds.has(qid)) return;
-    }
-    const date = m.created_at.slice(0, 10);
-    mentionByDate.set(date, (mentionByDate.get(date) ?? 0) + 1);
-  });
   const today = new Date();
   const mentionTrend: Array<{ date: string; count: number }> = [];
   for (let i = days - 1; i >= 0; i--) {
@@ -188,159 +135,109 @@ export async function GET(req: Request) {
     mentionTrend.push({ date: ds.slice(5), count: mentionByDate.get(ds) ?? 0 });
   }
 
-  // 집계 변수
+  // 집계 변수 (기존 구조 유지 — cnt 가중 누적)
   const tierCount = { T1: 0, T2: 0, T3: 0, T4: 0, T5: 0 };
   const domainCount = new Map<string, { count: number; tier: Tier; keywords: Set<string> }>();
-  // Round 64 — 도메인 → 키워드별 인용 상세 (드릴다운): 키워드 → {인용수, 엔진, 콘텐츠 URL}
   const domainKwAgg = new Map<
     string,
     Map<string, { count: number; engines: Set<string>; urls: Set<string> }>
   >();
   const shareByDate = new Map<string, { total: number; t1: number }>();
-  // 키워드별 source 분포
   const keywordStats = new Map<
     number,
     { keyword: string; source_count: number; t1: number; t2: number; t5: number; mention_count: number }
   >();
-
-  filteredResp.forEach(
-    (r: {
-      id: number;
-      query_id: number;
-      source_domains: Array<{ domain: string; final_url: string | null; is_self: boolean }> | null;
-      created_at: string;
-    }) => {
-      const tenantId = queryTenantMap.get(r.query_id);
-      const keywordId = queryKeywordMap.get(r.query_id);
-      const clientDomains =
-        selectedClientDomains ?? (tenantId ? tenantDomainsMap.get(tenantId) ?? null : null);
-      const date = r.created_at.slice(0, 10);
-      if (!shareByDate.has(date)) shareByDate.set(date, { total: 0, t1: 0 });
-      const dateBucket = shareByDate.get(date)!;
-
-      const kwText = keywordId ? keywordTextMap.get(keywordId) ?? '?' : '?';
-      const engine = queryEngineMap.get(r.query_id) ?? '?';  // Round 64
-      if (keywordId && !keywordStats.has(keywordId)) {
-        keywordStats.set(keywordId, {
-          keyword: kwText,
-          source_count: 0,
-          t1: 0,
-          t2: 0,
-          t5: 0,
-          mention_count: 0,
-        });
-      }
-      const kwBucket = keywordId ? keywordStats.get(keywordId)! : null;
-
-      (r.source_domains ?? []).forEach((sd) => {
-        const tier = classifyDomain(sd.domain, sd.final_url, clientDomains, classifierSets);
-        if (tier === 'NOISE') return;
-        tierCount[tier]++;
-        const key = sd.domain;
-        if (key) {
-          const existing = domainCount.get(key);
-          if (existing) {
-            existing.count++;
-            existing.keywords.add(kwText);
-          } else {
-            domainCount.set(key, { count: 1, tier, keywords: new Set([kwText]) });
-          }
-
-          // Round 64 — 키워드별 인용 상세 누적 (드릴다운)
-          if (!domainKwAgg.has(key)) domainKwAgg.set(key, new Map());
-          const kwMap = domainKwAgg.get(key)!;
-          if (!kwMap.has(kwText)) {
-            kwMap.set(kwText, { count: 0, engines: new Set(), urls: new Set() });
-          }
-          const kwDetail = kwMap.get(kwText)!;
-          kwDetail.count++;
-          if (engine && engine !== '?') kwDetail.engines.add(engine);
-          if (sd.final_url) kwDetail.urls.add(sd.final_url);
-        }
-        dateBucket.total++;
-        if (tier === 'T1') dateBucket.t1++;
-        if (kwBucket) {
-          kwBucket.source_count++;
-          if (tier === 'T1') kwBucket.t1++;
-          if (tier === 'T2') kwBucket.t2++;
-          if (tier === 'T5') kwBucket.t5++;
-        }
-      });
-    }
-  );
-
-  // mention 카운트 — 키워드별 (queries → mentions JOIN)
-  if (mentionRows && validQueryIds.size > 0) {
-    // mention 의 query_id 매핑 — responses 통해서
-    const respIdToQuery = new Map<number, number>(
-      filteredResp.map((r: { id: number; query_id: number }) => [r.id, r.query_id])
-    );
-    let mentionQuery = sb
-      .from('mentions')
-      .select('id, response_id, tenant_id, is_target, created_at')
-      .gte('created_at', cutoff)
-      .eq('is_target', true);
-    if (tenantIdFilter) {
-      mentionQuery = mentionQuery.eq('tenant_id', tenantIdFilter);
-    }
-    const { data: mentionsFull } = await mentionQuery;
-    (mentionsFull ?? []).forEach(
-      (m: { response_id: number }) => {
-        const qid = respIdToQuery.get(m.response_id);
-        if (qid != null) {
-          const kid = queryKeywordMap.get(qid);
-          if (kid != null) {
-            const bucket = keywordStats.get(kid);
-            if (bucket) bucket.mention_count++;
-          }
-        }
-      }
-    );
-  }
-
-  // Round 143h — T1 (위서클 자사) 인용 증거 목록: 어떤 URL이 몇 번, 어떤 키워드로 인용됐는지.
-  // domain_classifications T1 set + is_self=true 양쪽 모두 수집 (DB 분류 누락 대비 안전망).
   const ownCitationMap = new Map<
     string,
     { url: string; domain: string; keywords: Set<string>; engines: Set<string>; dates: string[]; count: number }
   >();
-  filteredResp.forEach(
-    (r: {
-      id: number;
-      query_id: number;
-      source_domains: Array<{ domain: string; final_url: string | null; is_self?: boolean }> | null;
-      created_at: string;
-    }) => {
-      const keywordId = queryKeywordMap.get(r.query_id);
-      const kwText = keywordId ? keywordTextMap.get(keywordId) ?? '?' : '?';
-      const engine = queryEngineMap.get(r.query_id) ?? '?';
-      const tenantIdForRow = queryTenantMap.get(r.query_id);
-      const clientDomainsForRow =
-        selectedClientDomains ?? (tenantIdForRow ? tenantDomainsMap.get(tenantIdForRow) ?? null : null);
-      (r.source_domains ?? []).forEach((sd) => {
-        // T1 판정: DB 분류 OR is_self 플래그 (수집 시점 source_resolver 판정)
-        const tier = classifyDomain(sd.domain, sd.final_url, clientDomainsForRow, classifierSets);
-        const isSelf = tier === 'T1' || sd.is_self === true;
-        if (!isSelf || !sd.final_url) return;
-        const key = sd.final_url;
-        if (!ownCitationMap.has(key)) {
-          ownCitationMap.set(key, {
-            url: sd.final_url,
-            domain: sd.domain ?? '',
-            keywords: new Set(),
-            engines: new Set(),
-            dates: [],
-            count: 0,
-          });
-        }
-        const entry = ownCitationMap.get(key)!;
-        entry.count++;
-        entry.keywords.add(kwText);
-        entry.engines.add(engine);
-        entry.dates.push(r.created_at.slice(0, 10));
+  const domainUrls = new Map<string, Set<string>>();
+  const keywordTextMap = payload.keywords ?? {};
+
+  (payload.sources ?? []).forEach((row) => {
+    const [date, tenantId, keywordId, engine, domain, finalUrl, isSelfFlag, cnt] = row;
+    const clientDomains =
+      selectedClientDomains ?? (tenantId ? tenantDomainsMap.get(tenantId) ?? null : null);
+    const kwText = keywordTextMap[String(keywordId)] ?? '?';
+
+    if (!shareByDate.has(date)) shareByDate.set(date, { total: 0, t1: 0 });
+    const dateBucket = shareByDate.get(date)!;
+
+    if (!keywordStats.has(keywordId)) {
+      keywordStats.set(keywordId, {
+        keyword: kwText,
+        source_count: 0,
+        t1: 0,
+        t2: 0,
+        t5: 0,
+        mention_count: 0,
       });
     }
-  );
+    const kwBucket = keywordStats.get(keywordId)!;
+
+    const tier = classifyDomain(domain ?? '', finalUrl, clientDomains, classifierSets);
+
+    // Round 143h — T1 (자사) 인용 증거: DB 분류 OR 수집 시점 is_self 플래그
+    const isSelf = tier === 'T1' || isSelfFlag === true;
+    if (isSelf && finalUrl) {
+      if (!ownCitationMap.has(finalUrl)) {
+        ownCitationMap.set(finalUrl, {
+          url: finalUrl,
+          domain: domain ?? '',
+          keywords: new Set(),
+          engines: new Set(),
+          dates: [],
+          count: 0,
+        });
+      }
+      const entry = ownCitationMap.get(finalUrl)!;
+      entry.count += cnt;
+      entry.keywords.add(kwText);
+      if (engine && engine !== '?') entry.engines.add(engine);
+      entry.dates.push(date);
+    }
+
+    // Round 32 phase D — 도메인별 실제 final_url 목록 (tier 무관, NOISE 포함 원본 동작 유지)
+    if (domain && finalUrl) {
+      if (!domainUrls.has(domain)) domainUrls.set(domain, new Set());
+      domainUrls.get(domain)!.add(finalUrl);
+    }
+
+    if (tier === 'NOISE') return;
+    tierCount[tier] += cnt;
+    if (domain) {
+      const existing = domainCount.get(domain);
+      if (existing) {
+        existing.count += cnt;
+        existing.keywords.add(kwText);
+      } else {
+        domainCount.set(domain, { count: cnt, tier, keywords: new Set([kwText]) });
+      }
+      // Round 64 — 키워드별 인용 상세 (드릴다운)
+      if (!domainKwAgg.has(domain)) domainKwAgg.set(domain, new Map());
+      const kwMap = domainKwAgg.get(domain)!;
+      if (!kwMap.has(kwText)) {
+        kwMap.set(kwText, { count: 0, engines: new Set(), urls: new Set() });
+      }
+      const kwDetail = kwMap.get(kwText)!;
+      kwDetail.count += cnt;
+      if (engine && engine !== '?') kwDetail.engines.add(engine);
+      if (finalUrl) kwDetail.urls.add(finalUrl);
+    }
+    dateBucket.total += cnt;
+    if (tier === 'T1') dateBucket.t1 += cnt;
+    kwBucket.source_count += cnt;
+    if (tier === 'T1') kwBucket.t1 += cnt;
+    if (tier === 'T2') kwBucket.t2 += cnt;
+    if (tier === 'T5') kwBucket.t5 += cnt;
+  });
+
+  // mention 카운트 — 키워드별 (RPC 집계, 기존과 동일하게 responses 보유 키워드 버킷에만 반영)
+  (payload.keyword_mentions ?? []).forEach(([kid, cnt]) => {
+    const bucket = keywordStats.get(kid);
+    if (bucket) bucket.mention_count += cnt;
+  });
+
   const ownCitations = Array.from(ownCitationMap.values())
     .map((e) => ({
       url: e.url,
@@ -362,21 +259,6 @@ export async function GET(req: Request) {
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
-
-  // Round 32 phase D (2026-05-30) — 도메인별로 실제 final_url 목록도 같이 보냄.
-  // 사용자가 어드민에서 URL 클릭 → 새 탭으로 진입 → 그 콘텐츠 학습.
-  const domainUrls = new Map<string, Set<string>>();
-  filteredResp.forEach(
-    (r: {
-      source_domains: Array<{ domain: string; final_url: string | null }> | null;
-    }) => {
-      (r.source_domains ?? []).forEach((sd) => {
-        if (!sd.domain || !sd.final_url) return;
-        if (!domainUrls.has(sd.domain)) domainUrls.set(sd.domain, new Set());
-        domainUrls.get(sd.domain)!.add(sd.final_url);
-      });
-    }
-  );
 
   const competitorBreakdown = Array.from(domainCount.entries())
     .filter(([, v]) => v.tier === 'T5' || v.tier === 'T4' || v.tier === 'T3')

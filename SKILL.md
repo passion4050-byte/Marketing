@@ -5681,3 +5681,17 @@ self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 3
 - Round 162b: 글 상세(4개 언어 clinics/.../[slug])에도 구글 리뷰 인용 확장 — GuideArticle reviews prop
   → ClinicNAP. 프로필+글 상세 모두 리뷰 노출. (Places API 한도: 장소당 리뷰 5건 — 전체 2.2K 수집은
   스크래핑뿐이라 불가/비권장. 표시는 2건이 전환 최적.)
+
+# Round 163 (2026-08-17) — /admin/citations 성능·정합성 재수술
+
+- 증상: "데이터 로드 중" 수 초~십수 초. 실측: API 가 mentions/queries/responses **원본 행**을
+  supabase-js 8회 순차 왕복으로 수집 후 JS 집계 — 30일 = queries 3,949행·responses 1,840행(source_domains 3.6MB).
+- 🔴 **더 큰 문제**: supabase-js 1,000행 캡으로 queries(3,949)·responses(1,840)가 잘려
+  **집계 수치가 조용히 틀려 있었음** (Round 145 캡 교훈 재발 사례).
+- 수정: `citations_dashboard(p_days, p_tenant, p_lang)` RPC 신설 (migration round163) —
+  SQL 에서 조인 + (일×tenant×keyword×engine×domain×url×is_self) 단위 접기 후 **jsonb 단일값** 반환
+  (PostgREST 행 캡 미적용·단일 왕복). sources 는 배열행+키워드맵 분리로 페이로드 2.0MB→1.1MB.
+  tier 분류(classifyDomain·분류사전)는 JS 유지, cnt 가중 누적으로 동일 집계. 응답 shape 무변경(페이지 무수정).
+- 인덱스 추가: queries(requested_at), mentions(created_at), mentions(response_id). RPC 실측 272ms.
+- 교훈: **supabase-js 로 원본 행을 끌어와 JS 집계하는 어드민 API 는 전수 점검 대상** —
+  1,000행 캡은 에러 없이 자른다. 대량 집계는 반드시 RPC(jsonb 단일값)로.
