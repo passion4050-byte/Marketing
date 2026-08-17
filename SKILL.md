@@ -5763,3 +5763,19 @@ self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 3
   fetchAllRows 규약 준수) — 영업 데크·월간 보고서 재료.
 - 다음 검증: 시딩 워크플로 실행 후 keywords 언어 분포 / 내일 데일리 로테이션의 다언어 생성 여부 /
   crawler_hits 적재 시작 여부.
+
+# Round 164b (2026-08-17) — 첫 실행 검증에서 잡은 버그 2건 (다국어 머신 최종 수리)
+
+- 🔴 **버그 1 — 타깃 경로가 LANG_ONLY 무시**: daily-brighteye-all-langs 첫 실행이 5개 언어 대신
+  **ko 첫 키워드('라식')만 5회 중복 생성·발행**. 원인 = Round 120 의 target_tenant_id 우선 분기가
+  로테이션(=Round 160 lang_only 필터 위치)을 통째로 건너뛰고 kws[0] 고정 픽.
+  수정: 타깃 경로에도 lang_only/market_only 필터 + 날짜 로테이션 적용 (scheduler.py).
+  중복 4편(id 429~432)은 archived 처리 (428만 유지).
+- 🔴 **버그 2 — 시딩 0건인데 Success**: seed 워크플로의 `ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}`
+  — 미정의 vars 는 **빈 문자열**로 주입되고 os.getenv 는 빈 문자열을 값으로 취급해 기본 모델 폴백이
+  무시됨 → 모델명 "" 호출 전 건 즉시 실패(경고만) → 0건 시딩 + Success. 수정: translate_keyword 를
+  `(os.getenv() or "").strip() or 기본값` 으로 방어 + 워크플로에 `|| 'claude-haiku-...'` 폴백.
+- 교훈 2줄: ① **타깃/우선 분기는 새 필터 파라미터의 사각지대** — 필터 추가 시 모든 분기 경로 grep 할 것.
+  ② GH Actions 에서 `vars.X` 미정의 = 빈 문자열 — python 기본값은 죽는다. `|| 폴백` 필수.
+- 재실행 필요 (푸시 후): ① Daily brighteye all langs — 5개 언어 생성 검증 ② Seed multilang keywords —
+  전 병원 키워드 시딩 검증 (둘 다 멱등).

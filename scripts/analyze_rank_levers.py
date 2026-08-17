@@ -85,7 +85,9 @@ def translate_keyword(text: str, langs: list[str]) -> dict[str, str] | None:
         import anthropic
 
         client = anthropic.Anthropic(api_key=api_key)
-        model = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
+        # Round 164b — 빈 문자열 env 방어: GH Actions 에서 미정의 vars 는 "" 로 들어와
+        #   os.getenv 기본값이 무시됨 (실사고: 시딩 전 건 모델명 "" 로 즉시 실패, 0건 시딩)
+        model = (os.getenv("ANTHROPIC_MODEL") or "").strip() or "claude-haiku-4-5-20251001"
         lang_names = {
             "en": "English", "ja": "Japanese",
             "zh-Hans": "Simplified Chinese (mainland terms, e.g. 激光/种植牙)",

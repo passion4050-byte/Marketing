@@ -266,15 +266,29 @@ def daily_auto_content_job(
                     .order_by(_Kw.id)
                     .all()
                 )
+                # Round 164b (2026-08-17) — 🔴 타깃 경로가 LANG_ONLY/MARKET_ONLY 를 무시하던
+                #   버그 수정. 실사고: daily-brighteye-all-langs 첫 실행이 5개 언어 대신
+                #   ko 첫 키워드('라식')만 5회 중복 생성·발행. 타깃 경로에서도 필터 적용 +
+                #   kws[0] 고착 대신 날짜 로테이션 (Round 145 원칙과 동일).
+                if lang_only is not None:
+                    kws = [k for k in kws if (getattr(k, "lang", "ko") or "ko") == lang_only]
+                if market_only is not None:
+                    kws = [
+                        k for k in kws
+                        if (getattr(k, "market", "domestic") or "domestic") == market_only
+                    ]
                 if not kws:
                     logger.error(
-                        "scheduler.target_no_keyword", tenant_id=target_tenant_id
+                        "scheduler.target_no_keyword", tenant_id=target_tenant_id,
+                        lang_only=lang_only, market_only=market_only,
                     )
                     summary["errors"] += 1
                     return summary
-                keyword_text = kws[0].text
-                _tgt_lang = getattr(kws[0], "lang", "ko") or "ko"
-                _tgt_market = getattr(kws[0], "market", "domestic") or "domestic"
+                import datetime as _dt_tgt
+                _tgt_off = (_dt_tgt.date.today().toordinal() + target_tenant_id) % len(kws)
+                keyword_text = kws[_tgt_off].text
+                _tgt_lang = getattr(kws[_tgt_off], "lang", "ko") or "ko"
+                _tgt_market = getattr(kws[_tgt_off], "market", "domestic") or "domestic"
         channel = "blog_html" if "blog_html" in channels else channels[0]
         summary["tenants"] = 1
         logger.info(
