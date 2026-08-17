@@ -8,6 +8,8 @@
  */
 import { Search, Bot, MousePointerClick, Eye, TrendingUp } from 'lucide-react';
 import { fetchTrafficDashboard } from '@/lib/traffic';
+import { getServerClient } from '@/lib/supabase';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 import { TrafficTrendChart } from '@/components/admin/TrafficTrendChart';
 
 export const runtime = 'nodejs';
@@ -15,8 +17,49 @@ export const dynamic = 'force-dynamic';
 
 const WINDOW_DAYS = 28;
 
+// Round 164 — AI 크롤러 수집 현황 (마케팅 증거 지표).
+//   crawler_hits: v1 middleware 가 GPTBot·ClaudeBot·GoogleOther 등 감지 시 적재.
+//   "OpenAI·Anthropic·Google 이 우리 콘텐츠를 N회 수집" — 영업 데크·월간 보고서 재료.
+async function fetchCrawlerStats(days: number) {
+  const sb = getServerClient();
+  if (!sb) return null;
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  try {
+    const rows = await fetchAllRows<{ bot_name: string; path: string; hit_at: string }>((f, t) =>
+      sb.from('crawler_hits').select('bot_name, path, hit_at').gte('hit_at', since).order('id').range(f, t)
+    );
+    const byBot = new Map<string, number>();
+    const byPath = new Map<string, number>();
+    rows.forEach((r) => {
+      byBot.set(r.bot_name, (byBot.get(r.bot_name) ?? 0) + 1);
+      byPath.set(r.path, (byPath.get(r.path) ?? 0) + 1);
+    });
+    return {
+      total: rows.length,
+      bots: [...byBot.entries()].map(([bot, count]) => ({ bot, count })).sort((a, b) => b.count - a.count),
+      paths: [...byPath.entries()].map(([path, count]) => ({ path, count })).sort((a, b) => b.count - a.count).slice(0, 10),
+    };
+  } catch {
+    return null;
+  }
+}
+
+const BOT_LABELS: Record<string, string> = {
+  gptbot: 'GPTBot (OpenAI 학습)',
+  'oai-searchbot': 'OAI-SearchBot (ChatGPT 검색)',
+  'chatgpt-user': 'ChatGPT-User (실시간 열람)',
+  claudebot: 'ClaudeBot (Anthropic 학습)',
+  'claude-web': 'Claude-Web (실시간 열람)',
+  perplexitybot: 'PerplexityBot',
+  'perplexity-user': 'Perplexity-User',
+  'google-extended': 'Google-Extended (Gemini 학습)',
+  googleother: 'GoogleOther (Gemini 실시간)',
+  ccbot: 'CCBot (Common Crawl)',
+};
+
 export default async function TrafficPage() {
   const data = await fetchTrafficDashboard(WINDOW_DAYS);
+  const crawler = await fetchCrawlerStats(WINDOW_DAYS);
   const { totals } = data;
   const gscLive = totals.gscDays > 0;
   const ga4Live = totals.ga4Days > 0;
@@ -364,6 +407,49 @@ export default async function TrafficPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </section>
+
+      {/* Round 164 — AI 크롤러 수집 현황: "AI 가 우리 콘텐츠를 실제로 읽고 있다"는 증거 지표 */}
+      <section className="card mt-4 p-5">
+        <div className="mb-1 flex items-center gap-2">
+          <Bot className="h-4 w-4 text-accent-deep" />
+          <h2 className="text-sm font-bold text-ink">AI 크롤러 수집 현황 (최근 {WINDOW_DAYS}일)</h2>
+        </div>
+        <p className="mb-4 text-xs text-ink-muted">
+          OpenAI·Anthropic·Google 등 AI 크롤러가 우리 콘텐츠를 수집한 횟수 — AI 인용의 선행 지표이자 영업 증거.
+        </p>
+        {!crawler || crawler.total === 0 ? (
+          <div className="rounded-lg bg-surface-subtle px-4 py-6 text-center text-xs text-ink-muted">
+            수집 대기 중 — 크롤러 감지가 방금 활성화되었습니다. AI 봇 방문이 쌓이면 여기 표시됩니다.
+            <br />
+            (참고: 활성화 전 실측 — 상담 링크에서만 GPTBot 79 · ClaudeBot 30 · Gemini 크롤러 20회 확인)
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-muted">봇별 수집</div>
+              <div className="space-y-1.5">
+                {crawler.bots.map((b) => (
+                  <div key={b.bot} className="flex items-center justify-between rounded-md bg-surface-subtle px-3 py-2">
+                    <span className="text-xs font-semibold text-ink">{BOT_LABELS[b.bot] ?? b.bot}</span>
+                    <span className="font-mono text-sm font-bold text-accent-deep">{b.count.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-muted">가장 많이 수집된 페이지</div>
+              <div className="space-y-1.5">
+                {crawler.paths.map((pathRow) => (
+                  <div key={pathRow.path} className="flex items-center justify-between gap-2 rounded-md bg-surface-subtle px-3 py-2">
+                    <span className="truncate font-mono text-[11px] text-ink-soft">{pathRow.path}</span>
+                    <span className="shrink-0 font-mono text-xs font-bold text-ink">{pathRow.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </section>

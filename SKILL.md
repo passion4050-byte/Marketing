@@ -5742,3 +5742,24 @@ self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 3
 - v2 auto-learn-own 클릭 학습 신호도 is_bot=false 필터.
 - 교훈: **클릭·전환류 지표는 봇 필터 없이는 지표가 아니다** — 새 추적 경로(review_funnel_events 등)
   추가 시 기록 시점 봇 필터를 기본 탑재할 것. (review_funnel_events 는 차기 라운드에서 동일 처리 필요)
+
+# Round 164 (2026-08-17) — 전 병원 4개 언어 확장(키워드 시딩) + AI 크롤러 지표화
+
+- **brighteye 해외 미발행 원인**: daily-brighteye-all-langs cron 이 첫 스케줄(8/17 07:00 KST)에
+  미실행 — 신규 등록 cron 의 GitHub 첫 발화 누락으로 추정. 오늘 생성 호출 0건(측정 50건뿐) 실측.
+  → 사용자 수동 Run workflow 로 기동 확인 필요. (부수: OpenAI·Gemini 측정 API 429 quota 초과 — Claude 만 성공 중. 별도 확인 대상)
+- **전 병원 4개 언어 확장 (사용자 확정: 키워드 시딩 방식, 직역 백필 아님)**:
+  ① tenant_products — 전 파트너 병원(자사 제외)에 overseas en/ja/zh-Hans/zh-Hant 'active' 일괄 활성
+  (plan='expansion', 기존 행 보존). 언어당 14~15 테넌트.
+  ② scripts/seed_multilang_keywords.py — ko own 키워드를 translate_keyword(Claude 트랜스크리에이션)
+  로 4개 언어 시딩. 멱등(소문자 중복 skip + 언어별 수량 휴리스틱), KEYWORD_CAP=400 비용 가드.
+  ③ seed-multilang-keywords.yml (workflow_dispatch) — 사용자 수동 1회 실행 → 이후 데일리 로테이션이
+  언어별 네이티브 글 자동 생성·발행 (auto_publish 전 테넌트 ON + 린터 pass 게이트).
+- **AI 크롤러 마케팅 지표화 (사용자 지시 — "봇 데이터도 의미있다")**:
+  🔴 근본 버그 발견: crawler_hits 테이블이 DB에 없었음 (Round 110-B 에 코드만 있고 마이그레이션 누락
+  → 5주간 0행). round164 마이그레이션으로 테이블 생성.
+  v1 middleware matcher 를 /en·/ja·/zh·/tw·/guides·/review 로 확장 (크롤러 로깅만, 캐시 헤더 불변·
+  어드민 분기 조기 return). /admin/traffic 에 "AI 크롤러 수집 현황" 섹션 신설 (봇별·페이지별,
+  fetchAllRows 규약 준수) — 영업 데크·월간 보고서 재료.
+- 다음 검증: 시딩 워크플로 실행 후 keywords 언어 분포 / 내일 데일리 로테이션의 다언어 생성 여부 /
+  crawler_hits 적재 시작 여부.

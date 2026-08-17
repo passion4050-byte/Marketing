@@ -1,0 +1,46 @@
+name: Seed multilang keywords (manual)
+
+# Round 164 (2026-08-17) — 전 병원 ko 키워드 → en·ja·zh-Hans·zh-Hant 시딩 (1회성·멱등).
+# 시딩 후엔 기존 데일리 로테이션이 언어별 네이티브 글을 자동 생성·발행.
+# secrets: DATABASE_URL · ANTHROPIC_API_KEY
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'DRY_RUN (1 = 삽입 없이 번역 결과만 로그)'
+        type: choice
+        options: ['0', '1']
+        default: '0'
+      keyword_cap:
+        description: '이번 실행 번역 상한'
+        default: '400'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seed-multilang-keywords
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Seed keywords
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          KEYWORD_CAP: ${{ inputs.keyword_cap }}
+        run: python scripts/seed_multilang_keywords.py

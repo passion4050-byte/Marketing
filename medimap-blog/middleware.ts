@@ -7,7 +7,18 @@ import {
 import { detectAiCrawler } from "@/lib/crawler-detect";
 
 export const config = {
-  matcher: ["/admin/:path*", "/with-partners/:path*", "/blog/:path*"],
+  // Round 164 — 해외 경로·리뷰 퍼널도 AI 크롤러 감지 대상에 추가 (크롤 지표 수집).
+  matcher: [
+    "/admin/:path*",
+    "/with-partners/:path*",
+    "/blog/:path*",
+    "/en/:path*",
+    "/ja/:path*",
+    "/zh/:path*",
+    "/tw/:path*",
+    "/guides/:path*",
+    "/review/:path*",
+  ],
 };
 
 /**
@@ -50,6 +61,20 @@ export async function middleware(req: NextRequest) {
     res.headers.set("CDN-Cache-Control", "no-store");
     res.headers.set("Vercel-CDN-Cache-Control", "no-store");
     return res;
+  }
+
+  // Round 164 — 해외(en/ja/zh/tw)·리뷰 경로: AI 크롤러 로깅만 하고 통과.
+  //   ⚠ 캐시 헤더는 건드리지 않음 (해외 페이지 ISR 유지). 어드민 인증 분기로 떨어지지 않게 조기 return.
+  if (
+    pathname.startsWith("/en") ||
+    pathname.startsWith("/ja") ||
+    pathname.startsWith("/zh") ||
+    pathname.startsWith("/tw") ||
+    pathname.startsWith("/guides") ||
+    pathname.startsWith("/review")
+  ) {
+    logCrawlerIfDetected(req, pathname);
+    return NextResponse.next();
   }
 
   // /admin/login: 미인증이면 로그인 폼, 이미 인증된 상태면 dashboard 로.
