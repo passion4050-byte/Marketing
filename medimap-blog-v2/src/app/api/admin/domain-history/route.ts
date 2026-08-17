@@ -9,6 +9,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,11 +33,19 @@ export async function GET(req: NextRequest) {
     .single();
 
   // responses 중 source_domains 에 그 도메인 포함된 것 일자별 count
-  const { data: resps } = await sb
-    .from('responses')
-    .select('source_domains, created_at')
-    .gte('created_at', cutoff)
-    .not('source_domains', 'is', null);
+  // Round 163b — 1,000행 캡 대응
+  const resps = await fetchAllRows<{
+    source_domains: Array<{ domain: string }> | null;
+    created_at: string;
+  }>((from, to) =>
+    sb
+      .from('responses')
+      .select('source_domains, created_at')
+      .gte('created_at', cutoff)
+      .not('source_domains', 'is', null)
+      .order('id')
+      .range(from, to)
+  );
 
   const dailyMap = new Map<string, number>();
   let total = 0;

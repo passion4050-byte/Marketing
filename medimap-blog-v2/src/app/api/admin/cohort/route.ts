@@ -17,6 +17,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -72,11 +73,18 @@ export async function GET(req: NextRequest) {
   };
 
   // 2) 자사 도메인으로 인용된 URL + 최초 인용 시각
-  const { data: resp } = await sb
-    .from('responses')
-    .select('source_domains, created_at')
-    .not('source_domains', 'is', null)
-    .limit(20000);
+  // Round 163b — .limit(20000) 은 서버 캡(1,000)에 잘렸음 → 페이지네이션 전량 수집
+  const resp = await fetchAllRows<{
+    source_domains: Array<{ domain?: string; final_url?: string | null }> | null;
+    created_at: string;
+  }>((from, to) =>
+    sb
+      .from('responses')
+      .select('source_domains, created_at')
+      .not('source_domains', 'is', null)
+      .order('id')
+      .range(from, to)
+  );
   const firstCited = new Map<string, string>(); // url(lower) → ISO
   for (const r of (resp ?? []) as Array<{
     source_domains: Array<{ domain?: string; final_url?: string | null }> | null;

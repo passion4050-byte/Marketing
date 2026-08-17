@@ -13,6 +13,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -81,11 +82,17 @@ export async function GET(req: NextRequest) {
   if (bySlug.size === 0) return NextResponse.json({ ok: true, rows: [] });
 
   // 전체 인용 URL 스캔 (도메인 + 경로)
-  const { data: resp } = await sb
-    .from('responses')
-    .select('source_domains')
-    .not('source_domains', 'is', null)
-    .limit(20000);
+  // Round 163b — .limit(20000) 은 서버 캡(1,000)에 잘렸음 → 페이지네이션 전량 수집
+  const resp = await fetchAllRows<{
+    source_domains: Array<{ domain?: string; final_url?: string | null }> | null;
+  }>((from, to) =>
+    sb
+      .from('responses')
+      .select('source_domains')
+      .not('source_domains', 'is', null)
+      .order('id')
+      .range(from, to)
+  );
 
   // slug → { ours, rivals }
   const agg = new Map<string, { ours: number; rivals: Map<string, number> }>();

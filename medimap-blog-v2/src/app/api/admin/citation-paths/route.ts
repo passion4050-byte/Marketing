@@ -16,6 +16,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -73,13 +74,20 @@ export async function GET(req: NextRequest) {
 
   // 2) queries (id → engine, keyword text). global 이면 keyword_id 필터 생략.
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-  let qQuery = sb
-    .from('queries')
-    .select('id, engine, keyword_id')
-    .neq('engine', 'stub')
-    .gte('requested_at', cutoff);
-  if (tenantId) qQuery = qQuery.in('keyword_id', kwIds);
-  const { data: queries } = await qQuery;
+  // Round 163b — 1,000행 캡 대응
+  const queries = await fetchAllRows<{ id: number; engine: string; keyword_id: number }>(
+    (from, to) => {
+      let q = sb
+        .from('queries')
+        .select('id, engine, keyword_id')
+        .neq('engine', 'stub')
+        .gte('requested_at', cutoff)
+        .order('id')
+        .range(from, to);
+      if (tenantId) q = q.in('keyword_id', kwIds);
+      return q;
+    }
+  );
   const qMeta = new Map<number, { engine: string; keyword: string }>();
   (queries ?? []).forEach((q: { id: number; engine: string; keyword_id: number }) => {
     qMeta.set(q.id, { engine: q.engine, keyword: kwText.get(q.keyword_id) ?? '' });

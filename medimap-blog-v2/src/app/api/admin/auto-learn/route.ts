@@ -12,6 +12,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -52,12 +53,16 @@ export async function POST(req: NextRequest) {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
   // 1. 인용 응답의 source_domains 집계 (경쟁사 = is_self=false)
-  const { data: resp } = await sb
-    .from('responses')
-    .select('source_domains')
-    .gte('created_at', since)
-    .not('source_domains', 'is', null)
-    .limit(5000);
+  // Round 163b — .limit(5000) 은 서버 캡(1,000)에 잘렸음 → 페이지네이션 전량 수집
+  const resp = await fetchAllRows<{ source_domains: SourceDomain[] | null }>((from, to) =>
+    sb
+      .from('responses')
+      .select('source_domains')
+      .gte('created_at', since)
+      .not('source_domains', 'is', null)
+      .order('id')
+      .range(from, to)
+  );
   const agg = new Map<string, { count: number; urls: Set<string> }>();
   for (const r of (resp ?? []) as Array<{ source_domains: SourceDomain[] | null }>) {
     for (const sd of r.source_domains ?? []) {

@@ -15,6 +15,7 @@
  */
 import { NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
+import { fetchAllRows, fetchByIdChunks } from '@/lib/fetchAllRows';
 import { classifyDomain, loadClassifierSets } from '@/lib/domain-classifier';
 
 export const runtime = 'nodejs';
@@ -76,12 +77,18 @@ export async function GET(req: Request) {
   const keywordTextMap = new Map<number, string>(keywords.map((k) => [k.id, k.text]));
 
   // 2. queries — SaaS 키워드 측정 (production 만)
-  const { data: queriesRows } = await sb
-    .from('queries')
-    .select('id, keyword_id, requested_at')
-    .in('keyword_id', keywordIds)
-    .neq('engine', 'stub')
-    .gte('requested_at', cutoff);
+  // Round 163b — 1,000행 캡 대응
+  const queriesRows = await fetchAllRows<{ id: number; keyword_id: number; requested_at: string }>(
+    (from, to) =>
+      sb
+        .from('queries')
+        .select('id, keyword_id, requested_at')
+        .in('keyword_id', keywordIds)
+        .neq('engine', 'stub')
+        .gte('requested_at', cutoff)
+        .order('id')
+        .range(from, to)
+  );
 
   const queryToKw = new Map<number, number>();
   (queriesRows ?? []).forEach((q: { id: number; keyword_id: number }) => {
@@ -92,12 +99,14 @@ export async function GET(req: Request) {
   const queryIdsArr = Array.from(queryToKw.keys());
   let respsRows: Array<{ query_id: number; source_domains: Array<{ domain: string; final_url: string | null }> | null; created_at: string }> = [];
   if (queryIdsArr.length > 0) {
-    const { data } = await sb
-      .from('responses')
-      .select('query_id, source_domains, created_at')
-      .in('query_id', queryIdsArr)
-      .gte('created_at', cutoff);
-    respsRows = data ?? [];
+    // Round 163b — id 다량 .in() 은 URL 길이·캡 양쪽 위험 → 청크 수집
+    respsRows = await fetchByIdChunks(queryIdsArr, (chunk) =>
+      sb
+        .from('responses')
+        .select('query_id, source_domains, created_at')
+        .in('query_id', chunk)
+        .gte('created_at', cutoff)
+    );
   }
 
   // 4. 집계

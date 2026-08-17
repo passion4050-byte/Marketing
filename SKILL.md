@@ -5695,3 +5695,19 @@ self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 3
 - 인덱스 추가: queries(requested_at), mentions(created_at), mentions(response_id). RPC 실측 272ms.
 - 교훈: **supabase-js 로 원본 행을 끌어와 JS 집계하는 어드민 API 는 전수 점검 대상** —
   1,000행 캡은 에러 없이 자른다. 대량 집계는 반드시 RPC(jsonb 단일값)로.
+
+# Round 163b (2026-08-17) — 1,000행 캡 전수 점검 (어드민 API 8개 수술)
+
+- 전수 실측: 캡 초과 테이블 = queries 7.2k · responses 7.2k · mentions 2.5k · llm_call_logs 12.6k
+  (곧 도달: ga4_daily 647 · generated_contents 347). 전 API 라우트 grep 스캔으로 원본 행 수집 패턴 분류.
+- 🔴 핵심 발견: `.limit(20000)` 도 서버 캡(1,000)에 잘린다 — limit 큰 값을 믿던 라우트가 최악
+  (cohort·slug-rivalry: 전체 기간 responses 7.2k 중 1,000만 집계 중이었음).
+- 신규 공용 헬퍼 `src/lib/fetchAllRows.ts`: fetchAllRows(.order 필수 + .range 페이지네이션, max 50k)
+  + fetchByIdChunks(.in() 다량 id 청크 — URL 길이·캡 양쪽 회피).
+- 수술한 라우트 8개: competitors(queries+responses — citations 와 동일 병), cohort, slug-rivalry,
+  domain-history, citation-paths(queries), saas-tracking(queries+responses청크),
+  auto-learn(5000→전량), auto-learn-own(10000→전량 + queries slice(0,1000) 절단 제거 + clicks + gc).
+- 판정 후 무수정: competitors/trends(.range 페이지네이션 기구현), ccs-detail(1일 창), citations/keyword(50건),
+  domain-context(테넌트 스코프 소량), content-queue/calendar/audit(명시 limit 소량), nav-badges(count head),
+  partner-leaderboard(RPC 기사용), reportMetrics(테넌트×월 스코프 — 당분간 캡 미달, 주시 대상).
+- 규약: 대량 원본 행 수집은 fetchAllRows 필수, 핫패스(대시보드 초기 로드)는 RPC jsonb 단일값 우선.

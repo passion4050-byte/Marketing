@@ -20,6 +20,7 @@
  */
 import { NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 import { classifyDomain, loadClassifierSets, type Tier } from '@/lib/domain-classifier';
 
 export const runtime = 'nodejs';
@@ -125,14 +126,21 @@ export async function GET(req: Request) {
   });
 
   // 3. queries — competitor_landscape 키워드 + tenant 필터
-  let queriesQuery = sb
-    .from('queries')
-    .select('id, tenant_id, keyword_id, engine')  // Round 64 — engine 추가 (드릴다운)
-    .neq('engine', 'stub')  // Round 36 fix 2 — production 측정만, stub 시드 제외
-    .gte('requested_at', cutoff);
-  if (tenantIdFilter) queriesQuery = queriesQuery.eq('tenant_id', tenantIdFilter);
-  if (langKwIds) queriesQuery = queriesQuery.in('keyword_id', langKwIds);
-  const { data: queries } = await queriesQuery;
+  // Round 163b — 1,000행 캡 대응: 페이지네이션 전량 수집
+  const queries = await fetchAllRows<{ id: number; tenant_id: number; keyword_id: number; engine: string }>(
+    (from, to) => {
+      let q = sb
+        .from('queries')
+        .select('id, tenant_id, keyword_id, engine')  // Round 64 — engine 추가 (드릴다운)
+        .neq('engine', 'stub')  // Round 36 fix 2 — production 측정만, stub 시드 제외
+        .gte('requested_at', cutoff)
+        .order('id')
+        .range(from, to);
+      if (tenantIdFilter) q = q.eq('tenant_id', tenantIdFilter);
+      if (langKwIds) q = q.in('keyword_id', langKwIds);
+      return q;
+    }
+  );
   const queryKeywordMap = new Map<number, number>();
   const queryEngineMap = new Map<number, string>();  // Round 64 — query → 엔진
   (queries ?? []).forEach((q: { id: number; keyword_id: number; engine: string }) => {
@@ -144,11 +152,21 @@ export async function GET(req: Request) {
   const validQueryIds = new Set(queryKeywordMap.keys());
 
   // 4. responses 의 source_domains 집계 — 경쟁사 중심
-  const { data: respRows } = await sb
-    .from('responses')
-    .select('id, query_id, source_domains, created_at')
-    .gte('created_at', cutoff)
-    .not('source_domains', 'is', null);
+  // Round 163b — 1,000행 캡 대응
+  const respRows = await fetchAllRows<{
+    id: number;
+    query_id: number;
+    source_domains: Array<{ domain: string; final_url: string | null; is_self?: boolean }> | null;
+    created_at: string;
+  }>((from, to) =>
+    sb
+      .from('responses')
+      .select('id, query_id, source_domains, created_at')
+      .gte('created_at', cutoff)
+      .not('source_domains', 'is', null)
+      .order('id')
+      .range(from, to)
+  );
   const filteredResp = (respRows ?? []).filter(
     (r: { query_id: number }) => validQueryIds.has(r.query_id)
   );

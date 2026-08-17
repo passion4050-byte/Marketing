@@ -18,6 +18,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
+import { fetchAllRows, fetchByIdChunks } from '@/lib/fetchAllRows';
 import { loadClassifierSets, classifyDomain } from '@/lib/domain-classifier';
 
 export const runtime = 'nodejs';
@@ -53,21 +54,29 @@ export async function POST(req: NextRequest) {
   const classifierSets = await loadClassifierSets();
 
   // 2. responses.source_domains 에서 T1 인용 URL 집계
-  const { data: resp } = await sb
-    .from('responses')
-    .select('source_domains, created_at, query_id')
-    .gte('created_at', since)
-    .not('source_domains', 'is', null)
-    .limit(10000);
+  // Round 163b — .limit(10000) 은 서버 캡(1,000)에 잘렸음 → 페이지네이션 전량 수집
+  const resp = await fetchAllRows<{
+    source_domains: Array<Record<string, unknown>> | null;
+    created_at: string;
+    query_id: number;
+  }>((from, to) =>
+    sb
+      .from('responses')
+      .select('source_domains, created_at, query_id')
+      .gte('created_at', since)
+      .not('source_domains', 'is', null)
+      .order('id')
+      .range(from, to)
+  );
 
   // query_id → keyword 텍스트 매핑
   const queryIds = [...new Set(((resp ?? []) as Array<{ query_id: number }>).map((r) => r.query_id))];
   const keywordMap = new Map<number, string>();
   if (queryIds.length > 0) {
-    const { data: queries } = await sb
-      .from('queries')
-      .select('id, keyword_id')
-      .in('id', queryIds.slice(0, 1000));
+    // Round 163b — slice(0,1000) 절단 제거: 청크 수집
+    const queries = await fetchByIdChunks(queryIds, (chunk) =>
+      sb.from('queries').select('id, keyword_id').in('id', chunk)
+    );
     const kwIds = [...new Set(((queries ?? []) as Array<{ keyword_id: number }>).map((q) => q.keyword_id))];
     if (kwIds.length > 0) {
       const { data: kws } = await sb
@@ -141,11 +150,15 @@ export async function POST(req: NextRequest) {
   // 수 주간 굶는다. 상담 클릭(콘텐츠 shortlink 'p{id}')이 2회 이상인 콘텐츠는
   // "실제 전환을 만든 구조"이므로 학습 후보에 결합한다 (상위 3, 중복 제외).
   try {
-    const { data: clickRows } = await sb
-      .from('shortlink_clicks')
-      .select('shortlink_id, clicked_at, shortlinks(slug)')
-      .gte('clicked_at', since)
-      .limit(5000);
+    // Round 163b — 캡 대응 페이지네이션
+    const clickRows = await fetchAllRows<Record<string, unknown>>((from, to) =>
+      sb
+        .from('shortlink_clicks')
+        .select('shortlink_id, clicked_at, shortlinks(slug)')
+        .gte('clicked_at', since)
+        .order('id')
+        .range(from, to)
+    );
     const clickAgg = new Map<number, { count: number; dates: string[] }>();
     for (const c of (clickRows ?? []) as unknown as Array<{
       clicked_at: string;
@@ -209,12 +222,16 @@ export async function POST(req: NextRequest) {
    */
   const slugToCat = new Map<string, string>();
   {
-    const { data: catRows } = await sb
-      .from('generated_contents')
-      .select('slug, tenants(domain_category)')
-      .eq('status', 'published')
-      .not('slug', 'is', null)
-      .limit(1000);
+    // Round 163b — 발행물 1,000편 초과 대비 페이지네이션
+    const catRows = await fetchAllRows<Record<string, unknown>>((from, to) =>
+      sb
+        .from('generated_contents')
+        .select('slug, tenants(domain_category)')
+        .eq('status', 'published')
+        .not('slug', 'is', null)
+        .order('id')
+        .range(from, to)
+    );
     // 🔴 Round 148 — supabase-js 는 생성 타입 없이는 FK 조인(tenants)을 배열로 추론.
     //   객체로 직접 as 캐스팅하면 TS2352 로 Vercel 빌드가 깨짐 (실사고: Round 146 푸시부터
     //   geo-v2 가 이전 빌드를 서빙 중이었음). unknown 경유 + 배열/객체 양쪽 런타임 처리.
