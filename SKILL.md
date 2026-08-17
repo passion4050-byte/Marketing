@@ -5720,9 +5720,25 @@ self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 3
 - 검수 대기 6건의 정체: BGN 잠실 ko 5건(id 422~426)은 **llm_provider='manual', 동일 타임스탬프 벌크
   INSERT** — 생성 파이프라인 밖에서 들어온 행이라 auto_publish 게이트(scheduler 내부)가 적용되지 않고
   draft 로 남은 것. 의료법 pass·slug·파트너 필드 완비 확인 후 SQL 로 즉시 발행 (어드민 승인과 동일 효과).
-  ⚠ 출처 미상 — 다른 세션/도구의 삽입으로 추정, 사용자 확인 필요. 나머지 1건(#412 brighteye schema_org,
+  출처 확인됨(사용자): **다른 Claude 세션에서 사용자가 직접 생성·삽입** — 병렬 세션이 콘텐츠를 넣을 땐
+  llm_provider='manual' 벌크 INSERT 라 auto_publish 미적용 → published 로 직접 넣거나 어드민 승인 필요. 나머지 1건(#412 brighteye schema_org,
   제목 '강남안과 #412')은 파이프라인 아티팩트 — 발행 부적합, 방치.
 - 썸네일 엑박 = draft 라 커버 미생성. scripts/backfill_drafts_cover.py 대상을
   draft → draft+published(커버 NULL만) 로 확장 — "Backfill drafts cover" 워크플로를 self_only=false 로
   수동 실행하면 방금 발행한 5건 커버 생성 + 블로그 재배포 훅.
 - 규약 재확인: 자동발행은 어디까지나 **의료법 린터 pass 게이트 뒤** — warn/fail 은 여전히 draft.
+
+# Round 163d (2026-08-17) — 상담 클릭 지표 봇 오염 정정 (사용자 검증 요청)
+
+- 사용자 질문 "상담 클릭 실제값 맞아?" → 실측: **166건 중 136건(82%)이 봇** —
+  GPTBot 79 · ClaudeBot 30 · GoogleOther(Gemini) 19 · Googlebot 1 · MJ12 3 등.
+  AI 크롤러가 콘텐츠의 상담 shortlink 까지 따라 들어간 것. 실제 사람 클릭 = **30건**.
+  (부수 발견: AI 크롤러들이 우리 콘텐츠를 활발히 크롤링 중 — 크롤 신호 자체는 긍정적.)
+- DB 정정 (migration round163d): shortlink_clicks += is_bot 플래그 (삭제 아님 — 비가역 방지),
+  UA 정규식 백필, shortlinks.click_count 를 사람 클릭으로 재계산 → 대시보드·퍼널 즉시 정상화.
+- 기록 시점 차단 (v1 /r/[slug]/route.ts): detectAiCrawler(기존 Round 110-B 유틸) → AI 크롤러는
+  crawler_hits 로 분리 기록(자산화), 일반 봇 정규식 → 무기록, 사람만 shortlink_clicks.
+  UA 없음도 봇 취급.
+- v2 auto-learn-own 클릭 학습 신호도 is_bot=false 필터.
+- 교훈: **클릭·전환류 지표는 봇 필터 없이는 지표가 아니다** — 새 추적 경로(review_funnel_events 등)
+  추가 시 기록 시점 봇 필터를 기본 탑재할 것. (review_funnel_events 는 차기 라운드에서 동일 처리 필요)

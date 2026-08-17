@@ -156,6 +156,7 @@ export async function POST(req: NextRequest) {
         .from('shortlink_clicks')
         .select('shortlink_id, clicked_at, shortlinks(slug)')
         .gte('clicked_at', since)
+        .eq('is_bot', false) // Round 163d — 학습 클릭 신호는 사람 클릭만
         .order('id')
         .range(from, to)
     );

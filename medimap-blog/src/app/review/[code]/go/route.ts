@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSql } from "@/lib/db";
+import { detectAiCrawler } from "@/lib/crawler-detect";
+
+// Round 163d — 봇 무기록
+const GENERIC_BOT_RE =
+  /bot|crawl|spider|preview|scrap|python|curl|wget|httpclient|headless|phantom|lighthouse|monitor|slurp|mj12|facebookexternalhit|kakaotalk-scrap|whatsapp|telegram|slack|discord/i;
 
 /**
  * Round 162 — 리뷰 퍼널 클릭 추적 + 구글 리뷰 작성으로 302.
@@ -28,11 +33,14 @@ export async function GET(
       const t = rows[0];
       if (t) {
         target = t.google_review_url ?? t.gmaps_url ?? target;
+        const ua = req.headers.get("user-agent");
+        const isBot = !ua || detectAiCrawler(ua) !== null || GENERIC_BOT_RE.test(ua);
         try {
-          await sql`
-            INSERT INTO review_funnel_events (tenant_id, code, event, lang, referer)
-            VALUES (${t.id}, ${code}, 'click', ${lang}, ${req.headers.get("referer")})
-          `;
+          if (!isBot)
+            await sql`
+              INSERT INTO review_funnel_events (tenant_id, code, event, lang, referer)
+              VALUES (${t.id}, ${code}, 'click', ${lang}, ${req.headers.get("referer")})
+            `;
         } catch {
           /* 추적 실패는 리다이렉트를 막지 않음 */
         }

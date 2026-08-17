@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getShortlink as getStaticShortlink } from "@/lib/shortlinks";
-import { lookupShortlink, recordClick, hashIp } from "@/lib/db";
+import { lookupShortlink, recordClick, recordCrawlerHit, hashIp } from "@/lib/db";
+import { detectAiCrawler } from "@/lib/crawler-detect";
+
+// Round 163d (2026-08-17) — 상담 클릭 봇 오염 차단.
+//   실측: 166클릭 중 136건이 봇(GPTBot 79·ClaudeBot 30·GoogleOther 19 등) — "상담 클릭"
+//   지표가 사실상 AI 크롤러 트래픽이었음. AI 크롤러는 crawler_hits 로 분리 기록(자산),
+//   일반 봇은 무기록. shortlink_clicks 에는 사람 클릭만 남긴다.
+const GENERIC_BOT_RE =
+  /bot|crawl|spider|preview|scrap|python|curl|wget|httpclient|headless|phantom|lighthouse|monitor|slurp|mj12|facebookexternalhit|kakaotalk-scrap|whatsapp|telegram|slack|discord/i;
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -43,7 +51,21 @@ export async function GET(
   }
 
   // click 로깅 (fire-and-forget — DB 적재 + 외부 webhook 둘 다)
-  if (shortlinkId !== null && tenantId !== null) {
+  // Round 163d — 봇 분류: AI 크롤러는 crawler_hits, 일반 봇은 무기록, 사람만 shortlink_clicks.
+  const ua = req.headers.get("user-agent");
+  const aiBot = detectAiCrawler(ua);
+  const isBot = aiBot !== null || (ua ? GENERIC_BOT_RE.test(ua) : true);
+  if (aiBot) {
+    void recordCrawlerHit({
+      bot_name: aiBot,
+      user_agent: ua,
+      path: `/r/${slug}`,
+      referer: req.headers.get("referer"),
+      country: req.headers.get("x-vercel-ip-country"),
+      status_code: 302,
+    }).catch(() => {});
+  }
+  if (!isBot && shortlinkId !== null && tenantId !== null) {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
     const click = (async () => {
       const ip_hash = await hashIp(ip);

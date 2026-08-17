@@ -2,6 +2,15 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { getSql } from "@/lib/db";
+import { detectAiCrawler } from "@/lib/crawler-detect";
+
+// Round 163d — 봇 무기록 (상담 클릭 오염 실사고와 동일 원칙)
+const GENERIC_BOT_RE =
+  /bot|crawl|spider|preview|scrap|python|curl|wget|httpclient|headless|phantom|lighthouse|monitor|slurp|mj12|facebookexternalhit|kakaotalk-scrap|whatsapp|telegram|slack|discord/i;
+function isBotUa(ua: string | null): boolean {
+  if (!ua) return true;
+  return detectAiCrawler(ua) !== null || GENERIC_BOT_RE.test(ua);
+}
 
 /**
  * Round 162 (2026-08-16) — 리뷰 요청 퍼널 랜딩 (/review/{partner_slug}).
@@ -129,7 +138,7 @@ export default async function ReviewFunnelPage({ params, searchParams }: Props) 
   const t = COPY[lang];
   const name = lang === "ko" ? tenant.name : tenant.name_en ?? tenant.name;
 
-  await logScan(tenant.id, code, lang, h.get("referer"));
+  if (!isBotUa(h.get("user-agent"))) await logScan(tenant.id, code, lang, h.get("referer"));
 
   const langs: Array<{ k: FunnelLang; label: string }> = [
     { k: "ko", label: "한국어" },
