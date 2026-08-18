@@ -5779,3 +5779,9 @@ self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 3
   ② GH Actions 에서 `vars.X` 미정의 = 빈 문자열 — python 기본값은 죽는다. `|| 폴백` 필수.
 - 재실행 필요 (푸시 후): ① Daily brighteye all langs — 5개 언어 생성 검증 ② Seed multilang keywords —
   전 병원 키워드 시딩 검증 (둘 다 멱등).
+
+# Round 164c (2026-08-17) — 시딩 재실행 실패 수정 (유니크 제약)
+- 모델 수정 후 번역은 정상 작동. 신규 실패 = keywords_tenant_text_purpose_unique 가
+  (tenant,text,purpose) **언어 무관** 제약 — 간체/번체 동일 표기('亮眼眼科') 충돌 → 전체 롤백.
+- 수정: 테넌트 전체(언어 무관) seen 집합 중복 차단 + INSERT ... ON CONFLICT DO NOTHING 이중 방어.
+- 교훈: 삽입 스크립트는 대상 테이블의 **유니크 제약을 먼저 확인**하고 dedup 키를 제약과 일치시킬 것.

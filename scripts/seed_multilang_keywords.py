@@ -95,6 +95,16 @@ def main() -> int:
                         {"tid": tid, "lang": lang},
                     ).fetchall()
                 }
+            # Round 164c — 🔴 keywords_tenant_text_purpose_unique 는 (tenant,text,purpose)
+            #   제약이라 **언어 무관**. 간체/번체가 같은 글자('亮眼眼科')로 번역되면 충돌
+            #   → 전체 트랜잭션 롤백 실사고. 테넌트 전체 텍스트 집합으로도 중복 차단.
+            tenant_seen: set[str] = {
+                (r[0] or "").strip().lower()
+                for r in conn.execute(
+                    text("SELECT text FROM keywords WHERE tenant_id=:tid"),
+                    {"tid": tid},
+                ).fetchall()
+            }
 
             for _kid, ko_text, category in ko_rows:
                 if translated >= cap:
@@ -115,7 +125,11 @@ def main() -> int:
                     continue
                 for lang, tr_text in result.items():
                     tr_norm = (tr_text or "").strip()
-                    if not tr_norm or tr_norm.lower() in existing.get(lang, set()):
+                    if (
+                        not tr_norm
+                        or tr_norm.lower() in existing.get(lang, set())
+                        or tr_norm.lower() in tenant_seen  # Round 164c — 언어 무관 제약 방어
+                    ):
                         continue
                     if dry:
                         logger.info("[DRY] %s(%s) %s → [%s] %s", tname, tid, ko_text, lang, tr_norm)
@@ -124,11 +138,13 @@ def main() -> int:
                         text(
                             "INSERT INTO keywords "
                             "(tenant_id, text, category, target_brand, is_active, purpose, market, lang) "
-                            "VALUES (:tid, :text, :cat, :brand, true, 'own', 'overseas', :lang)"
+                            "VALUES (:tid, :text, :cat, :brand, true, 'own', 'overseas', :lang) "
+                            "ON CONFLICT DO NOTHING"  # Round 164c — 제약 충돌 시 skip (롤백 방지)
                         ),
                         {"tid": tid, "text": tr_norm, "cat": category, "brand": brand, "lang": lang},
                     )
                     existing[lang].add(tr_norm.lower())
+                    tenant_seen.add(tr_norm.lower())
                     inserted += 1
             logger.info("%s(%s): 번역 진행 누계 %s · 삽입 누계 %s", tname, tid, translated, inserted)
             if translated >= cap:
