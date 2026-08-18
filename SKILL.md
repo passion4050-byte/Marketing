@@ -5785,3 +5785,9 @@ self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 3
   (tenant,text,purpose) **언어 무관** 제약 — 간체/번체 동일 표기('亮眼眼科') 충돌 → 전체 롤백.
 - 수정: 테넌트 전체(언어 무관) seen 집합 중복 차단 + INSERT ... ON CONFLICT DO NOTHING 이중 방어.
 - 교훈: 삽입 스크립트는 대상 테이블의 **유니크 제약을 먼저 확인**하고 dedup 키를 제약과 일치시킬 것.
+- **164c 검증 완료 (seed run #3 Success·2m57s)**: 전 파트너 병원 4개 언어 키워드 시딩 완비 —
+  예: BGN잠실 ko11/en11/ja11/zhs10/zht9, 밴스 7×5, 클리어서울 5×5 (소폭 결손 = 언어간 동일 표기
+  충돌 skip, 정상). 위서클(12)은 의도적 미시딩. crawler_hits 도 배포 수시간 만에 26건 적재 시작
+  (claudebot 19·meta-externalagent 9·googleother 4) — /admin/traffic 위젯 점등.
+- 잔여 검증 1건: brighteye 5개 언어 발행 — 스케줄러 수정(c8dce08) 후 미실행. 수동 Run workflow
+  또는 내일 07:00 cron 결과로 확인. 전 병원 다국어 생성도 내일 로테이션부터.
