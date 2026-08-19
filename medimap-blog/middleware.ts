@@ -48,19 +48,19 @@ function logCrawlerIfDetected(req: NextRequest, pathname: string): void {
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
-  // Round 14/16 (2026-05-27): with-partners + blog 경로 — force-dynamic 만으론
-  // Vercel CDN edge cache 가 옛 응답 hold. middleware 에서 Cache-Control: no-store
-  // 강제. Next.js 응답 헤더가 Vercel CDN 의 cache 정책을 override.
+  // Round 165 (2026-08-18) — 국내(/blog·/with-partners) no-store 강제 제거.
+  //   Round 14/16 의 no-store 는 당시 페이지가 force-dynamic 이던 시절의 응급조치.
+  //   Round 129 에서 두 경로 모두 ISR(revalidate 60s)로 전환됐는데 이 헤더가 남아
+  //   Vercel CDN 캐시를 전면 무력화 — 모든 뷰가 서버 함수까지 왕복(콜드스타트 포함).
+  //   해외(en/ja/zh/tw) 경로는 처음부터 ISR 헤더 그대로라 빨랐음. 국내도 동일하게:
+  //   크롤러 로깅만 하고 Next 의 ISR 캐시 헤더(s-maxage=60, SWR)를 그대로 통과시킨다.
+  //   신규 발행 노출 지연은 최대 60초 — 즉시 반영이 필요하면 /api/revalidate 사용.
   if (
     pathname.startsWith("/with-partners") ||
     pathname.startsWith("/blog")
   ) {
     logCrawlerIfDetected(req, pathname);
-    const res = NextResponse.next();
-    res.headers.set("Cache-Control", "private, no-store, no-cache, must-revalidate, max-age=0");
-    res.headers.set("CDN-Cache-Control", "no-store");
-    res.headers.set("Vercel-CDN-Cache-Control", "no-store");
-    return res;
+    return NextResponse.next();
   }
 
   // Round 164 — 해외(en/ja/zh/tw)·리뷰 경로: AI 크롤러 로깅만 하고 통과.

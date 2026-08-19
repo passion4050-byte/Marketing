@@ -4,10 +4,10 @@
  */
 import { getClientSession } from '@/lib/client-auth';
 import { getServerClient } from '@/lib/supabase';
+// Round 165 — 다국어 URL 빌더 + 언어 배지 (해외 글 "글 보기" 404 수정)
+import { publicContentUrl, LANG_LABEL } from '@/lib/contentUrl';
 
 export const dynamic = 'force-dynamic';
-
-const BLOG_BASE = 'https://wecircle.co.kr';
 
 function fmtDate(iso: string | null): string {
   if (!iso) return '—';
@@ -24,12 +24,12 @@ export default async function ClientContentsPage() {
     sb.from('tenants').select('partner_slug').eq('id', session.tenantId).maybeSingle(),
     sb
       .from('generated_contents')
-      .select('title, slug, published_at, is_partner_content, partner_category')
+      .select('title, slug, published_at, is_partner_content, partner_category, lang, market')
       .eq('tenant_id', session.tenantId)
       .eq('status', 'published')
       .eq('channel', 'blog_html')
       .order('published_at', { ascending: false })
-      .limit(300),
+      .limit(500),
   ]);
 
   const partnerSlug = (tenantRow.data as { partner_slug?: string | null } | null)?.partner_slug ?? null;
@@ -39,7 +39,22 @@ export default async function ClientContentsPage() {
     published_at: string | null;
     is_partner_content: boolean | null;
     partner_category: string | null;
+    lang: string | null;
+    market: string | null;
   }>;
+
+  // Round 165 — 언어별 편수 요약 (다국어 자동발행이 실제로 돌고 있음을 병원이 보게)
+  const byLang = new Map<string, number>();
+  for (const c of list) {
+    const k = c.lang ?? 'ko';
+    byLang.set(k, (byLang.get(k) ?? 0) + 1);
+  }
+  const LANG_ORDER = ['ko', 'en', 'ja', 'zh-Hans', 'zh-Hant'];
+  const langSummary = LANG_ORDER.filter((l) => byLang.has(l)).map((l) => ({
+    lang: l,
+    label: LANG_LABEL[l] ?? l,
+    count: byLang.get(l) ?? 0,
+  }));
 
   return (
     <div>
@@ -49,6 +64,15 @@ export default async function ClientContentsPage() {
           위서클이 우리 병원 이름으로 발행한 콘텐츠 전체 목록입니다. 총{' '}
           <span className="font-semibold tabular-nums text-stone-700">{list.length}</span>편.
         </p>
+        {langSummary.length > 1 ? (
+          <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+            {langSummary.map((s) => (
+              <span key={s.lang} className="rounded-lg bg-stone-100 px-2 py-1 tabular-nums text-stone-600">
+                {s.label} {s.count}편
+              </span>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <div className="divide-y divide-stone-200 rounded-2xl border border-stone-200 bg-white">
@@ -56,11 +80,8 @@ export default async function ClientContentsPage() {
           <p className="p-5 text-sm text-stone-400">아직 발행된 콘텐츠가 없습니다.</p>
         ) : (
           list.map((c, i) => {
-            const url = c.slug
-              ? c.is_partner_content && c.partner_category && partnerSlug
-                ? `${BLOG_BASE}/with-partners/${c.partner_category}/${partnerSlug}/${c.slug}`
-                : `${BLOG_BASE}/blog/${c.slug}`
-              : null;
+            const url = publicContentUrl(c, partnerSlug);
+            const langLabel = LANG_LABEL[c.lang ?? 'ko'] ?? c.lang;
             return (
               <div key={`${c.slug}-${i}`} className="flex items-center gap-3 px-4 py-3.5">
                 <span className="w-8 shrink-0 text-sm font-bold tabular-nums text-stone-300">
@@ -70,7 +91,14 @@ export default async function ClientContentsPage() {
                   <p className="truncate text-sm font-medium text-stone-800">
                     {c.title ?? '(제목 없음)'}
                   </p>
-                  <p className="mt-0.5 text-[11px] text-stone-400">{fmtDate(c.published_at)}</p>
+                  <p className="mt-0.5 text-[11px] text-stone-400">
+                    {fmtDate(c.published_at)}
+                    {langLabel && langLabel !== '한국어' ? (
+                      <span className="ml-1.5 rounded bg-stone-100 px-1.5 py-0.5 font-medium text-stone-500">
+                        {langLabel}
+                      </span>
+                    ) : null}
+                  </p>
                 </div>
                 {url ? (
                   <a

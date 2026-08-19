@@ -6,6 +6,7 @@
 import Link from 'next/link';
 import { getClientSession } from '@/lib/client-auth';
 import { getServerClient } from '@/lib/supabase';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,20 +35,28 @@ export default async function ClientCitationsPage() {
   if (!session || !sb) return null;
 
   const since = new Date(Date.now() - 30 * 86400_000).toISOString();
-  const [tenantRes, respRes] = await Promise.all([
+  const [tenantRes, respRows] = await Promise.all([
     sb
       .from('tenants')
       .select('homepage, additional_domains, partner_slug')
       .eq('id', session.tenantId)
       .maybeSingle(),
-    sb
-      .from('responses')
-      // Round 153 — keywords 실컬럼은 `text` (keyword 아님, 감사 P0-1과 동일 계열)
-      .select('created_at, source_domains, queries(engine, keywords(text))')
-      .gte('created_at', since)
-      .not('source_domains', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(1500),
+    // Round 165 — .limit(1500) 은 서버 캡(1,000)에 조용히 잘렸음 (Round 163b 수술에서
+    //   포털 페이지가 누락됐던 것) → 페이지네이션 전량 수집.
+    fetchAllRows<{
+      created_at: string | null;
+      source_domains: Array<{ domain?: string | null; final_url?: string | null }> | null;
+      queries: unknown;
+    }>((from, to) =>
+      sb
+        .from('responses')
+        // Round 153 — keywords 실컬럼은 `text` (keyword 아님, 감사 P0-1과 동일 계열)
+        .select('created_at, source_domains, queries(engine, keywords(text))')
+        .gte('created_at', since)
+        .not('source_domains', 'is', null)
+        .order('created_at', { ascending: false })
+        .range(from, to),
+    ),
   ]);
 
   const tenant = tenantRes.data as {
@@ -78,7 +87,7 @@ export default async function ClientCitationsPage() {
     keyword: string | null;
   }> = [];
 
-  for (const r of (respRes.data ?? []) as unknown as Row[]) {
+  for (const r of respRows as unknown as Row[]) {
     const q = one(r.queries as never) as { engine?: string | null; keywords?: unknown } | undefined;
     const kw = one(q?.keywords as never) as { text?: string | null } | undefined;
     for (const sd of r.source_domains ?? []) {

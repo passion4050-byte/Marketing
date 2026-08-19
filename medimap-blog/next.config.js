@@ -4,6 +4,9 @@ const nextConfig = {
   staticPageGenerationTimeout: 180,
   experimental: {
     serverComponentsExternalPackages: ["postgres"],
+    // Round 165 — 스트레이 next.config.mjs(무시되던 파일)에만 있던 최적화를 정본으로 이관.
+    //   lucide-react 아이콘 트리셰이킹 — 사용 아이콘만 번들에 포함.
+    optimizePackageImports: ["lucide-react"],
   },
   // 이미지 외부 호스트 허용 (next/image 또는 raw <img>).
   images: {

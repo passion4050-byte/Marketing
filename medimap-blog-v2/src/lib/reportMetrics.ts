@@ -6,6 +6,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { scoreAeo } from '@/lib/aeoScore';
 import { loadClassifierSets, classifyDomain, extractDomainFromUrl } from '@/lib/domain-classifier';
+import { fetchAllRows, fetchByIdChunks } from '@/lib/fetchAllRows';
 
 export interface ReportMetrics {
   published30d: number;
@@ -33,13 +34,25 @@ export async function computeReportMetrics(
   sinceIso?: string,
 ): Promise<ReportMetrics> {
   const since = sinceIso ?? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: contents } = await sb
-    .from('generated_contents')
-    .select('title, body, raw_qa_pairs, published_at')
-    .eq('tenant_id', tenantId)
-    .eq('status', 'published')
-    .eq('channel', 'blog_html')
-    .gte('published_at', since);
+  // Round 165 — 직렬 3왕복(contents → mentions → citations)을 병렬 1왕복으로.
+  //   포털 홈·어드민 리포트·이메일 리포트가 전부 이 함수를 기다린다 (로딩속도 핵심 경로).
+  const [contentsRes, mentionsRes, citationCounts] = await Promise.all([
+    sb
+      .from('generated_contents')
+      .select('title, body, raw_qa_pairs, published_at')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'published')
+      .eq('channel', 'blog_html')
+      .gte('published_at', since),
+    sb
+      .from('mentions')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('is_target', true)
+      .gte('created_at', since),
+    computeCitationCounts(sb, tenantId, since),
+  ]);
+  const contents = contentsRes.data;
   const list = (contents ?? []) as Array<{
     title: string | null;
     body: string | null;
@@ -69,21 +82,11 @@ export async function computeReportMetrics(
   }
   const avgAeo = list.length > 0 ? Math.round(aeoSum / list.length) : null;
 
-  // 브랜드 언급(mention) — AI 답변에 병원 이름이 등장한 횟수. citation 아님.
-  const { count: mentions } = await sb
-    .from('mentions')
-    .select('id', { count: 'exact', head: true })
-    .eq('tenant_id', tenantId)
-    .eq('is_target', true)
-    .gte('created_at', since);
+  // 브랜드 언급(mention) — AI 답변에 병원 이름이 등장한 횟수. citation 아님. (위 병렬 fetch)
+  const mentions = mentionsRes.count;
 
-  // 🔴 Round 144 — 실제 출처 인용(citation) 집계.
-  //   responses.source_domains 에서 T1(위서클 자사) / T2(클라이언트 자체 사이트) 카운트.
-  const {
-    ownCitations30d,
-    clientSiteCitations30d,
-    queries30d,
-  } = await computeCitationCounts(sb, tenantId, since);
+  // 🔴 Round 144 — 실제 출처 인용(citation) 집계. (위 병렬 fetch)
+  const { ownCitations30d, clientSiteCitations30d, queries30d } = citationCounts;
 
   return {
     published30d: list.length,
@@ -106,22 +109,30 @@ async function computeCitationCounts(
   tenantId: string | number,
   since: string,
 ): Promise<{ ownCitations30d: number; clientSiteCitations30d: number; queries30d: number }> {
-  const { data: qs } = await sb
-    .from('queries')
-    .select('id')
-    .eq('tenant_id', tenantId)
-    .gte('requested_at', since);
-  const queryIds = ((qs ?? []) as Array<{ id: number }>).map((q) => q.id);
+  // Round 165 — 1,000행 캡 수술 + 병렬화.
+  //   기존: queries 단발 fetch(캡 잘림 — 다국어 시딩 후 테넌트당 30일 질의가 1,000행을
+  //   넘기 시작: 키워드 50개 × 엔진 4 × 30일) + responses `.in(slice 2000)`(역시 캡).
+  //   queries30d 분모가 잘리면 포털·이메일 리포트의 인용 지표 전체가 과소집계된다.
+  const [qRows, tRes, sets] = await Promise.all([
+    fetchAllRows<{ id: number }>((from, to) =>
+      sb
+        .from('queries')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .gte('requested_at', since)
+        .order('id')
+        .range(from, to),
+    ),
+    sb.from('tenants').select('homepage, additional_domains').eq('id', tenantId).maybeSingle(),
+    loadClassifierSets(),
+  ]);
+  const queryIds = qRows.map((q) => q.id);
   if (queryIds.length === 0) {
     return { ownCitations30d: 0, clientSiteCitations30d: 0, queries30d: 0 };
   }
 
   // 이 tenant 의 자체 도메인 set (T2 판정용)
-  const { data: t } = await sb
-    .from('tenants')
-    .select('homepage, additional_domains')
-    .eq('id', tenantId)
-    .maybeSingle();
+  const t = tRes.data;
   const clientDomains = new Set<string>();
   const main = extractDomainFromUrl((t as { homepage?: string | null } | null)?.homepage ?? null);
   if (main) clientDomains.add(main);
@@ -130,17 +141,18 @@ async function computeCitationCounts(
     if (dd) clientDomains.add(dd);
   });
 
-  const sets = await loadClassifierSets();
-  const { data: resp } = await sb
-    .from('responses')
-    .select('source_domains')
-    .in('query_id', queryIds.slice(0, 2000))
-    .gte('created_at', since)
-    .not('source_domains', 'is', null);
+  const resp = await fetchByIdChunks(queryIds, (chunk) =>
+    sb
+      .from('responses')
+      .select('source_domains')
+      .in('query_id', chunk)
+      .gte('created_at', since)
+      .not('source_domains', 'is', null),
+  );
 
   let own = 0;
   let clientSite = 0;
-  for (const r of (resp ?? []) as Array<{
+  for (const r of resp as Array<{
     source_domains: Array<{ domain?: string; final_url?: string | null }> | null;
   }>) {
     for (const sd of r.source_domains ?? []) {

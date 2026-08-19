@@ -5791,3 +5791,37 @@ self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 3
   (claudebot 19·meta-externalagent 9·googleother 4) — /admin/traffic 위젯 점등.
 - 잔여 검증 1건: brighteye 5개 언어 발행 — 스케줄러 수정(c8dce08) 후 미실행. 수동 Run workflow
   또는 내일 07:00 cron 결과로 확인. 전 병원 다국어 생성도 내일 로테이션부터.
+
+
+## Round 165 (2026-08-18) — 속도·CTA·클라이언트 포털·어드민 대시보드 고도화
+
+사용자 지시: brighteye 5개 언어 발행 검증 완료 확인 후, ① 콘텐츠 퀄리티 ② wecircle.co.kr 퀄리티(로딩속도·UI/UX·CTA 전환) ③ 병원 클라이언트 페이지 항목별 상세 + 로딩속도 ④ 어드민 로딩속도 개선.
+
+### v1 (medimap-blog / wecircle.co.kr)
+- 🔴 **middleware no-store 제거 (최대 속도 레버)**: Round 14/16 의 `/blog`·`/with-partners` Cache-Control no-store 강제가 Round 129 ISR(60s) 전환 후에도 남아 Vercel CDN 캐시를 전면 무력화하고 있었음 (해외 경로만 빨랐던 이유). 크롤러 로깅만 남기고 ISR 헤더 통과 — 신규 발행 노출 지연 최대 60초, 즉시 반영은 /api/revalidate.
+- next.config.mjs(무시되던 스트레이 파일, next.config.js 가 우선) 제거 → optimizePackageImports(lucide-react)를 정본 .js 로 이관.
+- **FloatingInquiryButton 파트너 분기**: 파트너 글(/with-partners/{cat}/{partner}/…)에서 플로팅 버튼이 B2B /contact 로 가던 타깃 불일치(Round 146 이 CTABlock 만 수정) → 경로에서 partner_slug 파싱해 `/r/k-{partner}` 카카오 추적 링크로. 전 파트너 k-* shortlink 존재 DB 검증 완료. 클릭은 shortlink_clicks(is_bot 필터) → 포털 '상담 클릭' 지표로 직결.
+- FloatingConsult(해외): /clinics/{cat}/{partner} 경로에서 WhatsApp 프리필에 클리닉 슬러그 주입(waHref clinic 인자 재사용) — 상담 시작 즉시 병원 식별.
+
+### v2 (medimap-blog-v2 / SaaS 콘솔)
+- **src/lib/contentUrl.ts 신설**: 다국어 공개 URL 빌더 + LANG_LABEL. 해외 파트너 → /{lp}/clinics/{cat}/{partner}/{slug}, 해외 비파트너 → /{lp}/guides/{slug} (lp: en/ja/zh/tw). 포털 홈·발행 콘텐츠의 해외 글 "글 보기" 404 수정.
+- **클라이언트 포털**: 홈 상담클릭 3개 카운트 + clicks 목록에 `is_bot=false` 필터(163d 봇 분리 후 포털만 누락 — 병원에 부풀린 수치 나가던 버그). citations 페이지 `.limit(1500)` 캡 잘림 → fetchAllRows 전량. contents 페이지 언어 배지 + 언어별 편수 요약 + 다국어 URL.
+- **lib/reportMetrics.ts**: contents/mentions/citations 직렬 3왕복 → Promise.all. computeCitationCounts 의 queries 단발 fetch(캡 잘림 — 다국어 시딩 후 테넌트당 30일 질의 1,000행 초과 시작)와 responses `.in(slice 2000)` → fetchAllRows/fetchByIdChunks. 포털 홈·어드민 리포트·이메일 리포트 공용 경로.
+- 🔴 **어드민 대시보드(/admin) 수술**: ~35회 직렬 supabase 왕복 → 섹션별 async 함수 10개 Promise.all 병렬. responses/queries/llm_call_logs 대량 fetch 6곳의 1,000행 캡 잘림 전부 fetchAllRows/fetchByIdChunks 로 전량 수집(티어 추이·클라이언트 랭킹·grounding·신규 도메인·시장 점유·LLM 비용이 잘린 데이터로 계산되고 있었음). 키워드별 멘션 집계를 mentions→responses→queries→keywords 역방향 단일 체인으로 공용화(기존 topContents·structureStats 가 전방향 전체 스캔 중복). recentCitations tenantName '(unknown)' 버그 수정. domain_classifications fetch 공유. 파일 CRLF→LF 정규화(diff 큼).
+- 청크 + 언어스코프 필터 동시 `.in()` 은 URL 길이 위험 → 청크는 서버 필터 최소화하고 langKwSet JS 필터 (규약).
+
+### Python (generator)
+- **내부 링크 디렉티브 (토픽 클러스터)**: 같은 테넌트·같은 언어 기존 발행 글 최대 6개의 실제 URL 목록을 프롬프트에 주고 본문에 컨텍스트 내부 링크 ~2개 삽입 지시. 목록 밖 URL 생성 금지(할루시네이션 차단), 글 없으면 블록 생략(무회귀).
+
+### 검증
+- tsc --noEmit v1·v2 통과 (cloud). 변경 12파일 md5 cloud↔device 일치. generator.py ast 파싱 OK. 전 파트너 k-* shortlink 존재 SQL 확인.
+
+### 관찰 항목 (배포 후)
+- wecircle.co.kr 국내 페이지 TTFB (x-vercel-cache HIT 여부), 어드민 /admin 로딩 체감, 캡 해제로 차트 수치가 커지는 것은 정상(이전이 잘림), 클라이언트 포털 상담클릭 수치 감소는 정상(봇 제외).
+
+### Round 165b (2026-08-19) — 검증·후속
+- 배포 검증 중 발견: Round 165 커밋이 실제로는 안 됐었음 — 사용자가 다른 PC(집)에 있어 사무실 PC 경로가 없었음. 클라우드 zip → 홈 PC 클론에 적용해 푸시. ⚠ 사무실 PC 워킹트리에 동일 변경이 미커밋으로 남아 있음: 다음에 그 컴퓨터에서 `git checkout -- .` 후 `git pull` (내용은 이미 푸시됨), `_to_delete` 폴더 삭제.
+- 다국어 머신 실가동 확인: brighteye 데일리 cron에서 5개 언어(ko/en/ja/zh-Hans/zh-Hant) 발행 (8/19 07:30~44 KST). 로테이션에서 타 병원 해외 글도 발행 시작 (모우림 ja·청담디어 ja·밴스 en).
+- 측정 커버리지 3/3 회복 (48h: claude 152 · gemini 73 · openai 73 — OpenAI/Gemini 429 해소). oai-searchbot(ChatGPT 검색 인덱서) crawler_hits 첫 등장, meta-externalagent 7일 184건.
+- 사용자 결정: 자사(위서클) 브랜드 글도 수동 검수 의도 아님 → auto_content_settings tenant 12 auto_publish=true (SQL), 대기 draft #449(en, pass) SQL 발행 (p449 shortlink 기발급 확인). /en/guides/best-skin-clinic-in-gangnam-449 200 확인.
+- Reddit 모니터 누적 0건 — 다음 주에도 0이면 OAuth 전환 검토.

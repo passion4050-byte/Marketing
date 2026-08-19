@@ -11,21 +11,10 @@ import { getClientSession } from '@/lib/client-auth';
 import { getServerClient } from '@/lib/supabase';
 import { computeReportMetrics } from '@/lib/reportMetrics';
 import { makeReportToken } from '@/lib/reportToken';
+// Round 165 — 다국어 URL 빌더 공용화 (해외 글 링크 404 수정) + 언어 배지
+import { publicContentUrl, LANG_LABEL } from '@/lib/contentUrl';
 
 export const dynamic = 'force-dynamic';
-
-const BLOG_BASE = 'https://wecircle.co.kr';
-
-function contentUrl(
-  c: { slug: string | null; is_partner_content: boolean | null; partner_category: string | null },
-  partnerSlug: string | null,
-): string | null {
-  if (!c.slug) return null;
-  if (c.is_partner_content && c.partner_category && partnerSlug) {
-    return `${BLOG_BASE}/with-partners/${c.partner_category}/${partnerSlug}/${c.slug}`;
-  }
-  return `${BLOG_BASE}/blog/${c.slug}`;
-}
 
 function fmtDate(iso: string | null): string {
   if (!iso) return '—';
@@ -52,25 +41,30 @@ export default async function ClientHomePage() {
         .eq('tenant_id', tenantId)
         .eq('status', 'published')
         .eq('channel', 'blog_html'),
+      // Round 165 — is_bot=false 필터. Round 163d 에서 봇 클릭(82%)을 플래그로 분리했는데
+      //   포털 카운트가 필터 없이 전량을 세고 있었음 (병원에 부풀린 수치가 나가던 버그).
       sb
         .from('shortlink_clicks')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
+        .eq('is_bot', false)
         .gte('clicked_at', iso(now - 30 * 86400_000)),
       sb
         .from('shortlink_clicks')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
+        .eq('is_bot', false)
         .gte('clicked_at', iso(now - 7 * 86400_000)),
       sb
         .from('shortlink_clicks')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
+        .eq('is_bot', false)
         .gte('clicked_at', iso(now - 14 * 86400_000))
         .lt('clicked_at', iso(now - 7 * 86400_000)),
       sb
         .from('generated_contents')
-        .select('title, slug, published_at, is_partner_content, partner_category')
+        .select('title, slug, published_at, is_partner_content, partner_category, lang, market')
         .eq('tenant_id', tenantId)
         .eq('status', 'published')
         .eq('channel', 'blog_html')
@@ -92,6 +86,8 @@ export default async function ClientHomePage() {
     published_at: string | null;
     is_partner_content: boolean | null;
     partner_category: string | null;
+    lang: string | null;
+    market: string | null;
   }>;
 
   const d = new Date();
@@ -188,7 +184,8 @@ export default async function ClientHomePage() {
               <p className="p-5 text-sm text-stone-400">아직 발행된 콘텐츠가 없습니다.</p>
             ) : (
               recent.map((c, i) => {
-                const url = contentUrl(c, partnerSlug);
+                const url = publicContentUrl(c, partnerSlug);
+                const langLabel = LANG_LABEL[c.lang ?? 'ko'] ?? c.lang;
                 return (
                   <div key={`${c.slug}-${i}`} className="flex items-center gap-3 p-4">
                     <span className="w-6 shrink-0 text-sm font-bold tabular-nums text-stone-300">
@@ -198,7 +195,14 @@ export default async function ClientHomePage() {
                       <p className="truncate text-sm font-medium text-stone-800">
                         {c.title ?? '(제목 없음)'}
                       </p>
-                      <p className="mt-0.5 text-[11px] text-stone-400">{fmtDate(c.published_at)}</p>
+                      <p className="mt-0.5 text-[11px] text-stone-400">
+                        {fmtDate(c.published_at)}
+                        {langLabel && langLabel !== '한국어' ? (
+                          <span className="ml-1.5 rounded bg-stone-100 px-1.5 py-0.5 font-medium text-stone-500">
+                            {langLabel}
+                          </span>
+                        ) : null}
+                      </p>
                     </div>
                     {url ? (
                       <a

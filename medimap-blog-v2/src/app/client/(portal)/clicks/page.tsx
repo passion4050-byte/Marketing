@@ -23,10 +23,13 @@ export default async function ClientClicksPage() {
   const since = new Date(Date.now() - 30 * 86400_000).toISOString();
   // Round 154 (배치 C1 · 감사 P1-8) — shortlink slug('p{content_id}') 파싱으로
   // "어느 글에서 눌렸는지" 귀속. 구 k-{partner} 클릭은 글 미상으로 표기.
+  // Round 165 — is_bot=false 필터 (Round 163d 봇 분리 후 포털 목록에 필터 누락돼
+  //   병원이 봇 클릭까지 실상담으로 보던 버그).
   const { data } = await sb
     .from('shortlink_clicks')
     .select('clicked_at, country, referer, shortlinks(slug)')
     .eq('tenant_id', session.tenantId)
+    .eq('is_bot', false)
     .gte('clicked_at', since)
     .order('clicked_at', { ascending: false })
     .limit(200);

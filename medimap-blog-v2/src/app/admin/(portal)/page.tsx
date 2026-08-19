@@ -17,6 +17,7 @@ import { ArrowUpRight, ClipboardCheck, DollarSign, Users, Zap, FileText, Trendin
 import Link from 'next/link';
 import { getServerClient } from '@/lib/supabase';
 import { getScopeServer, scopeToKeywordLang, scopeToContentLang } from '@/lib/scope';
+import { fetchAllRows, fetchByIdChunks } from '@/lib/fetchAllRows';
 import { loadClassifierSets, classifyDomain } from '@/lib/domain-classifier';
 import { cn } from '@/lib/cn';
 import { ActionRecommendations } from '@/components/admin/ActionRecommendations';
@@ -65,6 +66,14 @@ type DraftRow = {
 };
 
 type TenantRow = { id: number; name: string | null };
+
+type RecentCitation = {
+  id: string;
+  query: string;
+  tenantName: string;
+  engine: string;
+  citedAt: string;
+};
 
 async function fetchDashboardData(opts: {
   periodDays: number;
@@ -141,327 +150,407 @@ async function fetchDashboardData(opts: {
   // 스코프가 언어별이면 해당 lang 의 keyword_id 집합을 미리 계산.
   // 모든 측정(mentions/queries) 패널에 `.in('keyword_id', langKwIds)` 로 연쇄 필터.
   // (빈 배열이면 해당 언어 데이터 없음 → 패널 빈 값. null = 통합, 필터 없음.)
+  // Round 165 — 다국어 시딩 후 keywords 가 1,000행 캡을 넘을 수 있어 페이지네이션.
   let langKwIds: number[] | null = null;
   if (kwLang) {
-    const { data: kwRows } = await sb.from('keywords').select('id').eq('lang', kwLang);
-    langKwIds = (kwRows ?? []).map((k: { id: number }) => k.id);
+    const kwRows = await fetchAllRows<{ id: number }>((from, to) =>
+      sb.from('keywords').select('id').eq('lang', kwLang).order('id').range(from, to)
+    );
+    langKwIds = kwRows.map((k) => k.id);
   }
+  const langKwSet = langKwIds ? new Set(langKwIds) : null;
 
-  // 1. 활성 클라이언트 — 자사 제외 tenants 카운트 (스코프 인지)
-  // Round 143h: 해외(EN/JA/ZH) 스코프 → tenant_products.lang 으로 필터.
-  //             국내(KO) 스코프 → kwLang='ko' 키워드 보유 tenant.
-  //             통합(all) → 기존 동작 (self 제외 전체).
-  let clientCount: number | null = 0;
-  if (!kwLang) {
-    // 통합 — 전체 비자사 테넌트
-    const { count } = await sb
-      .from('tenants')
-      .select('id', { count: 'exact', head: true })
-      .neq('business_model', 'self')
-      .neq('partner_slug', 'medimap-self');
-    clientCount = count;
-  } else if (kwLang === 'ko') {
-    // 국내 스코프 — ko 키워드를 보유한 테넌트 수
-    const { data: koTenantRows } = await sb
-      .from('keywords')
-      .select('tenant_id')
-      .eq('lang', 'ko')
+  // ────────────────────────────────────────────────────────────────────────
+  // Round 165 (2026-08-18) — 대시보드 로딩속도 수술.
+  //   기존: 최상단부터 ~35회의 supabase 왕복이 전부 직렬 (왕복당 50~150ms → TTFB 수 초).
+  //   + responses/queries 대량 fetch 여러 곳이 1,000행 서버 캡에 조용히 잘려
+  //   차트(티어 추이·클라이언트 랭킹·grounding·신규 도메인·시장 점유)가 최신
+  //   1,000행만으로 계산되고 있었음 (30일 원본 ~4천 행 — Round 163 캡 실사고와 동일 계열).
+  //   수술:
+  //   ① 섹션별 async 함수로 묶어 Promise.all 병렬 실행 (직렬 의존은 섹션 내부에만)
+  //   ② 대량 fetch 전부 fetchAllRows / fetchByIdChunks 로 전량 수집
+  //   ③ 키워드별 멘션 집계를 mentions→responses→queries→keywords 역방향 단일
+  //      체인으로 공용화 — 기존엔 topContents 와 structureStats 가 같은 집계를
+  //      각자 keywords/queries 전방향 전체 스캔으로 중복 수행했음
+  // ────────────────────────────────────────────────────────────────────────
+
+  // 공유: domain_classifications (S7 tier 추이 · S8 신규 도메인 tier 라벨)
+  const domainClassPromise = (async () => {
+    const { data } = await sb
+      .from('domain_classifications')
+      .select('domain, tier')
       .eq('is_active', true);
-    const koTenantIds = Array.from(new Set((koTenantRows ?? []).map((r: { tenant_id: number }) => r.tenant_id)));
-    clientCount = koTenantIds.length;
-  } else {
-    // 해외 스코프(EN/JA/ZH) — tenant_products.lang 보유 테넌트 수
-    // ZH: keywords.lang='zh-Hant', tenant_products.lang='zh-Hant'
-    const tpLang = kwLang; // en / ja / zh-Hant
+    const m = new Map<string, string>();
+    ((data ?? []) as Array<{ domain: string; tier: string }>).forEach((r) =>
+      m.set(r.domain.toLowerCase(), r.tier)
+    );
+    return m;
+  })();
+
+  // 공유: 30일 키워드별 브랜드 멘션 수 (S9 topContents · S10 structureStats)
+  const kwMentionCountPromise = (async (): Promise<Map<string, number>> => {
+    const map = new Map<string, number>();
+    try {
+      const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const mentionRows = await fetchAllRows<{ response_id: number }>((from, to) =>
+        sb
+          .from('mentions')
+          .select('response_id')
+          .eq('is_target', true)
+          .gte('created_at', since30)
+          .order('id')
+          .range(from, to)
+      );
+      if (mentionRows.length === 0) return map;
+      const respCount = new Map<number, number>();
+      mentionRows.forEach((m) =>
+        respCount.set(m.response_id, (respCount.get(m.response_id) ?? 0) + 1)
+      );
+      const respRows = await fetchByIdChunks(Array.from(respCount.keys()), (chunk) =>
+        sb.from('responses').select('id, query_id').in('id', chunk)
+      );
+      const respToQ = new Map<number, number>(
+        (respRows as Array<{ id: number; query_id: number }>).map((r) => [r.id, r.query_id])
+      );
+      const qIds = Array.from(new Set(Array.from(respToQ.values())));
+      const qRows = await fetchByIdChunks(qIds, (chunk) =>
+        sb.from('queries').select('id, keyword_id').in('id', chunk)
+      );
+      const qToKwId = new Map<number, number>(
+        (qRows as Array<{ id: number; keyword_id: number }>).map((q) => [q.id, q.keyword_id])
+      );
+      const kwIds = Array.from(new Set(Array.from(qToKwId.values())));
+      const kwRows = await fetchByIdChunks(kwIds, (chunk) =>
+        sb.from('keywords').select('id, text').in('id', chunk)
+      );
+      const kwIdToText = new Map<number, string>(
+        (kwRows as Array<{ id: number; text: string }>).map((k) => [k.id, k.text])
+      );
+      respCount.forEach((cnt, respId) => {
+        const qid = respToQ.get(respId);
+        const kid = qid != null ? qToKwId.get(qid) : undefined;
+        const text = kid != null ? kwIdToText.get(kid) : undefined;
+        if (text) map.set(text, (map.get(text) ?? 0) + cnt);
+      });
+    } catch {
+      /* graceful — 빈 맵이면 멘션 0 으로 표기 */
+    }
+    return map;
+  })();
+
+  // S1. 활성 클라이언트 — 자사 제외 tenants 카운트 (스코프 인지, Round 143h 분기 유지)
+  const sectionClientCount = async (): Promise<number> => {
+    if (!kwLang) {
+      const { count } = await sb
+        .from('tenants')
+        .select('id', { count: 'exact', head: true })
+        .neq('business_model', 'self')
+        .neq('partner_slug', 'medimap-self');
+      return count ?? 0;
+    }
+    if (kwLang === 'ko') {
+      const { data: koTenantRows } = await sb
+        .from('keywords')
+        .select('tenant_id')
+        .eq('lang', 'ko')
+        .eq('is_active', true);
+      return Array.from(
+        new Set((koTenantRows ?? []).map((r: { tenant_id: number }) => r.tenant_id))
+      ).length;
+    }
     const { data: tpRows } = await sb
       .from('tenant_products')
       .select('tenant_id')
-      .eq('lang', tpLang)
+      .eq('lang', kwLang)
       .eq('status', 'active');
-    clientCount = Array.from(new Set((tpRows ?? []).map((r: { tenant_id: number }) => r.tenant_id))).length;
-  }
+    return Array.from(new Set((tpRows ?? []).map((r: { tenant_id: number }) => r.tenant_id)))
+      .length;
+  };
 
-  // 2. 검수 대기 — draft + pending COUNT (스코프: 콘텐츠 lang)
-  let pendingQ = sb
-    .from('generated_contents')
-    .select('id', { count: 'exact', head: true })
-    .in('status', ['draft', 'pending']);
-  if (contentLang) pendingQ = pendingQ.eq('lang', contentLang);
-  const { count: pendingCount } = await pendingQ;
+  // S2. 검수 대기 — draft + pending COUNT (스코프: 콘텐츠 lang)
+  const sectionPending = async (): Promise<number> => {
+    let pendingQ = sb
+      .from('generated_contents')
+      .select('id', { count: 'exact', head: true })
+      .in('status', ['draft', 'pending']);
+    if (contentLang) pendingQ = pendingQ.eq('lang', contentLang);
+    const { count } = await pendingQ;
+    return count ?? 0;
+  };
 
-  // 3. LLM 비용 — llm_call_logs 합산 (오늘·어제·최근 14일 3-tier)
-  // Round 116 Phase 5 (2026-07-02): 오늘 값만 노출 시 cron 미실행 시간대 $0.00 착시.
-  //   → 어제 + 14일 누적 병기해 실 미터링 상태를 항상 유의미하게 표시.
-  let todayCost = 0;
-  let yesterdayCost = 0;
-  let cost14d = 0;
-  let costError: string | null = null;
-  try {
-    const since14dIso = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: costRows, error: costErr } = await sb
-      .from('llm_call_logs')
-      .select('cost_usd, called_at')
-      .gte('called_at', since14dIso)
-      .limit(20000);
-    if (costErr) {
-      costError = costErr.message;
-    } else {
+  // S3. LLM 비용 — 오늘·어제·14일 (Round 116 Phase 5 3-tier 유지).
+  //   기존 .limit(20000) 도 서버 캡(1,000)에 잘렸음 → 전량 수집.
+  const sectionCost = async () => {
+    let todayCost = 0;
+    let yesterdayCost = 0;
+    let cost14d = 0;
+    let costError: string | null = null;
+    try {
+      const since14dIso = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+      const costRows = await fetchAllRows<{ cost_usd: number | null; called_at: string }>(
+        (from, to) =>
+          sb
+            .from('llm_call_logs')
+            .select('cost_usd, called_at')
+            .gte('called_at', since14dIso)
+            .order('id')
+            .range(from, to)
+      );
       // KST 기준 오늘/어제 판정 (UTC+9)
       const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
       const todayKst = kstNow.toISOString().slice(0, 10);
       const yestKst = new Date(kstNow.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-      for (const r of (costRows ?? []) as { cost_usd: number | null; called_at: string }[]) {
+      for (const r of costRows) {
         const usd = r.cost_usd ?? 0;
         cost14d += usd;
-        const kstDay = new Date(new Date(r.called_at).getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        const kstDay = new Date(new Date(r.called_at).getTime() + 9 * 60 * 60 * 1000)
+          .toISOString()
+          .slice(0, 10);
         if (kstDay === todayKst) todayCost += usd;
         else if (kstDay === yestKst) yesterdayCost += usd;
       }
+    } catch (e) {
+      costError = e instanceof Error ? e.message : String(e);
     }
-  } catch (e) {
-    costError = e instanceof Error ? e.message : String(e);
-  }
-
-  // Round 31 (2026-05-30): mentions 테이블에서 24h 인용 카운트.
-  // measure-ai-mentions.yml cron 이 매일 07:00 KST 에 4 엔진 호출 → mentions INSERT.
-  // is_target=true 인 mention 만 카운트 (위서클 또는 자사 tenant 가 직접 mentioned).
-  let citations24h = 0;
-  try {
-    if (kwLang) {
-      const { data: c24 } = await sb.rpc('citation_count', { _hours: 24, _kw_lang: kwLang });
-      citations24h = Number(c24) || 0;
-    } else {
-      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const { count: mentionCount } = await sb
-        .from('mentions')
-        .select('id', { count: 'exact', head: true })
-        .gte('created_at', yesterday)
-        .eq('is_target', true);
-      citations24h = mentionCount ?? 0;
-    }
-  } catch {
-    // mentions 테이블 query 실패 시 0 표시 (graceful)
-  }
-
-  // Round 86 (2026-06-28) — KPI 확장: 30일 누적 멘션 + 이번 달 발행 + cron 헬스
-  let citations30d = 0;
-  let publishedThisMonth = 0;
-  let lastCronAt: string | null = null;
-  try {
-    if (kwLang) {
-      const { data: c30r } = await sb.rpc('citation_count', { _hours: 720, _kw_lang: kwLang });
-      citations30d = Number(c30r) || 0;
-    } else {
-      const cutoff30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-      const { count: c30 } = await sb
-        .from('mentions')
-        .select('id', { count: 'exact', head: true })
-        .gte('created_at', cutoff30)
-        .eq('is_target', true);
-      citations30d = c30 ?? 0;
-    }
-
-    const startOfMonth = new Date();
-    startOfMonth.setUTCDate(1);
-    startOfMonth.setUTCHours(0, 0, 0, 0);
-    let pubQ = sb
-      .from('generated_contents')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'published')
-      .eq('channel', 'blog_html')
-      .gte('published_at', startOfMonth.toISOString());
-    if (contentLang) pubQ = pubQ.eq('lang', contentLang);
-    const { count: pubM } = await pubQ;
-    publishedThisMonth = pubM ?? 0;
-
-    // 측정 cron 마지막 성공 시각 (운영자 헬스 체크)
-    // Round 143h: 언어 스코프 시 해당 lang 키워드 쿼리의 최신 시각만 표시.
-    let lastCronQ = sb
-      .from('queries')
-      .select('requested_at')
-      .neq('engine', 'stub')
-      .order('requested_at', { ascending: false })
-      .limit(1);
-    if (langKwIds && langKwIds.length > 0) {
-      lastCronQ = lastCronQ.in('keyword_id', langKwIds);
-    }
-    const { data: lastQ } = await lastCronQ;
-    lastCronAt = (lastQ?.[0] as { requested_at?: string })?.requested_at ?? null;
-  } catch {
-    // graceful
-  }
-
-  // 5. 최근 검수 대기 Top 3 — draft/pending top 3 + tenant 이름 (fix 12 패턴: 별도 fetch)
-  let draftQ = sb
-    .from('generated_contents')
-    .select('id, tenant_id, title, keyword_text, llm_provider, compliance_status')
-    .in('status', ['draft', 'pending'])
-    .order('created_at', { ascending: false })
-    .limit(3);
-  if (contentLang) draftQ = draftQ.eq('lang', contentLang);
-  const { data: draftRows } = await draftQ;
-
-  const tenantIds = Array.from(
-    new Set((draftRows ?? []).map((r: DraftRow) => r.tenant_id).filter((x) => x != null))
-  );
-  const tenantMap = new Map<number, string>();
-  if (tenantIds.length > 0) {
-    const { data: tenantsData } = await sb
-      .from('tenants')
-      .select('id, name')
-      .in('id', tenantIds);
-    (tenantsData ?? []).forEach((t: TenantRow) => {
-      tenantMap.set(t.id, t.name ?? '(unknown)');
-    });
-  }
-
-  const recentDrafts = (draftRows ?? []).map((r: DraftRow) => ({
-    ...r,
-    tenant_name: tenantMap.get(r.tenant_id) ?? '(unknown)',
-  }));
-
-  // Round 31 (2026-05-30): 최근 AI 인용 (24h) 실데이터.
-  // mentions + responses + queries JOIN — engine, prompt, created_at + tenant_name.
-  type RecentCitation = {
-    id: string;
-    query: string;
-    tenantName: string;
-    engine: string;
-    citedAt: string;
+    return { todayCost, yesterdayCost, cost14d, costError };
   };
-  let recentCitations: RecentCitation[] = [];
-  try {
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    // mentions → responses → queries 별도 fetch (fix 12 패턴)
-    const { data: mentions } = await sb
-      .from('mentions')
-      .select('id, response_id, tenant_id, brand, created_at')
-      .gte('created_at', yesterday)
-      .eq('is_target', true)
+
+  // S4. KPI 확장 — 24h/30일 브랜드 등장 · 이번 달 발행 · 측정 cron 헬스 (내부 병렬)
+  const sectionKpi = async () => {
+    let citations24h = 0;
+    let citations30d = 0;
+    let publishedThisMonth = 0;
+    let lastCronAt: string | null = null;
+    try {
+      const startOfMonth = new Date();
+      startOfMonth.setUTCDate(1);
+      startOfMonth.setUTCHours(0, 0, 0, 0);
+      let pubQ = sb
+        .from('generated_contents')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'published')
+        .eq('channel', 'blog_html')
+        .gte('published_at', startOfMonth.toISOString());
+      if (contentLang) pubQ = pubQ.eq('lang', contentLang);
+      let lastCronQ = sb
+        .from('queries')
+        .select('requested_at')
+        .neq('engine', 'stub')
+        .order('requested_at', { ascending: false })
+        .limit(1);
+      if (langKwIds && langKwIds.length > 0) {
+        lastCronQ = lastCronQ.in('keyword_id', langKwIds);
+      }
+      if (kwLang) {
+        const [c24r, c30r, pubR, lastR] = await Promise.all([
+          sb.rpc('citation_count', { _hours: 24, _kw_lang: kwLang }),
+          sb.rpc('citation_count', { _hours: 720, _kw_lang: kwLang }),
+          pubQ,
+          lastCronQ,
+        ]);
+        citations24h = Number(c24r.data) || 0;
+        citations30d = Number(c30r.data) || 0;
+        publishedThisMonth = pubR.count ?? 0;
+        lastCronAt =
+          (lastR.data?.[0] as { requested_at?: string } | undefined)?.requested_at ?? null;
+      } else {
+        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const cutoff30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const [c24r, c30r, pubR, lastR] = await Promise.all([
+          sb
+            .from('mentions')
+            .select('id', { count: 'exact', head: true })
+            .gte('created_at', yesterday)
+            .eq('is_target', true),
+          sb
+            .from('mentions')
+            .select('id', { count: 'exact', head: true })
+            .gte('created_at', cutoff30)
+            .eq('is_target', true),
+          pubQ,
+          lastCronQ,
+        ]);
+        citations24h = c24r.count ?? 0;
+        citations30d = c30r.count ?? 0;
+        publishedThisMonth = pubR.count ?? 0;
+        lastCronAt =
+          (lastR.data?.[0] as { requested_at?: string } | undefined)?.requested_at ?? null;
+      }
+    } catch {
+      /* graceful */
+    }
+    return { citations24h, citations30d, publishedThisMonth, lastCronAt };
+  };
+
+  // S5+S6. 최근 검수 대기 Top 3 + 최근 AI 인용(24h).
+  //   Round 165 — recentCitations 의 tenantName 이 검수대기 테넌트 맵을 재사용하다
+  //   맵에 없으면 '(unknown)' 으로 뜨던 것 수정: 멘션 테넌트 이름을 직접 fetch.
+  const sectionDraftsAndRecent = async () => {
+    let draftQ = sb
+      .from('generated_contents')
+      .select('id, tenant_id, title, keyword_text, llm_provider, compliance_status')
+      .in('status', ['draft', 'pending'])
       .order('created_at', { ascending: false })
-      .limit(langKwIds ? 60 : 3);
-    if (mentions && mentions.length > 0) {
-      const respIds = Array.from(new Set(mentions.map((m: { response_id: number }) => m.response_id)));
-      const { data: responses } = await sb
-        .from('responses')
-        .select('id, query_id')
-        .in('id', respIds);
-      const respMap = new Map<number, number>(
-        (responses ?? []).map((r: { id: number; query_id: number }) => [r.id, r.query_id])
-      );
-      const queryIds = Array.from(new Set(Array.from(respMap.values())));
-      const { data: queries } = await sb
-        .from('queries')
-        .select('id, prompt, engine, keyword_id')
-        .in('id', queryIds);
-      const queryMap = new Map<number, { prompt: string; engine: string; keyword_id: number }>(
-        (queries ?? []).map((q: { id: number; prompt: string; engine: string; keyword_id: number }) => [
-          q.id,
-          { prompt: q.prompt, engine: q.engine, keyword_id: q.keyword_id },
-        ])
-      );
-      const langKwSet = langKwIds ? new Set(langKwIds) : null;
-      recentCitations = mentions
-        .filter((m: { response_id: number }) => {
-          if (!langKwSet) return true;
-          const qid = respMap.get(m.response_id);
-          const kwId = qid ? queryMap.get(qid)?.keyword_id : undefined;
-          return kwId != null && langKwSet.has(kwId);
-        })
-        .slice(0, 3)
-        .map((m: {
-          id: number;
-          response_id: number;
-          tenant_id: number;
-          created_at: string;
-        }) => {
-          const qid = respMap.get(m.response_id);
-          const qInfo = qid ? queryMap.get(qid) : undefined;
-          return {
-            id: String(m.id),
-            query: qInfo?.prompt ?? '(query 미발견)',
-            tenantName: tenantMap.get(m.tenant_id) ?? '(unknown)',
-            engine: qInfo?.engine ?? '?',
-            citedAt: m.created_at,
-          };
-        });
-    }
-  } catch {
-    // mentions/queries query 실패 시 빈 list (graceful)
-  }
+      .limit(3);
+    if (contentLang) draftQ = draftQ.eq('lang', contentLang);
+    const { data: draftRows } = await draftQ;
 
-  // Round 37 H (2026-05-31) — 차트 3개 데이터 server-side 집계.
-  // 1. tier_trend: 일자별 T1/T3/T4/T5/NOISE 카운트 (30일)
-  // 2. client_ranking: 클라이언트별 총 인용 source Top 5
-  let tierTrend: TierTrendPoint[] = [];
-  let clientRanking: ClientRankingItem[] = [];
-  try {
-    // 분류 사전 로드
-    const { data: domainClassRows } = await sb
-      .from('domain_classifications')
-      .select('domain, tier')
-      .eq('is_active', true);
-    const classMap = new Map<string, string>();
-    (domainClassRows ?? []).forEach((r: { domain: string; tier: string }) => {
-      classMap.set(r.domain.toLowerCase(), r.tier);
-    });
-
-    // 최근 30일 responses (production 측정만, source_domains 있는 것)
-    const thirtyDaysAgo = useCustomRange && customCutoff ? customCutoff : new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000).toISOString();
-    const { data: respRows } = await sb
-      .from('responses')
-      .select('id, query_id, source_domains, created_at')
-      .gte('created_at', thirtyDaysAgo)
-      .not('source_domains', 'is', null);
-
-    // query_id → tenant_id, engine
-    const queryIdSet = Array.from(
-      new Set((respRows ?? []).map((r: { query_id: number }) => r.query_id))
+    const tenantIds = Array.from(
+      new Set((draftRows ?? []).map((r: DraftRow) => r.tenant_id).filter((x) => x != null))
     );
-    const queryTenantMap = new Map<number, number>();
-    if (queryIdSet.length > 0) {
-      // Round 39 — tenantId 필터링
-      let qq = sb
-        .from('queries')
-        .select('id, tenant_id, engine')
-        .in('id', queryIdSet)
-        .neq('engine', 'stub');
-      if (tenantId) qq = qq.eq('tenant_id', tenantId);
-      if (langKwIds) qq = qq.in('keyword_id', langKwIds);
-      const { data: queryRows } = await qq;
-      (queryRows ?? []).forEach((q: { id: number; tenant_id: number }) => {
-        queryTenantMap.set(q.id, q.tenant_id);
+    const tenantMap = new Map<number, string>();
+    if (tenantIds.length > 0) {
+      const { data: tenantsData } = await sb.from('tenants').select('id, name').in('id', tenantIds);
+      (tenantsData ?? []).forEach((t: TenantRow) => {
+        tenantMap.set(t.id, t.name ?? '(unknown)');
       });
     }
+    const recentDrafts = (draftRows ?? []).map((r: DraftRow) => ({
+      ...r,
+      tenant_name: tenantMap.get(r.tenant_id) ?? '(unknown)',
+    }));
 
-    // tenant_id → name
-    const tenantIdsAll = Array.from(new Set(Array.from(queryTenantMap.values())));
-    const tenantNameMap = new Map<number, string>();
-    if (tenantIdsAll.length > 0) {
-      const { data: tenantsAll } = await sb
-        .from('tenants')
-        .select('id, name')
-        .in('id', tenantIdsAll);
-      (tenantsAll ?? []).forEach((t: { id: number; name: string }) => {
-        tenantNameMap.set(t.id, t.name);
-      });
+    let recentCitations: RecentCitation[] = [];
+    try {
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      // mentions → responses → queries 별도 fetch (fix 12 패턴)
+      const { data: mentions } = await sb
+        .from('mentions')
+        .select('id, response_id, tenant_id, brand, created_at')
+        .gte('created_at', yesterday)
+        .eq('is_target', true)
+        .order('created_at', { ascending: false })
+        .limit(langKwIds ? 60 : 3);
+      if (mentions && mentions.length > 0) {
+        const respIds = Array.from(
+          new Set(mentions.map((m: { response_id: number }) => m.response_id))
+        );
+        const mTenantIds = Array.from(
+          new Set(mentions.map((m: { tenant_id: number }) => m.tenant_id))
+        );
+        const [respRes, mTenantsRes] = await Promise.all([
+          sb.from('responses').select('id, query_id').in('id', respIds),
+          sb.from('tenants').select('id, name').in('id', mTenantIds),
+        ]);
+        const mTenantMap = new Map<number, string>();
+        (mTenantsRes.data ?? []).forEach((t: TenantRow) =>
+          mTenantMap.set(t.id, t.name ?? '(unknown)')
+        );
+        const respMap = new Map<number, number>(
+          (respRes.data ?? []).map((r: { id: number; query_id: number }) => [r.id, r.query_id])
+        );
+        const queryIds = Array.from(new Set(Array.from(respMap.values())));
+        const { data: queries } = await sb
+          .from('queries')
+          .select('id, prompt, engine, keyword_id')
+          .in('id', queryIds);
+        const queryMap = new Map<number, { prompt: string; engine: string; keyword_id: number }>(
+          (queries ?? []).map(
+            (q: { id: number; prompt: string; engine: string; keyword_id: number }) => [
+              q.id,
+              { prompt: q.prompt, engine: q.engine, keyword_id: q.keyword_id },
+            ]
+          )
+        );
+        recentCitations = mentions
+          .filter((m: { response_id: number }) => {
+            if (!langKwSet) return true;
+            const qid = respMap.get(m.response_id);
+            const kwId = qid ? queryMap.get(qid)?.keyword_id : undefined;
+            return kwId != null && langKwSet.has(kwId);
+          })
+          .slice(0, 3)
+          .map(
+            (m: { id: number; response_id: number; tenant_id: number; created_at: string }) => {
+              const qid = respMap.get(m.response_id);
+              const qInfo = qid ? queryMap.get(qid) : undefined;
+              return {
+                id: String(m.id),
+                query: qInfo?.prompt ?? '(query 미발견)',
+                tenantName: mTenantMap.get(m.tenant_id) ?? '(unknown)',
+                engine: qInfo?.engine ?? '?',
+                citedAt: m.created_at,
+              };
+            }
+          );
+      }
+    } catch {
+      /* mentions/queries query 실패 시 빈 list (graceful) */
     }
+    return { recentDrafts, recentCitations };
+  };
 
-    // 일자별 집계 + 클라이언트별 집계
-    const trendMap = new Map<
-      string,
-      { t1: number; t3: number; t4: number; t5: number; noise: number; total: number }
-    >();
-    const clientMap = new Map<number, { total: number; t1: number; t5: number }>();
+  // S7. 차트 — tier_trend (일자별 T1/T3/T4/T5/NOISE) + client_ranking (Top 5)
+  const sectionCharts = async () => {
+    let tierTrend: TierTrendPoint[] = [];
+    let clientRanking: ClientRankingItem[] = [];
+    try {
+      const classMap = await domainClassPromise;
 
-    (respRows ?? []).forEach(
-      (r: {
+      // 최근 30일 responses (production 측정만, source_domains 있는 것) — 전량 수집
+      const thirtyDaysAgo =
+        useCustomRange && customCutoff
+          ? customCutoff
+          : new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000).toISOString();
+      const respRows = await fetchAllRows<{
+        id: number;
         query_id: number;
         source_domains: Array<{ domain: string }> | null;
         created_at: string;
-      }) => {
-        const tenantId = queryTenantMap.get(r.query_id);
-        if (!tenantId) return; // stub engine 또는 누락
+      }>((from, to) =>
+        sb
+          .from('responses')
+          .select('id, query_id, source_domains, created_at')
+          .gte('created_at', thirtyDaysAgo)
+          .not('source_domains', 'is', null)
+          .order('id')
+          .range(from, to)
+      );
+
+      // query_id → tenant_id (tenantId/언어 스코프 필터는 JS 에서 — 청크 URL 길이 안전)
+      const queryIdSet = Array.from(new Set(respRows.map((r) => r.query_id)));
+      const queryTenantMap = new Map<number, number>();
+      if (queryIdSet.length > 0) {
+        const queryRows = await fetchByIdChunks(queryIdSet, (chunk) => {
+          let qq = sb
+            .from('queries')
+            .select('id, tenant_id, keyword_id')
+            .in('id', chunk)
+            .neq('engine', 'stub');
+          if (tenantId) qq = qq.eq('tenant_id', tenantId);
+          return qq;
+        });
+        (queryRows as Array<{ id: number; tenant_id: number; keyword_id: number }>).forEach(
+          (q) => {
+            if (langKwSet && !langKwSet.has(q.keyword_id)) return;
+            queryTenantMap.set(q.id, q.tenant_id);
+          }
+        );
+      }
+
+      // tenant_id → name
+      const tenantIdsAll = Array.from(new Set(Array.from(queryTenantMap.values())));
+      const tenantNameMap = new Map<number, string>();
+      if (tenantIdsAll.length > 0) {
+        const { data: tenantsAll } = await sb
+          .from('tenants')
+          .select('id, name')
+          .in('id', tenantIdsAll);
+        (tenantsAll ?? []).forEach((t: { id: number; name: string }) => {
+          tenantNameMap.set(t.id, t.name);
+        });
+      }
+
+      // 일자별 집계 + 클라이언트별 집계
+      const trendMap = new Map<
+        string,
+        { t1: number; t3: number; t4: number; t5: number; noise: number; total: number }
+      >();
+      const clientMap = new Map<number, { total: number; t1: number; t5: number }>();
+
+      respRows.forEach((r) => {
+        const rowTenantId = queryTenantMap.get(r.query_id);
+        if (!rowTenantId) return; // stub engine, 스코프 밖 또는 누락
         const dateKey = r.created_at.slice(5, 10); // 'MM-DD'
 
         if (!trendMap.has(dateKey)) {
@@ -469,10 +558,10 @@ async function fetchDashboardData(opts: {
         }
         const bucket = trendMap.get(dateKey)!;
 
-        if (!clientMap.has(tenantId)) {
-          clientMap.set(tenantId, { total: 0, t1: 0, t5: 0 });
+        if (!clientMap.has(rowTenantId)) {
+          clientMap.set(rowTenantId, { total: 0, t1: 0, t5: 0 });
         }
-        const cbucket = clientMap.get(tenantId)!;
+        const cbucket = clientMap.get(rowTenantId)!;
 
         (r.source_domains ?? []).forEach((sd: { domain: string }) => {
           if (!sd.domain) return;
@@ -491,201 +580,226 @@ async function fetchDashboardData(opts: {
             cbucket.t5++;
           }
         });
-      }
-    );
+      });
 
-    // tier_trend — periodDays 치 채움 (없는 날 0)
-    const allDays: string[] = [];
-    for (let i = periodDays - 1; i >= 0; i--) {
-      const dt = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
-      allDays.push(dt.toISOString().slice(5, 10));
+      // tier_trend — periodDays 치 채움 (없는 날 0)
+      const allDays: string[] = [];
+      for (let i = periodDays - 1; i >= 0; i--) {
+        const dt = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+        allDays.push(dt.toISOString().slice(5, 10));
+      }
+      tierTrend = allDays.map((d) => {
+        const b = trendMap.get(d) ?? { t1: 0, t3: 0, t4: 0, t5: 0, noise: 0, total: 0 };
+        return {
+          date: d,
+          ...b,
+          t1_share: b.total > 0 ? b.t1 / b.total : 0,
+        };
+      });
+
+      // client_ranking — Top 5 by total
+      clientRanking = Array.from(clientMap.entries())
+        .map(([tid, v]) => ({
+          tenant_name: tenantNameMap.get(tid) ?? `tenant#${tid}`,
+          total: v.total,
+          t1: v.t1,
+          t5: v.t5,
+        }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 5);
+    } catch {
+      /* 차트 데이터 실패 시 빈 array — 컴포넌트가 graceful 표시 */
     }
-    tierTrend = allDays.map((d) => {
-      const b = trendMap.get(d) ?? { t1: 0, t3: 0, t4: 0, t5: 0, noise: 0, total: 0 };
-      return {
-        date: d,
-        ...b,
-        t1_share: b.total > 0 ? b.t1 / b.total : 0,
-      };
-    });
+    return { tierTrend, clientRanking };
+  };
 
-    // client_ranking — Top 5 by total
-    clientRanking = Array.from(clientMap.entries())
-      .map(([tid, v]) => ({
-        tenant_name: tenantNameMap.get(tid) ?? `tenant#${tid}`,
-        total: v.total,
-        t1: v.t1,
-        t5: v.t5,
-      }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 5);
-  } catch {
-    /* 차트 데이터 실패 시 빈 array — 컴포넌트가 graceful 표시 */
-  }
+  // S8. Top 키워드 grounding rate (30일) + 신규 등장 도메인 (7일)
+  const sectionGrounding = async () => {
+    let keywordGrounding: KeywordGroundingItem[] = [];
+    let newDomains: NewDomainItem[] = [];
+    try {
+      const thirtyDaysAgo =
+        useCustomRange && customCutoff
+          ? customCutoff
+          : new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000).toISOString();
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const fortyDaysAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
 
-  // Round 38 B (2026-05-31) — 추가 차트 2개 데이터.
-  // 4) Top 키워드 grounding rate (30일)
-  // 5) 신규 등장 도메인 (최근 7일, 분류 사전 안 등록된 것 위주)
-  let keywordGrounding: KeywordGroundingItem[] = [];
-  let newDomains: NewDomainItem[] = [];
-  try {
-    const thirtyDaysAgo = useCustomRange && customCutoff ? customCutoff : new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000).toISOString();
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const fortyDaysAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+      // 4개 대량 fetch 병렬 + 전량 수집 (기존: 직렬 + 캡 잘림)
+      const [queriesAll, respsAll, respRecent, respPrior] = await Promise.all([
+        fetchAllRows<{ id: number; keyword_id: number; tenant_id: number }>((from, to) => {
+          let qa = sb
+            .from('queries')
+            .select('id, keyword_id, tenant_id')
+            .neq('engine', 'stub')
+            .gte('requested_at', thirtyDaysAgo)
+            .order('id')
+            .range(from, to);
+          if (tenantId) qa = qa.eq('tenant_id', tenantId);
+          if (langKwIds) qa = qa.in('keyword_id', langKwIds);
+          return qa;
+        }),
+        // grounded 판정은 source_domains 비어있지 않은 행만 필요 → not-null 필터로 축소
+        fetchAllRows<{ query_id: number; source_domains: unknown[] | null }>((from, to) =>
+          sb
+            .from('responses')
+            .select('query_id, source_domains')
+            .gte('created_at', thirtyDaysAgo)
+            .not('source_domains', 'is', null)
+            .order('id')
+            .range(from, to)
+        ),
+        fetchAllRows<{
+          id: number;
+          query_id: number;
+          source_domains: Array<{ domain: string; final_url?: string | null }> | null;
+          created_at: string;
+        }>((from, to) =>
+          sb
+            .from('responses')
+            .select('id, query_id, source_domains, created_at')
+            .gte('created_at', sevenDaysAgo)
+            .not('source_domains', 'is', null)
+            .order('id')
+            .range(from, to)
+        ),
+        fetchAllRows<{ source_domains: Array<{ domain: string }> | null }>((from, to) =>
+          sb
+            .from('responses')
+            .select('source_domains')
+            .gte('created_at', fortyDaysAgo)
+            .lt('created_at', sevenDaysAgo)
+            .not('source_domains', 'is', null)
+            .order('id')
+            .range(from, to)
+        ),
+      ]);
 
-    // 4) keyword grounding — queries 와 responses 30일치 join, keyword_id 별 group
-    // Round 39 — tenantId 필터링
-    let qa = sb
-      .from('queries')
-      .select('id, keyword_id, tenant_id')
-      .neq('engine', 'stub')
-      .gte('requested_at', thirtyDaysAgo);
-    if (tenantId) qa = qa.eq('tenant_id', tenantId);
-    if (langKwIds) qa = qa.in('keyword_id', langKwIds);
-    const { data: queriesAll } = await qa;
-    const queryIdToKw = new Map<number, { keyword_id: number; tenant_id: number }>();
-    (queriesAll ?? []).forEach((q: { id: number; keyword_id: number; tenant_id: number }) => {
-      queryIdToKw.set(q.id, { keyword_id: q.keyword_id, tenant_id: q.tenant_id });
-    });
+      const queryIdToKw = new Map<number, { keyword_id: number; tenant_id: number }>();
+      queriesAll.forEach((q) => {
+        queryIdToKw.set(q.id, { keyword_id: q.keyword_id, tenant_id: q.tenant_id });
+      });
 
-    const queryIds30d = Array.from(queryIdToKw.keys());
-    const { data: respsAll } = await sb
-      .from('responses')
-      .select('id, query_id, source_domains, created_at')
-      .gte('created_at', thirtyDaysAgo);
-
-    // keyword_id 별 — 시도 횟수 + grounding (source_domains 있는) 횟수
-    const kwStats = new Map<number, { tenant_id: number; queries: number; grounded: number }>();
-    (queriesAll ?? []).forEach((q: { id: number; keyword_id: number; tenant_id: number }) => {
-      if (!kwStats.has(q.keyword_id)) {
-        kwStats.set(q.keyword_id, { tenant_id: q.tenant_id, queries: 0, grounded: 0 });
-      }
-      kwStats.get(q.keyword_id)!.queries++;
-    });
-    (respsAll ?? []).forEach(
-      (r: { query_id: number; source_domains: unknown[] | null }) => {
+      // keyword_id 별 — 시도 횟수 + grounding (source_domains 있는) 횟수
+      const kwStats = new Map<number, { tenant_id: number; queries: number; grounded: number }>();
+      queriesAll.forEach((q) => {
+        if (!kwStats.has(q.keyword_id)) {
+          kwStats.set(q.keyword_id, { tenant_id: q.tenant_id, queries: 0, grounded: 0 });
+        }
+        kwStats.get(q.keyword_id)!.queries++;
+      });
+      respsAll.forEach((r) => {
         const meta = queryIdToKw.get(r.query_id);
         if (!meta) return;
         if (r.source_domains && Array.isArray(r.source_domains) && r.source_domains.length > 0) {
           const s = kwStats.get(meta.keyword_id);
           if (s) s.grounded++;
         }
-      }
-    );
-
-    // keyword text + tenant name fetch
-    const kwIds = Array.from(kwStats.keys());
-    if (kwIds.length > 0) {
-      const { data: kwsAll } = await sb
-        .from('keywords')
-        .select('id, text, tenant_id')
-        .in('id', kwIds);
-      const kwTextMap = new Map<number, string>();
-      const kwTenantMap = new Map<number, number>();
-      (kwsAll ?? []).forEach((k: { id: number; text: string; tenant_id: number }) => {
-        kwTextMap.set(k.id, k.text);
-        kwTenantMap.set(k.id, k.tenant_id);
       });
 
-      const tenantIdsKw = Array.from(new Set(Array.from(kwTenantMap.values())));
-      const tenantNameMap2 = new Map<number, string>();
-      if (tenantIdsKw.length > 0) {
-        const { data: tenantsKw } = await sb
-          .from('tenants')
-          .select('id, name')
-          .in('id', tenantIdsKw);
-        (tenantsKw ?? []).forEach((t: { id: number; name: string }) =>
-          tenantNameMap2.set(t.id, t.name)
+      // keyword text + tenant name fetch
+      const kwIds = Array.from(kwStats.keys());
+      if (kwIds.length > 0) {
+        const kwsAll = await fetchByIdChunks(kwIds, (chunk) =>
+          sb.from('keywords').select('id, text, tenant_id').in('id', chunk)
         );
+        const kwTextMap = new Map<number, string>();
+        const kwTenantMap = new Map<number, number>();
+        (kwsAll as Array<{ id: number; text: string; tenant_id: number }>).forEach((k) => {
+          kwTextMap.set(k.id, k.text);
+          kwTenantMap.set(k.id, k.tenant_id);
+        });
+
+        const tenantIdsKw = Array.from(new Set(Array.from(kwTenantMap.values())));
+        const tenantNameMap2 = new Map<number, string>();
+        if (tenantIdsKw.length > 0) {
+          const { data: tenantsKw } = await sb
+            .from('tenants')
+            .select('id, name')
+            .in('id', tenantIdsKw);
+          (tenantsKw ?? []).forEach((t: { id: number; name: string }) =>
+            tenantNameMap2.set(t.id, t.name)
+          );
+        }
+
+        keywordGrounding = Array.from(kwStats.entries())
+          .map(([kwId, v]) => ({
+            keyword: kwTextMap.get(kwId) ?? `#${kwId}`,
+            tenant_name: tenantNameMap2.get(kwTenantMap.get(kwId) ?? -1) ?? '?',
+            queries: v.queries,
+            grounded: v.grounded,
+            rate: v.queries > 0 ? v.grounded / v.queries : 0,
+          }))
+          .filter((r) => r.queries >= 1)
+          .sort((a, b) => b.queries - a.queries)
+          .slice(0, 10);
       }
 
-      keywordGrounding = Array.from(kwStats.entries())
-        .map(([kwId, v]) => ({
-          keyword: kwTextMap.get(kwId) ?? `#${kwId}`,
-          tenant_name: tenantNameMap2.get(kwTenantMap.get(kwId) ?? -1) ?? '?',
-          queries: v.queries,
-          grounded: v.grounded,
-          rate: v.queries > 0 ? v.grounded / v.queries : 0,
-        }))
-        .filter((r) => r.queries >= 1)
-        .sort((a, b) => b.queries - a.queries)
-        .slice(0, 10);
-    }
-
-    // 5) 신규 도메인 — 최근 7일 등장 hostname 중 그 이전 30일에는 안 등장한 것
-    // Round 39 — tenantId 필터 + 세부 URL + 키워드 추가
-    let rrq = sb
-      .from('responses')
-      .select('id, query_id, source_domains, created_at')
-      .gte('created_at', sevenDaysAgo)
-      .not('source_domains', 'is', null);
-    const { data: respRecent } = await rrq;
-
-    const { data: respPrior } = await sb
-      .from('responses')
-      .select('source_domains')
-      .gte('created_at', fortyDaysAgo)
-      .lt('created_at', sevenDaysAgo)
-      .not('source_domains', 'is', null);
-
-    const priorDomains = new Set<string>();
-    (respPrior ?? []).forEach(
-      (r: { source_domains: Array<{ domain: string }> | null }) => {
+      // 신규 도메인 — 최근 7일 등장 hostname 중 그 이전 33일에는 안 등장한 것
+      const priorDomains = new Set<string>();
+      respPrior.forEach((r) => {
         (r.source_domains ?? []).forEach((sd: { domain: string }) => {
           if (sd.domain) priorDomains.add(sd.domain.toLowerCase());
         });
-      }
-    );
-
-    // Round 39 — 최근 7일 queries 정보 (tenantId 필터 적용)
-    const recentQueryIds = Array.from(
-      new Set((respRecent ?? []).map((r: { query_id: number }) => r.query_id))
-    );
-    const queryDetailMap = new Map<number, { tenant_id: number; keyword_id: number }>();
-    if (recentQueryIds.length > 0) {
-      let qd = sb
-        .from('queries')
-        .select('id, tenant_id, keyword_id')
-        .in('id', recentQueryIds)
-        .neq('engine', 'stub');
-      if (tenantId) qd = qd.eq('tenant_id', tenantId);
-      if (langKwIds) qd = qd.in('keyword_id', langKwIds);
-      const { data: qrows } = await qd;
-      (qrows ?? []).forEach((q: { id: number; tenant_id: number; keyword_id: number }) => {
-        queryDetailMap.set(q.id, { tenant_id: q.tenant_id, keyword_id: q.keyword_id });
       });
-    }
 
-    // 키워드 + tenant name 매핑
-    const kwIdsForDomain = Array.from(new Set(Array.from(queryDetailMap.values()).map((v) => v.keyword_id)));
-    const kwTextMapForDomain = new Map<number, string>();
-    if (kwIdsForDomain.length > 0) {
-      const { data: kws } = await sb.from('keywords').select('id, text').in('id', kwIdsForDomain);
-      (kws ?? []).forEach((k: { id: number; text: string }) => kwTextMapForDomain.set(k.id, k.text));
-    }
-    const tenantIdsForDomain = Array.from(new Set(Array.from(queryDetailMap.values()).map((v) => v.tenant_id)));
-    const tenantNameMapForDomain = new Map<number, string>();
-    if (tenantIdsForDomain.length > 0) {
-      const { data: ts } = await sb.from('tenants').select('id, name').in('id', tenantIdsForDomain);
-      (ts ?? []).forEach((t: { id: number; name: string }) => tenantNameMapForDomain.set(t.id, t.name));
-    }
-
-    const recentFirstSeen = new Map<
-      string,
-      {
-        first: string;
-        count: number;
-        urls: Set<string>;
-        keywords: Set<string>;
-        tenants: Set<string>;
+      // 최근 7일 queries 정보 (tenantId 는 서버 필터, 언어 스코프는 JS 필터 — URL 안전)
+      const recentQueryIds = Array.from(new Set(respRecent.map((r) => r.query_id)));
+      const queryDetailMap = new Map<number, { tenant_id: number; keyword_id: number }>();
+      if (recentQueryIds.length > 0) {
+        const qrows = await fetchByIdChunks(recentQueryIds, (chunk) => {
+          let qd = sb
+            .from('queries')
+            .select('id, tenant_id, keyword_id')
+            .in('id', chunk)
+            .neq('engine', 'stub');
+          if (tenantId) qd = qd.eq('tenant_id', tenantId);
+          return qd;
+        });
+        (qrows as Array<{ id: number; tenant_id: number; keyword_id: number }>).forEach((q) => {
+          if (langKwSet && !langKwSet.has(q.keyword_id)) return;
+          queryDetailMap.set(q.id, { tenant_id: q.tenant_id, keyword_id: q.keyword_id });
+        });
       }
-    >();
-    (respRecent ?? []).forEach(
-      (r: {
-        query_id: number;
-        source_domains: Array<{ domain: string; final_url?: string | null }> | null;
-        created_at: string;
-      }) => {
+
+      // 키워드 + tenant name 매핑
+      const kwIdsForDomain = Array.from(
+        new Set(Array.from(queryDetailMap.values()).map((v) => v.keyword_id))
+      );
+      const kwTextMapForDomain = new Map<number, string>();
+      if (kwIdsForDomain.length > 0) {
+        const kws = await fetchByIdChunks(kwIdsForDomain, (chunk) =>
+          sb.from('keywords').select('id, text').in('id', chunk)
+        );
+        (kws as Array<{ id: number; text: string }>).forEach((k) =>
+          kwTextMapForDomain.set(k.id, k.text)
+        );
+      }
+      const tenantIdsForDomain = Array.from(
+        new Set(Array.from(queryDetailMap.values()).map((v) => v.tenant_id))
+      );
+      const tenantNameMapForDomain = new Map<number, string>();
+      if (tenantIdsForDomain.length > 0) {
+        const { data: ts } = await sb
+          .from('tenants')
+          .select('id, name')
+          .in('id', tenantIdsForDomain);
+        (ts ?? []).forEach((t: { id: number; name: string }) =>
+          tenantNameMapForDomain.set(t.id, t.name)
+        );
+      }
+
+      const recentFirstSeen = new Map<
+        string,
+        {
+          first: string;
+          count: number;
+          urls: Set<string>;
+          keywords: Set<string>;
+          tenants: Set<string>;
+        }
+      >();
+      respRecent.forEach((r) => {
         const day = r.created_at.slice(5, 10);
         const meta = queryDetailMap.get(r.query_id);
         if (tenantId && !meta) return; // tenantId 필터 적용 시 query 없는 건 skip
@@ -712,352 +826,313 @@ async function fetchDashboardData(opts: {
             if (tName) entry.tenants.add(tName);
           }
         });
-      }
-    );
-
-    // tier 분류 lookup
-    const { data: classRows } = await sb
-      .from('domain_classifications')
-      .select('domain, tier')
-      .eq('is_active', true);
-    const classifyMap = new Map<string, string>();
-    (classRows ?? []).forEach((r: { domain: string; tier: string }) => {
-      classifyMap.set(r.domain.toLowerCase(), r.tier);
-    });
-
-    newDomains = Array.from(recentFirstSeen.entries())
-      .map(([domain, info]) => ({
-        domain,
-        tier: classifyMap.get(domain) ?? 'T5',
-        first_seen: info.first,
-        occurrences: info.count,
-        sample_urls: Array.from(info.urls).slice(0, 3),
-        keywords: Array.from(info.keywords).slice(0, 3),
-        tenants: Array.from(info.tenants).slice(0, 3),
-      }))
-      .sort((a, b) => b.occurrences - a.occurrences)
-      .slice(0, 8);
-  } catch {
-    /* 신규 차트 실패 시 빈 array */
-  }
-
-  // Round 87 (2026-06-28) — 콘텐츠 경쟁력 분석.
-  //   비즈니스 핵심: "위서클 콘텐츠가 AI 에 자주 인용되도록".
-  //   각 발행 글의 키워드 → 그 키워드의 mention 카운트 = 콘텐츠 "노출 영향력" proxy
-  //   (정확한 content_id↔mention 매핑은 Round 88 스키마 변경에서. 지금은 keyword 기반.)
-  let topContents: Array<{
-    id: number;
-    title: string;
-    slug: string;
-    tenantName: string;
-    tenantId: number;
-    publishedAt: string;
-    keyword: string;
-    mentionsForKeyword: number;
-    isPartner: boolean;
-    partnerCategory: string | null;
-  }> = [];
-  try {
-    const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    let pubQ2 = sb
-      .from('generated_contents')
-      .select('id, title, slug, tenant_id, published_at, keyword_text, is_partner_content, partner_category')
-      .eq('status', 'published')
-      .eq('channel', 'blog_html')
-      .gte('published_at', since30)
-      .order('published_at', { ascending: false })
-      .limit(50);
-    if (contentLang) pubQ2 = pubQ2.eq('lang', contentLang);
-    const { data: pubContents } = await pubQ2;
-    const pubList = (pubContents ?? []) as Array<{
-      id: number; title: string; slug: string; tenant_id: number;
-      published_at: string; keyword_text: string;
-      is_partner_content: boolean; partner_category: string | null;
-    }>;
-
-    // 키워드별 mention 카운트 (30일)
-    const keywordSet = Array.from(new Set(pubList.map((p) => p.keyword_text).filter(Boolean)));
-    const kwMentionMap = new Map<string, number>();
-    if (keywordSet.length > 0) {
-      // queries(keyword) ← responses ← mentions(is_target=true) 체인
-      const { data: kwRows } = await sb
-        .from('keywords')
-        .select('id, text')
-        .in('text', keywordSet);
-      const kwIdToText = new Map<number, string>(
-        ((kwRows ?? []) as Array<{ id: number; text: string }>).map((k) => [k.id, k.text])
-      );
-      const kwIds = Array.from(kwIdToText.keys());
-      if (kwIds.length > 0) {
-        const { data: qRows } = await sb
-          .from('queries')
-          .select('id, keyword_id')
-          .in('keyword_id', kwIds)
-          .gte('requested_at', since30);
-        const qIdToKw = new Map<number, number>();
-        ((qRows ?? []) as Array<{ id: number; keyword_id: number }>).forEach((q) => qIdToKw.set(q.id, q.keyword_id));
-        if (qIdToKw.size > 0) {
-          // responses 거쳐서 mentions 카운트 — 큰 query 라 page 단위
-          const { data: rRows } = await sb
-            .from('responses')
-            .select('id, query_id')
-            .in('query_id', Array.from(qIdToKw.keys()));
-          const rIdToKw = new Map<number, string>();
-          ((rRows ?? []) as Array<{ id: number; query_id: number }>).forEach((r) => {
-            const kid = qIdToKw.get(r.query_id);
-            const ktext = kid ? kwIdToText.get(kid) : undefined;
-            if (ktext) rIdToKw.set(r.id, ktext);
-          });
-          if (rIdToKw.size > 0) {
-            const { data: mRows } = await sb
-              .from('mentions')
-              .select('response_id, is_target')
-              .in('response_id', Array.from(rIdToKw.keys()))
-              .eq('is_target', true);
-            ((mRows ?? []) as Array<{ response_id: number }>).forEach((m) => {
-              const kw = rIdToKw.get(m.response_id);
-              if (kw) kwMentionMap.set(kw, (kwMentionMap.get(kw) ?? 0) + 1);
-            });
-          }
-        }
-      }
-    }
-
-    const tenantNameMapLocal = new Map<number, string>();
-    if (pubList.length > 0) {
-      const tIds = Array.from(new Set(pubList.map((p) => p.tenant_id)));
-      const { data: tRows } = await sb.from('tenants').select('id, name').in('id', tIds);
-      ((tRows ?? []) as Array<{ id: number; name: string }>).forEach((t) =>
-        tenantNameMapLocal.set(t.id, t.name)
-      );
-    }
-
-    topContents = pubList
-      .map((p) => ({
-        id: p.id,
-        title: p.title || p.keyword_text || '(제목 없음)',
-        slug: p.slug,
-        tenantName: tenantNameMapLocal.get(p.tenant_id) ?? `#${p.tenant_id}`,
-        tenantId: p.tenant_id,
-        publishedAt: p.published_at,
-        keyword: p.keyword_text,
-        mentionsForKeyword: kwMentionMap.get(p.keyword_text) ?? 0,
-        isPartner: p.is_partner_content,
-        partnerCategory: p.partner_category,
-      }))
-      .sort((a, b) => b.mentionsForKeyword - a.mentionsForKeyword);
-  } catch {
-    /* graceful */
-  }
-
-  // Round 89 (2026-06-28) — 콘텐츠 구조 자동 분석.
-  //   "어떤 구조가 AI 인용 잘 받는지" 패턴 발견.
-  //   body 의 HTML 파싱 (서버에서 regex 로 H2/표/목록/이미지 카운트) → 평균 vs Top 비교.
-  let structureStats: {
-    totalCount: number;
-    avgBodyLen: number;
-    avgH2: number;
-    avgTable: number;
-    avgList: number;
-    avgImg: number;
-    faqSchemaPct: number;
-    topPattern: {
-      avgH2: number; avgTable: number; avgList: number; avgImg: number;
-      avgBodyLen: number; faqSchemaPct: number;
-    } | null;
-  } = {
-    totalCount: 0, avgBodyLen: 0, avgH2: 0, avgTable: 0, avgList: 0, avgImg: 0,
-    faqSchemaPct: 0, topPattern: null,
-  };
-  try {
-    // 발행 콘텐츠 body 가져와서 구조 카운트 (server-side regex)
-    let bodiesQ = sb
-      .from('generated_contents')
-      .select('id, body, keyword_text')
-      .eq('status', 'published')
-      .eq('channel', 'blog_html')
-      .not('body', 'is', null)
-      .limit(200);
-    if (contentLang) bodiesQ = bodiesQ.eq('lang', contentLang);
-    const { data: bodies } = await bodiesQ;
-    const list = (bodies ?? []) as Array<{ id: number; body: string; keyword_text: string }>;
-    if (list.length > 0) {
-      const countMatches = (text: string, re: RegExp) => (text.match(re) || []).length;
-      // 🔴 Round 144 (2026-08-02) — 본문 길이 집계 버그.
-      //   기존 `body.length` 는 **HTML 마크업 전체**를 셌음. 실측 대조 결과
-      //   "평균 12,581자" → 태그·스크립트·스타일 제거 시 **2,884자** (4.4배 부풀림).
-      //   그래서 "길이는 충분하다"는 잘못된 안심을 주고 있었고, 구조 패턴 통계 전체가
-      //   이 값 위에서 계산되고 있었음.
-      const plainLen = (html: string) =>
-        (html || '')
-          .replace(/<script[\s\S]*?<\/script>/gi, '')
-          .replace(/<style[\s\S]*?<\/style>/gi, '')
-          .replace(/<[^>]+>/g, '')
-          .replace(/&nbsp;/g, ' ')
-          .replace(/&[a-z]+;/gi, '')
-          .replace(/\s+/g, ' ')
-          .trim().length;
-      const metrics = list.map((c) => ({
-        id: c.id,
-        keyword: c.keyword_text,
-        bodyLen: plainLen(c.body || ''),
-        h2: countMatches(c.body || '', /<h2[\s>]/g),
-        table: countMatches(c.body || '', /<table[\s>]/g),
-        list: countMatches(c.body || '', /<(ul|ol)[\s>]/g),
-        img: countMatches(c.body || '', /<img[\s>]/g),
-        hasFaq: (c.body || '').includes('FAQPage'),
-      }));
-      const avg = (arr: number[]) => arr.reduce((s, n) => s + n, 0) / Math.max(arr.length, 1);
-      const faqCount = metrics.filter((m) => m.hasFaq).length;
-
-      // Top 패턴 — keyword 별 mention 카운트 매핑해서 인용 많은 글 추출
-      const kwMap = new Map<string, number>(); // 위에서 만든 kwMentionMap 활용 (closure)
-      try {
-        const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-        const { data: kRows } = await sb.from('keywords').select('id, text');
-        const kwIdToText = new Map<number, string>(
-          ((kRows ?? []) as Array<{ id: number; text: string }>).map((k) => [k.id, k.text])
-        );
-        const { data: qR } = await sb
-          .from('queries')
-          .select('id, keyword_id')
-          .gte('requested_at', since30);
-        const qToKw = new Map<number, string>();
-        ((qR ?? []) as Array<{ id: number; keyword_id: number }>).forEach((q) => {
-          const t = kwIdToText.get(q.keyword_id);
-          if (t) qToKw.set(q.id, t);
-        });
-        if (qToKw.size > 0) {
-          const { data: rR } = await sb
-            .from('responses')
-            .select('id, query_id')
-            .in('query_id', Array.from(qToKw.keys()));
-          const rToKw = new Map<number, string>();
-          ((rR ?? []) as Array<{ id: number; query_id: number }>).forEach((r) => {
-            const k = qToKw.get(r.query_id);
-            if (k) rToKw.set(r.id, k);
-          });
-          if (rToKw.size > 0) {
-            const { data: mR } = await sb
-              .from('mentions')
-              .select('response_id, is_target')
-              .in('response_id', Array.from(rToKw.keys()))
-              .eq('is_target', true);
-            ((mR ?? []) as Array<{ response_id: number }>).forEach((m) => {
-              const k = rToKw.get(m.response_id);
-              if (k) kwMap.set(k, (kwMap.get(k) ?? 0) + 1);
-            });
-          }
-        }
-      } catch { /* graceful */ }
-
-      const withMentions = metrics
-        .map((m) => ({ ...m, mentions: kwMap.get(m.keyword) ?? 0 }))
-        .sort((a, b) => b.mentions - a.mentions);
-      const top10 = withMentions.slice(0, Math.max(5, Math.floor(withMentions.length * 0.2)));
-      const topFaq = top10.filter((m) => m.hasFaq).length;
-
-      structureStats = {
-        totalCount: metrics.length,
-        avgBodyLen: Math.round(avg(metrics.map((m) => m.bodyLen))),
-        avgH2: Math.round(avg(metrics.map((m) => m.h2)) * 10) / 10,
-        avgTable: Math.round(avg(metrics.map((m) => m.table)) * 10) / 10,
-        avgList: Math.round(avg(metrics.map((m) => m.list)) * 10) / 10,
-        avgImg: Math.round(avg(metrics.map((m) => m.img)) * 10) / 10,
-        faqSchemaPct: Math.round((faqCount / metrics.length) * 100),
-        topPattern: top10.length > 0 ? {
-          avgBodyLen: Math.round(avg(top10.map((m) => m.bodyLen))),
-          avgH2: Math.round(avg(top10.map((m) => m.h2)) * 10) / 10,
-          avgTable: Math.round(avg(top10.map((m) => m.table)) * 10) / 10,
-          avgList: Math.round(avg(top10.map((m) => m.list)) * 10) / 10,
-          avgImg: Math.round(avg(top10.map((m) => m.img)) * 10) / 10,
-          faqSchemaPct: Math.round((topFaq / top10.length) * 100),
-        } : null,
-      };
-    }
-  } catch { /* graceful */ }
-
-  // Round 88 (2026-06-28) — AI 시장 점유 진단.
-  //   비즈니스 본질: medimap-blog 가 AI source 에 실제 인용되는지.
-  //   진단 결과 (2026-06-28): 30일간 medimap-blog = 0회 인용. 경쟁사(sueye/bnviit/bgneye) 200+.
-  //   원인: vercel.app 무료 서브도메인 + 새 사이트 + AI 학습 cutoff.
-  let domainDistribution: Array<{ domain: string; citations: number; isOwn?: boolean; isCompetitor?: boolean }> = [];
-  let medimapDomainCitations = 0;
-  let totalDomainCitations = 0;
-  try {
-    const cutoff30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: respRows } = await sb
-      .from('responses')
-      .select('source_domains')
-      .gte('created_at', cutoff30)
-      .not('source_domains', 'is', null)
-      .limit(5000);
-    // 🔴 Round 144 (2026-08-02) — substring 자사 판정 제거.
-    //   이전 구현은 `dom.includes('medimap')` 이라 **www.medimap.com.hk(홍콩 소재 타사)** 가
-    //   자사로 집계됐음. 30일 자사 인용 11건 중 2건이 남의 회사였고, 북극성 지표의 18% 오염.
-    //   lib/domain-classifier 의 T1 셋(domain_classifications 테이블)을 단일 소스로 사용.
-    const classifierSets = await loadClassifierSets();
-    const domainCount = new Map<string, number>();
-    const domainFirstUrl = new Map<string, string | null>();
-    let totalCount = 0;
-    let medimapCount = 0;
-    ((respRows ?? []) as Array<{
-      source_domains: Array<{ domain: string; final_url?: string | null }> | null;
-    }>).forEach((r) => {
-      (r.source_domains ?? []).forEach((sd) => {
-        const dom = (sd.domain || '').toLowerCase().replace(/^www\./, '');
-        if (!dom) return;
-        domainCount.set(dom, (domainCount.get(dom) ?? 0) + 1);
-        if (!domainFirstUrl.has(dom)) domainFirstUrl.set(dom, sd.final_url ?? null);
-        totalCount++;
-        if (classifyDomain(sd.domain, sd.final_url ?? null, null, classifierSets) === 'T1') {
-          medimapCount++;
-        }
       });
-    });
 
-    // 경쟁사 도메인 (수기 + 위서클 클라이언트 도메인 제외 + 권위 제외)
-    const COMPETITOR_PATTERNS = ['eye', 'clinic', 'hospital', 'medic', '안과', 'derm', 'plastic', 'hair'];
-    const AUTHORITY = new Set(['namu.wiki', 'youtube.com', 'modoodoc.com', 'hidoc.co.kr', 'news.hidoc.co.kr', 'v.daum.net', 'edu.donga.com', 'news.naver.com']);
-    domainDistribution = Array.from(domainCount.entries())
-      .map(([domain, citations]) => {
-        const isOwn =
-          classifyDomain(domain, domainFirstUrl.get(domain) ?? null, null, classifierSets) === 'T1';
-        const isAuth = AUTHORITY.has(domain);
-        const isCompetitor =
-          !isOwn && !isAuth &&
-          COMPETITOR_PATTERNS.some((p) => domain.includes(p));
-        return { domain, citations, isOwn, isCompetitor };
-      })
-      .sort((a, b) => b.citations - a.citations);
-    medimapDomainCitations = medimapCount;
-    totalDomainCitations = totalCount;
-  } catch {
-    /* graceful */
-  }
+      // tier 분류 lookup (S7 과 공유 fetch)
+      const classifyMap = await domainClassPromise;
+
+      newDomains = Array.from(recentFirstSeen.entries())
+        .map(([domain, info]) => ({
+          domain,
+          tier: classifyMap.get(domain) ?? 'T5',
+          first_seen: info.first,
+          occurrences: info.count,
+          sample_urls: Array.from(info.urls).slice(0, 3),
+          keywords: Array.from(info.keywords).slice(0, 3),
+          tenants: Array.from(info.tenants).slice(0, 3),
+        }))
+        .sort((a, b) => b.occurrences - a.occurrences)
+        .slice(0, 8);
+    } catch {
+      /* 신규 차트 실패 시 빈 array */
+    }
+    return { keywordGrounding, newDomains };
+  };
+
+  // S9. 콘텐츠 경쟁력 (Round 87) — 발행 글의 키워드별 멘션 수 (공유 체인 재사용)
+  const sectionTopContents = async () => {
+    let topContents: Array<{
+      id: number;
+      title: string;
+      slug: string;
+      tenantName: string;
+      tenantId: number;
+      publishedAt: string;
+      keyword: string;
+      mentionsForKeyword: number;
+      isPartner: boolean;
+      partnerCategory: string | null;
+    }> = [];
+    try {
+      const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      let pubQ2 = sb
+        .from('generated_contents')
+        .select(
+          'id, title, slug, tenant_id, published_at, keyword_text, is_partner_content, partner_category'
+        )
+        .eq('status', 'published')
+        .eq('channel', 'blog_html')
+        .gte('published_at', since30)
+        .order('published_at', { ascending: false })
+        .limit(50);
+      if (contentLang) pubQ2 = pubQ2.eq('lang', contentLang);
+      const [pubRes, kwMentionMap] = await Promise.all([pubQ2, kwMentionCountPromise]);
+      const pubList = (pubRes.data ?? []) as Array<{
+        id: number;
+        title: string;
+        slug: string;
+        tenant_id: number;
+        published_at: string;
+        keyword_text: string;
+        is_partner_content: boolean;
+        partner_category: string | null;
+      }>;
+
+      const tenantNameMapLocal = new Map<number, string>();
+      if (pubList.length > 0) {
+        const tIds = Array.from(new Set(pubList.map((p) => p.tenant_id)));
+        const { data: tRows } = await sb.from('tenants').select('id, name').in('id', tIds);
+        ((tRows ?? []) as Array<{ id: number; name: string }>).forEach((t) =>
+          tenantNameMapLocal.set(t.id, t.name)
+        );
+      }
+
+      topContents = pubList
+        .map((p) => ({
+          id: p.id,
+          title: p.title || p.keyword_text || '(제목 없음)',
+          slug: p.slug,
+          tenantName: tenantNameMapLocal.get(p.tenant_id) ?? `#${p.tenant_id}`,
+          tenantId: p.tenant_id,
+          publishedAt: p.published_at,
+          keyword: p.keyword_text,
+          mentionsForKeyword: kwMentionMap.get(p.keyword_text) ?? 0,
+          isPartner: p.is_partner_content,
+          partnerCategory: p.partner_category,
+        }))
+        .sort((a, b) => b.mentionsForKeyword - a.mentionsForKeyword);
+    } catch {
+      /* graceful */
+    }
+    return topContents;
+  };
+
+  // S10. 콘텐츠 구조 자동 분석 (Round 89) — 공유 멘션 체인 재사용.
+  //   기존엔 keywords 전체 + 30일 queries 전체 + responses 대량 .in 을 이 섹션이
+  //   따로 스캔했음 (그마저 1,000행 캡에 잘림) — 페이지에서 가장 비싼 중복이었다.
+  const sectionStructure = async () => {
+    let structureStats: {
+      totalCount: number;
+      avgBodyLen: number;
+      avgH2: number;
+      avgTable: number;
+      avgList: number;
+      avgImg: number;
+      faqSchemaPct: number;
+      topPattern: {
+        avgH2: number;
+        avgTable: number;
+        avgList: number;
+        avgImg: number;
+        avgBodyLen: number;
+        faqSchemaPct: number;
+      } | null;
+    } = {
+      totalCount: 0,
+      avgBodyLen: 0,
+      avgH2: 0,
+      avgTable: 0,
+      avgList: 0,
+      avgImg: 0,
+      faqSchemaPct: 0,
+      topPattern: null,
+    };
+    try {
+      let bodiesQ = sb
+        .from('generated_contents')
+        .select('id, body, keyword_text')
+        .eq('status', 'published')
+        .eq('channel', 'blog_html')
+        .not('body', 'is', null)
+        .limit(200);
+      if (contentLang) bodiesQ = bodiesQ.eq('lang', contentLang);
+      const [bodiesRes, kwMap] = await Promise.all([bodiesQ, kwMentionCountPromise]);
+      const list = (bodiesRes.data ?? []) as Array<{
+        id: number;
+        body: string;
+        keyword_text: string;
+      }>;
+      if (list.length > 0) {
+        const countMatches = (text: string, re: RegExp) => (text.match(re) || []).length;
+        // 🔴 Round 144 (2026-08-02) — 본문 길이 집계 버그 수정 유지: 태그 제거 후 실문자 수.
+        const plainLen = (html: string) =>
+          (html || '')
+            .replace(/<script[\s\S]*?<\/script>/gi, '')
+            .replace(/<style[\s\S]*?<\/style>/gi, '')
+            .replace(/<[^>]+>/g, '')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&[a-z]+;/gi, '')
+            .replace(/\s+/g, ' ')
+            .trim().length;
+        const metrics = list.map((c) => ({
+          id: c.id,
+          keyword: c.keyword_text,
+          bodyLen: plainLen(c.body || ''),
+          h2: countMatches(c.body || '', /<h2[\s>]/g),
+          table: countMatches(c.body || '', /<table[\s>]/g),
+          list: countMatches(c.body || '', /<(ul|ol)[\s>]/g),
+          img: countMatches(c.body || '', /<img[\s>]/g),
+          hasFaq: (c.body || '').includes('FAQPage'),
+        }));
+        const avg = (arr: number[]) => arr.reduce((s, n) => s + n, 0) / Math.max(arr.length, 1);
+        const faqCount = metrics.filter((m) => m.hasFaq).length;
+
+        const withMentions = metrics
+          .map((m) => ({ ...m, mentions: kwMap.get(m.keyword) ?? 0 }))
+          .sort((a, b) => b.mentions - a.mentions);
+        const top10 = withMentions.slice(0, Math.max(5, Math.floor(withMentions.length * 0.2)));
+        const topFaq = top10.filter((m) => m.hasFaq).length;
+
+        structureStats = {
+          totalCount: metrics.length,
+          avgBodyLen: Math.round(avg(metrics.map((m) => m.bodyLen))),
+          avgH2: Math.round(avg(metrics.map((m) => m.h2)) * 10) / 10,
+          avgTable: Math.round(avg(metrics.map((m) => m.table)) * 10) / 10,
+          avgList: Math.round(avg(metrics.map((m) => m.list)) * 10) / 10,
+          avgImg: Math.round(avg(metrics.map((m) => m.img)) * 10) / 10,
+          faqSchemaPct: Math.round((faqCount / metrics.length) * 100),
+          topPattern:
+            top10.length > 0
+              ? {
+                  avgBodyLen: Math.round(avg(top10.map((m) => m.bodyLen))),
+                  avgH2: Math.round(avg(top10.map((m) => m.h2)) * 10) / 10,
+                  avgTable: Math.round(avg(top10.map((m) => m.table)) * 10) / 10,
+                  avgList: Math.round(avg(top10.map((m) => m.list)) * 10) / 10,
+                  avgImg: Math.round(avg(top10.map((m) => m.img)) * 10) / 10,
+                  faqSchemaPct: Math.round((topFaq / top10.length) * 100),
+                }
+              : null,
+        };
+      }
+    } catch {
+      /* graceful */
+    }
+    return structureStats;
+  };
+
+  // S11. AI 시장 점유 진단 (Round 88) — .limit(5000) 캡 잘림 → 전량 수집
+  const sectionDomainDist = async () => {
+    let domainDistribution: Array<{
+      domain: string;
+      citations: number;
+      isOwn?: boolean;
+      isCompetitor?: boolean;
+    }> = [];
+    let medimapDomainCitations = 0;
+    let totalDomainCitations = 0;
+    try {
+      const cutoff30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const [respRows, classifierSets] = await Promise.all([
+        fetchAllRows<{
+          source_domains: Array<{ domain: string; final_url?: string | null }> | null;
+        }>((from, to) =>
+          sb
+            .from('responses')
+            .select('source_domains')
+            .gte('created_at', cutoff30)
+            .not('source_domains', 'is', null)
+            .order('id')
+            .range(from, to)
+        ),
+        // 🔴 Round 144 — substring 자사 판정 금지: domain_classifications T1 셋 단일 소스
+        loadClassifierSets(),
+      ]);
+      const domainCount = new Map<string, number>();
+      const domainFirstUrl = new Map<string, string | null>();
+      let totalCount = 0;
+      let medimapCount = 0;
+      respRows.forEach((r) => {
+        (r.source_domains ?? []).forEach((sd) => {
+          const dom = (sd.domain || '').toLowerCase().replace(/^www\./, '');
+          if (!dom) return;
+          domainCount.set(dom, (domainCount.get(dom) ?? 0) + 1);
+          if (!domainFirstUrl.has(dom)) domainFirstUrl.set(dom, sd.final_url ?? null);
+          totalCount++;
+          if (classifyDomain(sd.domain, sd.final_url ?? null, null, classifierSets) === 'T1') {
+            medimapCount++;
+          }
+        });
+      });
+
+      // 경쟁사 도메인 (수기 + 위서클 클라이언트 도메인 제외 + 권위 제외)
+      const COMPETITOR_PATTERNS = ['eye', 'clinic', 'hospital', 'medic', '안과', 'derm', 'plastic', 'hair'];
+      const AUTHORITY = new Set(['namu.wiki', 'youtube.com', 'modoodoc.com', 'hidoc.co.kr', 'news.hidoc.co.kr', 'v.daum.net', 'edu.donga.com', 'news.naver.com']);
+      domainDistribution = Array.from(domainCount.entries())
+        .map(([domain, citations]) => {
+          const isOwn =
+            classifyDomain(domain, domainFirstUrl.get(domain) ?? null, null, classifierSets) ===
+            'T1';
+          const isAuth = AUTHORITY.has(domain);
+          const isCompetitor =
+            !isOwn && !isAuth && COMPETITOR_PATTERNS.some((p) => domain.includes(p));
+          return { domain, citations, isOwn, isCompetitor };
+        })
+        .sort((a, b) => b.citations - a.citations);
+      medimapDomainCitations = medimapCount;
+      totalDomainCitations = totalCount;
+    } catch {
+      /* graceful */
+    }
+    return { domainDistribution, medimapDomainCitations, totalDomainCitations };
+  };
+
+  // ── 전 섹션 병렬 실행 ──
+  const [
+    clientCount,
+    pendingCount,
+    cost,
+    kpi,
+    draftsAndRecent,
+    charts,
+    grounding,
+    topContents,
+    structureStats,
+    domainDist,
+  ] = await Promise.all([
+    sectionClientCount(),
+    sectionPending(),
+    sectionCost(),
+    sectionKpi(),
+    sectionDraftsAndRecent(),
+    sectionCharts(),
+    sectionGrounding(),
+    sectionTopContents(),
+    sectionStructure(),
+    sectionDomainDist(),
+  ]);
 
   return {
     activeTenants: clientCount ?? 0,
     pendingQueue: pendingCount ?? 0,
-    todayCost,
-    yesterdayCost,
-    cost14d,
-    citations24h,
-    citations30d,
-    publishedThisMonth,
-    lastCronAt,
-    recentDrafts,
-    recentCitations,
-    tierTrend,
-    clientRanking,
-    keywordGrounding,
-    newDomains,
+    todayCost: cost.todayCost,
+    yesterdayCost: cost.yesterdayCost,
+    cost14d: cost.cost14d,
+    citations24h: kpi.citations24h,
+    citations30d: kpi.citations30d,
+    publishedThisMonth: kpi.publishedThisMonth,
+    lastCronAt: kpi.lastCronAt,
+    recentDrafts: draftsAndRecent.recentDrafts,
+    recentCitations: draftsAndRecent.recentCitations,
+    tierTrend: charts.tierTrend,
+    clientRanking: charts.clientRanking,
+    keywordGrounding: grounding.keywordGrounding,
+    newDomains: grounding.newDomains,
     topContents,
-    domainDistribution,
-    medimapDomainCitations,
-    totalDomainCitations,
+    domainDistribution: domainDist.domainDistribution,
+    medimapDomainCitations: domainDist.medimapDomainCitations,
+    totalDomainCitations: domainDist.totalDomainCitations,
     structureStats,
-    error: costError,
+    error: cost.costError,
   };
 }
 
@@ -1079,15 +1154,15 @@ export default async function AdminDashboardPage({
   })();
   const fromDate = isCustom ? searchParams?.from : undefined;
   const toDate = isCustom ? searchParams?.to : undefined;
-  const d = await fetchDashboardData({ periodDays, tenantId, fromDate, toDate });
-
-  // tenants list (selector 용)
+  // Round 165 — 셀렉터용 tenants 목록을 대시보드 집계와 병렬로 (직렬 왕복 1회 제거)
   const sbForTenants = getServerClient();
-  let tenantsList: Array<{ id: number; name: string }> = [];
-  if (sbForTenants) {
-    const { data } = await sbForTenants.from('tenants').select('id, name').order('name');
-    tenantsList = data ?? [];
-  }
+  const [d, tenantsRes] = await Promise.all([
+    fetchDashboardData({ periodDays, tenantId, fromDate, toDate }),
+    sbForTenants
+      ? sbForTenants.from('tenants').select('id, name').order('name')
+      : Promise.resolve({ data: null as Array<{ id: number; name: string }> | null }),
+  ]);
+  const tenantsList: Array<{ id: number; name: string }> = tenantsRes.data ?? [];
 
   // Round 86/87 — KPI 4 → 6 확장. 운영자가 매일 보는 핵심 메트릭 우선.
   //   추가: 30일 누적 멘션 (성과) · 이번 달 발행 (생산성).

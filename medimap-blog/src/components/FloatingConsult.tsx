@@ -26,10 +26,16 @@ export function FloatingConsult({ lang }: { lang: "en" | "ja" | "zh" | "tw" }) {
   const l = LABELS[lang] ?? LABELS.en;
   const lineFirst = lang === "ja";
 
+  // Round 165 — 클리닉 경로(/{lang}/clinics/{cat}/{partner}/...)에서는 WhatsApp
+  //   프리필에 클리닉 식별자를 실어 상담 시작 즉시 어느 병원 문의인지 식별
+  //   (클리닉 상세의 본문 CTA 와 동일 동선 — waHref clinic 인자 재사용).
+  const clinicMatch = pathname.match(/^\/(?:en|ja|zh|tw)\/clinics\/[^/]+\/([^/]+)/);
+  const clinicSlug = clinicMatch ? decodeURIComponent(clinicMatch[1]) : undefined;
+
   const wa = (
     <a
       key="wa"
-      href={waHref(lang)}
+      href={waHref(lang, clinicSlug)}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="WhatsApp chat"

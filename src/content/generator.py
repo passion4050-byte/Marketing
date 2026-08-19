@@ -797,6 +797,64 @@ def generate_blog_post(
                 _nap_directive = "\n".join(_nap_lines)
         except Exception:  # noqa: BLE001
             _nap_directive = ""
+    # Round 165 (2026-08-18) — 내부 링크 디렉티브 (토픽 클러스터).
+    #   같은 테넌트·같은 언어의 기존 발행 글 목록(실제 URL)을 주고, 본문 흐름에 맞는
+    #   컨텍스트 내부 링크 2개 내외를 넣게 한다. URL 은 목록 밖 생성 금지(할루시네이션 차단).
+    #   효과: 세션당 페이지뷰·체류 ↑ + 검색/AI 크롤러에 사이트 토픽 구조 신호.
+    #   글이 아직 없으면 블록 생략(무회귀). 실패해도 생성은 계속(graceful).
+    _internal_links_directive = ""
+    try:
+        from sqlalchemy import text as _sql_text_il
+        _il_lang = (lang or "ko").strip() or "ko"
+        _lp = {"en": "en", "ja": "ja", "zh-Hans": "zh", "zh-Hant": "tw"}.get(_il_lang)
+        _il_rows = session.execute(
+            _sql_text_il(
+                "SELECT g.title, g.slug, g.is_partner_content, g.partner_category, t.partner_slug "
+                "FROM generated_contents g JOIN tenants t ON t.id = g.tenant_id "
+                "WHERE g.tenant_id = :tid AND g.lang = :lang AND g.status = 'published' "
+                "AND g.channel = 'blog_html' AND g.slug IS NOT NULL "
+                "ORDER BY g.published_at DESC NULLS LAST LIMIT 6"
+            ),
+            {"tid": tenant_id, "lang": _il_lang},
+        ).fetchall()
+        _il_links: list[str] = []
+        for _il_title, _il_slug, _il_partner, _il_pcat, _il_pslug in _il_rows:
+            if not _il_slug or not _il_title:
+                continue
+            if _il_lang != "ko":
+                if not _lp:
+                    continue
+                if _il_partner and _il_pcat and _il_pslug:
+                    _il_url = f"https://wecircle.co.kr/{_lp}/clinics/{_il_pcat}/{_il_pslug}/{_il_slug}"
+                else:
+                    _il_url = f"https://wecircle.co.kr/{_lp}/guides/{_il_slug}"
+            else:
+                if _il_partner and _il_pcat and _il_pslug:
+                    _il_url = f"https://wecircle.co.kr/with-partners/{_il_pcat}/{_il_pslug}/{_il_slug}"
+                else:
+                    _il_url = f"https://wecircle.co.kr/blog/{_il_slug}"
+            _il_links.append(f"- {_il_title}: {_il_url}")
+        if _il_links:
+            if _il_lang != "ko":
+                _internal_links_directive = (
+                    "[Internal links - recommended]\n"
+                    "Below are this clinic's previously published articles. Where the flow is "
+                    "natural, add about 2 contextual internal links in the body as "
+                    "<a href=\"URL\">natural anchor text</a>. NEVER invent a URL that is not in "
+                    "this list. If none fit naturally, omit links rather than forcing them.\n"
+                    + "\n".join(_il_links)
+                )
+            else:
+                _internal_links_directive = (
+                    "[내부 링크 — 권장]\n"
+                    "아래는 이 병원의 기존 발행 글 목록입니다. 본문 흐름상 자연스러운 지점 2곳 "
+                    "내외에 <a href=\"URL\">자연스러운 앵커 텍스트</a> 형태로 내부 링크를 "
+                    "넣으세요. 목록에 없는 URL 을 만들어내는 것은 금지합니다. 어울리는 글이 "
+                    "없으면 넣지 않습니다.\n" + "\n".join(_il_links)
+                )
+    except Exception:  # noqa: BLE001
+        _internal_links_directive = ""
+
     _combined_directive = "\n\n".join(
         d
         for d in (
@@ -806,6 +864,7 @@ def generate_blog_post(
             _SERP_PROVEN_DIRECTIVE,  # Round 146-B — 상위 5사 실측 구조 (국내/해외 공용)
             _overseas_directive,
             _nap_directive,  # Round 162 — 검증된 NAP (지도 축)
+            _internal_links_directive,  # Round 165 — 내부 링크 (토픽 클러스터)
             _variation_block,
         )
         if d
