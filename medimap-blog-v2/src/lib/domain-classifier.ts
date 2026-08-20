@@ -35,6 +35,11 @@ const EMPTY_SETS: ClassifierSets = {
 //   (구 정본 open.kakao.com/o/spyAz9Bi 오픈채팅에서 이전. shortlinks 257행 DB 교체 완료.)
 export const MEDIMAP_KAKAO_PATHS: string[] = ['_xouLiX'];
 
+// Round 167 (2026-08-20) — 카카오 정본을 오픈채팅 open.kakao.com/o/sKsVE9Wg 로 이전
+//   (사용자 지시, shortlinks 294행 DB 교체 완료). 구 정본들의 과거 인용도 T1 유지:
+//   spyAz9Bi = 구 오픈채팅(~Round 159), _xouLiX = 구 비즈니스채널(Round 159~167).
+export const MEDIMAP_OPENCHAT_PATHS: string[] = ['/o/sKsVE9Wg', '/o/spyAz9Bi'];
+
 // Round 38 후보 — 모듈 캐시 (process 메모리). serverless cold start 마다 재로드.
 let cachedSets: ClassifierSets | null = null;
 let cachedAt = 0;
@@ -133,6 +138,10 @@ export function classifyDomain(
   // pf.kakao.com 의 메디맵 path 는 T1, 그 외는 NOISE set 에 포함됨
   if (d === 'pf.kakao.com' && finalUrl) {
     if (MEDIMAP_KAKAO_PATHS.some((p) => finalUrl.includes(p))) return 'T1';
+  }
+  // Round 167 — open.kakao.com 자사 오픈채팅 path 는 T1 (그 외 오픈채팅은 기존 분류 유지)
+  if (d === 'open.kakao.com' && finalUrl) {
+    if (MEDIMAP_OPENCHAT_PATHS.some((p) => finalUrl.includes(p))) return 'T1';
   }
   if (clientDomains && clientDomains.size > 0) {
     for (const cd of clientDomains) {

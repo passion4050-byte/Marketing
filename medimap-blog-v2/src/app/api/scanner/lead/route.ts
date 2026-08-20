@@ -75,7 +75,7 @@ async function sendCustomerReport(b: Body): Promise<void> {
   const key = process.env.RESEND_API_KEY;
   const to = b.email?.trim();
   if (!key || !to) return;
-  const KAKAO = 'https://pf.kakao.com/_xouLiX/chat';
+  const KAKAO = 'https://open.kakao.com/o/sKsVE9Wg';
   const from = process.env.RESEND_FROM ?? 'WECIRCLE GEO <onboarding@resend.dev>';
   const score = typeof b.overallScore === 'number' ? b.overallScore : null;
   const grade = b.grade ?? '-';
