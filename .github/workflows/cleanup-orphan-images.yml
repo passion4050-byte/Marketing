@@ -1,0 +1,52 @@
+name: Cleanup orphan images (manual)
+
+# Round 166 (2026-08-20) — post-images 고아 이미지 정리. 수동 전용(workflow_dispatch).
+#   2026-08-19 Supabase 쿼터 제한 실사고 후속: 커버 v1→v2 백필 잔존물 등
+#   미참조 이미지 840개/416MB. 기본 DRY_RUN=1 (목록만) — 실제 삭제는
+#   dry_run 입력을 0 으로 바꿔 실행.
+#
+# secrets: DATABASE_URL(필수) · 삭제 실행 시 SUPABASE_URL · SUPABASE_SERVICE_ROLE_KEY
+#   (없으면 Settings → Secrets and variables → Actions 에 추가:
+#    SUPABASE_URL = https://gifopyowyankfsfghhdi.supabase.co
+#    SUPABASE_SERVICE_ROLE_KEY = Supabase 대시보드 → Settings → API → service_role)
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "1 = 목록만(기본) · 0 = 실제 삭제"
+        required: false
+        default: "1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cleanup-orphan-images
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: List/delete orphan post-images
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install "sqlalchemy>=2.0" "psycopg2-binary>=2.9" "requests>=2.31"
+
+      - name: Run cleanup
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || '1' }}
+        run: python scripts/cleanup_orphan_images.py

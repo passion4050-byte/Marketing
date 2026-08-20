@@ -5825,3 +5825,27 @@ self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 3
 - 측정 커버리지 3/3 회복 (48h: claude 152 · gemini 73 · openai 73 — OpenAI/Gemini 429 해소). oai-searchbot(ChatGPT 검색 인덱서) crawler_hits 첫 등장, meta-externalagent 7일 184건.
 - 사용자 결정: 자사(위서클) 브랜드 글도 수동 검수 의도 아님 → auto_content_settings tenant 12 auto_publish=true (SQL), 대기 draft #449(en, pass) SQL 발행 (p449 shortlink 기발급 확인). /en/guides/best-skin-clinic-in-gangnam-449 200 확인.
 - Reddit 모니터 누적 0건 — 다음 주에도 0이면 OAuth 전환 검토.
+
+
+## Round 165c~166 (2026-08-20) — 홈 PC 이원화·Supabase 쿼터 사고·고아 이미지 파이프라인
+
+### Round 165c — 홈 PC 클론 체제 확립 + TTL 푸시
+- Round 165 커밋 실패의 진짜 원인: 사용자가 집 PC(리포 없음)에 있었음. 클라우드 zip → 홈 클론(`C:\Users\User\Marketing`)으로 부트스트랩. 이후 이 폴더를 Cowork 에 연결하면 사무실과 동일한 직접쓰기 방식 사용 가능.
+- 코드 12파일은 홈 클론 1차 적용에서 푸시됨. 이미지 캐시 TTL(60s→2678400s)은 zip 파일명 혼선으로 누락 → PowerShell [IO.File] 치환으로 커밋 59078a8 푸시 완료. SKILL.md 중복 없음 확인(Count 1).
+- ⚠ 사무실 PC 잔여: 미커밋 워킹트리(내용은 이미 푸시된 것과 동일) + _to_delete/ 폴더. 다음 사무실 세션 시작 시: `git checkout -- .` → `git pull` → `_to_delete` 삭제. next.config.mjs 는 git 에 없던 로컬 스트레이였음(삭제 불필요했음).
+
+### 🔴 Supabase 무료 쿼터 초과 실사고 (2026-08-19 발견)
+- 증상: Citation alerts 크론 실패 — "Service restricted: exceed_egress_quota, exceed_storage_size_quota".
+- 실태: DB 65MB(정상) / **post-images 버킷 1,979파일·1,652MB** (무료 1GB 초과) + egress 5GB/월 소진.
+- 원인 ①: 커버 v1→v2 백필 등 잔존물 — 미참조 고아 840파일/416MB (SQL 실측). ②: next/image minimumCacheTTL=60s → Vercel 이 불변 이미지를 60초마다 Supabase 원본 재요청 (egress 구조 결함, 165c 에서 31일로 수정).
+- 조치: **Pro 업그레이드($25/월, Spend Cap ON)** — 사용자 결제 완료. 스토리지 100GB·egress 250GB.
+- 교훈: 정리 없는 백필은 스토리지 부채. 참조분만 1,236MB 라 정리해도 무료 플랜 복귀는 불가했음 — Pro 는 어차피 필요했다.
+
+### Round 166 — 고아 이미지 정리 파이프라인 (신규)
+- scripts/cleanup_orphan_images.py: generated_contents cover/body 의 post-images 참조 전량 추출(archived 포함 보존) → 미참조 & 14일 경과분만 후보. 고아비율 80% 초과 시 중단(참조 추출 실패 가드). DRY_RUN=1 기본. 삭제는 Storage API 배치(REST) — storage.objects SQL DELETE 금지(블롭 잔존).
+- .github/workflows/cleanup-orphan-images.yml: workflow_dispatch 전용, dry_run 입력(기본 1). 삭제 실행에는 GH secrets SUPABASE_URL·SUPABASE_SERVICE_ROLE_KEY 추가 필요.
+- 실행 절차: ① dry_run=1 로 목록 확인 → ② 이상 없으면 dry_run=0. 결정·실행은 사용자.
+
+### 기타 확정 사항
+- 자사(위서클) auto_publish=true 전환(사용자 지시 — 수동 검수는 의도 아님) + draft #449 발행(/en/guides/best-skin-clinic-in-gangnam-449).
+- 두 PC 규약: 작업 시작 전 `git pull` · 종료 시 `git push`. Claude 직접쓰기는 세션에 연결된 폴더에만 가능.
