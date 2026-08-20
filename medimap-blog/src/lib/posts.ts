@@ -248,7 +248,7 @@ async function getDbPostRows(): Promise<DbPostRow[]> {
     LEFT JOIN tenants t ON t.id = gc.tenant_id
     WHERE ${DB_FILTER}
     ORDER BY COALESCE(gc.published_at, gc.created_at) DESC
-    LIMIT 200
+    LIMIT 500
   `);
   const timeoutPromise = new Promise<never>((_, reject) =>
     setTimeout(
@@ -265,6 +265,41 @@ async function getDbPostRows(): Promise<DbPostRow[]> {
     console.error("[posts] getDbPostRows query failed (fallback empty):", err);
     // Round 17 fix → 18: throw 가 page 에서 잡혀 빈 결과 stuck → 명시적 빈 배열
     // ISR/CDN 캐시는 middleware no-store 헤더로 무효화. 다음 요청에서 재시도.
+    return [];
+  }
+}
+
+/**
+ * 🔴 Round 168 (2026-08-20) — /blog 전량 실종 실사고 수정.
+ *   증상: /blog·카테고리 카운트 전부 0 (홈 Latest Reads 는 옛 ISR 캐시로 연명).
+ *   원인: getDbPostRows 의 최신순 LIMIT 윈도우를 파트너·해외 자동발행 글이 다 차지 —
+ *   자사 마케팅 인사이트(최신 7/11)보다 최신인 발행글이 205편을 넘겨 전부 밀려남.
+ *   다국어 자동발행(하루 15~25편) 가속의 데이터 성장 버그로, LIMIT 상향만으론
+ *   재발한다 → /blog 허브 전용으로 마케팅 카테고리를 SQL 에서 필터하는 별도 쿼리.
+ *   (⚠ 카테고리 목록은 BLOG_CATEGORIES 의 slug 와 동기 유지)
+ */
+let _mktPostsCache: { data: DbPostRow[]; ts: number } | null = null;
+
+async function getMarketingDbRows(): Promise<DbPostRow[]> {
+  if (_mktPostsCache && Date.now() - _mktPostsCache.ts < POSTS_CACHE_TTL_MS) {
+    return _mktPostsCache.data;
+  }
+  const sql = getSql();
+  if (!sql) return [];
+  try {
+    const rows = await sql.unsafe<DbPostRow[]>(`
+      SELECT ${DB_SELECT}
+      FROM generated_contents gc
+      LEFT JOIN tenants t ON t.id = gc.tenant_id
+      WHERE ${DB_FILTER}
+        AND gc.blog_category IN ('content_marketing', 'ai_trend', 'hospital_marketing')
+      ORDER BY COALESCE(gc.published_at, gc.created_at) DESC
+      LIMIT 200
+    `);
+    _mktPostsCache = { data: rows, ts: Date.now() };
+    return rows;
+  } catch (err) {
+    console.error("[posts] getMarketingDbRows query failed (fallback empty):", err);
     return [];
   }
 }
@@ -465,7 +500,8 @@ export async function getAllPostSlugs(): Promise<string[]> {
  *   - /blog 의 마케팅 에이전시 정체성 보장
  */
 export async function getAllPosts(): Promise<PostMeta[]> {
-  const [mdxSlugs, dbRows] = await Promise.all([getMdxSlugs(), getDbPostRows()]);
+  // Round 168 — 마케팅 인사이트 전용 SQL 필터 쿼리 (LIMIT 윈도우 밀림 재발 방지)
+  const [mdxSlugs, dbRows] = await Promise.all([getMdxSlugs(), getMarketingDbRows()]);
   const mdxPosts = await Promise.all(mdxSlugs.map((s) => readPostFile(s)));
   // mdx 파일은 frontmatter 의 blogCategory 필드 (custom) 가 있을 때만 노출.
   // 기존 의료 mdx 글은 blogCategory 가 없으므로 자동 제외.
