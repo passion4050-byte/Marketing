@@ -16,7 +16,7 @@ const nextConfig = {
       { protocol: "https", hostname: "*.supabase.co" },
     ],
     formats: ["image/avif", "image/webp"],
-    minimumCacheTTL: 60,
+    minimumCacheTTL: 2678400,
   },
   // 정적 자원 압축 (기본 true 지만 명시)
   compress: true,
