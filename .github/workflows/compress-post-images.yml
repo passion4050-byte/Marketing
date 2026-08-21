@@ -31,7 +31,7 @@ on:
         default: "300"
   schedule:
     # 매일 18:00 UTC = 03:00 KST — 신규 발행 이미지 뒷정리
-    - cron: "0 18 * * *"
+    - cron: "0 */6 * * *"
 
 permissions:
   contents: read
