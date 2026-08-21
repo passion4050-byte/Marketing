@@ -114,9 +114,28 @@
     transition: transform 80ms linear;
   }
 
+  /* 🔴 Round 169 (2026-08-20) — iOS Safari 자동 확대 차단.
+     text-sm(14px) 은 iOS 가 16px 미만 입력에 포커스할 때 화면을 강제 확대한다.
+     /contact 는 필수 5필드라 첫 칸을 누르는 순간 확대되고, 이후 필드마다 좌우 스크롤이
+     발생해 한 손 입력이 사실상 불가능했다. 모바일 16px + 48px 높이, 데스크톱은 기존 값 복원. */
   .form-input {
-    @apply w-full rounded-card border border-line bg-white px-4 py-2.5 text-sm text-ink placeholder:text-ink-subtle/70 transition focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand/15;
+    @apply w-full rounded-card border border-line bg-white px-4 py-3 text-base text-ink placeholder:text-ink-subtle/70 transition focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand/15 md:py-2.5 md:text-sm;
+    min-height: 48px;
   }
+  @media (min-width: 768px) {
+    .form-input { min-height: 0; }
+  }
+  textarea.form-input { min-height: 120px; }
+
+  /* Round 169 — overline(대문자+넓은 자간) 유틸.
+     text-[10px] + tracking-[0.32em] + uppercase 3중 결합이 168곳에 흩어져 있었는데,
+     데스크톱 잡지 지면에선 성립하지만 모바일 375px 에서는 자간이 단어를 해체한다.
+     모바일에선 11px/좁은 자간, md 이상에서 기존 조판 복원. */
+  .overline {
+    @apply text-[11px] font-semibold uppercase tracking-[0.16em] md:text-[10px] md:tracking-[0.32em];
+  }
+  /* 한글 단어 단위 줄바꿈 — 좁은 폭에서 어절이 쪼개지는 것 방지 */
+  .keep-all { word-break: keep-all; }
 
   .num { font-variant-numeric: tabular-nums; }
   .meta-divider { @apply h-3 w-px bg-line; }

@@ -81,33 +81,37 @@ export default async function EnHomePage() {
       {/* Hero */}
       <section className="mx-auto max-w-6xl px-5 pb-16 pt-16 md:pt-24">
         <div className="max-w-3xl">
-          <div className="mb-5 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-stone-500">
+          {/* 🔴 Round 169 — 해외 홈이 환자를 B2B 피치로 되돌리던 문제.
+              기존 h1 "…does it name yours?" 의 수신자는 병원 원장이었다. 가이드 글을 읽고
+              신뢰를 확인하러 홈에 온 환자(페르소나 B)는 "여긴 병원 찾는 곳이 아니구나"로 이탈.
+              → 환자용 진입을 위에, 병원용 피치는 아래로. 모바일 자간·크기도 조정. */}
+          <div className="mb-5 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500 md:tracking-[0.28em]">
             <span className="h-1.5 w-1.5 bg-stone-900" />
-            GEO / AEO for medical tourism
+            Verified clinics in Korea · English support
           </div>
-          <h1 className="text-4xl font-black leading-[1.08] tracking-tight text-stone-950 md:text-6xl">
-            When a foreign patient asks AI for the{" "}
-            <span className="underline decoration-2 underline-offset-8">best clinic in Korea</span>, does it name{" "}
+          <h1 className="text-[34px] font-black leading-[1.12] tracking-tight text-stone-950 sm:text-4xl md:text-6xl md:leading-[1.08]">
+            Considering treatment in Korea?{" "}
             <span className="italic" style={{ fontFamily: "Fraunces, serif" }}>
-              yours
+              Start here.
             </span>
-            ?
           </h1>
-          <p className="mt-6 max-w-2xl text-lg leading-relaxed text-stone-600">
-            Patients no longer scroll ten blue links — they ask ChatGPT, Perplexity and Gemini.
-            We publish English, Japanese and Chinese content that ranks on Google{" "}
-            <strong className="text-stone-900">and gets your clinic cited by AI</strong> — and we
-            measure every mention.
+          <p className="mt-5 max-w-2xl text-[17px] leading-relaxed text-stone-600 md:mt-6 md:text-lg">
+            Honest guides on <strong className="text-stone-900">cost, recovery time and how to book</strong> —
+            written for international patients, reviewed against Korean medical advertising rules.
+            Ask us anything in English; a free quote from partner clinics takes about a minute.
           </p>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <ContactButtons waLabel="Book a call" />
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center md:mt-8">
+            <ContactButtons waLabel="Get a free quote" />
             <Link
-              href="/en/guides/best-skin-clinics-in-gangnam"
-              className="rounded-none border border-stone-900 px-6 py-3 text-sm font-bold text-stone-900 transition hover:bg-stone-900 hover:text-white"
+              href="/en/clinics"
+              className="flex min-h-[52px] items-center justify-center rounded-none border border-stone-900 px-6 text-[15px] font-bold text-stone-900 transition active:bg-stone-900 active:text-white md:min-h-0 md:py-3 md:text-sm md:hover:bg-stone-900 md:hover:text-white"
             >
-              See a live sample
+              Browse partner clinics
             </Link>
           </div>
+          <p className="mt-4 text-[13px] text-stone-500">
+            Free · English support · Reply within 1 business day
+          </p>
         </div>
       </section>
 

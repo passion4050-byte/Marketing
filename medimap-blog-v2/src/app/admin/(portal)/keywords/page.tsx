@@ -116,8 +116,22 @@ export default function KeywordsPage() {
     }
   };
 
+  /*
+   * Round 169 (2026-08-20) — 모바일: 7컬럼 표 → 듀얼 레이아웃.
+   * 표는 min-width 640px 이 필요해 360px 화면에서 가로 스크롤 없이는 못 읽는다.
+   * tenants 페이지에 이미 있는 패턴(md:hidden 카드 + hidden md:block 표)을 그대로 적용.
+   * 필터/검색 결과는 두 레이아웃이 공유하도록 여기서 한 번만 계산.
+   */
+  const visibleRows = rows
+    .filter((r) => purposeFilter === 'all' || r.purpose === purposeFilter)
+    .filter((r) => !search
+      || r.text.toLowerCase().includes(search.toLowerCase())
+      || r.tenant_name.toLowerCase().includes(search.toLowerCase())
+      || (r.category ?? '').toLowerCase().includes(search.toLowerCase()));
+
   return (
-    <div className="px-8 py-6">
+    // Round 169 (2026-08-20) — 모바일: px-8 하드코딩 → 반응형(md+ 는 기존 px-8 복원)
+    <div className="px-4 py-5 md:px-8 md:py-6">
       <header className="admin-page-header">
         <div>
           <h1 className="admin-page-title">키워드 풀 ({rows.length})</h1>
@@ -190,7 +204,9 @@ export default function KeywordsPage() {
         />
       </div>
 
-      <div className="card overflow-hidden">
+      {/* 데스크톱 — 기존 7컬럼 표 그대로 (md+) */}
+      <div className="card hidden overflow-hidden md:block">
+        <div className="admin-table-wrap">
         <table className="w-full text-sm">
           <thead className="bg-surface-subtle text-[11px] font-bold uppercase tracking-wider text-ink-muted">
             <tr>
@@ -214,13 +230,7 @@ export default function KeywordsPage() {
                 등록된 키워드가 없습니다.
               </td></tr>
             )}
-            {rows
-              .filter((r) => purposeFilter === 'all' || r.purpose === purposeFilter)
-              .filter((r) => !search
-                || r.text.toLowerCase().includes(search.toLowerCase())
-                || r.tenant_name.toLowerCase().includes(search.toLowerCase())
-                || (r.category ?? '').toLowerCase().includes(search.toLowerCase()))
-              .map((r) => (
+            {visibleRows.map((r) => (
               <tr key={String(r.id)} className="border-t border-border hover:bg-surface-subtle">
                 <td className="px-4 py-3 text-sm font-semibold text-ink">
                   {r.text}
@@ -256,7 +266,85 @@ export default function KeywordsPage() {
             ))}
           </tbody>
         </table>
+        </div>
         <div className="border-t border-border bg-surface-subtle px-4 py-2.5 text-[11px] text-ink-muted">
+          7D 인용 / CTR 컬럼은 별도 분석 파이프라인 연결 후 자동 표시 (Phase 2)
+        </div>
+      </div>
+
+      {/* 모바일 — 카드 리스트 (md 미만). 표의 7컬럼을 '키워드 → 소속 → 액션' 위계로 재배치 */}
+      <div className="space-y-2 md:hidden">
+        {loading && (
+          <div className="card admin-empty">
+            <Loader2 className="admin-empty-icon animate-spin" />
+            <div className="admin-empty-title">로드 중…</div>
+          </div>
+        )}
+        {!loading && visibleRows.length === 0 && (
+          <div className="card admin-empty">
+            <div className="admin-empty-title">
+              {rows.length === 0 ? '등록된 키워드 없음' : '조건에 맞는 키워드 없음'}
+            </div>
+            <div className="admin-empty-desc">
+              {rows.length === 0 ? '상단 입력창에서 키워드를 추가하세요' : '분류·검색어를 바꿔 보세요'}
+            </div>
+          </div>
+        )}
+        {visibleRows.map((r) => (
+          <div key={`m-${String(r.id)}`} className="card p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="break-keep text-[15px] font-bold leading-snug text-ink">
+                  {r.text}
+                  {r.is_saas_marketing && (
+                    <span className="ml-1 align-middle rounded bg-surface-muted px-1 py-0.5 text-[9px] font-bold text-ink-soft">
+                      SaaS
+                    </span>
+                  )}
+                </div>
+                <div className="mt-1 truncate text-[12px] text-ink-muted">{r.tenant_name}</div>
+              </div>
+              <span className={cn(
+                'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold',
+                r.purpose === 'own' ? 'bg-surface-muted text-ink-soft'
+                : r.purpose === 'competitor_landscape' ? 'bg-status-warningSoft text-status-warning'
+                : 'bg-surface-subtle text-ink-muted'
+              )}>
+                {r.purpose === 'own' ? '자사' : r.purpose === 'competitor_landscape' ? '경쟁' : '—'}
+              </span>
+            </div>
+
+            <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-ink-soft">
+              <div className="truncate"><span className="text-ink-muted">카테고리:</span> {r.category ?? '—'}</div>
+              <div className="truncate">
+                <span className="text-ink-muted">target:</span>{' '}
+                <span className="font-mono text-ink">{r.target_brand ?? '—'}</span>
+              </div>
+            </div>
+
+            <div className="mt-2.5 flex items-center gap-2 border-t border-border pt-2.5">
+              <button
+                onClick={() => toggle(r)}
+                className={cn(
+                  'inline-flex min-h-[44px] flex-1 items-center justify-center rounded-lg border text-[12px] font-semibold transition active:scale-95',
+                  r.is_active
+                    ? 'border-status-success/30 bg-status-successSoft text-status-success'
+                    : 'border-border bg-surface-subtle text-ink-muted'
+                )}
+              >
+                {r.is_active ? '활성 — 탭하면 일시정지' : '일시정지 — 탭하면 활성'}
+              </button>
+              <button
+                onClick={() => remove(r.id)}
+                aria-label="키워드 삭제"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border text-ink-muted active:bg-status-dangerSoft active:text-status-danger"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        ))}
+        <div className="px-1 text-[11px] text-ink-muted">
           7D 인용 / CTR 컬럼은 별도 분석 파이프라인 연결 후 자동 표시 (Phase 2)
         </div>
       </div>

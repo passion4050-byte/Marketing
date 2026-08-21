@@ -6,7 +6,7 @@
 import Link from 'next/link';
 import { getClientSession } from '@/lib/client-auth';
 import { getServerClient } from '@/lib/supabase';
-import { fetchAllRows } from '@/lib/fetchAllRows';
+import { fetchAllRows, fetchByIdChunks } from '@/lib/fetchAllRows';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,29 +35,45 @@ export default async function ClientCitationsPage() {
   if (!session || !sb) return null;
 
   const since = new Date(Date.now() - 30 * 86400_000).toISOString();
-  const [tenantRes, respRows] = await Promise.all([
+  // 🔴 Round 169 (2026-08-20) — Round 165 회귀 수정.
+  //   165 에서 `.limit(1500)`(서버 캡에 잘려 실제 1,000행) 을 fetchAllRows 로 바꾸면서
+  //   **tenant 필터가 없다는 사실을 놓쳤다** → 캡이 사라지자 전 테넌트 responses 를
+  //   최대 50,000행(직렬 50왕복) 스캔하는 최악의 경로가 됨. force-dynamic 이라 캐시도 없음.
+  //   병원 담당자가 원장 앞에서 누르는 화면인데 LTE 에서 수십 초 흰 화면 → 신뢰 붕괴.
+  //   수정: reportMetrics.computeCitationCounts 와 동일하게 **queries 를 tenant 로 먼저 좁힌 뒤**
+  //   그 query_id 로만 responses 를 청크 조회한다. 0건이라도 빠르게 0을 보여주는 게 신뢰다.
+  const [tenantRes, qRows] = await Promise.all([
     sb
       .from('tenants')
       .select('homepage, additional_domains, partner_slug')
       .eq('id', session.tenantId)
       .maybeSingle(),
-    // Round 165 — .limit(1500) 은 서버 캡(1,000)에 조용히 잘렸음 (Round 163b 수술에서
-    //   포털 페이지가 누락됐던 것) → 페이지네이션 전량 수집.
-    fetchAllRows<{
-      created_at: string | null;
-      source_domains: Array<{ domain?: string | null; final_url?: string | null }> | null;
-      queries: unknown;
-    }>((from, to) =>
+    fetchAllRows<{ id: number }>((from, to) =>
       sb
-        .from('responses')
-        // Round 153 — keywords 실컬럼은 `text` (keyword 아님, 감사 P0-1과 동일 계열)
-        .select('created_at, source_domains, queries(engine, keywords(text))')
-        .gte('created_at', since)
-        .not('source_domains', 'is', null)
-        .order('created_at', { ascending: false })
+        .from('queries')
+        .select('id')
+        .eq('tenant_id', session.tenantId)
+        .gte('requested_at', since)
+        .order('id')
         .range(from, to),
     ),
   ]);
+
+  const respRows =
+    qRows.length === 0
+      ? []
+      : await fetchByIdChunks(
+          qRows.map((q) => q.id),
+          (chunk) =>
+            sb
+              .from('responses')
+              // Round 153 — keywords 실컬럼은 `text` (keyword 아님, 감사 P0-1과 동일 계열)
+              .select('created_at, source_domains, queries(engine, keywords(text))')
+              .in('query_id', chunk)
+              .gte('created_at', since)
+              .not('source_domains', 'is', null)
+              .order('created_at', { ascending: false }),
+        );
 
   const tenant = tenantRes.data as {
     homepage: string | null;
@@ -120,51 +136,80 @@ export default async function ClientCitationsPage() {
 
   return (
     <div>
-      <Link href="/client" className="text-xs text-stone-500 underline underline-offset-4 hover:text-stone-900">
-        ← 홈
-      </Link>
-      <div className="mb-6 mt-3">
-        <h1 className="text-xl font-bold tracking-tight">AI 출처 인용</h1>
-        <p className="mt-1 text-sm text-stone-500">
-          AI 검색이 답변의 <b>출처</b>로 실제 표기한 우리 관련 URL 입니다 (최근 30일, 최대 100건).
+      {/* Round 169 — 상단 탭 네비가 생겨 '← 홈' 브레드크럼은 중복. 제목 구조를 크게. */}
+      <div className="mb-5">
+        <h1 className="text-[22px] font-bold tracking-tight md:text-xl">AI 출처 인용</h1>
+        <p className="mt-1.5 text-[13.5px] leading-relaxed text-stone-500 md:text-sm">
+          AI 검색이 답변의 <b className="text-stone-700">출처</b>로 실제 표기한 우리 관련 URL 입니다
+          <span className="whitespace-nowrap"> (최근 30일)</span>.
         </p>
       </div>
 
       {items.length === 0 ? (
-        <p className="rounded-none border border-stone-200 bg-white p-6 text-sm leading-relaxed text-stone-500">
-          최근 30일 출처 인용 기록이 없습니다. 발행 후 AI 검색이 콘텐츠를 색인해 출처로 쓰기까지
-          <b className="text-stone-700"> 통상 5~6주</b>가 걸립니다 — 그 전에는 위의 &lsquo;병원 언급&rsquo;
-          지표가 먼저 움직입니다.
-        </p>
+        /* Round 169 — 0 을 '결과'가 아니라 '과정'으로 읽히게. 원장 보고 시 그대로 인용 가능한 문장. */
+        <div className="rounded-2xl border border-stone-200 bg-white p-5 md:p-6">
+          <div className="text-[15px] font-bold text-stone-800">아직 출처 인용 기록이 없습니다</div>
+          <p className="mt-2.5 text-[13.5px] leading-relaxed text-stone-600">
+            지금은 AI 검색이 우리 콘텐츠를 <b className="text-stone-800">색인에 적재하는 단계</b>입니다.
+            보통 <b className="text-stone-800">발행 후 3~4주</b>부터 AI 답변에 병원 이름이 등장하고,
+            <b className="text-stone-800"> 5~6주</b>부터 답변의 출처로 URL 이 표기되기 시작합니다.
+          </p>
+          <p className="mt-3 text-[13px] leading-relaxed text-stone-500">
+            이름 등장이 먼저 움직이므로, 지금은{' '}
+            <Link
+              href="/client/mentions"
+              className="font-semibold text-stone-800 underline decoration-stone-300 underline-offset-4"
+            >
+              AI 언급
+            </Link>{' '}
+            지표를 함께 확인해 주세요.
+          </p>
+        </div>
       ) : (
-        <div className="divide-y divide-stone-200 border-t-2 border-stone-900 bg-white">
-          {items.map((c, i) => (
-            <div key={i} className="px-4 py-3.5">
-              <div className="flex flex-wrap items-center gap-2 text-[11px] text-stone-400">
-                <span className="tabular-nums">{fmtDate(c.date)}</span>
-                <span
-                  className={`px-1.5 py-0.5 font-medium ${
-                    c.kind === '병원 홈페이지'
-                      ? 'bg-emerald-50 text-emerald-700'
-                      : 'bg-stone-100 text-stone-600'
-                  }`}
-                >
-                  {c.kind}
-                </span>
-                {c.engine ? <span className="uppercase">{c.engine}</span> : null}
-                {c.keyword ? <span>“{c.keyword}” 질의</span> : null}
-              </div>
+        <>
+          <div className="mb-2.5 text-[12px] text-stone-400">
+            최근 30일 <b className="tabular-nums text-stone-600">{items.length}</b>건
+            {items.length >= 100 ? ' (최대 100건 표시)' : ''}
+          </div>
+          {/* Round 169 — 모바일: URL 을 두 줄까지 접어 보여주고(잘림 금지), 메타는 칩으로 줄바꿈 허용 */}
+          <div className="space-y-2.5">
+            {items.map((c, i) => (
               <a
+                key={i}
                 href={c.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-1.5 block truncate text-sm text-stone-800 underline decoration-stone-300 underline-offset-4 hover:decoration-stone-900"
+                className="block rounded-2xl border border-stone-200 bg-white p-4 transition active:bg-stone-50 md:hover:border-stone-300"
               >
-                {c.url}
+                <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                  <span
+                    className={`rounded-md px-2 py-1 font-semibold ${
+                      c.kind === '병원 홈페이지'
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'bg-stone-900 text-white'
+                    }`}
+                  >
+                    {c.kind}
+                  </span>
+                  {c.engine ? (
+                    <span className="rounded-md bg-stone-100 px-2 py-1 font-medium uppercase text-stone-500">
+                      {c.engine}
+                    </span>
+                  ) : null}
+                  <span className="tabular-nums text-stone-400">{fmtDate(c.date)}</span>
+                </div>
+                {c.keyword ? (
+                  <div className="mt-2.5 break-keep text-[13.5px] font-medium leading-snug text-stone-800">
+                    “{c.keyword}” 질의에서 인용
+                  </div>
+                ) : null}
+                <div className="mt-1.5 line-clamp-2 break-all text-[12px] leading-relaxed text-stone-500 underline decoration-stone-200 underline-offset-2">
+                  {c.url}
+                </div>
               </a>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

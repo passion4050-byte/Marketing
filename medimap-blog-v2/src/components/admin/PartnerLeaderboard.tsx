@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, RefreshCw, Sparkles } from 'lucide-react';
 import { readScope, SCOPE_EVENT } from './ScopeSelector';
 
 /**
@@ -39,6 +39,12 @@ export function PartnerLeaderboard() {
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState('all');
+  // Round 169 (2026-08-20) — 모바일: 실패와 '데이터 없음'을 분리.
+  //   기존 .catch(() => setData(null)) 는 네트워크 실패를 "아직 데이터 없음"으로
+  //   위장시켜, 회선이 불안정한 모바일에서 운영자가 재시도할 방법이 없었다.
+  //   CohortAnalysis 의 err state 패턴과 동일하게 맞춘다.
+  const [err, setErr] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // 스코프 구독 (localStorage + 이벤트) — 다른 스코프 컴포넌트와 동일 패턴.
   useEffect(() => {
@@ -57,14 +63,20 @@ export function PartnerLeaderboard() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setErr(null);
     const qs = scope && scope !== 'all' ? `?scope=${encodeURIComponent(scope)}` : '';
     fetch(`/api/admin/partner-leaderboard${qs}`)
       .then((r) => r.json())
       .then((j) => {
-        if (!cancelled) setData(j);
+        if (cancelled) return;
+        if (j && j.ok === false) throw new Error(j.error || '\ubd88\ub7ec\uc624\uae30 \uc2e4\ud328');
+        setData(j);
       })
-      .catch(() => {
-        if (!cancelled) setData(null);
+      .catch((e) => {
+        if (!cancelled) {
+          setData(null);
+          setErr(e instanceof Error ? e.message : '\uc624\ub958');
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -72,7 +84,7 @@ export function PartnerLeaderboard() {
     return () => {
       cancelled = true;
     };
-  }, [scope]);
+  }, [scope, reloadKey]);
 
   if (loading) {
     return (
@@ -83,6 +95,23 @@ export function PartnerLeaderboard() {
             <div key={i} className="h-16 animate-pulse rounded bg-surface-hover/50" />
           ))}
         </div>
+      </div>
+    );
+  }
+
+  // Round 169 — 실패는 재시도 가능한 상태로. (데이터 없음과 명확히 구분)
+  if (err) {
+    return (
+      <div className="rounded-2xl border border-status-danger/25 bg-status-dangerSoft/40 p-5 text-center md:p-6">
+        <div className="text-sm font-semibold text-ink">불러오기 실패</div>
+        <div className="mt-1 break-keep text-[12px] text-ink-muted">{err}</div>
+        <button
+          type="button"
+          onClick={() => setReloadKey((k) => k + 1)}
+          className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border border-border bg-surface-base px-4 text-[13px] font-semibold text-ink transition active:scale-95 hover:bg-surface-subtle"
+        >
+          <RefreshCw className="h-3.5 w-3.5" /> 다시 시도
+        </button>
       </div>
     );
   }

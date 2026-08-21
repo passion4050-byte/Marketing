@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Round 169 — 모바일 E2E 감사 리포트 · WECIRCLE</title>
+<style>
+  :root{
+    --bg:#FAFAF7; --surface:#fff; --ink:#1C1917; --muted:#78716C; --faint:#A8A29E;
+    --line:#E7E5E4; --line2:#D6D3D1;
+    --p0:#B91C1C; --p0bg:#FEF2F2; --p1:#B45309; --p1bg:#FFFBEB; --p2:#3F6212; --p2bg:#F7FEE7;
+    --code:#F5F5F4;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Pretendard","Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+    line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:0 auto;padding:0 20px 80px}
+  header.hero{border-bottom:2px solid var(--ink);padding:44px 0 26px;margin-bottom:32px}
+  .kicker{font-size:11px;font-weight:700;letter-spacing:.28em;text-transform:uppercase;color:var(--faint)}
+  h1{font-size:clamp(26px,5vw,40px);line-height:1.18;letter-spacing:-.02em;margin:14px 0 10px;font-weight:800}
+  .sub{color:var(--muted);font-size:15px;margin:0;max-width:640px}
+  .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+  .chip{font-size:12px;padding:5px 11px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);color:var(--muted)}
+  .chip b{color:var(--ink)}
+  .scoreboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:26px 0 8px}
+  .score{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .score .n{font-size:30px;font-weight:800;line-height:1;letter-spacing:-.02em}
+  .score .l{font-size:12px;color:var(--muted);margin-top:6px}
+  .score.p0 .n{color:var(--p0)} .score.p1 .n{color:var(--p1)} .score.p2 .n{color:var(--p2)}
+  .callout{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--ink);
+    border-radius:0 14px 14px 0;padding:18px 20px;margin:26px 0}
+  .callout h3{margin:0 0 10px;font-size:15px;font-weight:800}
+  .callout ol{margin:0;padding-left:20px;font-size:14px;color:var(--muted)}
+  .callout ol li{margin-bottom:7px}
+  .callout ol li b{color:var(--ink)}
+  h2.surface{font-size:22px;font-weight:800;letter-spacing:-.01em;margin:52px 0 4px;padding-top:26px;border-top:1px solid var(--line2)}
+  .persona{font-size:13px;color:var(--muted);margin:0 0 22px;padding:12px 14px;background:#F0EFEA;border-radius:10px}
+  .persona b{color:var(--ink)}
+  .f{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:14px}
+  .f.p0{border-left:4px solid var(--p0)} .f.p1{border-left:4px solid var(--p1)} .f.p2{border-left:4px solid var(--p2)}
+  .fh{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap}
+  .badge{font-size:10px;font-weight:800;letter-spacing:.08em;padding:4px 8px;border-radius:6px;white-space:nowrap}
+  .badge.p0{background:var(--p0bg);color:var(--p0)} .badge.p1{background:var(--p1bg);color:var(--p1)} .badge.p2{background:var(--p2bg);color:var(--p2)}
+  .lens{font-size:10px;font-weight:700;letter-spacing:.06em;padding:4px 8px;border-radius:6px;background:#F5F5F4;color:var(--muted);white-space:nowrap}
+  .ft{font-size:16px;font-weight:800;letter-spacing:-.01em;flex:1 1 100%;margin-top:8px;line-height:1.4}
+  .row{margin-top:12px;font-size:13.5px}
+  .row .k{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:3px}
+  .row .v{color:#44403C}
+  .row.fix .v{color:var(--ink)}
+  code{background:var(--code);padding:2px 6px;border-radius:5px;font-size:12px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-word}
+  .mine{display:inline-block;font-size:10px;font-weight:800;background:#1C1917;color:#fff;padding:3px 7px;border-radius:5px;letter-spacing:.04em}
+  footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--line2);font-size:12.5px;color:var(--faint)}
+  footer b{color:var(--muted)}
+  @media(max-width:520px){ .wrap{padding:0 14px 60px} .f{padding:16px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="kicker">WECIRCLE · Round 169</div>
+  <h1>모바일 E2E 감사 리포트</h1>
+  <p class="sub">3개 표면 × 페르소나 4명 × 4관점(기능·UI/UX·디자인·카피)으로 실제 소스와 라이브 계측을 대조했습니다. 발견 32건 — 각 항목은 승인 시 그대로 구현 가능한 수정안까지 포함합니다.</p>
+  <div class="meta">
+    <span class="chip">감사일 <b>2026-08-20</b></span>
+    <span class="chip">기준 뷰포트 <b>375~491px</b></span>
+    <span class="chip">방식 <b>소스 정적분석 + 라이브 실측</b></span>
+    <span class="chip">대상 <b>v1 · v2 전체</b></span>
+  </div>
+
+  <div class="scoreboard">
+    <div class="score p0"><div class="n">11</div><div class="l">P0 · 전환/판단 차단</div></div>
+    <div class="score p1"><div class="n">17</div><div class="l">P1 · 명백한 마찰</div></div>
+    <div class="score p2"><div class="n">4</div><div class="l">P2 · 다듬기</div></div>
+    <div class="score"><div class="n">32</div><div class="l">총 발견</div></div>
+  </div>
+</header>
+
+<div class="callout">
+  <h3>먼저 볼 3가지 — 투입 대비 효과가 압도적인 순서</h3>
+  <ol>
+    <li><b>포털 상단 네비 붕괴 + 월간 보고서 비반응형</b> — 해지 결정은 "원장님 앞에서 폰을 여는 30초"에 내려집니다. 지금 그 순간 화면이 좌우로 흔들리고, 보고서 지표 라벨이 6줄로 무너집니다.</li>
+    <li><b>파트너 글 CTA가 문서 85% 깊이</b> — 모바일 18.2스크린 중 15번째 화면. <code>injectMidCta</code>가 해외판엔 이미 구현돼 있는데 국내 파트너 글에만 연결이 빠졌습니다. 연결 한 번으로 5스크린까지 당겨집니다.</li>
+    <li><b>해외(/en) 모바일 내비게이션 부재</b> — <code>OverseasShell.tsx</code>의 <code>lg:flex</code> 한 줄 때문에 해외 모바일 방문자 전원이 글 1편 읽고 나갈 수밖에 없습니다. 국내 Header에 검증된 드로어가 있어 이식만 하면 됩니다.</li>
+  </ol>
+</div>
+
+<!-- ================= SURFACE 1 ================= -->
+<h2 class="surface">① wecircle.co.kr — 환자 유입 · 12건</h2>
+<p class="persona"><b>페르소나 A</b> 34세 직장인, 지하철에서 "강남 라식" 검색 유입. 비용·회복기간이 궁금, 한 손 조작. &nbsp;·&nbsp; <b>페르소나 B</b> 29세 싱가포르 거주, "skin clinic in korea" 검색 유입. 영어만 가능, 한국 의료 처음.</p>
+
+<div class="f p0"><div class="fh"><span class="badge p0">P0</span><span class="lens">기능</span>
+<div class="ft">해외(/en) 모바일에 내비게이션이 아예 없음 — 햄버거 자체가 미구현</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>OverseasShell.tsx:45</code> → <code>hidden … lg:flex</code>. 이 파일에 모바일 드로어·Menu 아이콘·useState가 하나도 없음(국내 <code>Header.tsx:72-136</code>에는 있음). 푸터에도 nav 링크 없음.</span></div>
+<div class="row"><span class="k">환자 영향</span><span class="v">페르소나 B가 가이드 글을 다 읽고 "다른 병원도 보고 싶다 / 예약 절차 / 회사가 누구인지"로 가는 길이 <b>전부 차단</b>. 남은 출구는 로고(B2B 홈)·언어 스위처·WhatsApp뿐 → 해외 모바일은 사실상 1페이지 사이트.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">nav를 <code>OverseasNav</code> 클라이언트 컴포넌트로 분리하고 Header의 드로어 패턴 이식. 트리거 <code>h-11 w-11 lg:hidden</code>, 드로어 <code>fixed inset-x-0 top-[57px] z-40</code>, 링크 <code>py-4 text-lg font-bold</code>(48px 타겟).</span></div></div>
+
+<div class="f p0"><div class="fh"><span class="badge p0">P0</span><span class="lens">UI/UX</span>
+<div class="ft">파트너 글: 18.2스크린 중 첫 인라인 CTA가 15번째 화면 (85% 깊이)</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>with-partners/[category]/[partner]/[slug]/page.tsx:171-211</code> — <code>&lt;article&gt;</code> 종료 직후에만 CTA. 반면 <code>GuideArticle.tsx:79-83</code>에 <code>injectMidCta()</code>(3번째 h2 앞 주입)가 이미 구현돼 있으나 파트너 페이지는 이 컴포넌트를 쓰지 않고 <code>dangerouslySetInnerHTML</code> 직접 렌더. h2 9개로 주입 조건 충족.</span></div>
+<div class="row"><span class="k">환자 영향</span><span class="v">"그래서 나는 얼마?"가 정점인 비용 표 근처(3~4스크린)에 상담 진입점이 없음. 15스크린까지 버틸 확률은 사실상 0 → 플로팅 버튼 하나에 전환 전량 의존.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v"><code>injectMidCta</code>를 <code>lib/</code>로 승격해 국내·해외 공유. 한국어 미드 CTA: "내 경우 비용은 얼마일까요?" + <code>/r/p{id}</code> 버튼. → 도달 지점 85% → 약 30%.</span></div></div>
+
+<div class="f p0"><div class="fh"><span class="badge p0">P0</span><span class="lens">카피</span>
+<div class="ft">국내 CTA가 "비용·무료"를 한 번도 말하지 않음 — 해외 카피 대비 구조적 열위</div></div>
+<div class="row"><span class="k">증거</span><span class="v">파트너 글 CTA: "더 자세한 상담이 필요하다면." / "카카오톡으로 상담받기", 플로팅 모바일 라벨은 <code>상담</code> 두 글자. 대조군 <code>CTABlock.tsx:57-65</code>에는 "비용·예약·시술 적합 여부까지, 카카오톡으로 <b>무료</b> 안내합니다"가 이미 있으나 <b>파트너 페이지가 이 컴포넌트를 쓰지 않고 손으로 다시 짬</b>. 해외판은 Free / English OK / Reply within 1 business day 3중 안심 칩까지 완비.</span></div>
+<div class="row"><span class="k">환자 영향</span><span class="v">검색 의도는 "비용·회복기간"인데 CTA 어디에도 비용·무료·응답시간이 없어 "상담 = 영업 전화"로 읽힘. 해외 방문자에겐 무료를 3번 말하면서 국내엔 한 번도 말하지 않음.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">수제 CTA 블록 삭제 → <code>&lt;CTABlock partnerSlug contentId partnerName /&gt;</code>로 교체. 플로팅 라벨 <code>상담</code> → <code>비용 문의</code> + 하단에 <code>무료 · 24시간 내 답변</code> 안심 라인.</span></div></div>
+
+<div class="f p1"><div class="fh"><span class="badge p1">P1</span><span class="lens">UI/UX</span>
+<div class="ft">목차·읽기 진행바가 모바일에 없고, 파트너 글엔 컴포넌트 자체가 미장착</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>TableOfContents.tsx:52</code> → <code>hidden xl:block</code>(1280px+에서만). import는 <code>blog/[slug]</code> 한 곳뿐. 추가 리스크: <code>h2[id]</code>만 수집하는데 heading id 주입 파이프라인이 없어 데스크톱에서도 null 반환 개연성.</span></div>
+<div class="row"><span class="k">환자 영향</span><span class="v">h2 9개·11,601px 문서인데 "지금 어디쯤인지", "회복기간 섹션이 어디인지" 알 방법이 0.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">발행 파이프라인에 h2→id slug 주입 + 모바일 <code>&lt;details class="xl:hidden sticky top-16"&gt;</code> 접이식 목차. <code>ReadingProgress</code>는 CSS가 이미 완성돼 있어 import 한 줄.</span></div></div>
+
+<div class="f p1"><div class="fh"><span class="badge p1">P1</span><span class="lens">기능·성능</span>
+<div class="ft">커버 이미지가 <code>unoptimized</code> — next/image 최적화를 명시적으로 끄고 priority로 LCP 선점</div></div>
+<div class="row"><span class="k">증거</span><span class="v">파트너 상세 <code>page.tsx:157-169</code> → <code>&lt;Image … priority unoptimized /&gt;</code>, <code>sizes</code> 없음. 해외는 더 나쁨 — <code>GuideArticle.tsx:183-191</code>은 raw <code>&lt;img loading="eager"&gt;</code>. 실측: 원본 1536×1024를 443px 폭에 표시(약 3.5배).</span></div>
+<div class="row"><span class="k">환자 영향</span><span class="v">지하철 LTE에서 첫 화면이 회색 박스로 머무는 시간이 길어지고, priority라 본문 텍스트보다 대역폭을 먼저 가져감.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v"><code>unoptimized</code> 제거 + <code>sizes="(max-width:860px) 100vw, 860px"</code>. ※ Supabase egress 우려로 껐던 것이라면 오히려 역효과 — 최적화를 켜야 Vercel 캐시가 원본 재요청을 흡수합니다(Round 165 TTL 수정과 같은 원리).</span></div></div>
+
+<div class="f p1"><div class="fh"><span class="badge p1">P1</span><span class="lens">기능</span>
+<div class="ft">/contact 폼 입력 시 iOS Safari 자동 확대 — 입력 폰트 14px</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>globals.css:117-119</code> <code>.form-input { … text-sm }</code> = 14px(iOS는 16px 미만에서 강제 확대). 6개 필드 전부 이 클래스. <code>autoComplete</code>/<code>inputMode</code>가 한 곳도 없어 자동완성 미작동. 높이 ≈40px로 44px 미달.</span></div>
+<div class="row"><span class="k">환자 영향</span><span class="v">이름 칸 탭 순간 화면이 확대되고 이후 필드마다 좌우 스크롤 발생. 5개 필수 필드 + 한 손 조작 → 이탈 확률 매우 높음.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v"><code>.form-input</code>을 <code>text-base py-3</code>(16px·48px)로. <code>autoComplete="name|organization|tel|email"</code>, 전화 <code>inputMode="tel"</code>. 겸사겸사 "제목" 필수 해제(서버는 message 앞에 붙일 뿐).</span></div></div>
+
+<div class="f p1"><div class="fh"><span class="badge p1">P1</span><span class="lens">UI/UX</span>
+<div class="ft">44px 미만 탭 타겟 14개 — 언어 스위처가 해외 퍼널의 단일 실패점</div></div>
+<div class="row"><span class="k">증거</span><span class="v">실측: 브레드크럼 15px, 푸터 링크 17px, 로고 24px. 언어 스위처 트리거 <code>px-3 py-1.5 text-xs</code> ≈28px, 드롭다운 항목 ≈36px.</span></div>
+<div class="row"><span class="k">환자 영향</span><span class="v">페르소나 B에게 언어 스위처는 생명선인데 28px 표적을 흔들리는 지하철에서 눌러야 함.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">브레드크럼 <code>min-h-[44px] -my-2 py-2</code>(레이아웃 유지·타겟만 확대), 스위처 <code>min-h-[44px] px-4 py-2.5</code>, 푸터 링크 <code>block py-3</code>, 로고 <code>-m-2 p-2</code>.</span></div></div>
+
+<div class="f p1"><div class="fh"><span class="badge p1">P1</span><span class="lens">디자인</span>
+<div class="ft">10~11px 초소형 텍스트가 <b>168곳</b> — 신뢰 정보가 가장 작은 등급에 배치됨</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>grep "text-\[1[01]px\]"</code> = 168건. 문제의 핵심은 크기 단독이 아니라 <code>text-[10px]</code> + <code>tracking-[0.32em]</code> + <code>uppercase</code> <b>3중 결합</b> — 데스크톱 잡지 지면에선 성립하지만 모바일 443px에서는 자간이 단어를 해체합니다.</span></div>
+<div class="row"><span class="k">환자 영향</span><span class="v">병원 실명·카테고리·주소·"무료" 등 신뢰 직결 정보가 본문(17.28px)의 64% 크기. 30대 후반 이상은 지하철 조명에서 판독 실패.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">overline 계열 → <code>text-[11px] tracking-[0.16em] md:text-[10px] md:tracking-[0.32em]</code>. 신뢰 정보(병원명·주소·무료·응답시간)는 13px 이상 승격. <code>tailwind.config</code>에 <code>overline</code> 유틸 정의 후 일괄 치환이 재발 방지에 유리.</span></div></div>
+
+<div class="f p1"><div class="fh"><span class="badge p1">P1</span><span class="lens">카피</span>
+<div class="ft">해외 첫 화면이 환자를 B2B 피치로 되돌리고, 언어 전환 시 읽던 글을 잃음</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>en/page.tsx:88-95</code> h1 = "…does it name <b>yours</b>?"(수신자=병원 원장). 헤더 CTA "Talk to us"(이익 0). 결정타: <code>LanguageSwitcher.tsx:32-36</code> — <code>/guides/</code>가 아니면 모든 언어 전환이 <code>/{code}</code> 홈으로 → <code>/en/clinics/…</code>에서 언어 바꾸면 B2B 홈으로 튕김.</span></div>
+<div class="row"><span class="k">환자 영향</span><span class="v">신뢰 확인하러 홈에 갔더니 자기 얘기가 아닌 마케팅 대행 세일즈 → "여긴 병원 찾는 곳이 아니구나". 언어 전환 시 맥락 소실은 재유입 차단.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">(a) <code>/en</code>을 환자/병원 듀얼 히어로로(<code>/en/contact:44-58</code>의 2카드 패턴 이식) (b) "Talk to us" → "Get a free quote" (c) <code>targetPath</code>에 <code>/clinics/</code> 분기 추가.</span></div></div>
+
+<div class="f p2"><div class="fh"><span class="badge p2">P2</span><span class="lens">UI/UX</span>
+<div class="ft">국내 플로팅 CTA가 홈 인디케이터와 충돌 가능 — safe-area 처리가 해외판에만 있음</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>FloatingInquiryButton.tsx:37</code> <code>bottom-5</code>(세이프에어리어 없음) + <code>layout.tsx:49</code> <code>viewportFit:"cover"</code>. 해외판 <code>FloatingConsult.tsx:68</code>은 <code>pb-[env(safe-area-inset-bottom)]</code>로 정확히 처리돼 있음 — 국내만 누락.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v"><code>bottom-[calc(1.25rem+env(safe-area-inset-bottom))]</code>. 국내 전환의 사실상 단일 경로라 손실이 큼.</span></div></div>
+
+<div class="f p2"><div class="fh"><span class="badge p2">P2</span><span class="lens">기능</span>
+<div class="ft">/tw 경로에 한국어 헤더·푸터가 이중 렌더 — 코드 1줄 누락</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>PublicChrome.tsx:21-27</code>의 <code>isPortal</code> 판정에 <code>/admin,/client,/en,/ja,/zh</code>만 있고 <b><code>/tw</code>가 빠짐</b>. <code>tw/layout.tsx</code>는 OverseasShell(자체 헤더+푸터)을 렌더 → 한국어 Header/Footer 안에 중문 셸이 중첩.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v"><code>PORTAL_PREFIXES</code> 상수화 + <code>/tw</code> 추가. 1줄.</span></div></div>
+
+<div class="f p2"><div class="fh"><span class="badge p2">P2</span><span class="lens">카피·규제</span>
+<div class="ft">"100% 의료법 통과" 절대수치와 자체 발급 배지의 모호성</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>page.tsx:214</code> <code>value="100%" caption="의료법 통과"</code>, 파트너 글 배지 "위서클 의료법 가이드 통과". ※ 본문 자체는 양호 — 최상급·효과보장 표현 전수 검색에서 미발견.</span></div>
+<div class="row"><span class="k">리스크</span><span class="v">"의료법 가이드 통과"가 <b>사전심의필</b>과 유사하게 읽힐 소지. "100%"는 검증 불가한 절대 수치(의료법 §56②).</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">"100%" → "9개 룰", caption → "자체 린트 적용". 배지 → "위서클 <b>자체</b> 의료광고 가이드 검수"로 주체 명시.</span></div></div>
+
+<!-- ================= SURFACE 2 ================= -->
+<h2 class="surface">② 어드민 콘솔 — 운영자 · 10건</h2>
+<p class="persona"><b>페르소나</b> 위서클 대표. 병원 미팅 사이 이동 중 폰으로 ①오늘 발행 정상? ②검수 대기 쌓였나? ③인용 추이? ④비용 튀었나? 를 <b>30초 안에</b> 확인하고 싶다. 네트워크 불안정, 한 손 조작.</p>
+
+<div class="f p0"><div class="fh"><span class="badge p0">P0</span><span class="lens">기능</span>
+<div class="ft">네트워크 실패가 "데이터 없음"으로 표시됨 — 이동 중 오판을 유발</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>PartnerLeaderboard.tsx:60-70</code> → <code>.catch(() =&gt; setData(null))</code>로 <b>fetch 실패와 0건이 같은 상태로 합쳐짐</b>. 재시도 버튼 없음. 추가로 <code>admin/</code> 전체에 <code>loading.tsx</code>/<code>error.tsx</code>가 0개, <code>&lt;Suspense&gt;</code> 사용 0건.</span></div>
+<div class="row"><span class="k">운영자 영향</span><span class="v">엘리베이터에서 "데이터 없음"을 보면 "cron이 죽었다"고 판단하지만 실제로는 전파 끊김. <b>정답이 아니라 오답을 주는 것</b>이라 아예 안 나오는 것보다 나쁨.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">위젯 공통으로 <code>err</code>/<code>empty</code> 분리(<code>CohortAnalysis.tsx:65-80</code>가 이미 올바른 패턴). 실패 시 "다시 시도" 버튼. <code>loading.tsx</code>에 KPI 스켈레톤 6칸, <code>error.tsx</code>에 reset().</span></div></div>
+
+<div class="f p0"><div class="fh"><span class="badge p0">P0</span><span class="lens">UI/UX</span>
+<div class="ft">"오늘 발행이 정상인가"를 답하는 지표가 KPI 6개 어디에도 없음</div></div>
+<div class="row"><span class="k">증거</span><span class="v">발행 KPI는 "이번 달 발행" = <code>.gte('published_at', startOfMonth)</code> <b>월 누계</b>. 유일한 상태 KPI인 "측정 cron 상태"는 <code>queries</code> 기반이라 <b>측정 cron이지 발행 cron이 아님</b>. (부수 발견: <code>startOfMonth.setUTCDate(1)</code>이 UTC라 매월 1일 00~09시 KST 발행분이 전월로 샘)</span></div>
+<div class="row"><span class="k">운영자 영향</span><span class="v">발행이 3일째 멈춰도 "이번 달 340편"은 그대로라 <b>정상으로 보임</b>. ①번 질문이 대시보드 최상단에서 구조적으로 답이 안 됨.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">KPI 슬롯을 "오늘 발행"으로 교체 — <code>published_at &gt;= KST 오늘 00:00</code> count + 7일 평균 대비. <code>value: 3편</code>, <code>hint: 7일 평균 4.2편 · 최종 07:12</code>.</span></div></div>
+
+<div class="f p0"><div class="fh"><span class="badge p0">P0</span><span class="lens">기능</span>
+<div class="ft">언어 스코프 셀렉터가 모바일에서 완전히 사라짐 — 표시도 변경도 불가</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>AdminShell.tsx:338</code> → <code>hidden … md:flex</code>. <code>ScopeSelector</code>는 코드베이스 전체에서 이 한 곳에서만 렌더되는데, 스코프를 소비하는 곳은 <b>11개</b>(CcsTrend·Cohort·SlugRivalry·PartnerLeaderboard·CitationProof·citations·competitors·content-queue·saas-tracking 등). 값은 쿠키로 <b>1년 고정</b>.</span></div>
+<div class="row"><span class="k">운영자 영향</span><span class="v">지금 화면이 통합 기준인지 JA 기준인지 <b>표시 자체가 없음</b>. "숫자가 왜 이렇게 낮지?"의 가장 흔한 원인(스코프 오설정)이 모바일에서 영원히 안 보임.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">모바일 헤더의 빈 스페이서(<code>&lt;div className="w-10" /&gt;</code>)를 스코프 칩으로 교체 — 현재 스코프 표시 + 탭하면 바텀시트.</span></div></div>
+
+<div class="f p0"><div class="fh"><span class="badge p0">P0</span><span class="lens">디자인</span>
+<div class="ft">검수 카드가 3열 고정폭으로 붕괴 — 제목 열이 <b>59px</b>로 짜부라짐</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>content-queue/page.tsx:886-946</code>. 375px 계산: 좌우 패딩 44 + 썸네일 96 + gap 32 + 배지 80 = <b>252px 고정</b> → 제목·병원명·발췌 열은 59px. 하단 액션 행은 <code>flex-wrap</code>이 없어 버튼 4개(자연폭 359px vs 가용 267px)가 <b>글자 단위로 세로 줄바꿈</b>("발행/승인").</span></div>
+<div class="row"><span class="k">운영자 영향</span><span class="v">②번 질문 확인 후 <b>바로 조치</b>하려는 순간이 막힘. 제목을 못 읽고, 뭉개진 "발행 승인"과 인접한 "거부"의 오탭 위험 — 되돌릴 수 없는 액션.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">상단 행 <code>flex-col sm:flex-row</code> + 썸네일 <code>w-16 sm:w-24 shrink-0</code>, 배지를 제목 위 칩으로 이동. 하단 행 <code>flex-wrap gap-2</code> + 버튼 <code>min-h-[44px] whitespace-nowrap</code>, "본문 복사"는 오버플로 메뉴로.</span></div></div>
+
+<div class="f p1"><div class="fh"><span class="badge p1">P1</span><span class="lens">성능</span>
+<div class="ft"><code>next/dynamic ssr:false</code>가 무력화 — recharts가 초기 번들에 포함</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>page.tsx:33</code>에서 <code>DashboardChartsTabbed</code>를 <b>정적 import</b>하는데 이 컴포넌트가 recharts 11개 심볼을 직접 import → 형제인 <code>DashboardCharts</code>의 lazy 분리가 의미 상실. 게다가 02 섹션은 <code>defaultCollapsed</code> 미지정으로 <b>기본 펼침</b>(주석은 "주간 판단용"이라 적혀 있는데 반대).</span></div>
+<div class="row"><span class="k">운영자 영향</span><span class="v">지하철 LTE에서 KPI만 보려는데 recharts 전체 + API 4개(cohort·slug-rivalry·top-contents·partner-leaderboard) 추가 호출.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v"><code>DashboardChartsTabbed</code>도 <code>nextDynamic(ssr:false)</code> + 02 섹션 <code>defaultCollapsed</code>. <code>DashboardSection</code>이 이미 <code>{!isCollapsed &amp;&amp; children}</code>이라 접기만 켜면 fetch 4개가 자동 소멸 → 초기 요청 7→3.</span></div></div>
+
+<div class="f p1"><div class="fh"><span class="badge p1">P1</span><span class="lens">디자인</span>
+<div class="ft">북극성 차트가 모바일에서 <b>67px 높이 · 4px 라벨</b>, 터치 툴팁은 원리상 안 뜸</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>CcsTrend.tsx</code> — <code>viewBox 0 0 680 150</code>을 303px 컨테이너에 → 스케일 0.446. 높이 150×0.446=<b>67px</b>, <code>fontSize 9</code>→<b>4.0px</b>, 클릭 히트원 r=14→<b>지름 12.5px</b>(HIG 44px의 1/3.5). <code>&lt;title&gt;</code>은 hover 툴팁이라 <b>iOS 터치에서 절대 표시 안 됨</b>(<code>cost/page.tsx:182</code> 막대도 동일).</span></div>
+<div class="row"><span class="k">운영자 영향</span><span class="v">헤더에 "● 클릭하면 인용 증거 확인"이라 적혀 있는데 모바일에서 그 점을 못 누름. 축 라벨 4px라 날짜 판독 불가 → ③번 질문이 "선이 있다" 이상을 못 줌.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v"><code>ResizeObserver</code>로 실제 컨테이너 폭을 W에 반영(그러면 fontSize 9가 그대로 9px) + <code>min-h-[180px]</code>, 히트원 확대, <code>&lt;title&gt;</code> 제거하고 탭 시 하단 값 배지(<code>selectedDate</code> 상태 재사용).</span></div></div>
+
+<div class="f p1"><div class="fh"><span class="badge p1">P1</span><span class="lens">카피</span>
+<div class="ft">KPI 힌트가 10px + <code>truncate</code> — 판단 근거만 골라서 잘림</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>page.tsx:1291</code> <code>truncate text-[10px] text-ink-faint</code>, 카드 내부 폭 131px. 잘리는 것: "출처 인용과 다름"(용어 혼동 방지 문구), "<b>한도 $5/일</b>"(비용 판정 기준선), cron 최종 실행 시각. 동시에 값 6개가 전부 <code>text-ink</code> 단색 — <b>정상/이상 색 구분 없음</b>(<code>--status-danger</code> 토큰은 이미 존재).</span></div>
+<div class="row"><span class="k">운영자 영향</span><span class="v">④번 질문에서 "$3.20"만 보이고 한도 $5가 안 보이면 판단 불가.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">힌트를 <code>line-clamp-2 text-[11px]</code>로. 문구를 <b>판단 근거 앞으로</b> 재작성("한도 $5/일 · 14일 $12.34"). 값 색상 상태 연동(검수&gt;5·cron 26h+·비용 80%+ → danger).</span></div></div>
+
+<div class="f p1"><div class="fh"><span class="badge p1">P1</span><span class="lens">디자인</span>
+<div class="ft">15개 어드민 페이지가 <code>px-8</code> 하드코딩 — 모바일에서 좌우 64px를 여백에 버림</div></div>
+<div class="row"><span class="k">증거</span><span class="v">반응형 접두사 없는 <code>px-8 py-6</code>: ab-tests·audit·calendar·citations·competitors·content-queue·content-settings·cost·funnel·integrations·keywords·scanner-leads·tenants·traffic·users <b>15개</b>. 올바른 건 3개뿐(<code>px-4 py-6 md:px-8</code>).</span></div>
+<div class="row"><span class="k">운영자 영향</span><span class="v">375px에서 콘텐츠 폭 311px, SE에서는 256px. 아래 테이블 클리핑과 곱해져 정보 밀도가 절반.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v"><code>px-4 py-5 md:px-8 md:py-6</code> 일괄 치환 + <code>.admin-page-shell</code> 유틸로 통일(재발 방지). 가용 폭 +10%.</span></div></div>
+
+<div class="f p1"><div class="fh"><span class="badge p1">P1</span><span class="lens">기능</span>
+<div class="ft"><code>card overflow-hidden</code> + <code>w-full</code> 테이블 = 컬럼이 스크롤 없이 <b>영구 클리핑</b></div></div>
+<div class="row"><span class="k">증거</span><span class="v">해결책이 <b>이미 정의돼 있음</b> — <code>globals.css:156-160</code> <code>.admin-table-wrap</code>. 그런데 채택은 <code>domain-classifications</code> 단 한 곳. 미적용: <code>keywords</code>(7컬럼, 액션 버튼까지 잘림)·<code>users</code>·<code>audit</code>, 그리고 <code>cost/page.tsx:198,233</code>은 <b>래퍼가 아예 없어</b> 문서 레벨 가로 스크롤 유발.</span></div>
+<div class="row"><span class="k">운영자 영향</span><span class="v">④번 질문 전용 화면인 <code>/admin/cost</code>가 가장 나쁨 — 페이지가 좌우로 흔들려 한 손 스크롤이 어긋남. keywords/users는 액션 버튼이 잘려 조치 불가.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">각 테이블을 <code>&lt;div class="admin-table-wrap"&gt;</code>로 감싸기. 7컬럼 keywords는 <code>tenants</code>가 이미 쓰는 <b>표+카드 듀얼 레이아웃</b> 패턴 적용.</span></div></div>
+
+<div class="f p2"><div class="fh"><span class="badge p2">P2</span><span class="lens">UI/UX</span>
+<div class="ft">모바일 헤더가 무신호 + 필터 바가 KPI 위에 앉아 첫 화면을 잡아먹음</div></div>
+<div class="row"><span class="k">증거</span><span class="v">모바일 헤더는 <code>[햄버거][로고][빈 스페이서]</code>뿐인데 배지 데이터(<code>pendingContent</code>·<code>newLeads</code>)는 <b>이미 fetch되고 있음</b>(드로어를 열어야만 보임). <code>DashboardFilters</code>가 KPI보다 위에 있고 모바일에서 2~3줄(약 110px) → 헤더+햄버거바와 합쳐 <b>KPI 마지막 행(비용·cron)이 첫 화면 밖으로 밀림</b>.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">빈 스페이서를 배지 pill로 교체(탭 → content-queue). 필터를 KPI 아래로 + 모바일은 <code>&lt;details&gt;</code> 접기. KPI에 <code>sticky top-14</code>.</span></div></div>
+
+<!-- ================= SURFACE 3 ================= -->
+<h2 class="surface">③ 병원 클라이언트 포털 — 구독 고객 · 10건</h2>
+<p class="persona"><b>페르소나</b> 강남 안과 마케팅 실무자(32세). 원장님이 "요즘 그거 효과 있어?"라고 물으면 <b>폰으로 열어 바로 근거를 대야 한다</b>. GEO/AEO 개념은 낯설고, 숫자가 적으면 불안하다. 진료 사이 짬에 확인.</p>
+
+<div class="f p0"><div class="fh"><span class="badge p0">P0</span><span class="lens">기능·디자인</span>
+<div class="ft">포털 상단 네비가 모바일 폭을 590px 초과 — 페이지 전체가 좌우로 흔들림</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>ClientShell.tsx:36-67</code> — 반응형 분기 <b>0개</b>, <code>truncate</code>/<code>flex-wrap</code>/<code>min-w-0</code> 전무. 좌측(WECIRCLE 배지+병원명) ≈210px + 우측 nav(홈·발행 콘텐츠·검색 유입·로그아웃) ≈340px + 패딩 40px = <b>≈590px vs 375px</b>. 게다가 NAV 배열엔 3개뿐 — AI 언급·인용·상담 클릭 드릴다운은 네비에 없어 홈을 거쳐야만 도달.</span></div>
+<div class="row"><span class="k">담당자 영향</span><span class="v">원장님 앞에서 폰을 열자마자 화면이 흔들리고 병원명이 잘림. "AI가 우리 인용했어?"에 답하려면 홈 → 작은 텍스트 링크를 찾아 눌러야 하는데 그 사이 30초가 지남.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">헤더 2단 분리(정체성 줄 + 가로 스크롤 네비 줄) + 드릴다운 3개를 네비로 승격: <code>&lt;nav class="flex gap-1 overflow-x-auto px-4 pb-2"&gt;</code>, 항목 <code>shrink-0 whitespace-nowrap rounded-full px-3 py-2</code>. 병원명 <code>truncate</code>.</span></div></div>
+
+<div class="f p0"><div class="fh"><span class="badge p0">P0</span><span class="lens">디자인·기능</span>
+<div class="ft">원장 보고용 <b>월간 보고서</b>가 완전 비반응형 — 지표 라벨이 6줄로 무너짐</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>report/[tenantId]/[period]/page.tsx:304-375</code> — 파일 전체 <code>@media</code> <b>0개</b>, <code>flexWrap</code> 없는 3분할 <code>display:flex</code>. 375px 계산: 375−32−56=287px, 3분할−gap → 카드당 89px, 내부 <b>69px</b> → 11px 라벨 "AI 답변에 병원 이름이 등장"이 5~6줄. 카피 규약 위반도 동일 파일: "측정 질의 N회 중"(포털에선 Round 153에 제거한 내부용어가 <b>정작 원장이 보는 문서엔 그대로</b>).</span></div>
+<div class="row"><span class="k">담당자 영향</span><span class="v">원장님께 카톡으로 링크를 보내면 세로로 늘어진 글자 기둥 3개가 뜸. <b>월 구독료의 유일한 물증이 가장 초라하게 전달됨.</b></span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">미디어쿼리 없이 인라인만으로 해결 — <code>display:grid; gridTemplateColumns:repeat(auto-fit,minmax(150px,1fr))</code> + <code>padding:clamp(18px,4vw,32px)</code>. 카피: "측정 질의 N회 중" → <b>"AI 에 N번 물어본 결과 중"</b>.</span></div></div>
+
+<div class="f p0"><div class="fh"><span class="badge p0">P0</span><span class="lens">카피</span>
+<div class="ft">봇 필터로 상담 클릭이 급감했는데 <b>포털 어디에도 설명이 없음</b></div></div>
+<div class="row"><span class="k">증거</span><span class="v">Round 165에서 <code>.eq('is_bot', false)</code>가 들어갔으나(주석에만 "봇 클릭 82%") 고객 화면 문장은 <b>0개</b>. <code>clicks/page.tsx:80-84</code> 설명문에도 감소 사유 없음.</span></div>
+<div class="row"><span class="k">담당자 영향</span><span class="v">원장님이 "지난달엔 40건이라며? 왜 7건이야?"라고 물으면 답할 근거가 화면에 없음 → "위서클이 숫자를 깎았나?" 의심 → 해지 회의 안건.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">홈 KPI sub에 "자동 프로그램(봇) 클릭은 제외하고 실제 사람 클릭만 셉니다." + clicks 상단 안내 박스: <i>"…줄어든 것이 아니라 <b>실제 문의 가능성이 있는 클릭만 남긴 것</b>입니다. 원장님께는 '허수 없는 진짜 클릭'으로 설명해 주세요."</i> <b>설명 없는 하락은 해지, 설명 있는 하락은 신뢰입니다.</b></span></div></div>
+
+<div class="f p0"><div class="fh"><span class="badge p0">P0</span><span class="lens">성능</span>
+<div class="ft">AI 인용 드릴다운이 전 테넌트 responses를 최대 5만 행 풀스캔 <span class="mine">Round 165 회귀 · 제가 만든 버그</span></div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>client/(portal)/citations/page.tsx:46-59</code> — <code>fetchAllRows</code>에 <b><code>tenant_id</code> 필터가 없음</b>. <code>pageSize 1000 · maxRows 50000</code> → 최대 <b>50회 직렬 왕복</b>. 소유권 판정은 클라이언트 사이드. 원래 <code>.limit(1500)</code>이 캡에 잘려 1,000행이던 것을 제가 캡 해제만 하고 필터를 안 넣어 <b>이 페이지만 최악의 경로</b>가 됐습니다. 올바른 대조군: <code>reportMetrics.ts:116-151</code>은 <code>queries.eq('tenant_id')</code> → <code>fetchByIdChunks</code>.</span></div>
+<div class="row"><span class="k">담당자 영향</span><span class="v"><code>force-dynamic</code>이라 캐시도 없음. LTE에서 눌렀는데 수십 초 흰 화면 → <b>아무것도 못 보여주고 폰을 내림</b>. 게다가 결과는 대부분 0건.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v"><code>queries.eq('tenant_id', session.tenantId)</code>로 먼저 좁힌 뒤 <code>fetchByIdChunks(qIds, chunk =&gt; responses.in('query_id', chunk))</code>. <b>0건이라도 빠르게 0을 보여주는 게 신뢰입니다.</b></span></div></div>
+
+<div class="f p1"><div class="fh"><span class="badge p1">P1</span><span class="lens">카피</span>
+<div class="ft">'0'에 맥락이 붙은 곳은 인용 KPI 한 곳뿐 — 나머지는 벌거벗은 0</div></div>
+<div class="row"><span class="k">증거</span><span class="v">좋은 사례: 홈 <code>page.tsx:121-124</code> "발행 후 첫 인용까지 통상 5~6주". 그러나 AI 언급 카드는 0회일 때도 문구 동일, <code>mentions</code> 빈 상태는 "최근 30일 언급 기록이 없습니다." 한 문장(<code>text-stone-400</code>), <code>citations:136</code>은 "위의 '병원 언급' 지표"를 말하는데 <b>이 페이지엔 '위'가 없고 링크도 없음</b>.</span></div>
+<div class="row"><span class="k">담당자 영향</span><span class="v">0이 3~4개 겹친 화면을 원장님이 보면 "돈 내고 뭐 하는 거냐". 지금 카피는 0을 <b>결과</b>로 읽히게 하지 <b>과정</b>으로 읽히게 하지 않음.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">mentions 빈 상태: <i>"아직 AI 답변에 병원 이름이 등장한 기록이 없습니다. 지금은 AI가 우리 글을 읽어들이는 단계입니다. 보통 <b>발행 후 3~4주</b>부터 이름 등장이, <b>5~6주</b>부터 출처 인용이 나타납니다…"</i> + citations의 "위의 병원 언급"을 실제 <code>&lt;Link href="/client/mentions"&gt;</code>로.</span></div></div>
+
+<div class="f p1"><div class="fh"><span class="badge p1">P1</span><span class="lens">UI/UX·디자인</span>
+<div class="ft">KPI 2열 카드가 375px에서 붕괴 + 드릴다운 진입점이 16px 타겟 · 대비 2.5:1</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>client/(portal)/page.tsx:150-168</code> — 카드 내부 폭 <b>≈121px</b>에서 "AI 답변 속 병원 언급"(12px)은 3줄, "발행 후 첫 인용까지 통상 5~6주(색인 적재 기간)"(11px)은 <b>5줄</b>. <code>text-stone-400</code>의 흰 배경 대비 <b>≈2.5:1</b>(WCAG AA 4.5:1 미달) — 가장 중요한 신뢰 카피가 가장 안 보임. 드릴다운은 패딩 없는 <code>text-xs</code> 링크(≈16px).</span></div>
+<div class="row"><span class="k">담당자 영향</span><span class="v">스크롤 없이 4개 숫자를 훑는 게 목적인데 카드가 세로로 늘어져 첫 화면에 2개만 들어옴.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v"><b>카드 전체를 <code>&lt;Link&gt;</code>로</b> 만들고 <code>text-stone-400</code> → <code>text-stone-500</code> 일괄 상향, 라벨 <code>text-[13px] leading-snug</code>, 숫자 <code>text-[28px]</code>.</span></div></div>
+
+<div class="f p1"><div class="fh"><span class="badge p1">P1</span><span class="lens">UI/UX</span>
+<div class="ft">검색 유입 표 3개가 <code>min-w-[520px]</code> — 가장 중요한 '평균 순위'가 처음부터 화면 밖</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>traffic/page.tsx</code> 99-124·142-174·191-221 동일 패턴 3회. 375px에서 <b>145px가 잘리고</b>, 잘리는 쪽이 정확히 <code>평균 순위</code>·<code>클릭</code> 열. 스크롤 힌트(그라데이션·안내)도 없음.</span></div>
+<div class="row"><span class="k">담당자 영향</span><span class="v">이 페이지의 서사는 "순위가 10위 안에 들어오면 클릭이 생긴다"인데 <b>정작 순위 열이 안 보임</b> → 원장님께 "곧 1페이지 진입"이라는 유일한 희망 근거를 못 보여줌.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">모바일은 표를 버리고 2줄 카드 리스트(<code>md:hidden</code>) — 1줄에 검색어 + <b>순위</b>, 2줄에 "노출 N · 클릭 N". 데스크톱만 표 유지. 요약 카드 라벨의 <code>text-[10px] uppercase tracking-wider</code>도 한글 가독성 최악 → <code>text-xs font-semibold</code>.</span></div></div>
+
+<div class="f p1"><div class="fh"><span class="badge p1">P1</span><span class="lens">UI/UX</span>
+<div class="ft">상담 클릭 표는 <code>min-w</code>조차 없어 4열이 압착 — 포털 내 패턴 불일치</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>clicks/page.tsx:92-128</code> — <code>w-full</code>만 있어 가로 스크롤이 발동하지 않고 335px에 4열을 욱여넣음. "2026.08.20 14:32"(≈130px 필요)가 2줄로 깨지고 <code>max-w-[280px] truncate</code>는 셀 실폭이 80px대라 무의미. 같은 성격의 <code>mentions</code>/<code>citations</code>는 <b>이미 카드 리스트</b>.</span></div>
+<div class="row"><span class="k">담당자 영향</span><span class="v">원장님이 가장 궁금해하는 지표인데 목록이 가장 안 읽힘. "이 글에서 눌렸어요"라는 귀속 정보(Round 154 성과)가 압착으로 사라짐.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">mentions/citations와 같은 카드 리스트로 통일. "유입 경로"는 모바일에서 숨김(판단에 안 씀). "글 미상 (구 링크)" → "글 미상 (예전 방식 링크)".</span></div></div>
+
+<div class="f p1"><div class="fh"><span class="badge p1">P1</span><span class="lens">카피</span>
+<div class="ft">'AI 인용 적합도'가 설명 없이 노출 — '인용 실적'으로 오독 + 인용 KPI와 명칭 충돌</div></div>
+<div class="row"><span class="k">증거</span><span class="v">같은 화면 위쪽 KPI는 "AI 출처 인용", 아래는 "AI 인용 적합도" — <b>"인용"이 전혀 다른 두 의미로 한 화면에 공존</b>. <code>A·3 B·12 C·0 D·1</code> 배지에는 등급 정의도 단위도 없음. <code>avgAeo</code>가 null이면 "—"만 뜨고 설명 없음.</span></div>
+<div class="row"><span class="k">담당자 영향</span><span class="v">"적합도 71점이면 인용 71번 된 거야?" 또는 "인용은 0인데 적합도 71점? 무슨 의미냐"에 답하지 못함.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v">제목 "AI 인용 적합도" → <b>"콘텐츠 구조 점수"</b>. 설명에 "<b>실제 인용 건수와는 다른 지표</b>이며, 높을수록 인용될 확률이 올라갑니다" 명시. 등급 해설 1줄 + 배지에 "편" 단위.</span></div></div>
+
+<div class="f p1"><div class="fh"><span class="badge p1">P1</span><span class="lens">기능</span>
+<div class="ft">모바일 로그인 마찰 — iOS 자동 대문자·화면 확대·자동완성 불가 + 7일 후 강제 로그아웃</div></div>
+<div class="row"><span class="k">증거</span><span class="v"><code>LoginForm.tsx:63-79</code> — <code>autoCapitalize</code>/<code>autoCorrect</code>/<code>name</code>/<code>inputMode</code> <b>전부 없음</b> → iOS가 발급 아이디 첫 글자를 대문자로 변환. <code>text-sm</code>(14px) → 포커스 시 확대. <code>name</code> 부재로 키체인 자동입력 실패하는데 비밀번호는 <b>랜덤 10자</b>라 외울 수 없음. 세션은 7일 고정, <b>활동 기반 갱신 없음</b>.</span></div>
+<div class="row"><span class="k">담당자 영향</span><span class="v">원장님이 물어본 그 순간 로그인 화면이 뜨고, 대문자로 바뀐 아이디가 계속 튕기고, 랜덤 비번은 기억에 없음 → <b>그 자리에서 근거 제시 실패</b>. 반복되면 포털을 아예 안 엶.</span></div>
+<div class="row fix"><span class="k">수정안</span><span class="v"><code>autoCapitalize="none" autoCorrect="off" spellCheck={false} name="username"</code> + <code>text-base py-3</code>(16px). 만료 3일 이내면 쿠키 재발급(sliding session), 최소 30일로 연장.</span></div></div>
+
+<footer>
+  <b>감사 방법</b> — 소스 정적분석(v1·v2 전 파일) + 라이브 계측(파트너 글 실측: 문서 11,601px·18.2스크린, TTFB 114ms/load 1.4s/65KB, 탭 타겟 14개 미달, 가로 오버플로 0). 페르소나 4명 × 4관점.<br>
+  <b>계측 한계</b> — 데스크톱 Chrome 창 최소 폭 제한으로 뷰포트는 491px까지만 축소됨(Tailwind 모바일 브랜치 <code>sm:640</code> 미만이라 CSS 경로는 실제 모바일과 동일). 375px 수치는 소스 기반 계산값.<br>
+  <b>다음 단계</b> — 이 리포트에서 구현할 항목을 지정해 주시면 그대로 코드로 반영합니다. 권장 순서: P0 11건 → P1 중 재발방지형(<code>.admin-table-wrap</code> 적용, <code>px-8</code> 일괄 치환, overline 유틸) → 나머지.
+</footer>
+
+</div>
+</body>
+</html>

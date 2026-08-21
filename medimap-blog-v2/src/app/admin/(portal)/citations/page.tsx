@@ -238,7 +238,8 @@ export default function CitationsPage() {
   };
 
   return (
-    <div className="px-8 py-6 print:px-0 print:py-0">
+    // Round 169 (2026-08-20) — 모바일: px-8 하드코딩 → 반응형(md+ 는 기존 px-8 복원)
+    <div className="px-4 py-5 md:px-8 md:py-6 print:px-0 print:py-0">
       <header className="admin-page-header print:hidden">
         <div>
           <h1 className="admin-page-title">AI 인용 추적 — 자사</h1>

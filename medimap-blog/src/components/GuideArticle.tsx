@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { injectMidCta } from "@/lib/midCta";
 import { JsonLd } from "@/components/JsonLd";
 import { ContactButtons } from "@/components/ContactButtons";
 import { ClinicNAP } from "@/components/ClinicNAP";
@@ -76,11 +77,7 @@ const PATIENT_COPY: Record<
  *   3번째 h2 직전에 삽입, h2 가 4개 미만이면 주입하지 않음(짧은 글 과밀 방지).
  *   Tailwind 클래스는 이 파일 소스에 문자열로 존재하므로 JIT 스캔에 포함됨.
  */
-function injectMidCta(body: string, midHtml: string): string {
-  const parts = body.split(/(?=<h2)/i);
-  if (parts.length < 5) return body;
-  return parts.slice(0, 3).join("") + midHtml + parts.slice(3).join("");
-}
+// Round 169 — injectMidCta 를 @/lib/midCta 로 승격 (국내 파트너 글과 규칙 공유)
 
 export function GuideArticle({
   guide,
@@ -187,6 +184,7 @@ export function GuideArticle({
           alt={guide.cover_image_alt ?? guide.title}
           className="mt-7 aspect-[16/9] w-full rounded-none border border-stone-200 object-cover"
           loading="eager"
+          decoding="async"
         />
       )}
 

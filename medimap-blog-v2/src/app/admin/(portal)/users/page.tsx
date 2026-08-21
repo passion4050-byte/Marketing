@@ -99,7 +99,8 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="px-8 py-6">
+    // Round 169 (2026-08-20) — 모바일: px-8 하드코딩 → 반응형(md+ 는 기존 px-8 복원)
+    <div className="px-4 py-5 md:px-8 md:py-6">
       <header className="admin-page-header">
         <div>
           <h1 className="admin-page-title">사용자 관리 ({users.length})</h1>
@@ -111,6 +112,8 @@ export default function UsersPage() {
       </header>
 
       <div className="card overflow-hidden">
+        {/* Round 169 (2026-08-20) — 모바일: card overflow-hidden 이 표를 잘라내던 것 → 가로 스크롤 래퍼 */}
+        <div className="admin-table-wrap">
         <table className="w-full text-sm">
           <thead className="bg-surface-subtle text-[11px] font-bold uppercase tracking-wider text-ink-muted">
             <tr>
@@ -165,6 +168,7 @@ export default function UsersPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {showInvite && (

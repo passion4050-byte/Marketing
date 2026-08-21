@@ -19,9 +19,29 @@ export function TableOfContents() {
   useEffect(() => {
     const article = document.querySelector("article");
     if (!article) return;
-    const els = Array.from(
-      article.querySelectorAll<HTMLElement>("h2[id], h3[id]"),
-    );
+    // 🔴 Round 169 — 발행 파이프라인이 heading 에 id 를 주입하지 않아 `h2[id]` 셀렉터가
+    //   항상 0개를 반환했다(= TOC 가 데스크톱에서도 실질 미작동). 없으면 여기서 생성한다.
+    const all = Array.from(article.querySelectorAll<HTMLElement>("h2, h3"));
+    const used = new Set<string>();
+    all.forEach((el, i) => {
+      if (el.id) {
+        used.add(el.id);
+        return;
+      }
+      const base =
+        (el.innerText || "")
+          .trim()
+          .toLowerCase()
+          .replace(/[^\p{L}\p{N}\s-]/gu, "")
+          .replace(/\s+/g, "-")
+          .slice(0, 40) || `section-${i + 1}`;
+      let id = base;
+      let n = 2;
+      while (used.has(id)) id = `${base}-${n++}`;
+      used.add(id);
+      el.id = id;
+    });
+    const els = all;
     setHeadings(
       els.map((el) => ({
         id: el.id,
@@ -48,10 +68,39 @@ export function TableOfContents() {
   if (headings.length < 2) return null;
 
   return (
-    <aside
-      className="hidden xl:block"
-      aria-label="이 글의 목차"
-    >
+    <>
+      {/* 🔴 Round 169 — 모바일 접이식 목차.
+          파트너 글 실측 11,601px = 18.2 스크린인데 "지금 어디쯤인지 / 회복기간 섹션이 어디인지"
+          알 방법이 0 이었다(TOC 는 xl 이상 전용). 헤더 아래 sticky 로 붙여 항상 접근 가능하게.
+          기본은 접힘 — 본문 리듬을 방해하지 않고, 필요할 때만 펼친다. */}
+      <details className="not-prose sticky top-[57px] z-20 mb-8 border-y border-stone-200 bg-[#FAFAF7]/95 backdrop-blur xl:hidden">
+        <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between px-1 text-[13px] font-bold tracking-tight text-stone-800 [&::-webkit-details-marker]:hidden">
+          <span>이 글의 목차 · {headings.length}개 섹션</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </summary>
+        <ul className="max-h-[45vh] space-y-0.5 overflow-y-auto pb-3">
+          {headings.map((h) => (
+            <li key={h.id}>
+              <a
+                href={`#${h.id}`}
+                className={`flex min-h-[44px] items-center border-l-2 text-[14px] leading-snug transition ${
+                  h.level === 3 ? "pl-6 text-stone-500" : "pl-3 text-stone-700"
+                } ${activeId === h.id ? "border-stone-900 font-bold text-stone-950" : "border-transparent"}`}
+                style={{ wordBreak: "keep-all" }}
+              >
+                {h.text}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </details>
+
+      <aside
+        className="hidden xl:block"
+        aria-label="이 글의 목차"
+      >
       <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-2">
         <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink-subtle">
           이 글의 목차
@@ -84,6 +133,7 @@ export function TableOfContents() {
           })}
         </ul>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

@@ -114,6 +114,30 @@ function Chart({ pts, scope }: { pts: Pt[]; scope: string }) {
   const [detailLoading, setDetailLoading] = useState(false);
   const detailRef = useRef<HTMLDivElement>(null);
 
+  /*
+   * Round 169 (2026-08-20) — 모바일: 고정 viewBox(680×150) 폐기.
+   *
+   * 기존엔 viewBox 680 을 360px 화면에 width:100% 로 눌러 담아 스케일이 0.53배가 됐다.
+   *   · fontSize 9 → 실제 4.8px (판독 불가)
+   *   · 클릭 히트 원 r=14(지름 28) → 실제 15px (애플 HIG 44px 의 1/3)
+   * 이제 ResizeObserver 로 컨테이너 실폭을 읽어 W = 그 값으로 둔다.
+   *   → SVG 1 단위 = 1 CSS 픽셀(스케일 1.0). fontSize/r 을 CSS 픽셀로 직접 통제.
+   */
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [cw, setCw] = useState(0);
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const measure = (w: number) => {
+      if (w > 0) setCw((prev) => (Math.abs(prev - w) < 1 ? prev : Math.round(w)));
+    };
+    measure(el.getBoundingClientRect().width);
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver((entries) => measure(entries[0]?.contentRect.width ?? 0));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const data = pts.map((p) => ({
     day: p.day,
     total: Number(p.total) || 0,
@@ -125,8 +149,9 @@ function Chart({ pts, scope }: { pts: Pt[]; scope: string }) {
   const marketSum = data.reduce((s, d) => s + d.total, 0);
   const overallCcs = marketSum > 0 ? (selfSum / marketSum) * 100 : 0;
 
+  // Round 169 — 모든 점을 탭하면 값 배지가 뜨도록(SVG <title> 툴팁 제거 보완).
+  //   인용 증거 상세 fetch 는 기존대로 자사 인용이 있는 날(스파이크)에서만.
   const handleDotClick = async (day: string, hasSelf: boolean) => {
-    if (!hasSelf) return;
     if (selectedDate === day) {
       setSelectedDate(null);
       setDetail(null);
@@ -134,6 +159,7 @@ function Chart({ pts, scope }: { pts: Pt[]; scope: string }) {
     }
     setSelectedDate(day);
     setDetail(null);
+    if (!hasSelf) return;
     setDetailLoading(true);
     try {
       const langParam = scopeToLang(scope);
@@ -158,14 +184,22 @@ function Chart({ pts, scope }: { pts: Pt[]; scope: string }) {
     );
   }
 
-  const W = 680;
-  const H = 150;
-  const padL = 34;
-  const padR = 12;
-  const padT = 12;
-  const padB = 22;
-  const plotW = W - padL - padR;
-  const plotH = H - padT - padB;
+  /*
+   * Round 169 — 치수는 실측 폭(cw) 기준. 스케일 1.0 이므로 아래 숫자는 전부 CSS 픽셀.
+   *   · 모바일(≤640): H 190 — 세로를 늘려 라인의 기울기를 읽을 수 있게
+   *   · 데스크톱: 기존 150 유지
+   */
+  const isNarrow = cw > 0 && cw < 640;
+  const W = cw || 680;
+  const H = isNarrow ? 190 : 150;
+  const AXIS_FS = 11;   // 최소 11px — 그 아래는 모바일에서 판독 불가
+  const DATE_FS = 11;
+  const padL = 40;      // "12.3%" 를 11px 로 담을 폭
+  const padR = 14;
+  const padT = isNarrow ? 16 : 12;
+  const padB = isNarrow ? 26 : 22;
+  const plotW = Math.max(40, W - padL - padR);
+  const plotH = Math.max(40, H - padT - padB);
   const n = data.length;
   const maxCcs = Math.max(0.5, ...data.map((d) => d.ccs));
   const maxTot = Math.max(1, ...data.map((d) => d.total));
@@ -175,13 +209,15 @@ function Chart({ pts, scope }: { pts: Pt[]; scope: string }) {
   const yBar = (v: number) => (v / maxTot) * plotH;
   const line = data.map((d, i) => `${x(i)},${yCcs(d.ccs)}`).join(' ');
   const barW = Math.max(1.5, (plotW / n) * 0.5);
+  const bandW = plotW / Math.max(1, n);
   const first = data[0]?.day ?? '';
   const last = data[n - 1]?.day ?? '';
+  const selected = selectedDate ? data.find((d) => d.day === selectedDate) ?? null : null;
 
   return (
     <div>
       {/* 집계 헤더 */}
-      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 px-5 pt-4">
+      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 px-4 pt-4 md:px-5">
         <div>
           <div className="text-2xl font-black tabular-nums tracking-tight text-ink">
             {overallCcs.toFixed(2)}%
@@ -190,25 +226,35 @@ function Chart({ pts, scope }: { pts: Pt[]; scope: string }) {
             기간 CCS (자사 {selfSum.toLocaleString()} / 시장 {marketSum.toLocaleString()})
           </div>
         </div>
-        <div className="text-[11px] leading-relaxed text-ink-muted">
+        <div className="break-keep text-[11px] leading-relaxed text-ink-muted">
           시장 인용은 활발하지만 자사 점유는 바닥 —{' '}
           <strong className="text-ink">이 라인을 끌어올리는 것</strong>이 목표.
           회색 막대 = 그날 시장 전체 인용량.
         </div>
       </div>
 
-      {/* SVG 차트 */}
-      <div className="px-3 pb-1 pt-2">
-        <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="CCS 추이">
+      {/* SVG 차트 — 컨테이너 실폭 = viewBox 폭 (스케일 1.0) */}
+      <div ref={wrapRef} className="px-2 pb-1 pt-2 md:px-3">
+        {cw === 0 ? (
+          <div style={{ height: H }} />
+        ) : (
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          width={W}
+          height={H}
+          className="block h-auto w-full touch-manipulation"
+          role="img"
+          aria-label="CCS 추이"
+        >
           {/* 축 */}
           <line x1={padL} y1={padT} x2={padL} y2={padT + plotH} stroke="currentColor" className="text-border" strokeWidth="1" />
           <line x1={padL} y1={padT + plotH} x2={W - padR} y2={padT + plotH} stroke="currentColor" className="text-border" strokeWidth="1" />
-          <text x={padL - 5} y={padT + 4} textAnchor="end" className="fill-ink-faint" fontSize="9">{maxCcs.toFixed(1)}%</text>
-          <text x={padL - 5} y={padT + plotH} textAnchor="end" className="fill-ink-faint" fontSize="9">0%</text>
+          <text x={padL - 6} y={padT + 4} textAnchor="end" className="fill-ink-muted" fontSize={AXIS_FS}>{maxCcs.toFixed(1)}%</text>
+          <text x={padL - 6} y={padT + plotH} textAnchor="end" className="fill-ink-muted" fontSize={AXIS_FS}>0%</text>
 
           {/* 날짜 레이블 */}
-          <text x={padL} y={H - 6} textAnchor="start" className="fill-ink-faint" fontSize="9">{first.slice(5)}</text>
-          <text x={W - padR} y={H - 6} textAnchor="end" className="fill-ink-faint" fontSize="9">{last.slice(5)}</text>
+          <text x={padL} y={H - 6} textAnchor="start" className="fill-ink-muted" fontSize={DATE_FS}>{first.slice(5)}</text>
+          <text x={W - padR} y={H - 6} textAnchor="end" className="fill-ink-muted" fontSize={DATE_FS}>{last.slice(5)}</text>
 
           {/* 시장 볼륨 바 */}
           {data.map((d, i) => (
@@ -240,28 +286,46 @@ function Chart({ pts, scope }: { pts: Pt[]; scope: string }) {
             ) : null
           )}
 
+          {/*
+            Round 169 — 터치 타겟.
+              ① 모든 점: 플롯 전 높이의 투명 밴드(가로 = 한 점 몫의 폭) → 어디를 눌러도 그날이 잡힌다.
+              ② 스파이크 점: 그 위에 r=22(지름 44px) 투명 원 → HIG 최소 터치 크기 충족.
+            겹침 순서상 ②가 위에 있어 중요한 점이 우선 잡힌다.
+          */}
+          {data.map((d, i) => (
+            <rect
+              key={`h${i}`}
+              x={x(i) - bandW / 2}
+              y={padT}
+              width={Math.max(bandW, 6)}
+              height={plotH}
+              fill="transparent"
+              style={{ cursor: 'pointer' }}
+              onClick={() => void handleDotClick(d.day, d.self > 0)}
+            />
+          ))}
+
           {/* 데이터 포인트 */}
           {data.map((d, i) => {
             const hasSpike = d.self > 0;
             const isSelected = selectedDate === d.day;
             return (
               <g key={`p${i}`}>
-                {/* 클릭 히트 영역 (보이지 않는 넓은 원) */}
                 {hasSpike && (
                   <circle
                     cx={x(i)}
                     cy={yCcs(d.ccs)}
-                    r={14}
+                    r={22}
                     fill="transparent"
                     style={{ cursor: 'pointer' }}
                     onClick={() => void handleDotClick(d.day, hasSpike)}
                   />
                 )}
-                {/* 실제 표시 점 */}
+                {/* 실제 표시 점 — 모바일은 조금 크게 */}
                 <circle
                   cx={x(i)}
                   cy={yCcs(d.ccs)}
-                  r={hasSpike ? (isSelected ? 5 : 3.5) : 1.5}
+                  r={hasSpike ? (isSelected ? (isNarrow ? 6 : 5) : isNarrow ? 4.5 : 3.5) : isNarrow ? 2 : 1.5}
                   className={
                     isSelected
                       ? 'fill-white stroke-[#15B8A6]'
@@ -270,24 +334,18 @@ function Chart({ pts, scope }: { pts: Pt[]; scope: string }) {
                       : 'fill-ink-faint'
                   }
                   strokeWidth={isSelected ? 2 : 0}
-                  style={{ cursor: hasSpike ? 'pointer' : 'default', transition: 'r 0.15s' }}
-                  onClick={() => void handleDotClick(d.day, hasSpike)}
-                >
-                  <title>
-                    {hasSpike
-                      ? `${d.day} — CCS ${d.ccs.toFixed(2)}% · 자사 ${d.self}회 / 시장 ${d.total}회 · 클릭해서 인용 증거 확인`
-                      : `${d.day} — CCS ${d.ccs.toFixed(2)}% · 시장 ${d.total}회`}
-                  </title>
-                </circle>
+                  style={{ pointerEvents: 'none', transition: 'r 0.15s' }}
+                />
 
-                {/* 스파이크 날짜 레이블 */}
-                {hasSpike && (
+                {/* 스파이크 날짜 레이블 — 좁은 화면에선 겹쳐서 생략(대신 아래 값 배지) */}
+                {hasSpike && !isNarrow && (
                   <text
                     x={x(i)}
-                    y={yCcs(d.ccs) - 7}
+                    y={yCcs(d.ccs) - 9}
                     textAnchor="middle"
-                    fontSize="8"
+                    fontSize={11}
                     className="fill-accent-deep font-semibold"
+                    style={{ pointerEvents: 'none' }}
                   >
                     {d.day.slice(5)}
                   </text>
@@ -296,10 +354,47 @@ function Chart({ pts, scope }: { pts: Pt[]; scope: string }) {
             );
           })}
         </svg>
+        )}
+      </div>
+
+      {/*
+        Round 169 — SVG <title> 툴팁 제거 대체물.
+        <title> 은 hover 로만 뜨므로 터치 기기에선 값을 볼 방법이 아예 없었다.
+        점을 탭하면 차트 바로 아래에 그날 값 배지가 뜬다(선택 상태 = selectedDate 재사용).
+      */}
+      <div className="px-4 pb-3 md:px-5">
+        {selected ? (
+          <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-surface-subtle px-2.5 py-2">
+            <span className="text-[12px] font-bold tabular-nums text-ink">{selected.day}</span>
+            <span className="rounded-full bg-accent-deep/10 px-2 py-0.5 text-[11px] font-bold tabular-nums text-accent-deep">
+              CCS {selected.ccs.toFixed(2)}%
+            </span>
+            <span className="text-[11px] tabular-nums text-ink-muted">
+              자사 {selected.self}회 · 시장 {selected.total.toLocaleString()}회
+            </span>
+            {selected.self > 0 ? (
+              <span className="text-[11px] font-semibold text-[#15B8A6]">↓ 인용 증거</span>
+            ) : (
+              <span className="text-[11px] text-ink-faint">이 날 자사 인용 없음</span>
+            )}
+            <button
+              type="button"
+              onClick={() => { setSelectedDate(null); setDetail(null); }}
+              aria-label="선택 해제"
+              className="ml-auto flex h-8 w-8 items-center justify-center rounded-md text-ink-muted active:bg-surface-muted"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="text-[11px] text-ink-muted">
+            그래프의 점을 탭하면 그날의 CCS·인용 수가 여기에 표시됩니다.
+          </div>
+        )}
       </div>
 
       {/* 인용 증거 상세 패널 */}
-      {(selectedDate || detailLoading) && (
+      {(detailLoading || detail) && (
         <div ref={detailRef} className="mx-3 mb-3 overflow-hidden rounded-lg border border-[#15B8A6]/30 bg-[#15B8A6]/5">
           {/* 패널 헤더 */}
           <div className="flex items-center justify-between border-b border-[#15B8A6]/20 px-4 py-2.5">

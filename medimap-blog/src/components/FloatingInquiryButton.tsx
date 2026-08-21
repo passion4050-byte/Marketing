@@ -34,7 +34,7 @@ function partnerSlugFromPath(pathname: string): string | null {
 }
 
 const BTN_CLASS =
-  "group fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 border border-stone-900 bg-stone-900 px-4 py-3 text-[13px] font-bold tracking-tight text-white shadow-[0_10px_30px_-10px_rgba(0,0,0,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-stone-800 sm:bottom-8 sm:right-8";
+  "group min-h-[48px] fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-5 z-40 inline-flex items-center gap-2 border border-stone-900 bg-stone-900 px-4 py-3 text-[13px] font-bold tracking-tight text-white shadow-[0_10px_30px_-10px_rgba(0,0,0,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-stone-800 sm:bottom-[calc(2rem+env(safe-area-inset-bottom))] sm:right-8";
 
 export function FloatingInquiryButton() {
   const pathname = usePathname();
@@ -53,8 +53,8 @@ export function FloatingInquiryButton() {
         className={BTN_CLASS}
       >
         <MessageCircle size={14} strokeWidth={2} />
-        <span className="hidden sm:inline">카카오톡 상담</span>
-        <span className="sm:hidden">상담</span>
+        <span className="hidden sm:inline">카카오톡 비용 문의</span>
+        <span className="sm:hidden">비용 문의</span>
       </a>
     );
   }

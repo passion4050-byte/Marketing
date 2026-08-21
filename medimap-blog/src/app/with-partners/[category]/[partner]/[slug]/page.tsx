@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { notFound } from "next/navigation";
 import { getCategoryMeta, getPartnerPost, getPartnerPostsByPartner } from "@/lib/partners";
 import { siteConfig, absoluteUrl } from "@/lib/site";
 import { kakaoTrackHrefContent, TRACK_LINK_REL } from "@/lib/ctaLink";
+// 🔴 Round 169 — 본문 중간 CTA. 모바일 18스크린 글에서 첫 상담 진입점이 85% 깊이였음.
+import { injectMidCta, buildKoMidCta } from "@/lib/midCta";
 // Round 129 (2026-07-05) — SEO: 파트너 글 BreadcrumbList (3단 경로 구조화)
 import { JsonLd } from "@/components/JsonLd";
 import { breadcrumbLd, faqPageLd } from "@/lib/schema";
@@ -13,6 +16,16 @@ import { extractFaqFromBody } from "@/lib/posts";
 // Round 12: force-dynamic 으로 빌드 시점 prerender 회피 + dynamicParams 자동 활성
 // Round 129 — blog/[slug] 와 대칭: ISR 60s (첫 요청 SSR 후 캐시. archived 반영
 //   최대 60s 지연은 기존 캐비앗과 동일 수용).
+// Round 169 — 모바일 18스크린 글에 목차·진행바가 없었다. blog/[slug] 와 동일 패턴으로 장착.
+const ReadingProgress = dynamic(
+  () => import("@/components/ReadingProgress").then((m) => m.ReadingProgress),
+  { ssr: false },
+);
+const TableOfContents = dynamic(
+  () => import("@/components/TableOfContents").then((m) => m.TableOfContents),
+  { ssr: false },
+);
+
 export const revalidate = 60;
 
 interface PageProps {
@@ -129,28 +142,48 @@ export default async function PartnerPostPage({ params }: PageProps) {
         ])}
       />
 
-      <nav className="flex items-center gap-3 border-b border-stone-300 pb-4 text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
-        <span className="inline-block h-px w-6 bg-stone-400" />
-        <Link href="/with-partners" className="hover:text-stone-900">Partners</Link>
-        <span className="text-stone-300">/</span>
-        <Link href={`/with-partners/${meta.slug}`} className="hover:text-stone-900">{meta.ko}</Link>
-        <span className="text-stone-300">/</span>
-        <Link href={`/with-partners/${meta.slug}/${post.partner_slug}`} className="hover:text-stone-900">
+      <ReadingProgress />
+
+      {/* Round 169 — 브레드크럼 모바일화: 15px 높이 타겟 → 44px, 넘치면 가로 스크롤.
+          자간도 0.32em → 0.14em (모바일 좁은 폭에서 단어가 해체되던 문제) */}
+      <nav
+        aria-label="위치"
+        className="-mx-5 flex items-center gap-2.5 overflow-x-auto border-b border-stone-300 px-5 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500 [-ms-overflow-style:none] [scrollbar-width:none] md:mx-0 md:gap-3 md:overflow-visible md:px-0 md:pb-4 md:tracking-[0.32em] [&::-webkit-scrollbar]:hidden"
+      >
+        <span className="hidden h-px w-6 shrink-0 bg-stone-400 md:inline-block" />
+        <Link
+          href="/with-partners"
+          className="flex min-h-[44px] shrink-0 items-center whitespace-nowrap transition active:text-stone-900 md:min-h-0 md:hover:text-stone-900"
+        >
+          Partners
+        </Link>
+        <span className="shrink-0 text-stone-300">/</span>
+        <Link
+          href={`/with-partners/${meta.slug}`}
+          className="flex min-h-[44px] shrink-0 items-center whitespace-nowrap transition active:text-stone-900 md:min-h-0 md:hover:text-stone-900"
+        >
+          {meta.ko}
+        </Link>
+        <span className="shrink-0 text-stone-300">/</span>
+        <Link
+          href={`/with-partners/${meta.slug}/${post.partner_slug}`}
+          className="flex min-h-[44px] shrink-0 items-center whitespace-nowrap transition active:text-stone-900 md:min-h-0 md:hover:text-stone-900"
+        >
           {post.tenant_name}
         </Link>
       </nav>
 
       <header className="mb-10 mt-10">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-stone-500">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500 md:text-[10px] md:tracking-[0.28em]">
           {meta.ko} · {post.tenant_name}
         </div>
-        <h1 className="mt-4 text-[36px] font-black leading-[1.1] tracking-[-0.025em] text-stone-950 md:text-[48px]">
+        <h1 className="mt-4 text-[30px] font-black leading-[1.15] tracking-[-0.02em] text-stone-950 sm:text-[36px] md:text-[48px] md:leading-[1.1] md:tracking-[-0.025em]" style={{ wordBreak: "keep-all" }}>
           {post.title}
         </h1>
         <div className="mt-6 flex items-center gap-3 border-t border-stone-200/70 pt-4 text-[12px] tabular-nums text-stone-500">
           <time>{post.published_at}</time>
           <span className="text-stone-300">·</span>
-          <span>위서클 의료법 가이드 통과</span>
+          <span>위서클 자체 의료광고 가이드 검수</span>
         </div>
       </header>
 
@@ -163,30 +196,48 @@ export default async function PartnerPostPage({ params }: PageProps) {
             height={630}
             className="h-auto w-full object-cover"
             priority
-            unoptimized
+            // Round 169 — unoptimized 제거 + sizes 지정.
+            //   원본 1536px 을 모바일 375px 폭에 그대로 내려보내던 것을 뷰포트 맞춤 리사이즈로.
+            //   (Vercel 이미지 캐시가 Supabase 원본 재요청을 흡수하므로 egress 에도 유리)
+            sizes="(max-width: 860px) 100vw, 860px"
           />
         </div>
       )}
 
+      <TableOfContents />
+
       <article
         className="prose-medimap max-w-none"
         dangerouslySetInnerHTML={{
-          __html: stripReferenceSection(stripFirstH1IfMatchesTitle(post.body, post.title)),
+          // Round 169 — h2 5개 이상이면 3번째 h2 앞에 상담 CTA 주입 (해외 GuideArticle 과 동일 규칙).
+          __html: injectMidCta(
+            stripReferenceSection(stripFirstH1IfMatchesTitle(post.body, post.title)),
+            buildKoMidCta({
+              href: kakaoTrackHrefContent(post.id, post.partner_slug ?? partner),
+              clinicName: post.tenant_name,
+            }),
+          ),
         }}
       />
 
-      {/* Editorial CTA */}
+      {/* Editorial CTA
+          🔴 Round 169 — 카피·레이아웃 모바일 재설계.
+            기존 국내 CTA 는 "더 자세한 상담이 필요하다면"으로 **비용·무료·응답시간을 한 번도
+            말하지 않았다**(해외판은 Free / English OK / 1 business day 를 3중으로 명시).
+            검색 의도는 '비용·회복기간'인데 이익이 없으니 '상담=영업 전화'로 읽혔다.
+            모바일에선 overline 자간을 줄이고(0.32em 은 443px 에서 단어를 해체) 버튼을 전폭으로. */}
       <div className="mt-16 border-t border-stone-300 pt-10">
         <div className="grid gap-6 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:items-center">
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.32em] text-stone-500">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-500 md:text-[10px] md:tracking-[0.32em]">
               Consultation · {post.tenant_name}
             </div>
-            <h3 className="mt-4 font-serif text-2xl italic leading-tight text-stone-900 md:text-[28px]">
-              &ldquo;더 자세한 상담이 필요하다면.&rdquo;
+            <h3 className="mt-4 font-serif text-[26px] italic leading-tight text-stone-900 md:text-[28px]" style={{ wordBreak: "keep-all" }}>
+              &ldquo;내 경우엔 비용이 얼마일까?&rdquo;
             </h3>
-            <p className="mt-3 max-w-md text-[14px] leading-[1.75] text-stone-600">
-              위서클 상담 채널을 통해 {post.tenant_name}과 연결됩니다.
+            <p className="mt-3 max-w-md text-[14.5px] leading-[1.75] text-stone-600 md:text-[14px]" style={{ wordBreak: "keep-all" }}>
+              검사 결과와 시술 방식에 따라 금액이 달라집니다. {post.tenant_name} 상담으로 예상 비용과
+              회복 기간을 확인해 보세요. <b className="text-stone-800">무료이며 예약 의무는 없습니다.</b>
             </p>
           </div>
           {/*
@@ -199,14 +250,18 @@ export default async function PartnerPostPage({ params }: PageProps) {
             href={kakaoTrackHrefContent(post.id, post.partner_slug ?? partner)}
             target="_blank"
             rel={TRACK_LINK_REL}
-            className="group inline-flex items-center justify-between gap-4 border border-stone-900 bg-stone-900 px-6 py-5 text-white transition hover:bg-stone-800"
+            className="group flex min-h-[58px] items-center justify-between gap-4 border border-stone-900 bg-stone-900 px-5 text-white transition active:bg-stone-800 md:px-6 md:py-5"
           >
-            <span className="text-sm font-bold tracking-tight">카카오톡으로 상담받기</span>
+            <span className="text-[15px] font-bold tracking-tight md:text-sm">카카오톡으로 비용 문의</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden>
               <path stroke="currentColor" d="M7 17L17 7" />
               <path stroke="currentColor" d="M7 7h10v10" />
             </svg>
           </a>
+          {/* Round 169 — 해외판에만 있던 안심 칩을 국내에도 */}
+          <p className="-mt-2 text-[12.5px] text-stone-500 md:col-start-2 md:-mt-4">
+            무료 상담 · 24시간 내 답변
+          </p>
         </div>
       </div>
 

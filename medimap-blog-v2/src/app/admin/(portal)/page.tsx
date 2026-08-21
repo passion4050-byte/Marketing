@@ -13,7 +13,7 @@
  *   - 최근 AI 인용 = 미구현 → 빈 상태 메시지
  */
 import nextDynamic from 'next/dynamic';
-import { ArrowUpRight, ClipboardCheck, DollarSign, Users, Zap, FileText, TrendingUp } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, ClipboardCheck, DollarSign, Users, Zap, FileText, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { getServerClient } from '@/lib/supabase';
 import { getScopeServer, scopeToKeywordLang, scopeToContentLang } from '@/lib/scope';
@@ -30,7 +30,6 @@ import { SlugRivalry } from '@/components/admin/SlugRivalry';
 import { DashboardSection } from '@/components/admin/DashboardSection';
 import { CcsTrend } from '@/components/admin/CcsTrend';
 import { CitationProof } from '@/components/admin/CitationProof';
-import { DashboardChartsTabbed } from '@/components/admin/DashboardChartsTabbed';
 import type {
   TierTrendPoint,
   ClientRankingItem,
@@ -38,6 +37,23 @@ import type {
   NewDomainItem,
 } from '@/components/admin/DashboardCharts';
 import { DashboardFilters } from '@/components/admin/DashboardFilters';
+
+/*
+ * Round 169 (2026-08-20) — 모바일: DashboardChartsTabbed lazy 복구.
+ * 정적 import 로 되돌아가 있어 recharts(≈120KB gzip)가 첫 페인트 경로에 다시 들어와 있었다.
+ * 02 성과 분석은 기본 접힘이므로 모바일에선 대부분 아예 로드할 필요가 없다.
+ */
+const DashboardChartsTabbed = nextDynamic(
+  () => import('@/components/admin/DashboardChartsTabbed').then((m) => m.DashboardChartsTabbed),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="card flex h-56 items-center justify-center text-[12px] text-ink-muted md:h-64">
+        차트 로딩 중…
+      </div>
+    ),
+  }
+);
 
 // Round 57 (2026-05-31) — recharts 번들 lazy load. KPI 카드는 즉시, 차트는 비동기.
 const DashboardCharts = nextDynamic(
@@ -120,6 +136,9 @@ async function fetchDashboardData(opts: {
       // Round 86/87/88 — null branch 누락 필드 보강 (Vercel TypeScript build fix)
       citations30d: 0,
       publishedThisMonth: 0,
+      // Round 169 (2026-08-20) — 모바일: '오늘 발행' KPI 신설에 따른 null 분기 보강
+      publishedToday: 0,
+      avg7d: 0,
       lastCronAt: null as string | null,
       topContents: [] as Array<{
         id: number; title: string; slug: string;
@@ -315,23 +334,52 @@ async function fetchDashboardData(opts: {
     return { todayCost, yesterdayCost, cost14d, costError };
   };
 
-  // S4. KPI 확장 — 24h/30일 브랜드 등장 · 이번 달 발행 · 측정 cron 헬스 (내부 병렬)
+  // S4. KPI 확장 — 24h/30일 브랜드 등장 · 오늘/이번 달 발행 · 측정 cron 헬스 (내부 병렬)
   const sectionKpi = async () => {
     let citations24h = 0;
     let citations30d = 0;
     let publishedThisMonth = 0;
+    let publishedToday = 0;
+    let published7d = 0;
     let lastCronAt: string | null = null;
     try {
-      const startOfMonth = new Date();
-      startOfMonth.setUTCDate(1);
-      startOfMonth.setUTCHours(0, 0, 0, 0);
-      let pubQ = sb
-        .from('generated_contents')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'published')
-        .eq('channel', 'blog_html')
-        .gte('published_at', startOfMonth.toISOString());
-      if (contentLang) pubQ = pubQ.eq('lang', contentLang);
+      /*
+       * Round 169 (2026-08-20) — 모바일: KST 월/일 경계 버그 수정 + '오늘 발행' 신설.
+       *
+       * 이전: startOfMonth.setUTCDate(1) — UTC 기준 월초라 매월 1일 00:00~08:59 KST
+       *   에 발행된 글이 전월로 새어 "이번 달 발행"이 며칠간 과소 집계됐다.
+       *   (운영자는 KST 로 일하고, published_at 은 UTC 저장)
+       * 이제: 현재 시각을 +9h 시프트해 KST 달력상의 연/월/일을 얻고,
+       *   그 KST 자정을 다시 -9h 해 UTC 경계값으로 되돌린다.
+       */
+      const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+      const kstNow = new Date(Date.now() + KST_OFFSET_MS);
+      const kstY = kstNow.getUTCFullYear();
+      const kstM = kstNow.getUTCMonth();
+      const kstD = kstNow.getUTCDate();
+      /** KST 이번 달 1일 00:00 → UTC ISO */
+      const startOfMonth = new Date(Date.UTC(kstY, kstM, 1, 0, 0, 0, 0) - KST_OFFSET_MS);
+      /** KST 오늘 00:00 → UTC ISO */
+      const startOfToday = new Date(Date.UTC(kstY, kstM, kstD, 0, 0, 0, 0) - KST_OFFSET_MS);
+      /** 직전 7일(오늘 제외) 시작 — 평균 발행량 기준선 */
+      const start7d = new Date(startOfToday.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+      const pubBase = () => {
+        let q = sb
+          .from('generated_contents')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'published')
+          .eq('channel', 'blog_html');
+        if (contentLang) q = q.eq('lang', contentLang);
+        return q;
+      };
+      const pubQ = pubBase().gte('published_at', startOfMonth.toISOString());
+      const pubTodayQ = pubBase().gte('published_at', startOfToday.toISOString());
+      const pub7dQ = pubBase()
+        .gte('published_at', start7d.toISOString())
+        .lt('published_at', startOfToday.toISOString());
+      // 세 카운트를 한 묶음으로 — 아래 분기의 Promise.all 안에서 그대로 병렬 실행된다.
+      const pubsP = Promise.all([pubQ, pubTodayQ, pub7dQ]);
       let lastCronQ = sb
         .from('queries')
         .select('requested_at')
@@ -342,21 +390,23 @@ async function fetchDashboardData(opts: {
         lastCronQ = lastCronQ.in('keyword_id', langKwIds);
       }
       if (kwLang) {
-        const [c24r, c30r, pubR, lastR] = await Promise.all([
+        const [c24r, c30r, pubs, lastR] = await Promise.all([
           sb.rpc('citation_count', { _hours: 24, _kw_lang: kwLang }),
           sb.rpc('citation_count', { _hours: 720, _kw_lang: kwLang }),
-          pubQ,
+          pubsP,
           lastCronQ,
         ]);
         citations24h = Number(c24r.data) || 0;
         citations30d = Number(c30r.data) || 0;
-        publishedThisMonth = pubR.count ?? 0;
+        publishedThisMonth = pubs[0].count ?? 0;
+        publishedToday = pubs[1].count ?? 0;
+        published7d = pubs[2].count ?? 0;
         lastCronAt =
           (lastR.data?.[0] as { requested_at?: string } | undefined)?.requested_at ?? null;
       } else {
         const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         const cutoff30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-        const [c24r, c30r, pubR, lastR] = await Promise.all([
+        const [c24r, c30r, pubs, lastR] = await Promise.all([
           sb
             .from('mentions')
             .select('id', { count: 'exact', head: true })
@@ -367,19 +417,23 @@ async function fetchDashboardData(opts: {
             .select('id', { count: 'exact', head: true })
             .gte('created_at', cutoff30)
             .eq('is_target', true),
-          pubQ,
+          pubsP,
           lastCronQ,
         ]);
         citations24h = c24r.count ?? 0;
         citations30d = c30r.count ?? 0;
-        publishedThisMonth = pubR.count ?? 0;
+        publishedThisMonth = pubs[0].count ?? 0;
+        publishedToday = pubs[1].count ?? 0;
+        published7d = pubs[2].count ?? 0;
         lastCronAt =
           (lastR.data?.[0] as { requested_at?: string } | undefined)?.requested_at ?? null;
       }
     } catch {
       /* graceful */
     }
-    return { citations24h, citations30d, publishedThisMonth, lastCronAt };
+    // Round 169 — 직전 7일 일평균. '오늘 발행'이 많은지 적은지 판단할 기준선.
+    const avg7d = published7d / 7;
+    return { citations24h, citations30d, publishedThisMonth, publishedToday, avg7d, lastCronAt };
   };
 
   // S5+S6. 최근 검수 대기 Top 3 + 최근 AI 인용(24h).
@@ -1120,6 +1174,8 @@ async function fetchDashboardData(opts: {
     citations24h: kpi.citations24h,
     citations30d: kpi.citations30d,
     publishedThisMonth: kpi.publishedThisMonth,
+    publishedToday: kpi.publishedToday,
+    avg7d: kpi.avg7d,
     lastCronAt: kpi.lastCronAt,
     recentDrafts: draftsAndRecent.recentDrafts,
     recentCitations: draftsAndRecent.recentCitations,
@@ -1167,7 +1223,30 @@ export default async function AdminDashboardPage({
   // Round 86/87 — KPI 4 → 6 확장. 운영자가 매일 보는 핵심 메트릭 우선.
   //   추가: 30일 누적 멘션 (성과) · 이번 달 발행 (생산성).
   //   24h 인용은 작은 표본 부족 → 30일 누적이 더 의미 있음.
-  const KPIS = [
+  /*
+   * Round 169 (2026-08-20) — 모바일: KPI 힌트를 '판단 근거가 앞'으로 재작성 + 상태색 연동.
+   *
+   * 모바일 2열 그리드에서 힌트는 한 줄에 12~16자밖에 안 들어간다. 기존엔
+   * `14일 $X · 한도 $5/일` 처럼 판단 기준(한도)이 뒤에 있어 truncate 로 잘려나갔다.
+   * → 기준을 앞으로 옮기고 line-clamp-2 로 두 줄까지 허용.
+   * 또 숫자만 봐서는 정상/위험을 알 수 없어 tone 으로 값 색상을 연동한다.
+   */
+  const DAILY_COST_LIMIT = 5; // MAX_DAILY_USD 가드와 동일 기준
+  const shownCost = d.todayCost > 0 ? d.todayCost : d.yesterdayCost;
+  const cronHoursAgo = d.lastCronAt
+    ? (Date.now() - new Date(d.lastCronAt).getTime()) / 3600000
+    : null;
+
+  type KpiTone = 'danger' | 'warning' | undefined;
+  const KPIS: Array<{
+    label: string;
+    value: string | number;
+    suffix: string;
+    href: string;
+    icon: typeof Users;
+    hint: string;
+    tone?: KpiTone;
+  }> = [
     {
       label: '활성 클라이언트',
       value: d.activeTenants,
@@ -1182,7 +1261,8 @@ export default async function AdminDashboardPage({
       suffix: '건',
       href: '/admin/content-queue',
       icon: ClipboardCheck,
-      hint: d.pendingQueue > 5 ? '⚠ 누적 — 검수 필요' : '정상',
+      hint: d.pendingQueue > 5 ? `5건 초과 누적 · 지금 ${d.pendingQueue}건` : `정상 범위 · ${d.pendingQueue}건`,
+      tone: d.pendingQueue > 5 ? 'danger' : undefined,
     },
     {
       // Round 144 — 소스가 mentions 테이블(브랜드 언급)이므로 "인용" 라벨 제거.
@@ -1192,44 +1272,52 @@ export default async function AdminDashboardPage({
       suffix: '건',
       href: '/admin/citations',
       icon: Zap,
-      hint: `24h ${d.citations24h ?? 0}건 · 출처 인용과 다름`,
+      hint: `출처 인용 아님 · 24h ${d.citations24h ?? 0}건`,
     },
     {
-      label: '이번 달 발행',
-      value: d.publishedThisMonth ?? 0,
+      // Round 169 — '이번 달 발행' → '오늘 발행'. 매일 보는 화면의 KPI 는
+      //   오늘 손댈 거리를 말해야 한다. 이번 달 누계는 힌트로 내린다.
+      label: '오늘 발행',
+      value: d.publishedToday ?? 0,
       suffix: '편',
       href: '/admin/content-queue',
       icon: FileText,
-      hint: 'blog_html published',
+      hint: `7일 평균 ${(d.avg7d ?? 0).toFixed(1)}편 · 이번 달 ${d.publishedThisMonth ?? 0}편`,
     },
     {
       // Round 116 Phase 5 (2026-07-02): 오늘값이 0이면 어제/14일 노출로 실미터링 상태 명시.
       label: d.todayCost > 0 ? '오늘 LLM 비용' : '어제 LLM 비용',
-      value: d.todayCost > 0 ? `$${d.todayCost.toFixed(2)}` : `$${d.yesterdayCost.toFixed(2)}`,
+      value: `$${shownCost.toFixed(2)}`,
       suffix: '',
       href: '/admin/cost',
       icon: DollarSign,
-      hint: `14일 $${d.cost14d.toFixed(2)} · 한도 $5/일`,
+      hint: `한도 $${DAILY_COST_LIMIT}/일 · 14일 $${d.cost14d.toFixed(2)}`,
+      tone: shownCost >= DAILY_COST_LIMIT * 0.8 ? 'warning' : undefined,
     },
     {
       label: '측정 cron 상태',
-      value: d.lastCronAt
-        ? (() => {
-            const hoursAgo = (Date.now() - new Date(d.lastCronAt).getTime()) / 3600000;
-            return hoursAgo < 26 ? '정상' : '⚠ 지연';
-          })()
-        : '데이터 없음',
+      value: cronHoursAgo === null ? '데이터 없음' : cronHoursAgo < 26 ? '정상' : '지연',
       suffix: '',
       href: '/admin/citations',
       icon: TrendingUp,
-      hint: d.lastCronAt
-        ? `최종: ${new Date(d.lastCronAt).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: 'numeric' })}`
-        : 'Run workflow 필요',
+      hint:
+        d.lastCronAt && cronHoursAgo !== null
+          ? `${new Date(d.lastCronAt).toLocaleString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })} 실행 · ${
+              cronHoursAgo < 1 ? '방금' : `${Math.floor(cronHoursAgo)}시간 전`
+            }`
+          : 'Run workflow 필요',
+      tone: cronHoursAgo !== null && cronHoursAgo >= 26 ? 'danger' : undefined,
     },
   ];
 
+  // Round 169 (2026-08-20) — 모바일: 필터 접힘 summary 문구 (선택 상태를 접힌 채로 읽게)
+  const filterSummary = `${
+    tenantId ? tenantsList.find((t) => t.id === tenantId)?.name ?? '선택 클라이언트' : '전체'
+  } · ${isCustom ? `${fromDate} ~ ${toDate}` : `${periodDays}일`}`;
+
   return (
-    <div className="mx-auto max-w-[1536px] px-6 py-6 lg:px-10">
+    // Round 169 (2026-08-20) — 모바일: 좌우 여백 px-6 → px-4 (360px 화면에서 본문 폭 +16px)
+    <div className="mx-auto max-w-[1536px] px-4 py-5 md:px-6 md:py-6 lg:px-10">
       {/* Round 119 (2026-07-03) — UI/UX 재설계: 3존 재그룹핑.
           헤더(+필터 상단 고정) → KPI 통합 스트립 → 01 지금 봐야 할 것(액션·시장·신규도메인)
           → 02 성과 분석(추이·콘텐츠·패턴·파트너) → 03 운영 로그(검수·인용·크롤러·카카오).
@@ -1247,18 +1335,13 @@ export default async function AdminDashboardPage({
         </div>
       </header>
 
-      {/* 기간 · 클라이언트 필터 — 페이지 하단 → 상단 이동 (컨텍스트가 아래 전체에 적용되므로) */}
-      <DashboardFilters
-        tenants={tenantsList}
-        currentTenantId={tenantId}
-        currentPeriod={isCustom ? 'custom' : String(periodDays)}
-        currentFrom={fromDate}
-        currentTo={toDate}
-      />
-
       {/* KPI 통합 스트립 — 6개 낱장 카드 → 단일 카드 + 내부 분할.
-          기존 '측정·엔진 현황' 카드(중복: cron/30일 인용/14일 비용)는 여기로 흡수. */}
-      <section className="card mt-6 overflow-hidden p-0">
+          기존 '측정·엔진 현황' 카드(중복: cron/30일 인용/14일 비용)는 여기로 흡수.
+          Round 169 (2026-08-20) — 모바일:
+            · sticky top-14 (햄버거 헤더 바로 아래) — 아래로 스크롤해도 상태가 따라온다.
+            · 숫자 text-[26px] / 힌트 line-clamp-2 text-[11px] — 2열 그리드에서 스캔 가능하게.
+            · tone 으로 값 색상 연동 (검수 대기 초과=danger, cron 지연=danger, 비용 80%=warning). */}
+      <section className="card sticky top-14 z-10 mt-5 overflow-hidden p-0 md:static md:mt-6">
         <div className="grid grid-cols-2 gap-px bg-border md:grid-cols-3 xl:grid-cols-6">
           {KPIS.map((k) => {
             const Icon = k.icon;
@@ -1266,35 +1349,79 @@ export default async function AdminDashboardPage({
               <Link
                 key={k.label}
                 href={k.href}
-                className="group bg-surface-base px-4 py-4 transition hover:bg-surface-subtle"
+                className="group bg-surface-base px-3.5 py-3.5 transition hover:bg-surface-subtle md:px-4 md:py-4"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-ink-muted">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="min-w-0 break-keep text-[10px] font-bold uppercase leading-tight tracking-widest text-ink-muted">
                     {k.label}
                   </span>
-                  <Icon className="h-3.5 w-3.5 text-accent-deep/70 transition group-hover:text-accent-deep" />
+                  <Icon className="h-3.5 w-3.5 shrink-0 text-accent-deep/70 transition group-hover:text-accent-deep" />
                 </div>
-                <div className="mt-2.5 flex items-baseline gap-1">
-                  <span className="text-2xl font-black tabular-nums tracking-tight text-ink">
+                <div className="mt-2 flex items-baseline gap-1 md:mt-2.5">
+                  <span
+                    className={cn(
+                      'text-[26px] font-black leading-none tabular-nums tracking-tight md:text-2xl md:leading-tight',
+                      k.tone === 'danger'
+                        ? 'text-status-danger'
+                        : k.tone === 'warning'
+                        ? 'text-status-warning'
+                        : 'text-ink',
+                    )}
+                  >
                     {k.value}
                   </span>
                   <span className="text-xs font-medium text-ink-muted">{k.suffix}</span>
                 </div>
-                <div className="mt-1 flex items-center gap-1.5">
+                <div className="mt-1.5 flex items-start gap-1.5">
                   {k.label === '측정 cron 상태' && (
-                    <span className="flex shrink-0 gap-1" title="측정 엔진: Gemini · Claude · ChatGPT">
+                    <span className="mt-1 flex shrink-0 gap-1" aria-label="측정 엔진: Gemini · Claude · ChatGPT">
                       <span className="h-1.5 w-1.5 rounded-full bg-engine-gemini" />
                       <span className="h-1.5 w-1.5 rounded-full bg-engine-claude" />
                       <span className="h-1.5 w-1.5 rounded-full bg-engine-chatgpt" />
                     </span>
                   )}
-                  <span className="truncate text-[10px] text-ink-faint">{k.hint}</span>
+                  <span className="line-clamp-2 break-keep text-[11px] leading-snug text-ink-muted">
+                    {k.hint}
+                  </span>
                 </div>
               </Link>
             );
           })}
         </div>
       </section>
+
+      {/* 기간 · 클라이언트 필터 — Round 169: KPI 스트립 아래로 이동.
+          KPI(오늘 상태)가 먼저 보여야 하고, 필터는 그 다음에 조정하는 도구이기 때문.
+          모바일은 <details> 로 접고 summary 에 현재 선택을 요약 표시(한 줄 절약). */}
+      <div className="mt-4 md:mt-0">
+        <details className="group md:hidden">
+          <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-border bg-surface-base px-3.5 py-2 [&::-webkit-details-marker]:hidden">
+            <span className="flex min-w-0 items-baseline gap-2">
+              <span className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-ink-muted">
+                필터
+              </span>
+              <span className="truncate text-[13px] font-semibold text-ink">{filterSummary}</span>
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-ink-muted transition-transform group-open:rotate-180" />
+          </summary>
+          <DashboardFilters
+            tenants={tenantsList}
+            currentTenantId={tenantId}
+            currentPeriod={isCustom ? 'custom' : String(periodDays)}
+            currentFrom={fromDate}
+            currentTo={toDate}
+          />
+        </details>
+        <div className="hidden md:block">
+          <DashboardFilters
+            tenants={tenantsList}
+            currentTenantId={tenantId}
+            currentPeriod={isCustom ? 'custom' : String(periodDays)}
+            currentFrom={fromDate}
+            currentTo={toDate}
+          />
+        </div>
+      </div>
 
       {/* === 01 지금 봐야 할 것 — 액션 권고 · 시장 점유 진단 · 신규 등장 도메인 === */}
       <div className="mt-8">
@@ -1346,6 +1473,9 @@ export default async function AdminDashboardPage({
         title="성과 분석"
         desc="코호트 · 주제 경쟁 · 측정 추이 · 파트너 현황"
         storageKey="perf"
+        /* Round 169 (2026-08-20) — 모바일: 주석의 원래 의도(주간 판단용)대로 기본 접힘.
+           모바일에서 첫 화면 스크롤 길이를 줄이고 recharts 다운로드도 유예된다. */
+        defaultCollapsed
       >
         <div className="mt-4 space-y-4 [&>section]:!mt-0 [&>*>section:first-child]:!mt-0">
           <DashboardChartsTabbed

@@ -54,27 +54,39 @@ export function LoginForm({
           </div>
           <h1 className="mt-2 text-2xl font-bold tracking-tight text-stone-900">병원 관리자 로그인</h1>
           {hospitalName ? (
-            <p className="mt-2 text-sm font-semibold text-stone-700">{hospitalName} 전용 콘솔</p>
+            <p className="mt-2 text-[15px] font-semibold text-stone-700">{hospitalName} 전용 콘솔</p>
           ) : null}
-          <p className="mt-2 text-sm text-stone-500">위서클이 발급한 계정으로 로그인하세요.</p>
+          <p className="mt-2 text-[14px] leading-relaxed text-stone-500">위서클이 발급한 계정으로 로그인하세요.</p>
         </div>
         <form onSubmit={submit} className="rounded-none border border-stone-200 bg-white p-6">
           <label className="block text-xs font-semibold text-stone-600">아이디</label>
+          {/* Round 169 — iOS 자동 대문자 변환으로 발급 아이디가 계속 튕기던 문제.
+              autoCapitalize/autoCorrect 차단 + name 부여로 키체인 자동입력 활성화.
+              (비밀번호가 랜덤 10자라 자동입력이 안 되면 사실상 로그인 불가) */}
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            type="text"
+            name="username"
             autoComplete="username"
-            className="mt-1.5 w-full rounded-none border border-stone-300 px-3 py-2.5 text-sm outline-none focus:border-stone-900 focus:ring-2 focus:ring-stone-900/10"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            className="mt-1.5 min-h-[48px] w-full rounded-none border border-stone-300 px-3 text-base outline-none focus:border-stone-900 focus:ring-2 focus:ring-stone-900/10"
             placeholder="발급받은 아이디"
           />
           <label className="mt-4 block text-xs font-semibold text-stone-600">비밀번호</label>
           <input
             type="password"
+            name="password"
+            autoComplete="current-password"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
             autoFocus={Boolean(initialUsername)}
-            className="mt-1.5 w-full rounded-none border border-stone-300 px-3 py-2.5 text-sm outline-none focus:border-stone-900 focus:ring-2 focus:ring-stone-900/10"
+            className="mt-1.5 min-h-[48px] w-full rounded-none border border-stone-300 px-3 text-base outline-none focus:border-stone-900 focus:ring-2 focus:ring-stone-900/10"
             placeholder="비밀번호"
           />
           {error ? (
@@ -83,7 +95,7 @@ export function LoginForm({
           <button
             type="submit"
             disabled={loading || !username || !password}
-            className="mt-5 w-full rounded-none bg-stone-900 py-2.5 text-sm font-semibold text-white transition hover:bg-stone-700 disabled:opacity-40"
+            className="mt-5 min-h-[50px] w-full rounded-none bg-stone-900 text-base font-semibold text-white transition active:bg-stone-700 disabled:opacity-40"
           >
             {loading ? '확인 중…' : '로그인'}
           </button>

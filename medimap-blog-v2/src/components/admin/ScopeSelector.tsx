@@ -14,13 +14,43 @@ import { Globe } from 'lucide-react';
 export const SCOPE_KEY = 'wc_admin_scope';
 export const SCOPE_EVENT = 'wc-scope';
 
-const SCOPES = [
-  { key: 'all', label: '통합' },
-  { key: 'ko', label: '🇰🇷 국내' },
-  { key: 'en', label: 'EN' },
-  { key: 'ja', label: 'JA' },
-  { key: 'zh', label: 'ZH' },
+/**
+ * Round 169 (2026-08-20) — 모바일: 스코프 목록/저장 로직을 export.
+ * 모바일 헤더의 바텀시트 셀렉터(AdminShell)가 같은 정의·같은 저장 규칙을 쓰도록
+ * 여기 한 곳에서만 관리한다. (중복 구현 시 cookie/localStorage 불일치 위험)
+ */
+export const SCOPES = [
+  { key: 'all', label: '통합', short: '통합', desc: '전 언어 합산' },
+  { key: 'ko', label: '🇰🇷 국내', short: 'KO', desc: '한국어 콘텐츠·키워드' },
+  { key: 'en', label: 'EN', short: 'EN', desc: '영어 (English)' },
+  { key: 'ja', label: 'JA', short: 'JA', desc: '일본어 (日本語)' },
+  { key: 'zh', label: 'ZH', short: 'ZH', desc: '중국어 (中文)' },
 ] as const;
+
+/** 좁은 헤더용 짧은 라벨 — 통합/KO/EN/JA/ZH */
+export function scopeShortLabel(k: string): string {
+  return SCOPES.find((s) => s.key === k)?.short ?? '통합';
+}
+
+/**
+ * 스코프 저장 — localStorage + cookie(SSR 서버 컴포넌트용) + 동기화 이벤트.
+ * router.refresh() 는 hook 이 필요하므로 호출부에서 이어서 실행할 것.
+ */
+export function persistScope(k: string): void {
+  try {
+    localStorage.setItem(SCOPE_KEY, k);
+  } catch {
+    /* ignore */
+  }
+  // 서버 컴포넌트가 스코프를 읽도록 쿠키에도 기록 → SSR 페이지 스코프 인지.
+  try {
+    document.cookie = `${SCOPE_KEY}=${k}; path=/; max-age=31536000; SameSite=Lax`;
+  } catch {
+    /* ignore */
+  }
+  // 클라이언트 스코프 컴포넌트(localStorage 구독) 동기화
+  window.dispatchEvent(new CustomEvent(SCOPE_EVENT, { detail: k }));
+}
 
 /** 스코프 키 → keywords.lang 값 (null = 전체). 소비 컴포넌트 공용. */
 export function scopeToLang(scope: string): string | null {
@@ -85,19 +115,7 @@ export function ScopeSelector() {
 
   const pick = (k: string) => {
     setScope(k);
-    try {
-      localStorage.setItem(SCOPE_KEY, k);
-    } catch {
-      /* ignore */
-    }
-    // 서버 컴포넌트가 스코프를 읽도록 쿠키에도 기록 → SSR 페이지 스코프 인지.
-    try {
-      document.cookie = `${SCOPE_KEY}=${k}; path=/; max-age=31536000; SameSite=Lax`;
-    } catch {
-      /* ignore */
-    }
-    // 클라이언트 스코프 컴포넌트(localStorage 구독) 동기화
-    window.dispatchEvent(new CustomEvent(SCOPE_EVENT, { detail: k }));
+    persistScope(k);
     // SSR 데이터(쿠키 기반)를 새 스코프로 재요청
     router.refresh();
   };

@@ -112,7 +112,8 @@ export default async function CostPage() {
   const hasData = logs.length > 0;
 
   return (
-    <div className="px-8 py-6">
+    // Round 169 (2026-08-20) — 모바일: px-8 하드코딩 → 반응형(md+ 는 기존 px-8 복원)
+    <div className="px-4 py-5 md:px-8 md:py-6">
       <header className="admin-page-header">
         <div>
           <h1 className="admin-page-title">비용 모니터</h1>
@@ -169,19 +170,28 @@ export default async function CostPage() {
           <header className="border-b border-border px-5 py-3">
             <h2 className="section-title">일별 비용 (실측, 최근 14일)</h2>
           </header>
-          <div className="p-5">
-            <div className="flex h-40 items-end gap-1">
+          {/*
+            Round 169 (2026-08-20) — 모바일: title 툴팁 제거 → 값 라벨 상시 노출.
+            title 속성은 hover 로만 뜨므로 터치 기기에서는 막대의 실제 금액을 볼 방법이
+            아예 없었다. 대신 막대 위에 금액을 항상 찍고, 14개 막대가 좁아 글자가 겹치는
+            모바일에서는 가로 스크롤(min-w)로 폭을 확보한다.
+          */}
+          <div className="overflow-x-auto p-3 md:p-5">
+            <div className="flex h-44 min-w-[560px] items-end gap-1 md:h-40 md:min-w-0">
               {dailyRows.map((d) => {
                 const max = Math.max(...dailyRows.map((x) => x.usd), 0.01);
                 const pct = (d.usd / max) * 100;
                 return (
                   <div key={d.date} className="flex flex-1 flex-col items-center gap-1">
+                    <span className="text-[9px] font-semibold tabular-nums text-ink-soft">
+                      {d.usd > 0 ? `$${d.usd.toFixed(2)}` : '—'}
+                    </span>
                     <div
                       className="w-full rounded-t bg-ink"
                       style={{ height: `${Math.max(pct, 2)}%` }}
-                      title={`${d.date}: $${d.usd.toFixed(4)}`}
+                      aria-label={`${d.date}: $${d.usd.toFixed(4)}`}
                     />
-                    <span className="text-[9px] text-ink-muted">{d.date.slice(5)}</span>
+                    <span className="text-[9px] tabular-nums text-ink-muted">{d.date.slice(5)}</span>
                   </div>
                 );
               })}
@@ -195,6 +205,8 @@ export default async function CostPage() {
           <header className="border-b border-border px-5 py-3">
             <h2 className="section-title">Provider 별 비용 (14일)</h2>
           </header>
+          {/* Round 169 (2026-08-20) — 모바일: 5컬럼 표가 카드 밖으로 잘리던 것 → 가로 스크롤 래퍼 */}
+          <div className="admin-table-wrap">
           <table className="w-full text-sm">
             <thead className="bg-surface-subtle text-[11px] font-bold uppercase tracking-wider text-ink-muted">
               <tr>
@@ -222,6 +234,7 @@ export default async function CostPage() {
               })}
             </tbody>
           </table>
+          </div>
         </section>
       )}
 
@@ -230,6 +243,8 @@ export default async function CostPage() {
           <header className="border-b border-border px-5 py-3">
             <h2 className="section-title">테넌트별 비용 (오늘)</h2>
           </header>
+          {/* Round 169 — 동일 사유 (모바일 클리핑 해소) */}
+          <div className="admin-table-wrap">
           <table className="w-full text-sm">
             <thead className="bg-surface-subtle text-[11px] font-bold uppercase tracking-wider text-ink-muted">
               <tr>
@@ -251,6 +266,7 @@ export default async function CostPage() {
               })}
             </tbody>
           </table>
+          </div>
         </section>
       )}
 

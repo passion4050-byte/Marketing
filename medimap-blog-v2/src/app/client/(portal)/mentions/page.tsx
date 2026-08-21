@@ -73,7 +73,7 @@ export default async function ClientMentionsPage() {
       </Link>
       <div className="mb-6 mt-3">
         <h1 className="text-xl font-bold tracking-tight">AI 답변 속 병원 언급</h1>
-        <p className="mt-1 text-sm text-stone-500">
+        <p className="mt-1.5 break-keep text-[13.5px] leading-relaxed text-stone-500 md:text-sm">
           최근 30일, AI 검색 답변 본문에 우리 병원 이름이 등장한 기록입니다. 최근{' '}
           <span className="font-semibold tabular-nums text-stone-700">{rows.length}</span>건 표시.
         </p>
@@ -84,9 +84,34 @@ export default async function ClientMentionsPage() {
           데이터를 불러오는 중 일시적 오류가 발생했습니다. 잠시 후 새로고침해 주세요.
         </p>
       ) : rows.length === 0 ? (
-        <p className="rounded-none border border-stone-200 bg-white p-6 text-sm text-stone-400">
-          최근 30일 언급 기록이 없습니다.
-        </p>
+        /* Round 169 — 벌거벗은 0 은 해지 사유가 된다. 지금이 '어느 단계'인지 알려준다. */
+        <div className="rounded-2xl border border-stone-200 bg-white p-5 md:p-6">
+          <div className="text-[15px] font-bold text-stone-800">
+            아직 AI 답변에 병원 이름이 등장한 기록이 없습니다
+          </div>
+          <p className="mt-2.5 break-keep text-[13.5px] leading-relaxed text-stone-600">
+            지금은 AI 가 우리 콘텐츠를 <b className="text-stone-800">읽어들이는 단계</b>입니다.
+            보통 <b className="text-stone-800">발행 후 3~4주</b>부터 이름 등장이,{' '}
+            <b className="text-stone-800">5~6주</b>부터 답변의 출처 인용이 나타납니다.
+          </p>
+          <p className="mt-3 text-[13px] leading-relaxed text-stone-500">
+            그동안의 진행 상황은{' '}
+            <Link
+              href="/client/contents"
+              className="font-semibold text-stone-800 underline decoration-stone-300 underline-offset-4"
+            >
+              발행 콘텐츠
+            </Link>
+            와{' '}
+            <Link
+              href="/client/traffic"
+              className="font-semibold text-stone-800 underline decoration-stone-300 underline-offset-4"
+            >
+              검색 유입
+            </Link>
+            에서 확인하실 수 있습니다.
+          </p>
+        </div>
       ) : (
         <div className="divide-y divide-stone-200 border-t-2 border-stone-900 bg-white">
           {rows.map((m, i) => (

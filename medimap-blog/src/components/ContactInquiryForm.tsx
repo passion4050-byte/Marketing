@@ -77,6 +77,7 @@ export function ContactInquiryForm() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="홍길동"
+              autoComplete="name"
               className="form-input"
             />
           </Field>
@@ -87,6 +88,7 @@ export function ContactInquiryForm() {
               value={company}
               onChange={(e) => setCompany(e.target.value)}
               placeholder="(선택) 회사 또는 병원명"
+              autoComplete="organization"
               className="form-input"
             />
           </Field>
@@ -99,6 +101,8 @@ export function ContactInquiryForm() {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="010-0000-0000"
+            autoComplete="tel"
+            inputMode="tel"
             className="form-input"
           />
         </Field>
@@ -110,6 +114,10 @@ export function ContactInquiryForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
+            autoComplete="email"
+            inputMode="email"
+            autoCapitalize="none"
+            autoCorrect="off"
             className="form-input"
           />
         </Field>

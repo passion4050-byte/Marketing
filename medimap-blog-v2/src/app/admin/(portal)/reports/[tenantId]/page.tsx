@@ -547,6 +547,8 @@ export default async function TenantReportPage({
           {data.topKeywords.length === 0 ? (
             <div className="text-[12px] text-ink-muted">{periodShort} 인용 데이터 없음</div>
           ) : (
+            /* Round 169 (2026-08-20) — 모바일: 5컬럼 키워드 표 클리핑 → 가로 스크롤 래퍼 */
+            <div className="admin-table-wrap">
             <table className="w-full text-[12px]">
               <thead className="bg-surface-subtle text-[10px] font-bold uppercase text-ink-muted">
                 <tr>
@@ -573,6 +575,7 @@ export default async function TenantReportPage({
                 ))}
               </tbody>
             </table>
+            </div>
           )}
 
           {data.weakKeywords.length > 0 && (

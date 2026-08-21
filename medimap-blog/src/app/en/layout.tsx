@@ -39,7 +39,7 @@ export default function EnLayout({ children }: { children: React.ReactNode }) {
     <OverseasShell
       lang="en"
       nav={NAV}
-      ctaLabel="Talk to us"
+      ctaLabel="Free quote"
       footerTagline="International patient desk for Korean clinics"
     >
       {children}

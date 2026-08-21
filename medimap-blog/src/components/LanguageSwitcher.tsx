@@ -32,6 +32,14 @@ function targetPath(pathname: string, code: LangCode): string {
   if (rest.startsWith("/guides/")) {
     return code === "ko" ? "/" : `/${code}${rest}`;
   }
+  // 🔴 Round 169 — 클리닉 경로 맥락 유지.
+  //   기존엔 /guides/ 가 아니면 전부 홈으로 보내서, /en/clinics/eyeclinic/brighteye 에서
+  //   언어를 바꾸면 **B2B 국내 홈**으로 튕겼다(해외 방문자 재유입 차단).
+  //   /clinics/ 는 언어별로 동일 구조라 경로를 그대로 유지한다.
+  if (rest.startsWith("/clinics")) {
+    // ko 에는 대응 경로가 /with-partners 뿐이므로 목록으로 보낸다(홈보다 맥락이 가깝다)
+    return code === "ko" ? "/with-partners" : `/${code}${rest}`;
+  }
   // 그 외: 각 언어 홈 (ko 는 루트)
   return code === "ko" ? "/" : `/${code}`;
 }
@@ -106,7 +114,7 @@ export function LanguageSwitcher({
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${trigger}`}
+        className={`inline-flex items-center gap-1.5 rounded-full border min-h-[44px] px-3 text-xs font-semibold transition ${trigger}`}
       >
         <Globe className="h-3.5 w-3.5" />
         {current.label}
@@ -115,7 +123,7 @@ export function LanguageSwitcher({
       {open && (
         <div
           role="listbox"
-          className="absolute right-0 z-50 mt-2 w-40 overflow-hidden rounded-none border border-stone-200 bg-white py-1"
+          className="absolute right-0 z-50 mt-2 w-44 overflow-hidden rounded-none border border-stone-200 bg-white py-1 shadow-[0_14px_34px_-20px_rgba(0,0,0,0.4)] md:w-40"
         >
           {LANGS.map((l) => {
             const active = l.code === curLang;
@@ -124,7 +132,7 @@ export function LanguageSwitcher({
                 key={l.code}
                 href={targetPath(pathname, l.code)}
                 onClick={() => setOpen(false)}
-                className={`flex items-center justify-between px-3 py-2 text-sm transition hover:bg-stone-50 ${
+                className={`flex min-h-[48px] items-center justify-between px-4 text-[15px] transition active:bg-stone-100 md:min-h-[44px] md:text-sm md:hover:bg-stone-50 ${
                   active ? "font-bold text-stone-900" : "text-stone-600"
                 }`}
                 lang={l.code}

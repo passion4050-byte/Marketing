@@ -241,7 +241,8 @@ export default async function FunnelPage() {
   const trackingLive = totals.shortlinks > 0;
 
   return (
-    <div className="px-8 py-6">
+    // Round 169 (2026-08-20) — 모바일: px-8 하드코딩 → 반응형(md+ 는 기존 px-8 복원)
+    <div className="px-4 py-5 md:px-8 md:py-6">
       <header className="admin-page-header">
         <div>
           <h1 className="admin-page-title">Funnel · ROI</h1>

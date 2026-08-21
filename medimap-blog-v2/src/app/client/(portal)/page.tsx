@@ -109,7 +109,11 @@ export default async function ClientHomePage() {
       value: metrics.mentions30d,
       unit: '회 · 30일',
       // Round 153 (감사 P2-10) — "측정 질의" 내부용어 → 실무진 눈높이
-      sub: `AI 에 ${metrics.queries30d}번 물어본 결과 기준`,
+      // Round 169 — 0 일 때는 '결과'가 아니라 '단계'로 읽히도록 맥락 부여
+      sub:
+        metrics.mentions30d === 0
+          ? `AI 에 ${metrics.queries30d}번 물어본 결과 · 이름 등장은 통상 3~4주부터`
+          : `AI 에 ${metrics.queries30d}번 물어본 결과 기준`,
       href: '/client/mentions',
       linkLabel: '세부 내역',
     },
@@ -129,10 +133,11 @@ export default async function ClientHomePage() {
       label: '상담 클릭',
       value: clicks30,
       unit: '건 · 30일',
+      // Round 169 — 봇 제외 사실을 고객 화면에 명시. 설명 없는 하락은 해지, 설명 있는 하락은 신뢰다.
       sub:
         clickDelta === null
-          ? `최근 7일 ${clicks7}건`
-          : `최근 7일 ${clicks7}건 (전주 대비 ${clickDelta >= 0 ? '+' : ''}${clickDelta}%)`,
+          ? `최근 7일 ${clicks7}건 · 자동 프로그램 제외한 실제 클릭`
+          : `최근 7일 ${clicks7}건 (전주 대비 ${clickDelta >= 0 ? '+' : ''}${clickDelta}%) · 봇 제외`,
       href: '/client/clicks',
       linkLabel: '세부 내역',
     },
@@ -141,37 +146,47 @@ export default async function ClientHomePage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-xl font-bold tracking-tight">홈</h1>
-        <p className="mt-1 text-sm text-stone-500">
+        <h1 className="text-[22px] font-bold tracking-tight md:text-xl">홈</h1>
+        <p className="mt-1.5 break-keep text-[13.5px] leading-relaxed text-stone-500 md:text-sm">
           AI 검색(ChatGPT · Perplexity · Gemini · Claude)에서 우리 병원이 어떻게 노출되는지 한눈에 확인하세요.
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {/* 🔴 Round 169 (2026-08-20) — 모바일 KPI 재설계.
+          기존: 카드 내부 폭 121px 에서 12px 라벨이 3줄, 11px sub 가 5줄로 무너지고
+          드릴다운은 패딩 없는 16px 텍스트 링크. text-stone-400 은 대비 2.5:1 로 AA 미달.
+          변경: ① 카드 전체를 Link 로(터치 면적 = 카드 전체) ② 라벨 13px·숫자 28px 로 승격
+          ③ sub 는 line-clamp-2 + stone-500 로 대비 확보 ④ break-keep 으로 한글 단어 단위 줄바꿈 */}
+      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4 lg:gap-3">
         {kpis.map((k) => (
-          <div key={k.label} className="rounded-2xl border border-stone-200 bg-white p-5">
-            <div className="text-xs font-medium text-stone-500">{k.label}</div>
-            <div className="mt-2 flex items-baseline gap-1.5">
-              <span className="text-3xl font-bold tabular-nums tracking-tight">{k.value}</span>
-              <span className="text-xs text-stone-400">{k.unit}</span>
+          <Link
+            key={k.label}
+            href={k.href}
+            className="group flex flex-col rounded-2xl border border-stone-200 bg-white p-4 transition active:border-stone-400 active:bg-stone-50 md:p-5 lg:hover:border-stone-400"
+          >
+            <div className="break-keep text-[13px] font-medium leading-snug text-stone-500 md:text-xs">
+              {k.label}
             </div>
-            <div className="mt-1.5 text-[11px] leading-relaxed text-stone-400">{k.sub}</div>
-            {k.href ? (
-              <Link
-                href={k.href}
-                className="mt-3 inline-block text-xs font-semibold text-stone-700 underline underline-offset-4 hover:text-stone-900"
-              >
-                {k.linkLabel} →
-              </Link>
-            ) : null}
-          </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-[28px] font-bold leading-none tabular-nums tracking-tight md:text-3xl">
+                {k.value}
+              </span>
+              <span className="text-[11px] text-stone-400 md:text-xs">{k.unit}</span>
+            </div>
+            <div className="mt-2 line-clamp-2 break-keep text-[11.5px] leading-relaxed text-stone-500 md:text-[11px]">
+              {k.sub}
+            </div>
+            <div className="mt-auto pt-3 text-[11.5px] font-semibold text-stone-700 md:text-xs">
+              {k.linkLabel} <span aria-hidden>→</span>
+            </div>
+          </Link>
         ))}
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-5">
         <section className="lg:col-span-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold">최근 발행 콘텐츠</h2>
+            <h2 className="text-[15px] font-bold md:text-sm">최근 발행 콘텐츠</h2>
             <Link
               href="/client/contents"
               className="text-xs text-stone-500 underline underline-offset-4 hover:text-stone-900"
@@ -192,7 +207,7 @@ export default async function ClientHomePage() {
                       {String(i + 1).padStart(2, '0')}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-stone-800">
+                      <p className="break-keep text-[14px] font-medium leading-snug text-stone-800 md:truncate md:text-sm">
                         {c.title ?? '(제목 없음)'}
                       </p>
                       <p className="mt-0.5 text-[11px] text-stone-400">
@@ -209,7 +224,7 @@ export default async function ClientHomePage() {
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="shrink-0 rounded-lg border border-stone-200 px-2.5 py-1 text-[11px] font-medium text-stone-600 transition hover:border-stone-900 hover:text-stone-900"
+                        className="flex min-h-[40px] shrink-0 items-center rounded-lg border border-stone-200 px-3 text-[12px] font-medium text-stone-600 transition active:border-stone-900 active:text-stone-900 md:min-h-0 md:px-2.5 md:py-1 md:text-[11px]"
                       >
                         글 보기
                       </a>
@@ -222,22 +237,32 @@ export default async function ClientHomePage() {
         </section>
 
         <section className="lg:col-span-2">
-          <h2 className="text-sm font-bold">AI 인용 적합도</h2>
+          {/* Round 169 — '인용'이 한 화면에서 두 의미로 충돌(위 KPI=실제 인용 건수).
+              '콘텐츠 구조 점수'로 개명하고 실제 인용과 다른 지표임을 명시. */}
+          <h2 className="text-[15px] font-bold md:text-sm">콘텐츠 구조 점수</h2>
           <div className="mt-3 rounded-2xl border border-stone-200 bg-white p-5">
             <div className="flex items-baseline gap-1.5">
               <span className="text-3xl font-bold tabular-nums">{metrics.avgAeo ?? '—'}</span>
               <span className="text-xs text-stone-400">점 · 30일 평균</span>
             </div>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-stone-400">
-              AI 가 인용하기 좋은 구조(즉답 · 표 · FAQ · 통계)를 갖췄는지에 대한 자동 채점입니다.
+            <p className="mt-2 break-keep text-[12px] leading-relaxed text-stone-500">
+              AI 가 인용하기 좋은 구조(즉답 · 표 · FAQ · 통계)를 갖췄는지 자동 채점한 값입니다.
+              <b className="text-stone-700"> 실제 인용 건수와는 다른 지표</b>이며, 점수가 높을수록
+              인용될 확률이 올라갑니다.
             </p>
-            <div className="mt-4 flex gap-2 text-[11px]">
+            <div className="mt-4 flex flex-wrap gap-1.5 text-[11.5px]">
               {(['A', 'B', 'C', 'D'] as const).map((g) => (
-                <span key={g} className="rounded-lg bg-stone-100 px-2 py-1 tabular-nums text-stone-600">
-                  {g} · {metrics.gradeDist[g]}
+                <span
+                  key={g}
+                  className="rounded-lg bg-stone-100 px-2.5 py-1.5 tabular-nums text-stone-600"
+                >
+                  <b className="text-stone-800">{g}</b> {metrics.gradeDist[g]}편
                 </span>
               ))}
             </div>
+            <p className="mt-2.5 text-[11px] leading-relaxed text-stone-400">
+              A = 즉답·표·FAQ·통계를 모두 갖춘 구조 / D = 보완 필요
+            </p>
             {metrics.topContent ? (
               <p className="mt-4 border-t border-stone-100 pt-3 text-[11px] leading-relaxed text-stone-500">
                 이번 달 최고 점수: <span className="font-medium text-stone-700">{metrics.topContent.title}</span>{' '}
@@ -247,16 +272,17 @@ export default async function ClientHomePage() {
           </div>
 
           <div className="mt-4 rounded-2xl border border-stone-200 bg-white p-5">
-            <h3 className="text-sm font-bold">월간 보고서</h3>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-stone-400">
-              이번 달 지표를 한 페이지로 정리한 보고서입니다. 링크는 우리 병원 전용입니다.
+            <h3 className="text-[15px] font-bold md:text-sm">월간 보고서</h3>
+            <p className="mt-2 break-keep text-[12px] leading-relaxed text-stone-500">
+              이번 달 지표를 한 페이지로 정리한 보고서입니다. 원장님께 그대로 공유하실 수 있고,
+              링크는 우리 병원 전용입니다.
             </p>
             {reportHref ? (
               <a
                 href={reportHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-3 inline-block rounded-lg bg-stone-900 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-stone-700"
+                className="mt-3.5 inline-flex min-h-[44px] items-center rounded-xl bg-stone-900 px-4 text-[13px] font-semibold text-white transition active:bg-stone-700 md:min-h-0 md:rounded-lg md:px-3.5 md:py-2 md:text-xs"
               >
                 {period.replace('-', '년 ')}월 보고서 보기
               </a>

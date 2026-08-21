@@ -119,14 +119,14 @@ function FooterColumn({
                 href={item.href}
                 target={item.external ? "_blank" : undefined}
                 rel={item.external ? "noopener noreferrer" : undefined}
-                className="text-sm text-stone-700 transition hover:text-stone-950"
+                className="inline-flex min-h-[44px] items-center text-[15px] text-stone-700 transition active:text-stone-950 md:min-h-0 md:text-sm md:hover:text-stone-950"
               >
                 {item.label}
               </a>
             </li>
           ) : (
             <li key={item.href}>
-              <Link href={item.href} className="text-sm text-stone-700 transition hover:text-stone-950">
+              <Link href={item.href} className="inline-flex min-h-[44px] items-center text-[15px] text-stone-700 transition active:text-stone-950 md:min-h-0 md:text-sm md:hover:text-stone-950">
                 {item.label}
               </Link>
             </li>

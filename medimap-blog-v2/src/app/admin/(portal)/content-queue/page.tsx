@@ -112,20 +112,28 @@ async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
+/*
+ * Round 169 (2026-08-20) — 모바일: 썸네일을 와이드 배너로.
+ * 96×64 썸네일은 모바일에서 본문 폭의 1/3 을 먹으면서 정작 무슨 이미지인지 안 보이고,
+ * 옆의 제목 영역을 60px 폭으로 눌러 한글이 2~3글자씩 끊겨 나왔다.
+ * 모바일 = 전폭 128px 높이 배너(내용 판독 가능), sm+ = 기존 96×64 그대로.
+ */
+const THUMB_BOX = 'h-32 w-full sm:h-16 sm:w-24 sm:shrink-0';
+
 function CoverThumb({ src, alt, channel }: { src: string | null; alt: string; channel?: string | null }) {
   const [errored, setErrored] = useState(false);
   if (!src || errored) {
     // Round 79 — FAQ(schema_org)는 이미지가 원래 없음 → 깨진 아이콘 대신 FAQ 표시
     if (channel === 'schema_org') {
       return (
-        <div className="flex h-16 w-24 flex-col items-center justify-center rounded-md border border-border bg-surface-muted/60 text-ink-soft">
+        <div className={cn(THUMB_BOX, 'flex flex-col items-center justify-center rounded-lg border border-border bg-surface-muted/60 text-ink-soft sm:rounded-md')}>
           <MessageSquare className="h-4 w-4" />
           <span className="mt-0.5 text-[9px] font-bold">FAQ</span>
         </div>
       );
     }
     return (
-      <div className="flex h-16 w-24 items-center justify-center rounded-md border border-dashed border-border bg-surface-subtle text-ink-muted">
+      <div className={cn(THUMB_BOX, 'flex items-center justify-center rounded-lg border border-dashed border-border bg-surface-subtle text-ink-muted sm:rounded-md')}>
         <ImageOff className="h-4 w-4" />
       </div>
     );
@@ -133,7 +141,7 @@ function CoverThumb({ src, alt, channel }: { src: string | null; alt: string; ch
   // eslint-disable-next-line @next/next/no-img-element
   return (
     <img src={src} alt={alt}
-      className="h-16 w-24 rounded-md border border-border bg-surface-subtle object-cover"
+      className={cn(THUMB_BOX, 'rounded-lg border border-border bg-surface-subtle object-cover sm:rounded-md')}
       loading="lazy" onError={() => setErrored(true)} />
   );
 }
@@ -456,7 +464,8 @@ export default function ContentManagementPage() {
   };
 
   return (
-    <div className="px-8 py-6">
+    // Round 169 (2026-08-20) — 모바일: px-8 하드코딩 → 반응형
+    <div className="px-4 py-5 md:px-8 md:py-6">
       <header className="admin-page-header">
         <div>
           <h1 className="admin-page-title">콘텐츠 관리</h1>
@@ -895,9 +904,14 @@ function PendingTab({
               {/* 좌측 4px stripe — 한눈에 자사/파트너 구분 */}
               <div className={cn('absolute inset-y-0 left-0 w-1', isSelf ? 'bg-ink' : 'bg-accent')} />
 
-              <div className="flex items-start gap-4 border-b border-border px-5 py-3 pl-6">
-                <CoverThumb src={q.cover_image_url} alt={q.cover_image_alt || q.title || 'cover'} channel={q.channel} />
-                <div className="min-w-0 flex-1">
+              {/* Round 169 (2026-08-20) — 모바일: 카드 상단을 세로 스택으로 재조립.
+                  순서(모바일): 배너 이미지 → 의료법/품질 칩 라인 → 메타·제목·발췌.
+                  sm+ 에서는 order 를 해제해 DOM 순서(썸네일 · 본문 · 우측 배지)로 복원 → 데스크톱 무변경. */}
+              <div className="flex flex-col gap-3 border-b border-border px-4 py-3 pl-5 sm:flex-row sm:items-start sm:gap-4 sm:px-5 sm:py-3 sm:pl-6">
+                <div className="order-1 sm:order-none sm:contents">
+                  <CoverThumb src={q.cover_image_url} alt={q.cover_image_alt || q.title || 'cover'} channel={q.channel} />
+                </div>
+                <div className="order-3 min-w-0 flex-1 sm:order-none">
                   <div className="flex flex-wrap items-center gap-2">
                     {/* Round 59 fix 5 — 자사/파트너 분기 chip (가장 prominent) */}
                     {isSelf ? (
@@ -919,12 +933,15 @@ function PendingTab({
                     <span className="text-[11px] text-ink-muted">{q.llm_provider || q.channel || '?'}</span>
                     {q.keyword_text && <span className="text-[11px] text-ink-muted">· {q.keyword_text}</span>}
                   </div>
-                  <h3 className="mt-1.5 text-sm font-bold text-ink">{q.title || '(제목 없음)'}</h3>
-                  <p className="mt-1 text-xs text-ink-soft line-clamp-2">
+                  {/* break-keep — 한글을 어절 단위로 끊어 좁은 폭에서도 읽히게 */}
+                  <h3 className="mt-1.5 min-w-0 break-keep text-[15px] font-bold leading-snug text-ink sm:text-sm">
+                    {q.title || '(제목 없음)'}
+                  </h3>
+                  <p className="mt-1 break-keep text-xs leading-relaxed text-ink-soft line-clamp-2">
                     {cardExcerpt(q)}
                   </p>
                 </div>
-                <div className="shrink-0 text-right">
+                <div className="order-2 flex flex-wrap items-center gap-2 sm:order-none sm:block sm:shrink-0 sm:text-right">
                   <div className={cn(
                     'inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold',
                     q.compliance_status === 'pass' ? 'bg-status-successSoft text-status-success' :
@@ -937,27 +954,42 @@ function PendingTab({
                      q.compliance_status === 'fail' ? '의료법 FAIL' : '검수 대기'}
                   </div>
                   {q.quality && (
-                    <div className="mt-1.5 flex justify-end">
+                    <div className="sm:mt-1.5 sm:flex sm:justify-end">
                       <QualityBadge quality={q.quality} />
                     </div>
                   )}
                 </div>
               </div>
-              <div className="flex items-center justify-between border-t border-border px-5 py-3 pl-6">
-                <div className="flex items-center gap-3">
-                  <button onClick={() => onPreview(q)} className="text-xs text-ink hover:underline">
-                    <FileText className="inline h-3.5 w-3.5" /> 본문 미리보기
-                  </button>
-                  <button onClick={() => onCopy(q)} className="text-xs text-ink hover:underline">
-                    <ClipboardCopy className="inline h-3.5 w-3.5" /> 본문 복사
-                    {q.cover_image_url && <span className="ml-1 text-[10px] text-ink-muted">(+이미지)</span>}
-                  </button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => onReject(q)} disabled={busyId === q.id} className="btn-secondary text-xs">
+              {/* Round 169 — 액션 행: 모바일에서 줄바꿈 허용 + 44px 터치 타겟.
+                  '발행 승인'만 flex-1 로 크게 잡아 되돌릴 수 없는 두 버튼(거부/승인)의
+                  타겟 크기를 확실히 구분한다(오탭 방지). */}
+              <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border px-4 py-2.5 pl-5 sm:px-5 sm:py-3 sm:pl-6">
+                <button
+                  onClick={() => onPreview(q)}
+                  className="inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-xs font-medium text-ink active:bg-surface-muted hover:underline sm:min-h-[32px] sm:px-0"
+                >
+                  <FileText className="h-3.5 w-3.5" /> 본문 미리보기
+                </button>
+                <button
+                  onClick={() => onCopy(q)}
+                  className="inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-xs font-medium text-ink active:bg-surface-muted hover:underline sm:min-h-[32px] sm:px-0"
+                >
+                  <ClipboardCopy className="h-3.5 w-3.5" /> 본문 복사
+                  {q.cover_image_url && <span className="text-[10px] text-ink-muted">(+이미지)</span>}
+                </button>
+                <div className="ml-auto flex w-full items-center gap-3 sm:w-auto sm:gap-2">
+                  <button
+                    onClick={() => onReject(q)}
+                    disabled={busyId === q.id}
+                    className="btn-secondary min-h-[44px] whitespace-nowrap px-3 text-xs"
+                  >
                     <X className="h-3.5 w-3.5" /> 거부
                   </button>
-                  <button onClick={() => onApprove(q)} disabled={busyId === q.id} className="btn-primary text-xs">
+                  <button
+                    onClick={() => onApprove(q)}
+                    disabled={busyId === q.id}
+                    className="btn-primary min-h-[44px] flex-1 whitespace-nowrap px-3 text-xs sm:flex-none"
+                  >
                     {busyId === q.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                     발행 승인
                   </button>

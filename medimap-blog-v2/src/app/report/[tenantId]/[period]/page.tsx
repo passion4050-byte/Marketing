@@ -301,7 +301,11 @@ export default async function PublicReportPage({
   if (!d) notFound();
 
   return (
-    <main style={{ background: '#F8FAFC', minHeight: '100vh', padding: '32px 16px' }}>
+    // 🔴 Round 169 (2026-08-20) — 모바일 전면 대응.
+    //   이 문서는 담당자가 원장님께 카톡으로 보내는 '월 구독료의 유일한 물증'이다.
+    //   기존엔 @media 0개 + flex 3분할 고정이라 375px 에서 지표 라벨이 6줄로 무너졌다.
+    //   인라인 스타일 구조(메일/PDF 호환)이므로 clamp() + auto-fit grid 로 해결한다.
+    <main style={{ background: '#F8FAFC', minHeight: '100vh', padding: 'clamp(12px, 4vw, 32px) clamp(10px, 3vw, 16px)' }}>
       <div
         style={{
           maxWidth: 720,
@@ -309,7 +313,7 @@ export default async function PublicReportPage({
           background: '#fff',
           borderRadius: 16,
           border: '1px solid #E2E8F0',
-          padding: '32px 28px',
+          padding: 'clamp(18px, 5vw, 32px) clamp(16px, 4.5vw, 28px)',
           fontFamily: "'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif",
           color: '#0F172A',
           lineHeight: 1.7,
@@ -328,20 +332,29 @@ export default async function PublicReportPage({
           >
             WECIRCLE · Monthly AI Search Report
           </div>
-          <h1 style={{ margin: '8px 0 0', fontSize: 26, fontWeight: 800 }}>{d.tenantName}</h1>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748B' }}>
-            {d.periodLabel} ({d.from} ~ {d.to}) · ChatGPT · Claude · Gemini · Perplexity 4개 엔진 측정
+          <h1 style={{ margin: '8px 0 0', fontSize: 'clamp(21px, 5.5vw, 26px)', fontWeight: 800, lineHeight: 1.25, wordBreak: 'keep-all' }}>{d.tenantName}</h1>
+          <p style={{ margin: '6px 0 0', fontSize: 12.5, color: '#64748B', lineHeight: 1.6, wordBreak: 'keep-all' }}>
+            {d.periodLabel} ({d.from} ~ {d.to})
+            <br />
+            ChatGPT · Claude · Gemini · Perplexity 4개 엔진 측정
           </p>
         </div>
 
         {/* 핵심 3지표 */}
-        <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+            gap: 10,
+            marginBottom: 10,
+          }}
+        >
           {[
             {
               v: d.mentions.toLocaleString(),
               l: 'AI 답변에 병원 이름이 등장',
               c: '#0E5A6B',
-              sub: `측정 질의 ${d.queries.toLocaleString()}회 중`,
+              sub: `AI 에 ${d.queries.toLocaleString()}번 물어본 결과 중`,
             },
             {
               v: d.clientSiteCitations.toLocaleString(),
@@ -359,19 +372,29 @@ export default async function PublicReportPage({
             <div
               key={k.l}
               style={{
-                flex: 1,
                 background: '#F8FAFC',
                 border: '1px solid #E2E8F0',
                 borderRadius: 10,
-                padding: '14px 10px',
+                padding: '16px 12px',
                 textAlign: 'center',
+                wordBreak: 'keep-all',
               }}
             >
-              <div style={{ fontSize: 26, fontWeight: 800, color: k.c }}>{k.v}</div>
-              <div style={{ fontSize: 11, color: '#334155', marginTop: 4, fontWeight: 600 }}>
+              <div style={{ fontSize: 28, fontWeight: 800, color: k.c, lineHeight: 1.1 }}>{k.v}</div>
+              <div
+                style={{
+                  fontSize: 12.5,
+                  color: '#334155',
+                  marginTop: 6,
+                  fontWeight: 600,
+                  lineHeight: 1.45,
+                }}
+              >
                 {k.l}
               </div>
-              <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>{k.sub}</div>
+              <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4, lineHeight: 1.4 }}>
+                {k.sub}
+              </div>
             </div>
           ))}
         </div>
@@ -382,8 +405,10 @@ export default async function PublicReportPage({
             background: '#FFFBEB',
             border: '1px solid #FDE68A',
             borderRadius: 8,
-            padding: '12px 14px',
-            fontSize: 12,
+            padding: '14px 16px',
+            fontSize: 12.5,
+            lineHeight: 1.7,
+            wordBreak: 'keep-all',
             color: '#78350F',
             marginBottom: 24,
           }}
@@ -415,10 +440,10 @@ export default async function PublicReportPage({
         {/* 실제 답변 발췌 */}
         {d.samples.length > 0 && (
           <>
-            <h2 style={{ fontSize: 15, fontWeight: 800, margin: '28px 0 4px' }}>
+            <h2 style={{ fontSize: 'clamp(15px, 4vw, 16px)', fontWeight: 800, margin: '28px 0 5px', lineHeight: 1.4 }}>
               AI 가 실제로 답한 내용
             </h2>
-            <p style={{ fontSize: 12, color: '#64748B', margin: '0 0 12px' }}>
+            <p style={{ fontSize: 12.5, color: '#64748B', margin: '0 0 12px', lineHeight: 1.65, wordBreak: 'keep-all' }}>
               병원 이름이 등장한 답변 원문 일부입니다. 직접 같은 질문을 해보시면 확인하실 수 있습니다.
             </p>
             {d.samples.map((s, i) => (
@@ -427,19 +452,19 @@ export default async function PublicReportPage({
                 style={{
                   border: '1px solid #E2E8F0',
                   borderRadius: 8,
-                  padding: '12px 14px',
+                  padding: '13px 15px',
                   marginBottom: 8,
                   background: '#FAFAFA',
                 }}
               >
-                <div style={{ fontSize: 11, color: '#64748B', marginBottom: 5 }}>
+                <div style={{ fontSize: 11.5, color: '#64748B', marginBottom: 6, lineHeight: 1.6, wordBreak: 'keep-all' }}>
                   <b style={{ color: '#0F172A' }}>{ENGINE_LABEL[s.engine] ?? s.engine}</b>
                   {' · 질문 "'}
                   {s.keyword}
                   {'" · '}
                   {s.at}
                 </div>
-                <div style={{ fontSize: 12.5, color: '#334155' }}>…{s.snippet}…</div>
+                <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.75, wordBreak: 'keep-all' }}>…{s.snippet}…</div>
               </div>
             ))}
           </>
@@ -494,17 +519,29 @@ function Section({
 }) {
   return (
     <>
-      <h2 style={{ fontSize: 15, fontWeight: 800, margin: '28px 0 4px' }}>
+      <h2
+        style={{
+          fontSize: 'clamp(15px, 4vw, 16px)',
+          fontWeight: 800,
+          margin: '28px 0 5px',
+          lineHeight: 1.4,
+          wordBreak: 'keep-all',
+        }}
+      >
         <span style={{ color: accent }}>■</span> {title}
       </h2>
-      <p style={{ fontSize: 12, color: '#64748B', margin: '0 0 12px' }}>{desc}</p>
+      <p style={{ fontSize: 12.5, color: '#64748B', margin: '0 0 12px', lineHeight: 1.65, wordBreak: 'keep-all' }}>
+        {desc}
+      </p>
       {rows.length === 0 ? (
         <div
           style={{
             border: '1px dashed #CBD5E1',
             borderRadius: 8,
-            padding: '16px 14px',
+            padding: '16px 15px',
             fontSize: 12.5,
+            lineHeight: 1.7,
+            wordBreak: 'keep-all',
             color: '#64748B',
             background: '#FAFAFA',
           }}
@@ -518,8 +555,8 @@ function Section({
             style={{
               border: '1px solid #E2E8F0',
               borderRadius: 8,
-              padding: '11px 13px',
-              marginBottom: 7,
+              padding: '13px 14px',
+              marginBottom: 8,
             }}
           >
             <a

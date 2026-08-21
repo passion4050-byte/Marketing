@@ -1,9 +1,16 @@
 ﻿'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { ScopeSelector } from '@/components/admin/ScopeSelector';
+import {
+  ScopeSelector,
+  SCOPES,
+  SCOPE_EVENT,
+  persistScope,
+  readScope,
+  scopeShortLabel,
+} from '@/components/admin/ScopeSelector';
 import {
   Beaker,
   BookOpen,
@@ -12,6 +19,7 @@ import {
   ClipboardCheck,
   DollarSign,
   FileText,
+  Check,
   Globe,
   History,
   Inbox,
@@ -100,6 +108,7 @@ const NAV: NavGroup[] = [
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   // Round 37 G (2026-05-31) — 모바일 햄버거 사이드바.
   // md (768px) 이상: 고정 사이드바. 미만: 햄버거 + drawer overlay.
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -109,9 +118,32 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     setMobileOpen(false);
   }, [pathname]);
 
-  // drawer 열렸을 때 body scroll lock
+  /*
+   * Round 169 (2026-08-20) — 모바일: 언어 스코프 바텀시트.
+   * 저장 로직은 ScopeSelector 의 persistScope 를 그대로 재사용 —
+   * localStorage(wc_admin_scope) + cookie(max-age=31536000) + wc-scope 이벤트.
+   */
+  const [scopeOpen, setScopeOpen] = useState(false);
+  const [scope, setScope] = useState('all');
   useEffect(() => {
-    if (mobileOpen) {
+    setScope(readScope());
+    const onEvt = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (typeof detail === 'string') setScope(detail);
+    };
+    window.addEventListener(SCOPE_EVENT, onEvt);
+    return () => window.removeEventListener(SCOPE_EVENT, onEvt);
+  }, []);
+  const pickScope = (k: string) => {
+    setScope(k);
+    persistScope(k);
+    setScopeOpen(false);
+    router.refresh();
+  };
+
+  // drawer / 바텀시트 열렸을 때 body scroll lock
+  useEffect(() => {
+    if (mobileOpen || scopeOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -119,7 +151,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     return () => {
       document.body.style.overflow = '';
     };
-  }, [mobileOpen]);
+  }, [mobileOpen, scopeOpen]);
 
   const onLogout = async () => {
     await fetch('/api/admin/logout', { method: 'POST' });
@@ -153,6 +185,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       alive = false;
     };
   }, [pathname]);
+  // Round 169 — 모바일 헤더 pill / 햄버거 점에 쓰는 처리 대기 합계
+  const totalPending = badges.pendingContent + badges.newLeads;
 
   /* 그룹 접힘 — 시스템처럼 거의 안 보는 그룹은 기본 접힘. 선택은 localStorage 유지. */
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -286,24 +320,120 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         {sidebarContent}
       </aside>
 
-      {/* 모바일 햄버거 헤더 (md 미만) */}
-      <div className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-surface-subtle px-4 md:hidden">
+      {/* 모바일 햄버거 헤더 (md 미만)
+          Round 169 (2026-08-20) — 모바일:
+            · 우측의 빈 스페이서 <div className="w-10" /> 를 언어 스코프 칩으로 대체.
+              (기존엔 스코프 셀렉터가 md:flex 바에만 있어 모바일에선 전환 자체가 불가능)
+            · 처리 대기(검수+문의) 합계를 숫자 pill 로 노출 — 탭하면 콘텐츠 관리로.
+            · 햄버거에도 빨간 점 — 서랍을 열지 않아도 할 일 유무를 알 수 있게. */}
+      <div className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-surface-subtle px-3 md:hidden">
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label="메뉴 열기"
-          className="-ml-2 flex h-10 w-10 items-center justify-center rounded-md text-ink-soft hover:bg-surface-muted"
+          className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-ink-soft active:bg-surface-muted"
         >
           <Menu className="h-5 w-5" />
+          {totalPending > 0 && (
+            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-status-danger ring-2 ring-surface-subtle" />
+          )}
         </button>
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-ink text-white">
+
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-ink text-white">
             <ShieldCheck className="h-3.5 w-3.5" />
           </div>
-          <span className="text-sm font-black tracking-tight text-ink">WECIRCLE GEO</span>
+          <span className="truncate text-[13px] font-black tracking-tight text-ink">WECIRCLE GEO</span>
         </div>
-        <div className="w-10" />
+
+        {totalPending > 0 && (
+          <Link
+            href="/admin/content-queue"
+            aria-label={`처리 대기 ${totalPending}건`}
+            className="flex min-h-[36px] shrink-0 items-center gap-1 rounded-full bg-status-danger px-2.5 text-[12px] font-bold tabular-nums text-white active:scale-95"
+          >
+            <Inbox className="h-3.5 w-3.5" />
+            {totalPending > 99 ? '99+' : totalPending}
+          </Link>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setScopeOpen(true)}
+          aria-label="언어 스코프 변경"
+          aria-haspopup="dialog"
+          className="flex min-h-[36px] shrink-0 items-center gap-1 rounded-full border border-border bg-surface-base px-2.5 text-[12px] font-bold text-ink-soft active:scale-95"
+        >
+          <Globe className="h-3.5 w-3.5 text-ink-muted" />
+          {scopeShortLabel(scope)}
+          <ChevronDown className="h-3 w-3 text-ink-muted" />
+        </button>
       </div>
+
+      {/* 모바일 언어 스코프 바텀시트 — 엄지가 닿는 화면 하단에서 선택 */}
+      {scopeOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/40 md:hidden"
+            onClick={() => setScopeOpen(false)}
+            aria-hidden
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="언어 스코프"
+            className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border-t border-border bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl md:hidden"
+          >
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border" />
+            <div className="mb-1 flex items-center justify-between">
+              <div>
+                <div className="text-[15px] font-black tracking-tight text-ink">언어 스코프</div>
+                <div className="mt-0.5 text-[11px] text-ink-muted">
+                  선택한 언어의 데이터만 어드민 전체에 적용됩니다
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setScopeOpen(false)}
+                aria-label="닫기"
+                className="-mr-1 flex h-10 w-10 items-center justify-center rounded-md text-ink-muted active:bg-surface-muted"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mt-2 divide-y divide-border/70">
+              {SCOPES.map((sc) => {
+                const active = scope === sc.key;
+                return (
+                  <button
+                    key={sc.key}
+                    type="button"
+                    onClick={() => pickScope(sc.key)}
+                    className={cn(
+                      'flex min-h-[52px] w-full items-center gap-3 px-1 text-left transition active:bg-surface-muted',
+                      active && 'font-bold',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'flex h-8 w-11 shrink-0 items-center justify-center rounded-md text-[11px] font-bold',
+                        active ? 'bg-ink text-white' : 'bg-surface-muted text-ink-soft',
+                      )}
+                    >
+                      {sc.short}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[14px] text-ink">{sc.label}</span>
+                      <span className="block truncate text-[11px] text-ink-muted">{sc.desc}</span>
+                    </span>
+                    {active && <Check className="h-4 w-4 shrink-0 text-ink" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* 모바일 drawer overlay */}
       {mobileOpen && (

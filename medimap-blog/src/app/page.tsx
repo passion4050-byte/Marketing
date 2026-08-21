@@ -211,7 +211,7 @@ export default async function HomePage() {
               <dl className="grid grid-cols-3 gap-6 border-t border-stone-300 pt-8">
                 <StatCell overline="Categories" value="07" caption="진료과" />
                 <StatCell overline="Published" value={totalPosts.toLocaleString()} caption="누적 콘텐츠" />
-                <StatCell overline="Compliance" value="100%" caption="의료법 통과" />
+                <StatCell overline="Compliance" value="9개 룰" caption="자체 광고 린트 적용" />
               </dl>
             </div>
 
