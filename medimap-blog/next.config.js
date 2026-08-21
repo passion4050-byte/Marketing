@@ -15,6 +15,13 @@ const nextConfig = {
       { protocol: "https", hostname: "gifopyowyankfsfghhdi.supabase.co" },
       { protocol: "https", hostname: "*.supabase.co" },
     ],
+    // Round 170 (2026-08-21) - bypass Vercel Image Optimization.
+    //   /_next/image returned 402 PAYMENT_REQUIRED for ALL requests
+    //   (OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED): the Hobby plan's 5K/month
+    //   image transformation quota was exhausted, so every image broke.
+    //   Fix: render the original Supabase URL directly. The real fix is making
+    //   the originals small - scripts/compress_post_images.py (1200px JPEG).
+    unoptimized: true,
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 2678400,
   },

@@ -1,0 +1,73 @@
+name: Compress post-images
+
+# Round 170 (2026-08-21) — post-images 원본을 축소 재압축 (커버 1200px JPEG / 본문 900px).
+#   배경: Vercel Hobby 이미지 변환 쿼터(5,000회/월) 소진 → /_next/image 가
+#   402 PAYMENT_REQUIRED → 사이트 전역 이미지 엑박. next.config.js 에
+#   images.unoptimized=true 로 Supabase 원본 직배송 전환했으나 원본이
+#   평균 1.0MB 라 모바일이 느리다. 원본 자체를 줄이는 것이 근본 해법.
+#
+#   같은 object name 으로 덮어쓰므로 공개 URL 이 바뀌지 않는다 →
+#   generated_contents 는 한 줄도 수정하지 않는다 (DB 무위험).
+#
+# 실행 방법:
+#   1) 수동 dry run  : Actions → Compress post-images → Run workflow (dry_run=1)
+#   2) 수동 실제 실행: 같은 화면에서 dry_run=0 (LIMIT 만큼 처리, 남으면 재실행)
+#   3) 자동 실행     : 매일 03:00 KST. 기본은 **dry run**.
+#      실제 압축까지 자동화하려면 Settings → Secrets and variables → Actions →
+#      Variables 탭에 COMPRESS_IMAGES_LIVE = 1 을 추가한다.
+#
+# secrets: DATABASE_URL · SUPABASE_URL · SUPABASE_SERVICE_ROLE_KEY
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "1 = 계산만(기본) · 0 = 실제 덮어쓰기(원본 대체, 되돌릴 수 없음)"
+        required: false
+        default: "1"
+      limit:
+        description: "한 번에 처리할 최대 개수 (기본 300)"
+        required: false
+        default: "300"
+  schedule:
+    # 매일 18:00 UTC = 03:00 KST — 신규 발행 이미지 뒷정리
+    - cron: "0 18 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compress-post-images
+  cancel-in-progress: false
+
+jobs:
+  compress:
+    name: Recompress oversized post-images
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install "sqlalchemy>=2.0" "psycopg2-binary>=2.9" "requests>=2.31" "pillow>=10.0"
+
+      - name: Run compressor
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # 수동 실행은 입력값을, 스케줄 실행은 COMPRESS_IMAGES_LIVE=1 일 때만 실제 압축.
+          DRY_RUN: ${{ github.event.inputs.dry_run || (vars.COMPRESS_IMAGES_LIVE == '1' && '0' || '1') }}
+          LIMIT: ${{ github.event.inputs.limit || '200' }}
+          COVER_MAX_W: '1200'
+          BODY_MAX_W: '900'
+          QUALITY: '82'
+          MIN_BYTES: '250000'
+        run: python scripts/compress_post_images.py
