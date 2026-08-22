@@ -12,6 +12,8 @@ images.unoptimized=true 를 넣어 Supabase 원본을 직배송 중이나, 원�
 - 처리: 긴 변(가로) 상한까지 축소 → JPEG(q=QUALITY) 재인코딩
         (투명도가 실제로 있는 이미지만 WEBP — 알파 보존)
         커버(기본 1200px) / 본문 body/ 접두사(기본 900px)
+- 헤더: Cache-Control 이 no-cache 인 파일은 축소 대상이 아니어도 원본 그대로
+        1년 immutable 로 재업로드 (화질·크기 변화 없음)
 - 저장: **같은 object name 으로 덮어쓰기** → 공개 URL 불변
         → generated_contents.cover_image_url/body 를 한 줄도 건드리지 않는다.
         (확장자는 .png 로 남지만 Content-Type 헤더가 진실이며
@@ -50,10 +52,12 @@ SUPPORTED_MIME = {"image/png", "image/jpeg", "image/jpg", "image/webp"}
 PICK_SQL = """
 SELECT o.name,
        COALESCE((o.metadata->>'size')::bigint, 0) AS size,
-       COALESCE(o.metadata->>'mimetype', '') AS mime
+       COALESCE(o.metadata->>'mimetype', '') AS mime,
+       COALESCE(o.metadata->>'cacheControl', '') AS cc
 FROM storage.objects o
 WHERE o.bucket_id = :bucket
-  AND COALESCE((o.metadata->>'size')::bigint, 0) > :min_bytes
+  AND ( COALESCE((o.metadata->>'size')::bigint, 0) > :min_bytes
+        OR COALESCE(o.metadata->>'cacheControl', '') NOT LIKE 'public%%' )
   AND (:prefix = '' OR o.name LIKE :prefix_like)
 ORDER BY COALESCE((o.metadata->>'size')::bigint, 0) DESC
 LIMIT :limit
@@ -185,23 +189,34 @@ def main() -> int:
     headers = {"Authorization": f"Bearer {supa_key}", "apikey": supa_key}
     base = f"{supa_url}/storage/v1"
     before = after = 0
-    done = skipped = 0
+    done = skipped = header_only = 0
     consecutive_failures = 0
 
     for i, r in enumerate(rows, 1):
         name, size, mime = r.name, r.size, (r.mime or "").lower()
+        cc = r.cc or ""
+        need_shrink = size > min_bytes
+        # 🔴 Round 170b — 캐시 헤더 교정 경로.
+        #   생성 파이프라인이 Cache-Control: no-cache 로 올리고 있어 방문자가
+        #   매 방문마다 이미지를 다시 받는다 (2026-08-19 Supabase egress 쿼터 사고의
+        #   구조적 원인 중 하나). 250KB 미만 파일은 축소 대상이 아니라 영원히
+        #   no-cache 로 남는 구멍이 있었다.
+        #   → 재인코딩이 필요없거나 절감이 미미한 파일은 **원본 바이트 그대로**
+        #     1년 immutable 헤더로 다시 올린다. 화질·크기 변화 0, 헤더만 교정.
+        need_header = not cc.startswith("public")
+        if not need_shrink and not need_header:
+            skipped += 1
+            continue
         if mime and mime not in SUPPORTED_MIME:
             logger.info("[%s/%s] skip(mime=%s) %s", i, len(rows), mime, name)
             skipped += 1
             continue
+
         try:
             g = requests.get(f"{base}/object/public/{BUCKET}/{name}", timeout=60)
             if g.status_code >= 300:
                 raise RuntimeError(f"download {g.status_code}")
-            out = recompress(g.content, target_width(name, cover_w, body_w), quality)
-            if out is None:
-                raise RuntimeError("decode failed")
-            data, w, h, mime_out = out
+            raw = g.content
             consecutive_failures = 0
         except Exception as e:
             consecutive_failures += 1
@@ -212,49 +227,48 @@ def main() -> int:
             skipped += 1
             continue
 
-        saving = 1 - len(data) / max(1, size)
-        if saving < min_saving:
+        data = None
+        mime_out = mime or "image/jpeg"
+        mode = None
+        if need_shrink:
+            out = recompress(raw, target_width(name, cover_w, body_w), quality)
+            if out is not None:
+                cand, w, h, cmime = out
+                saving = 1 - len(cand) / max(1, size)
+                if saving >= min_saving:
+                    data, mime_out, mode = cand, cmime, "shrink"
+                    before += size
+                    after += len(data)
+                    logger.info(
+                        "[%s/%s] %s  %.0fKB → %.0fKB (-%.0f%%, %sx%s)%s",
+                        i, len(rows), name, size / 1024, len(data) / 1024,
+                        100 * saving, w, h, "  [DRY]" if dry else "",
+                    )
+        if data is None and need_header:
+            data, mode = raw, "header"
             logger.info(
-                "[%s/%s] skip(절감 %.0f%% < %.0f%%) %s", i, len(rows),
-                100 * saving, 100 * min_saving, name,
+                "[%s/%s] %s  헤더만 교정 (%.0fKB 유지, cc=%r)%s",
+                i, len(rows), name, size / 1024, cc, "  [DRY]" if dry else "",
             )
+        if mode is None:
             skipped += 1
             continue
 
-        before += size
-        after += len(data)
-        logger.info(
-            "[%s/%s] %s  %.0fKB → %.0fKB (-%.0f%%, %sx%s)%s",
-            i, len(rows), name, size / 1024, len(data) / 1024, 100 * saving, w, h,
-            "  [DRY]" if dry else "",
-        )
         if dry:
             done += 1
+            if mode == "header":
+                header_only += 1
             continue
 
-        up = requests.put(
-            f"{base}/object/{BUCKET}/{name}",
-            data=data,
-            headers={
-                **headers,
-                "Content-Type": mime_out,
-                "Cache-Control": "public, max-age=31536000, immutable",
-                "x-upsert": "true",
-            },
-            timeout=120,
-        )
+        hdrs = {
+            **headers,
+            "Content-Type": mime_out,
+            "Cache-Control": "public, max-age=31536000, immutable",
+            "x-upsert": "true",
+        }
+        up = requests.put(f"{base}/object/{BUCKET}/{name}", data=data, headers=hdrs, timeout=120)
         if up.status_code >= 300:
-            up = requests.post(
-                f"{base}/object/{BUCKET}/{name}",
-                data=data,
-                headers={
-                    **headers,
-                    "Content-Type": mime_out,
-                    "Cache-Control": "public, max-age=31536000, immutable",
-                    "x-upsert": "true",
-                },
-                timeout=120,
-            )
+            up = requests.post(f"{base}/object/{BUCKET}/{name}", data=data, headers=hdrs, timeout=120)
         if up.status_code >= 300:
             logger.error("업로드 실패(%s) %s: %s", up.status_code, name, up.text[:300])
             return 1
@@ -267,10 +281,13 @@ def main() -> int:
             logger.error("검증 실패 — 업로드본이 열리지 않음 %s (%s) — 즉시 중단", name, e)
             return 1
         done += 1
+        if mode == "header":
+            header_only += 1
 
     logger.info(
-        "완료 — 처리 %s개 · 건너뜀 %s개 · %.0f MB → %.0f MB (-%.0f%%)%s",
-        done, skipped, before / 1048576, after / 1048576,
+        "완료 — 처리 %s개(축소 %s · 헤더교정 %s) · 건너뜀 %s개 · %.0f MB → %.0f MB (-%.0f%%)%s",
+        done, done - header_only, header_only, skipped,
+        before / 1048576, after / 1048576,
         100 * (1 - after / max(1, before)),
         "  ※ DRY_RUN=1 — 실제 업로드 없음. 실행하려면 DRY_RUN=0" if dry else "",
     )
