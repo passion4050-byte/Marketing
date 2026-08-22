@@ -59,12 +59,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }),
   );
 
-  const postPages: MetadataRoute.Sitemap = posts.map((p) => ({
-    url: absoluteUrl(`/blog/${p.slug}`),
-    lastModified: new Date(p.updated ?? p.date),
-    changeFrequency: "monthly",
-    priority: 0.8,
-  }));
+  // Round 172 (2026-08-22) - crawl budget reclaim.
+  //   GSC: 175 indexed / 390 not indexed; 326 of those are "Discovered - currently
+  //   not indexed". Google's per-site crawl budget is exhausted, so leaving hopeless
+  //   URLs in the sitemap lets them eat what budget is left. Posts older than 45 days
+  //   with zero impressions are flagged (generated_contents.noindex) and dropped here.
+  //   Revert: set noindex = false; the next revalidate (1h) brings them back.
+  const postPages: MetadataRoute.Sitemap = posts
+    .filter((p) => !p.noindex)
+    .map((p) => ({
+      url: absoluteUrl(`/blog/${p.slug}`),
+      lastModified: new Date(p.updated ?? p.date),
+      changeFrequency: "monthly",
+      priority: 0.8,
+    }));
 
   // 파트너별 list 페이지 (중복 제거)
   const partnerListSeen = new Set<string>();
@@ -81,14 +89,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
   }
 
-  const partnerPostPages: MetadataRoute.Sitemap = partnerPosts.map((p) => ({
-    url: absoluteUrl(
-      `/with-partners/${p.partner_category}/${p.partner_slug}/${p.slug}`,
-    ),
-    lastModified: new Date(p.published_at),
-    changeFrequency: "monthly",
-    priority: 0.8,
-  }));
+  // Round 172 - partner posts use the same rule (see comment above)
+  const partnerPostPages: MetadataRoute.Sitemap = partnerPosts
+    .filter((p) => !p.noindex)
+    .map((p) => ({
+      url: absoluteUrl(
+        `/with-partners/${p.partner_category}/${p.partner_slug}/${p.slug}`,
+      ),
+      lastModified: new Date(p.published_at),
+      changeFrequency: "monthly",
+      priority: 0.8,
+    }));
 
   // 해외(overseas) — 홈 + 블로그 인덱스 + 클리닉 허브 + 콘텐츠 상세(canonical URL)
   //   파트너 콘텐츠는 canonical 이 /{lang}/clinics/{cat}/{partner}/{slug} (guides 는 301 리다이렉트),

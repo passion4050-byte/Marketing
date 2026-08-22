@@ -209,6 +209,8 @@ interface DbPostRow {
   cover_image_url: string | null;
   cover_image_alt: string | null;
   cover_image_prompt: string | null;
+  /** Round 172 - crawl budget reclaim flag: excluded from sitemap + robots noindex. */
+  noindex: boolean | null;
 }
 
 const DB_SELECT = `
@@ -218,7 +220,8 @@ const DB_SELECT = `
   gc.slug, gc.title, gc.excerpt, gc.blog_category,
   gc.published_at,
   gc.created_at, gc.updated_at,
-  gc.cover_image_url, gc.cover_image_alt, gc.cover_image_prompt
+  gc.cover_image_url, gc.cover_image_alt, gc.cover_image_prompt,
+  gc.noindex
 `;
 
 const DB_FILTER = `
@@ -330,7 +333,8 @@ async function getDbPostRowBySlug(slug: string): Promise<DbPostRow | null> {
         gc.slug, gc.title, gc.excerpt, gc.blog_category,
         gc.published_at,
         gc.created_at, gc.updated_at,
-        gc.cover_image_url, gc.cover_image_alt, gc.cover_image_prompt
+        gc.cover_image_url, gc.cover_image_alt, gc.cover_image_prompt,
+        gc.noindex
       FROM generated_contents gc
       LEFT JOIN tenants t ON t.id = gc.tenant_id
       WHERE gc.slug = ${slug}
@@ -448,6 +452,7 @@ function dbRowToPostMeta(row: DbPostRow): PostMeta {
     cover_image_url: row.cover_image_url ?? undefined,
     cover_image_alt: row.cover_image_alt ?? undefined,
     coverCredit: parseCoverCredit(row.cover_image_prompt),
+    noindex: row.noindex ?? false,
   };
 }
 

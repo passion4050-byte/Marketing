@@ -85,6 +85,12 @@ export async function generateMetadata({
     title: displayTitle,
     description: post.description,
     keywords: post.tags,
+    // Round 172 (2026-08-22) - crawl budget reclaim.
+    //   GSC: 175 indexed / 390 not indexed; 326 "Discovered - not crawled".
+    //   Posts older than 45 days with zero impressions drop out of the index
+    //   (sitemap exclusion + noindex here). The page itself stays reachable.
+    //   Revert by setting generated_contents.noindex = false.
+    robots: post.noindex ? { index: false, follow: true } : undefined,
     alternates: { canonical: `/blog/${post.slug}` },
     openGraph: {
       title: displayTitle,
