@@ -5899,5 +5899,160 @@ self_only **해제**하고 Run. (⏳ 사용자 실행 대기 — 남은 대상 3
 - 로그인: `autoCapitalize` 부재로 **iOS 가 발급 아이디 첫 글자를 대문자로 바꿔 계속 튕김** + 14px 확대 + name 부재로 키체인 자동입력 실패(비번이 랜덤 10자라 치명적) → 전부 수정, 48px 타겟.
 
 ### 검증
+
+---
+
+# Round 170 (2026-08-21~22) — 이미지 파이프라인 전면 수술
+
+## 0. 30초 요약
+
+모바일에서 사이트 전역 이미지가 엑박. 원인은 코드 버그가 아니라 **Vercel Hobby 플랜의 이미지 변환 쿼터 소진**이었다. 우회(unoptimized) → 원본 축소(1,439MB→95MB) → 캐시 헤더 교정(no-cache→1년) 3단계로 해결. 생성 코드는 끝까지 건드리지 않았다.
+
+**현재 상태 (2026-08-22 기준 실측)**
+
+| 항목 | 값 |
+|---|---|
+| post-images 버킷 | 1,441개 · **95 MB** (사고 전 1,439 MB) |
+| 평균 파일 크기 | **67 KB** (사고 전 1,047 KB) |
+| `no-cache` 파일 | **0개** (전부 `public, max-age=31536000, immutable`) |
+| 250KB 초과 | 17개 (전부 이미 압축된 JPEG — 스크립트가 정상 skip) |
+
+---
+
+## 1. 🔴 진단 경로 — 402 를 찾아낸 순서 (재현 가능한 절차)
+
+증상만 보면 "R169에서 `unoptimized` 제거한 게 범인" 같지만 **아니었다.** 다음 순서로 좁혔다.
+
+1. **Supabase 원본이 살아있나?** → WebFetch 로 blob 직접 요청 → 정상 이미지 응답. 원본 OK.
+2. **DB↔Storage 정합성?** → `cover_image_url` 참조 전량 vs `storage.objects` 대조 → 누락 0건. 고아 정리(R166)가 원인 아님.
+3. **렌더된 src 확인** → 페이지 rawHtml 스크레이프 → 전부 `/_next/image?url=...`. 최적화 경유 확인.
+4. **최적화 URL 직접 호출** → 400/에러. 여기서 멈추면 오진한다.
+5. **🔴 결정적 한 수 — 에러 본문을 읽어라.** WebFetch 는 에러 바디를 안 준다. Firecrawl `firecrawl_scrape(formats:["rawHtml"], maxAge:0)` 로 최적화 URL 자체를 긁으면 Vercel 에러 페이지가 그대로 나온다:
+```
+   402: PAYMENT_REQUIRED
+   Code: OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED
+```
+6. **범위 확인** — 다른 호스트(image.pollinations.ai), 존재하지 않는 파일, 다른 width 전부 402. **호스트·크기 무관 = 쿼터 소진**이지 remotePatterns 문제가 아니다.
+
+**교훈**: `/_next/image` 가 실패하면 remotePatterns·next.config 를 의심하기 전에 **에러 바디부터 읽어라.** 상태코드만으로는 "호스트 거부"와 "쿼터 소진"이 구분되지 않는다.
+
+**Vercel 공식 스펙** (docs/image-optimization/limits-and-pricing): Hobby = 이미지 변환 5,000회/월. 초과 시 *새* 이미지는 402 로 실패하고 alt 텍스트만 남으며, **이미 캐시된 이미지만 계속 동작**한다. 그래서 "일부만 깨진 것처럼" 보인다.
+
+---
+
+## 2. 조치 3단계
+
+### 2-1. 응급 — `medimap-blog/next.config.js`
+```js
+images: {
+  remotePatterns: [...],
+  unoptimized: true,   // Round 170 — Vercel 최적화 전면 우회
+  formats: ["image/avif", "image/webp"],
+  minimumCacheTTL: 2678400,
+}
+```
+next/image 가 Supabase 원본 URL 을 그대로 렌더. 배포 후 `/blog` 의 `_next/image` 참조 0건 / 직접 supabase URL 13건 실측 확인.
+
+### 2-2. 근본 — `scripts/compress_post_images.py` (신규)
+- 대상: `storage.objects(bucket=post-images)` 중 `size > MIN_BYTES(250KB)` **또는** `cacheControl NOT LIKE 'public%'`
+- 축소: 커버 1200px / 본문(`body/` 접두사) 900px → **JPEG q82**
+- **JPEG 를 기본으로 한 이유**: WEBP 가 20~25% 더 작지만 커버는 `og:image` 로 카카오톡·네이버 공유 미리보기에 쓰인다. 구형 OG 스크레이퍼가 WEBP 를 못 읽으면 CTA 유입에 직접 손해. 투명도가 **실제로** 있는 이미지만 WEBP(알파 보존). `FORMAT=WEBP` 로 강제 전환 가능.
+- **헤더 교정 경로**: 절감 15% 미만이거나 축소 불필요한 파일이라도 `cacheControl` 이 잘못돼 있으면 **원본 바이트 그대로** 1년 immutable 헤더로 재업로드. 화질·크기 변화 0.
+- **같은 object name 으로 덮어쓰기** → 공개 URL 불변 → `generated_contents` 를 한 줄도 안 건드린다 (DB 리스크 0).
+- 안전장치: `DRY_RUN=1` 기본 / `LIMIT` / 업로드 직후 재다운로드 Pillow verify 실패 시 즉시 중단 / 연속 5회 실패 중단 / **삭제 명령 없음**
+
+### 2-3. 자동화 — `.github/workflows/compress-post-images.yml` (신규)
+- `workflow_dispatch` (dry_run·limit 입력) + `schedule: 0 */6 * * *`
+- 스케줄 실행은 **repo variable `COMPRESS_IMAGES_LIVE=1`** 일 때만 실제 압축 (없으면 dry run)
+- secrets: `DATABASE_URL` · `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY`
+
+**커밋**: 43baaf2(R170) → de4e814(6h 주기) → 5c59f51(R170b 헤더 교정)
+
+---
+
+## 3. 🔴 왜 생성 코드를 안 고쳤나 (의도적 결정)
+
+업로드 지점은 4곳: `src/content/image_uploader.py:31`, `src/content/nano_banana_client.py:226`, `src/content/image_picker.py:461`, `medimap-blog-v2/src/app/api/admin/content-queue/[id]/regenerate-image/route.ts:205`.
+
+**넣지 않기로 했다.**
+- 리사이즈를 생성기에도 넣으면 화질 파라미터(1200px/q82)가 두 곳에 갈라져 나중에 어긋난다. 이미지 위생은 **한 곳(압축 스크립트)이 책임진다.**
+- 헤더도 압축 스크립트의 "헤더 교정 경로"가 6시간 내 자동으로 잡는다.
+- 남는 리스크는 신규 이미지가 **최대 6시간** 동안 큰 원본 + no-cache 로 서빙되는 것뿐. 발행 직후 소수 방문자에게만 해당.
+- 부수 효과: 소스 파일을 세션으로 옮기는 왕복이 불필요해진다 (실제로 2회 실패했다).
+
+**다시 검토할 조건**: 발행량이 하루 100장을 넘거나, 6시간 창의 egress 가 유의미해질 때.
+
+---
+
+## 4. 🔴 두 PC 클론 문제 — 복구 절차 (또 터진다)
+
+경로가 PC마다 다르다:
+- 사무실(?): `C:\Users\User\Marketing`
+- 집(?): `C:\Users\user\Documents\Marketing` ← **Round 82 시절 stash 까지 들고 있던 스테일 클론**
+
+### 증상별 대응
+
+| 증상 | 대응 |
+|---|---|
+| `경로는 존재하지 않으므로` | 경로 하드코딩 금지. 아래 자동탐지 스니펫 사용 |
+| `push rejected (fetch first)` | 로컬이 원격보다 뒤처짐 |
+| `cannot pull with rebase: unstaged changes` | 커밋 안 된 로컬 수정 존재 |
+| `Deletion of directory '_to_delete/...' failed. Should I try again? (y/n)` **무한 반복** | 🔴 `git stash push **-u**` 가 원인. `-u` 를 빼거나 stash 자체를 생략. `n` 이 프롬프트에 잘 안 먹힌다 → **Ctrl+C** |
+
+### 안전 복구 시퀀스 (아무것도 잃지 않음)
+```powershell
+cd <repo>
+$mine = (git rev-parse HEAD).Trim()
+git fetch origin
+git branch -f backup-pre-<label> $mine   # 로컬 전용 커밋 보존
+git reset --hard origin/main             # 추적 파일만 정렬 (untracked 안 건드림 → 프롬프트 안 뜸)
+git checkout $mine -- <내가 만든 파일>
+git add <파일>; git commit -m "..."; git push origin main
+git log origin/main..backup-pre-<label> --oneline   # 비어 있으면 손실 0
+git stash list
+```
+
+### 저장소 자동탐지 스니펫
+```powershell
+$root = $null
+foreach ($p in @("$env:USERPROFILE\Marketing","$env:USERPROFILE\Documents\Marketing","C:\Users\User\Marketing")) {
+  if (Test-Path (Join-Path $p "medimap-blog")) { $root = $p; break }
+}
+if (-not $root) {
+  $hit = Get-ChildItem -Path "$env:USERPROFILE","C:\" -Directory -Recurse -Depth 3 -ErrorAction SilentlyContinue |
+         Where-Object { (Test-Path (Join-Path $_.FullName "medimap-blog")) -and (Test-Path (Join-Path $_.FullName ".git")) } |
+         Select-Object -First 1
+  if ($hit) { $root = $hit.FullName }
+}
+```
+
+**권고**: 이 PC에서 작업 시작 전 **항상 `git pull origin main`**. 오늘 이 한 가지로 왕복 4회를 썼다.
+**정리 필요**: `_to_delete/` 폴더 삭제 (git 이 매번 삭제 실패 프롬프트를 띄우는 원인).
+
+---
+
+## 5. 🔴 파워셸로 대용량 파일 전달하는 법 (확립된 방식)
+
+사용자는 **폴더/zip 다운로드를 싫어한다.** 파일 다운로드가 아예 안 되는 경우도 있었다. 확립된 절차:
+
+1. 파일을 **gzip → base64** 로 압축 (한글 UTF-8 파일도 100% ASCII 로 전달)
+2. 120자 단위로 줄바꿈해 PowerShell here-string `@' ... '@ -replace '\s',''` 에 넣음
+3. `GZipStream(...Decompress)` + `WriteAllBytes` 로 복원
+4. **SHA256 검증** — 불일치 시 `throw`, 커밋 전에 멈춤 (붙여넣기 잘림 방지)
+5. 스크립트 전체를 `& { try { ... } catch { Write-Host } }` 로 감쌈 — 대화형 콘솔에서 `exit` 는 창을 닫아버리므로 **`exit` 금지, `throw` 사용**
+
+**함정**: 앞 블록의 닫는 `}` 와 새 블록의 `& {` 가 한 줄로 붙어 `}& {` → `AmpersandNotAllowed` 파서 오류. **긴 블록 뒤에는 Enter 로 버퍼를 비우게 안내**하거나, 중괄호 없는 평문 명령 나열로 주면 안전하다.
+
+**PowerShell 5.1 제약**: `Expand-Archive` 가 UTF-8(한글) 파일명 처리 불가 → `.NET ZipFile::ExtractToDirectory(..., Encoding::UTF8)`. `&&` 없음. 삼항 연산자 없음.
+
+---
+
+## 6. 이월 (Round 171+)
+
+- **🔴 Vercel Hobby 약관 리스크** — 병원 클라이언트에게 과금하는 SaaS 를 "비상업적 개인 용도 한정" 플랜에서 운영 중. 이번 402 가 한계선 신호. 기술이 아니라 **사업 판단** 사항. Pro 전환 시 이미지 최적화 재개 여부도 함께 결정.
+- 8/30 GSC 주간 클릭 추이 — brighteye 3개월 테스트 판정 지표
+- Reddit 모니터 계속 0건이면 OAuth 전환 검토
+- 고아 이미지 정리 재실행 (14일 가드로 보호됐던 잔여분)
+- 모바일 실기기 검증: 병원 포털(2단 헤더·6탭), 파트너 글(접이식 TOC·중간 CTA)
 - `npx tsc --noEmit` v1·v2 **에러 0**. v1 `next build` 프로덕션 빌드 성공(전 라우트 프리렌더 정상).
 - 데스크톱 회귀 방지: 모든 변경이 `md:`/`sm:` 복원 방식.
