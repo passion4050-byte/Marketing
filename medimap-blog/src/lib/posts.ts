@@ -111,6 +111,16 @@ export interface PostMeta {
   cover_image_alt?: string;
   /** Round 81 — Unsplash 사진 출처(작가명 + 프로필 링크). 약관 준수 figcaption 링크용. */
   coverCredit?: { author: string; url: string };
+  /**
+   * Round 172 (2026-08-22) - crawl budget reclaim.
+   *   GSC: 175 indexed / 390 not indexed; 326 of those are "Discovered - currently
+   *   not indexed", i.e. Google never even crawled them. The site-level crawl budget
+   *   is the bottleneck, not content quality. Posts older than 45 days with zero
+   *   impressions get flagged in the DB so they drop out of the sitemap and emit
+   *   robots noindex - the remaining budget then goes to pages that can rank.
+   *   Revert by setting generated_contents.noindex = false.
+   */
+  noindex?: boolean;
   /** Round 16 — 자사 인사이트 카테고리 (content_marketing / ai_trend / hospital_marketing). 파트너 콘텐츠는 undefined. */
   blogCategory?: BlogCategorySlug;
   /**

@@ -110,6 +110,8 @@ export interface PartnerPost {
   published_at: string;
   cover_image_url: string | null;
   cover_image_alt: string | null;
+  /** Round 172 - crawl budget reclaim flag: excluded from sitemap + robots noindex. */
+  noindex?: boolean;
 }
 
 interface PartnerPostRow {
@@ -127,6 +129,7 @@ interface PartnerPostRow {
   created_at: string;
   cover_image_url: string | null;
   cover_image_alt: string | null;
+  noindex: boolean | null;
 }
 
 const POST_SELECT = `
@@ -134,7 +137,8 @@ const POST_SELECT = `
   t.partner_slug, gc.partner_category,
   gc.slug, gc.title, gc.excerpt, gc.body, gc.keyword_text,
   gc.published_at, gc.created_at,
-  gc.cover_image_url, gc.cover_image_alt
+  gc.cover_image_url, gc.cover_image_alt,
+  gc.noindex
 `;
 
 const POST_FILTER = `
@@ -184,6 +188,8 @@ function rowToPost(row: PartnerPostRow): PartnerPost | null {
     published_at: toIsoDate(row.published_at ?? row.created_at),
     cover_image_url: row.cover_image_url,
     cover_image_alt: row.cover_image_alt,
+    // Round 172 - crawl budget reclaim flag (sitemap exclusion + robots noindex)
+    noindex: row.noindex ?? false,
   };
 }
 
