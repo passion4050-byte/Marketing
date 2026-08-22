@@ -1,0 +1,50 @@
+name: LLM health check
+
+# Round 171 (2026-08-22) — measurement LLM 호출 실패를 하루 안에 잡아내는 가드.
+#   2026-08-19~22 Anthropic 크레딧 소진으로 claude 호출이 하루 80건 전량 실패했는데
+#   나흘간 아무도 몰랐다 (queries/responses 에는 행이 안 남고 llm_call_logs 에만 에러가 쌓임).
+#   같은 사고가 8/12~13, 8/15~17 에도 있었다. 이 워크플로가 빨간불로 알린다.
+#
+#   측정 워크플로(Measure AI mentions, 07:00 KST) 이후에 돌도록 08:30 KST 로 잡았다.
+#
+# secrets: DATABASE_URL
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 23:30 UTC = 08:30 KST — measure 워크플로(07:00 KST) 종료 후
+    - cron: "30 23 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: llm-health-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check measurement LLM call failures
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install "sqlalchemy>=2.0" "psycopg2-binary>=2.9"
+
+      - name: Run health check
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          LOOKBACK_HOURS: '26'
+          FAIL_RATIO: '0.2'
+          MIN_CALLS: '10'
+          CHANNEL: measurement
+        run: python scripts/check_llm_health.py
