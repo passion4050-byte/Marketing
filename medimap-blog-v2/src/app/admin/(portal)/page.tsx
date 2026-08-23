@@ -38,6 +38,18 @@ import type {
 } from '@/components/admin/DashboardCharts';
 import { DashboardFilters } from '@/components/admin/DashboardFilters';
 
+/** Round 174c — content_index_health() RPC payload. 우리가 구글에 내놓는 재고의 위생. */
+interface IndexHealth {
+  publishedTotal: number;
+  noindexed: number;
+  liveKoPartner: number;
+  noInternalLink: number;
+  brokenLinks: number;
+  thinPosts: number;
+  medianChars: number;
+  internalEdges: number;
+}
+
 /** Round 174 — publish_volume_weekly() RPC payload. */
 interface PublishVolume {
   thisWeek: number;
@@ -153,6 +165,7 @@ async function fetchDashboardData(opts: {
       keywordGrounding: [] as KeywordGroundingItem[],
       newDomains: [] as NewDomainItem[],
       publishVolume: null as PublishVolume | null,
+      indexHealth: null as IndexHealth | null,
       // Round 86/87/88 — null branch 누락 필드 보강 (Vercel TypeScript build fix)
       citations30d: 0,
       publishedThisMonth: 0,
@@ -746,6 +759,22 @@ async function fetchDashboardData(opts: {
     }
   };
 
+  /**
+   * S8-c. 색인 위생 (Round 174c)
+   *   traffic 페이지가 "구글이 우리를 어떻게 보는가"(GSC·크롤러)라면 이건 반대편 —
+   *   **우리가 구글에 무엇을 내놓고 있는가**다. brokenLinks 는 회귀 감시용:
+   *   Round 173 에서 45 → 0 으로 만든 2세그먼트 404 링크가 다시 생기면 여기서 드러난다.
+   */
+  const sectionIndexHealth = async () => {
+    try {
+      const { data, error } = await sb.rpc('content_index_health');
+      if (error) throw error;
+      return (data ?? null) as IndexHealth | null;
+    } catch {
+      return null;
+    }
+  };
+
   // S9. 콘텐츠 경쟁력 (Round 87) — 발행 글의 키워드별 멘션 수 (공유 체인 재사용)
   const sectionTopContents = async () => {
     let topContents: Array<{
@@ -996,6 +1025,7 @@ async function fetchDashboardData(opts: {
     structureStats,
     domainDist,
     publishVolume,
+    indexHealth,
   ] = await Promise.all([
     sectionClientCount(),
     sectionPending(),
@@ -1008,6 +1038,7 @@ async function fetchDashboardData(opts: {
     sectionStructure(),
     sectionDomainDist(),
     sectionPublishVolume(),
+    sectionIndexHealth(),
   ]);
 
   return {
@@ -1027,6 +1058,7 @@ async function fetchDashboardData(opts: {
     tierTrend: charts.tierTrend,
     clientRanking: charts.clientRanking,
     publishVolume,
+    indexHealth,
     keywordGrounding: grounding.keywordGrounding,
     newDomains: grounding.newDomains,
     topContents,
@@ -1326,6 +1358,47 @@ export default async function AdminDashboardPage({
         <div className="mt-4">
           <CitationProof />
         </div>
+
+        {/* Round 174c — 색인 위생. 발행량 옆에 두는 이유: '얼마나 내놓나'와
+            '무엇을 내놓나'는 같은 판단의 두 축이다. brokenLinks > 0 은 회귀 신호. */}
+        {d.indexHealth && (
+          <div className="mt-4 rounded-lg border border-border p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
+                색인 위생 · 국내 파트너 콘텐츠
+              </span>
+              <span className="text-xs text-ink-muted">
+                발행 {d.indexHealth.publishedTotal}편 중 노출 {d.indexHealth.liveKoPartner}편
+              </span>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              {[
+                { k: '깨진 내부링크', v: d.indexHealth.brokenLinks, bad: d.indexHealth.brokenLinks > 0,
+                  hint: '2세그먼트 404 링크 — R173에서 45→0' },
+                { k: '내부링크 없음', v: d.indexHealth.noInternalLink, bad: d.indexHealth.noInternalLink > 10,
+                  hint: '토픽 클러스터에서 고립된 글' },
+                { k: '얇은 글', v: d.indexHealth.thinPosts, bad: d.indexHealth.thinPosts > 30,
+                  hint: '본문 2,000자 미만 — 깊이 기준 미달' },
+                { k: 'noindex 처리', v: d.indexHealth.noindexed, bad: false,
+                  hint: '45일 무노출로 사이트맵에서 제외' },
+                { k: '내부링크 엣지', v: d.indexHealth.internalEdges, bad: false,
+                  hint: `중앙값 ${d.indexHealth.medianChars.toLocaleString()}자` },
+              ].map((m) => (
+                <div key={m.k} title={m.hint} className="rounded-md border border-border/60 p-2.5">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+                    {m.k}
+                  </div>
+                  <div className={m.bad
+                    ? 'mt-1 text-lg font-bold tabular-nums text-status-warning'
+                    : 'mt-1 text-lg font-bold tabular-nums text-ink'}>
+                    {m.v.toLocaleString()}
+                  </div>
+                  <div className="mt-0.5 text-[10px] leading-tight text-ink-muted">{m.hint}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 🔴 Round 174 — 발행량 정책 초과 경고.
             크롤 예산이 병목인 사이트에서 발행량은 많을수록 좋은 수치가 아니다.

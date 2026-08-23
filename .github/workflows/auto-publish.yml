@@ -34,7 +34,11 @@ jobs:
     runs-on: ubuntu-latest
     # Round 83 (2026-06-28) — 8m → 20m. 8개 tenant × retry 3번 + 이미지 생성 시간 고려.
     # auto-publish #92 가 8m 도달해 cancelled. 2 tenant 만 처리됐었음.
-    timeout-minutes: 20
+    # Round 174c (2026-08-23) — 20m → 32m. 파트너 로테이션이 1곳 → 5곳(+self 1)이 되면서
+    #   1회 실행이 최대 6편이 된다. 1편당 LLM+이미지 약 2~3분 → 최악 18분 + 재시도 여유.
+    #   여기서 잘리면 뒤쪽 병원이 조용히 누락되고, last_run_at 이 안 갱신돼 다음 회차에
+    #   다시 선택되긴 하지만 그 사이 발행 공백이 생긴다.
+    timeout-minutes: 32
 
     steps:
       - name: Checkout
@@ -76,6 +80,9 @@ jobs:
           # Round 81 — 실효 지출 캡(카운트 가드)을 cron 에 노출. USD 가드는 토큰 미기록으로
           #   현재 no-op 이므로, 일일 생성 건수 상한이 실질적 비용 제어 레버. secret 으로 조정.
           MAX_CONTENT_GEN_PER_DAY: ${{ secrets.MAX_CONTENT_GEN_PER_DAY || '50' }}
+          # Round 174c — 1회 실행당 파트너 병원 수. 13곳 × 주 6회 실행 기준 병원당 약 2.3편/주.
+          #   크롤 예산이 병목이라 무작정 올리면 안 된다 — 올릴 땐 timeout-minutes 도 같이.
+          ROTATION_PARTNER_BATCH: ${{ vars.ROTATION_PARTNER_BATCH || '5' }}
           IMAGE_GEN_ENABLED: ${{ secrets.IMAGE_GEN_ENABLED || 'true' }}
           # Round 108-a (2026-07-03) — Nano Banana (Gemini 2.5 Flash Image) 로 전환.
           # OpenAI tier 2 는 이미지 모델 접근 불가 (dalle 400). Gemini paid = Nano Banana OK.

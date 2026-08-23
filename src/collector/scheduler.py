@@ -378,12 +378,22 @@ def daily_auto_content_job(
                 skipped_tenants=plan_skipped,
             )
 
-        # 각 set 에서 1개씩만 선택 (last_run_at ASC 이미 정렬됨 → [0] 이 가장 오래된 것)
+        # 🔴 Round 174c (2026-08-23) — 파트너 로테이션 1곳 → N곳.
+        #   기존: 한 번 돌 때 self 1곳 + partner **1곳**만 처리했다. 파트너 병원이 13곳이고
+        #   cron 이 주 6회(월·수·금 × 2)라, 병원 하나가 서비스되는 주기는 약 2.2주 —
+        #   즉 **주 0.46회**다. 사용자가 정한 정책은 병원당 주 3회였는데 6.5배 미달이었다.
+        #   실측(auto_content_settings.last_run_at, 2026-08-23 기준): 밝은눈안과 부산과
+        #   바를정은 8/17 이후 한 번도 안 돌았고, ko 14일 발행이 1~3편에 그친 병원이 6곳.
+        #   반면 밝은눈안과 강남점은 전용 워크플로(daily-brighteye-all-langs)로 주 43편 —
+        #   "발행량이 많다"가 아니라 **한 곳에 몰리고 나머지는 굶는** 구조였다.
+        #   last_run_at ASC 정렬은 그대로라 가장 오래 굶은 병원부터 순서대로 채운다.
+        #   ⚠ 배치를 키우면 워크플로 실행 시간이 선형으로 늘어난다(1편당 LLM+이미지 약 2~3분).
+        #      auto-publish.yml 의 timeout-minutes 와 함께 조정할 것.
+        _partner_batch = max(1, int(os.getenv("ROTATION_PARTNER_BATCH", "5")))
         rotated = []
         if self_settings:
             rotated.append(self_settings[0])
-        if partner_settings:
-            rotated.append(partner_settings[0])
+        rotated.extend(partner_settings[:_partner_batch])
 
         plans = [
             (
