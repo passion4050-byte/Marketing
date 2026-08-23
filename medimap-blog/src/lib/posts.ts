@@ -103,6 +103,19 @@ export interface PostMeta {
   reviewedBy?: string;
   /** Pin a post as the blog index hero card. First `featured: true` wins; falls back to newest. */
   featured?: boolean;
+  /**
+   * Round 173 (2026-08-23) - duplicate-route consolidation.
+   *   `/blog/{slug}` was serving EVERY published `channel='blog_html'` row, including
+   *   the 221 domestic partner posts that already live at
+   *   `/with-partners/{category}/{partner}/{slug}` and the 55 overseas posts that live
+   *   under `/{lang}/clinics|guides/...`. Same body, two URLs, no canonical - so
+   *   Google split the signal (GSC 90d: 100 impressions on the partner URL vs 66 on
+   *   the `/blog` twin for the same 13 slugs) and burned crawl budget fetching both.
+   *   When this is set, `/blog/{slug}` is NOT canonical: the route 308-redirects here
+   *   and the URL is dropped from sitemap.xml.
+   *   Revert: delete canonicalPathFor() and the permanentRedirect in blog/[slug].
+   */
+  canonicalPath?: string;
   /** Pre-computed reading time in minutes — stays in sync between list & detail. */
   readingMinutes: number;
   /** mdx 파일 vs DB 자동 발행 글 — blog/[slug] 페이지가 렌더 분기에 사용. */
@@ -211,6 +224,11 @@ interface DbPostRow {
   cover_image_prompt: string | null;
   /** Round 172 - crawl budget reclaim flag: excluded from sitemap + robots noindex. */
   noindex: boolean | null;
+  /** Round 173 - duplicate-route detection. See canonicalPathFor(). */
+  is_partner_content: boolean | null;
+  partner_category: string | null;
+  market: string | null;
+  lang: string | null;
 }
 
 const DB_SELECT = `
@@ -221,7 +239,8 @@ const DB_SELECT = `
   gc.published_at,
   gc.created_at, gc.updated_at,
   gc.cover_image_url, gc.cover_image_alt, gc.cover_image_prompt,
-  gc.noindex
+  gc.noindex,
+  gc.is_partner_content, gc.partner_category, gc.market, gc.lang
 `;
 
 const DB_FILTER = `
@@ -243,7 +262,15 @@ function toIsoDate(v: unknown): string | undefined {
 // /blog 페이지가 글이 있는데도 "발행된 글 없음" 표시되는 버그 원인이었음.
 // throw on error → Next.js ISR 캐시 안 함 → 다음 요청 재시도.
 let _allPostsCache: { data: DbPostRow[]; ts: number } | null = null;
-const POSTS_CACHE_TTL_MS = 60_000;
+// Round 173 (2026-08-23) - build prerender timeout -> crawl budget.
+//   `next build` prerenders ~350 pages inside one worker. With a flat 60s TTL the
+//   module cache expired mid-build over and over, so the build kept re-querying
+//   Supabase and Vercel's 180s static-generation watchdog fired
+//   ("Static page generation is still in progress"). A build publishes nothing,
+//   so the snapshot cannot go stale inside it -> hold it for the whole build.
+//   Runtime behaviour is unchanged (60s).
+const IS_BUILD_PHASE = process.env.NEXT_PHASE === "phase-production-build";
+const POSTS_CACHE_TTL_MS = IS_BUILD_PHASE ? 3_600_000 : 60_000;
 const POSTS_QUERY_TIMEOUT_MS = 30_000;
 
 async function getDbPostRows(): Promise<DbPostRow[]> {
@@ -272,7 +299,7 @@ async function getDbPostRows(): Promise<DbPostRow[]> {
   try {
     const rows = await Promise.race([queryPromise, timeoutPromise]);
     _allPostsCache = { data: rows, ts: Date.now() };
-    console.log(`[posts] fetched ${rows.length} rows (cached for 60s)`);
+    console.log(`[posts] fetched ${rows.length} rows (cached for ${POSTS_CACHE_TTL_MS / 1000}s)`);
     return rows;
   } catch (err) {
     console.error("[posts] getDbPostRows query failed (fallback empty):", err);
@@ -327,14 +354,15 @@ async function getDbPostRowBySlug(slug: string): Promise<DbPostRow | null> {
     //   리스트 쿼리(DB_SELECT)와 동일 컬럼으로 통일.
     const rows = await sql<DbPostRow[]>`
       SELECT
-        gc.id, gc.tenant_id, t.name AS tenant_name,
+        gc.id, gc.tenant_id, t.name AS tenant_name, t.partner_slug,
         gc.channel, gc.keyword_text, gc.body,
         gc.compliance_status, gc.status,
         gc.slug, gc.title, gc.excerpt, gc.blog_category,
         gc.published_at,
         gc.created_at, gc.updated_at,
         gc.cover_image_url, gc.cover_image_alt, gc.cover_image_prompt,
-        gc.noindex
+        gc.noindex,
+        gc.is_partner_content, gc.partner_category, gc.market, gc.lang
       FROM generated_contents gc
       LEFT JOIN tenants t ON t.id = gc.tenant_id
       WHERE gc.slug = ${slug}
@@ -453,10 +481,49 @@ function dbRowToPostMeta(row: DbPostRow): PostMeta {
     cover_image_alt: row.cover_image_alt ?? undefined,
     coverCredit: parseCoverCredit(row.cover_image_prompt),
     noindex: row.noindex ?? false,
+    canonicalPath: canonicalPathFor(row),
   };
 }
 
 /** Round 81 — cover_image_prompt 에 저장된 "unsplash_credit|작가|프로필링크" 파싱. */
+/**
+ * Round 173 - true canonical for a row that `/blog/{slug}` also renders.
+ * Returns undefined when `/blog/{slug}` IS the canonical URL (self-published
+ * marketing posts, legacy medical posts, anything we cannot resolve safely).
+ * Resolving conservatively matters: a wrong answer here 308s a live page to a 404.
+ */
+const OVERSEAS_LANG_PATH: Record<string, string> = {
+  en: "en",
+  ja: "ja",
+  "zh-Hans": "zh",
+  "zh-Hant": "tw",
+};
+
+function canonicalPathFor(row: DbPostRow): string | undefined {
+  const slug = (row.slug || "").trim();
+  if (!slug) return undefined;
+  const partnerSlug = (row.partner_slug || "").trim();
+  const category = (row.partner_category || "").trim();
+  const isPartner = row.is_partner_content === true;
+  const market = (row.market || "domestic").trim();
+
+  if (market.toLowerCase() === "overseas") {
+    const langPath = OVERSEAS_LANG_PATH[(row.lang || "").trim()];
+    if (!langPath) return undefined; // unknown locale - leave the /blog URL alone
+    if (isPartner) {
+      if (!category || !partnerSlug) return undefined;
+      return `/${langPath}/clinics/${category}/${partnerSlug}/${slug}`;
+    }
+    return `/${langPath}/guides/${slug}`;
+  }
+
+  // Domestic. `market` is 'domestic', NULL, or the legacy 'KR' on 5 rows - all of
+  // which the partner route serves, so treat every non-overseas row the same way.
+  if (!isPartner) return undefined;
+  if (!category || !partnerSlug || partnerSlug === "wecircle-self") return undefined;
+  return `/with-partners/${category}/${partnerSlug}/${slug}`;
+}
+
 function parseCoverCredit(
   prompt: string | null | undefined,
 ): { author: string; url: string } | undefined {

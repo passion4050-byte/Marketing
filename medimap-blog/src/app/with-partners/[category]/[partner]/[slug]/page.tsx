@@ -107,9 +107,13 @@ export default async function PartnerPostPage({ params }: PageProps) {
 
   // Round 108-e — 같은 병원의 다른 콘텐츠 3~4편 (관련 콘텐츠 CTA)
   const partnerPosts = await getPartnerPostsByPartner(meta.slug, partner);
+  // Round 173 (2026-08-23) - 4 -> 8. Partner posts sit 4 levels deep
+  //   (/with-partners/{category}/{partner}/{slug}); widening the sibling ring is the
+  //   cheapest way to raise the internal-link count on URLs Google discovered but
+  //   never crawled.
   const relatedPosts = partnerPosts
     .filter((p) => p.slug !== slug)
-    .slice(0, 4);
+    .slice(0, 8);
 
   const ldJson = {
     "@context": "https://schema.org",

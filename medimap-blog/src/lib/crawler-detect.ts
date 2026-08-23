@@ -16,7 +16,31 @@
  *   - Meta-ExternalAgent (Meta AI)
  *   - Amazonbot      (Alexa/AWS)
  */
+// Round 173 (2026-08-23) - 🔴 Googlebot was never in this list.
+//   crawler_hits over 14 days: meta-externalagent 1,180 / claudebot 35 /
+//   googleother 15 / oai-searchbot 5 / **googlebot 0** - not because Google was not
+//   crawling, but because nothing here matched its UA. That left the crawl-budget
+//   work (277 duplicate URLs removed, sitemap ~530 -> ~250) with no instrument at
+//   all: the only other signal is GSC, which lags by days and reports coverage, not
+//   fetch volume. Search crawlers added below so crawl rate is directly observable.
 const BOT_PATTERNS: Array<{ name: string; regex: RegExp }> = [
+  // --- search crawlers (Round 173) ---
+  //   Order matters: the first match wins, and Google's non-search agents carry
+  //   their own tokens (GoogleOther, Google-Extended, Google-InspectionTool), so
+  //   they must be tested before the generic /Googlebot/ pattern.
+  { name: 'google-inspectiontool', regex: /Google-InspectionTool/i },
+  { name: 'googlebot-image', regex: /Googlebot-Image/i },
+  { name: 'googlebot', regex: /Googlebot/i },
+  { name: 'bingbot', regex: /bingbot/i },
+  // Naver's crawler UA is "Yeti/1.1 (NHN Corp.; http://help.naver.com/robots/)".
+  //   Require the version token: a bare /Yeti/ would also match unrelated UA strings.
+  { name: 'naver-yeti', regex: /Yeti\/[\d.]+/i },
+  // Daum is deliberately NOT matched. Its crawler token is "Daum/4.1", but the Daum
+  //   and KakaoTalk in-app browsers - real people, in Korea, the primary audience -
+  //   also carry "Daum" in their UA. detectAiCrawler() feeds /r/{slug}'s bot filter,
+  //   so a false positive there would silently drop human clicks from
+  //   shortlink_clicks. Not worth the crawl-rate datapoint.
+  // --- AI crawlers ---
   { name: 'gptbot', regex: /GPTBot/i },
   { name: 'oai-searchbot', regex: /OAI-SearchBot/i },
   { name: 'chatgpt-user', regex: /ChatGPT-User/i },

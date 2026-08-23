@@ -196,7 +196,12 @@ function rowToPost(row: PartnerPostRow): PartnerPost | null {
 /* ───────────────────────── Module-level cache (Round 11) ───────────────────────── */
 
 let _allPostsCache: { data: PartnerPost[]; ts: number } | null = null;
-const ALL_POSTS_CACHE_TTL_MS = 60_000; // 60s — single Vercel worker shares this
+// Round 173 (2026-08-23) - see the same block in posts.ts. During
+//   `next build` the 60s TTL expired repeatedly while prerendering ~350 pages and
+//   tripped Vercel's 180s static-generation watchdog. Nothing publishes during a
+//   build, so hold the snapshot for the whole build; runtime stays at 60s.
+const IS_BUILD_PHASE = process.env.NEXT_PHASE === "phase-production-build";
+const ALL_POSTS_CACHE_TTL_MS = IS_BUILD_PHASE ? 3_600_000 : 60_000;
 const QUERY_TIMEOUT_MS = 60_000;        // 60s — generous timeout for cold start
 
 function isCacheFresh(ts: number): boolean {

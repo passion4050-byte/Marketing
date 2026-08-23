@@ -193,7 +193,7 @@ export default async function CategoryPage({ params }: PageProps) {
           </div>
         ) : (
           <div className="grid gap-12 md:grid-cols-2 md:gap-10 lg:grid-cols-3">
-            {posts.slice(0, 12).map((p) => (
+            {posts.slice(0, 60).map((p) => (
               <Link
                 key={p.id}
                 href={`/with-partners/${meta.slug}/${p.partner_slug}/${p.slug}`}

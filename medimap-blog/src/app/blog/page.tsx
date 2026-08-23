@@ -37,7 +37,13 @@ export default async function BlogIndexPage() {
   const posts = await getAllPosts();
   const total = posts.length;
   const featured = posts.find((p) => p.featured) ?? posts[0];
-  const rest = posts.filter((p) => p.slug !== featured?.slug).slice(0, 12);
+  // Round 173 (2026-08-23) - crawl budget / link depth.
+  //   The index linked only 12 posts, so everything older was reachable to Googlebot
+  //   from the sitemap alone. 326 of 390 unindexed URLs were "Discovered - currently
+  //   not indexed": Google had the URL but never spent a crawl on it. Internal links
+  //   are the strongest signal that a URL is worth crawling, so link them all.
+  //   The marketing hub holds ~43 posts, small enough to list in full.
+  const rest = posts.filter((p) => p.slug !== featured?.slug);
 
   const countByCategory = new Map<string, number>();
   for (const p of posts) {

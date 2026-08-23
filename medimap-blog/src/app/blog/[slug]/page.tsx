@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import Link from "next/link";
 import { compileMDX } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
@@ -79,6 +79,14 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const post = await getPostBySlug(params.slug);
   if (!post) return { title: "글을 찾을 수 없습니다" };
+  // Round 173 - duplicate route: declare the real canonical even on the redirect hop.
+  if (post.canonicalPath) {
+    return {
+      title: post.title,
+      alternates: { canonical: post.canonicalPath },
+      robots: { index: false, follow: true },
+    };
+  }
   const displayTitle =
     post.source_type === "html" ? firstH1Text(post.source) || post.title : post.title;
   return {
@@ -111,6 +119,18 @@ export default async function BlogPostPage({
 }) {
   const post = await getPostBySlug(params.slug);
   if (!post) notFound();
+
+  // Round 173 (2026-08-23) - duplicate-route consolidation.
+  //   This route renders every published `channel='blog_html'` row, which silently
+  //   included the 221 domestic partner posts already served at
+  //   /with-partners/{category}/{partner}/{slug} and the 55 overseas posts served
+  //   under /{lang}/clinics|guides/... Byte-identical body, two URLs, no canonical:
+  //   GSC split the signal across both (100 vs 66 impressions over the same 13 slugs)
+  //   and spent crawl budget fetching each page twice, while 326 of 390 unindexed
+  //   URLs never got crawled at all. 308 consolidates instead of 404-ing, so nothing
+  //   already ranking is thrown away.
+  //   permanentRedirect() throws, so it must run before any rendering work.
+  if (post.canonicalPath) permanentRedirect(post.canonicalPath);
 
   const allPosts = await getAllPosts();
   const minutes = post.readingMinutes;

@@ -241,6 +241,12 @@ const OVERSEAS_PARTNER_DISPLAY: Record<string, Record<string, string>> = {
   bgn: { en: "BGN Eye Clinic Jamsil", ja: "BGN Eye Clinic Jamsil", "zh-Hans": "BGN Eye Clinic Jamsil", "zh-Hant": "BGN Eye Clinic Jamsil" },
   "bgn-busan": { en: "BGN Eye Clinic Busan", ja: "BGN Eye Clinic Busan", "zh-Hans": "BGN Eye Clinic Busan", "zh-Hant": "BGN Eye Clinic Busan" },
   mowoolim: { en: "Mowoolim Clinic", ja: "Mowoolim Clinic", "zh-Hans": "Mowoolim Clinic", "zh-Hant": "Mowoolim Clinic" },
+  // Round 173 (2026-08-23) - tenants.partner_slug 'partner-20' -> 'kwangdong'.
+  //   URL 에 브랜드가 없으면 브랜드 쿼리에서 잡히지 않는다 (GSC: 브랜드형 쿼리가
+  //   이 도메인이 1페이지에 드는 유일한 유형 - dear clinic seoul 5.0위,
+  //   bright eye clinic gangnam review 9.0위). 발행글 1편·노출 0 인 지금이 바꿀 수
+  //   있는 마지막 시점이라 함께 정규화. 구 키는 하위호환으로 남겨 둔다.
+  kwangdong: { en: "Kwangdong Hospital", ja: "Kwangdong Hospital", "zh-Hans": "Kwangdong Hospital", "zh-Hant": "Kwangdong Hospital" },
   "partner-20": { en: "Kwangdong Hospital", ja: "Kwangdong Hospital", "zh-Hans": "Kwangdong Hospital", "zh-Hant": "Kwangdong Hospital" },
 };
 

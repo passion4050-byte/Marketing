@@ -81,6 +81,16 @@ class Keyword(Base):
     category: Mapped[str] = mapped_column(String(100), default="")
     target_brand: Mapped[str] = mapped_column(String(200), default="")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Round 173 (2026-08-23) — is_active 하나가 "콘텐츠 발행"과 "AI 인용 측정"을 동시에
+    #   제어해서, 순위가 나올 수 없는 헤드 키워드를 발행 로테이션에서만 빼는 게 불가능했다.
+    #   GSC 90일 실측: 라식 44.3위 · 백내장 73.9위 · 부산 라식 52.6위 · 홍대 피부과 90.5위
+    #   (클릭 0). 반면 브랜드/롱테일은 1페이지 — dear clinic seoul 5.0위, 서울병원마케팅
+    #   7.0위, bright eye clinic gangnam review 9.0위. 헤드 키워드는 측정 대상으로는
+    #   여전히 유효하므로 두 플래그를 분리한다.
+    #   content_eligible=False → 발행 로테이션 제외 (측정은 그대로)
+    #   measure_eligible=False → 측정 제외 (발행은 그대로, LLM 크레딧 절약)
+    content_eligible: Mapped[bool] = mapped_column(Boolean, default=True)
+    measure_eligible: Mapped[bool] = mapped_column(Boolean, default=True)
     # Phase A — 측정 언어/시장 스코프. 기존 행은 ko/domestic (측정 언어분기 구동).
     lang: Mapped[str] = mapped_column(String(16), default="ko")
     market: Mapped[str] = mapped_column(String(16), default="domestic")

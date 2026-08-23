@@ -48,7 +48,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: absoluteUrl("/"), lastModified: now, changeFrequency: "weekly", priority: 1 },
     { url: absoluteUrl("/blog"), lastModified: now, changeFrequency: "daily", priority: 0.9 },
     { url: absoluteUrl("/with-partners"), lastModified: now, changeFrequency: "daily", priority: 0.9 },
+    // Round 173 (2026-08-23) - HTML sitemap hub (src/app/all). Crawling this one page
+    //   gives Googlebot an internal link to every indexable document at depth 2.
+    { url: absoluteUrl("/all"), lastModified: now, changeFrequency: "daily", priority: 0.9 },
   ];
+
+  // Round 173 (2026-08-23) - age-tiered crawl priority.
+  //   Every content URL used to ship priority 0.8 / changefreq monthly, which tells
+  //   Google nothing about where to spend a budget that is already exhausted
+  //   (326 of 390 unindexed URLs were never crawled at all). Publishing is now 3x a
+  //   week for 12 tenants, so the thing that must be crawled fast is what is new.
+  //   Fresh -> weekly 0.9, recent -> monthly 0.7, old -> yearly 0.5. Old posts with
+  //   zero impressions are already dropped entirely by the noindex filter below.
+  const DAY_MS = 86_400_000;
+  function tier(d: Date): { changeFrequency: "weekly" | "monthly" | "yearly"; priority: number } {
+    const age = (now.getTime() - d.getTime()) / DAY_MS;
+    if (!Number.isFinite(age) || age < 30) return { changeFrequency: "weekly", priority: 0.9 };
+    if (age < 90) return { changeFrequency: "monthly", priority: 0.7 };
+    return { changeFrequency: "yearly", priority: 0.5 };
+  }
 
   const partnerCategoryPages: MetadataRoute.Sitemap = PARTNER_CATEGORY_SLUGS.map(
     (slug) => ({
@@ -65,14 +83,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   //   URLs in the sitemap lets them eat what budget is left. Posts older than 45 days
   //   with zero impressions are flagged (generated_contents.noindex) and dropped here.
   //   Revert: set noindex = false; the next revalidate (1h) brings them back.
+  // Round 173 (2026-08-23) - `canonicalPath` marks a /blog/{slug} URL whose content
+  //   is canonically served elsewhere (partner or overseas route). Those now
+  //   308-redirect, so listing them here would only waste crawl budget.
   const postPages: MetadataRoute.Sitemap = posts
-    .filter((p) => !p.noindex)
-    .map((p) => ({
-      url: absoluteUrl(`/blog/${p.slug}`),
-      lastModified: new Date(p.updated ?? p.date),
-      changeFrequency: "monthly",
-      priority: 0.8,
-    }));
+    .filter((p) => !p.noindex && !p.canonicalPath)
+    .map((p) => {
+      const lastModified = new Date(p.updated ?? p.date);
+      return { url: absoluteUrl(`/blog/${p.slug}`), lastModified, ...tier(lastModified) };
+    });
 
   // 파트너별 list 페이지 (중복 제거)
   const partnerListSeen = new Set<string>();
@@ -92,14 +111,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Round 172 - partner posts use the same rule (see comment above)
   const partnerPostPages: MetadataRoute.Sitemap = partnerPosts
     .filter((p) => !p.noindex)
-    .map((p) => ({
-      url: absoluteUrl(
-        `/with-partners/${p.partner_category}/${p.partner_slug}/${p.slug}`,
-      ),
-      lastModified: new Date(p.published_at),
-      changeFrequency: "monthly",
-      priority: 0.8,
-    }));
+    .map((p) => {
+      const lastModified = new Date(p.published_at);
+      return {
+        url: absoluteUrl(
+          `/with-partners/${p.partner_category}/${p.partner_slug}/${p.slug}`,
+        ),
+        lastModified,
+        ...tier(lastModified),
+      };
+    });
 
   // 해외(overseas) — 홈 + 블로그 인덱스 + 클리닉 허브 + 콘텐츠 상세(canonical URL)
   //   파트너 콘텐츠는 canonical 이 /{lang}/clinics/{cat}/{partner}/{slug} (guides 는 301 리다이렉트),

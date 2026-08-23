@@ -67,9 +67,11 @@ def daily_measurement_job(session_factory) -> dict:
                 return True
             return (k.tenant_id, market, lang) in active_products
 
+        # Round 173 (2026-08-23) — measure_eligible 로 측정 전용 스코프를 분리.
+        #   getattr 폴백: 컬럼 미배포 환경에서도 기존 동작 유지.
         active_keywords = [
             k for k in s.query(Keyword).filter(Keyword.is_active == True).all()  # noqa: E712
-            if _measure_ok(k)
+            if _measure_ok(k) and getattr(k, "measure_eligible", True) is not False
         ]
         # detach — 다음 with 블록에서 expire 될까봐 dict 로 dump
         kw_data = [(k.id, k.tenant_id, k.text, k.target_brand) for k in active_keywords]
@@ -455,6 +457,9 @@ def daily_auto_content_job(
                 )
                 for k in kws
                 if k.text not in _capped
+                # Round 173 — 발행 로테이션 제외 플래그. 순위가 나올 수 없는 헤드 키워드
+                #   (GSC 실측 44~90위, 클릭 0)를 측정은 유지한 채 발행에서만 뺀다.
+                and getattr(k, "content_eligible", True) is not False
                 and _publish_ok(
                     (getattr(k, "lang", "ko") or "ko"),
                     (getattr(k, "market", "domestic") or "domestic"),
@@ -470,7 +475,10 @@ def daily_auto_content_job(
                     (k.text, (getattr(k, "lang", "ko") or "ko"),
                      (getattr(k, "market", "domestic") or "domestic"))
                     for k in kws
-                    if _publish_ok(
+                    # Round 173 — 폴백 경로에도 content_eligible 적용. 여기서 빠뜨리면
+                    #   상한 도달 tenant 가 조용히 헤드 키워드로 되돌아간다.
+                    if getattr(k, "content_eligible", True) is not False
+                    and _publish_ok(
                         (getattr(k, "lang", "ko") or "ko"),
                         (getattr(k, "market", "domestic") or "domestic"),
                     )

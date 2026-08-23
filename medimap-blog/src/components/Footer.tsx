@@ -37,6 +37,9 @@ export function Footer() {
                 { label: "병원 입점 가이드", href: "/guide" },
                 { label: "블로그", href: "/blog" },
                 { label: "파트너 콘텐츠", href: "/with-partners" },
+                // Round 173 (2026-08-23) - HTML sitemap. Present on every route, so
+                // every indexable document is 2 clicks from anywhere. See src/app/all.
+                { label: "전체 콘텐츠", href: "/all" },
               ]}
             />
             <FooterColumn
