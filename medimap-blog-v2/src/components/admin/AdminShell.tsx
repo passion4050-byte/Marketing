@@ -73,13 +73,21 @@ type NavItem = {
 type NavGroup = { group: string; items: NavItem[]; defaultCollapsed?: boolean };
 
 const NAV: NavGroup[] = [
+  // Round 174 (2026-08-23) — 실사용 기준 재편.
+  //   ① 키워드 풀을 '클라이언트' → '매일'로 승격: content_eligible/measure_eligible 분리
+  //      이후 발행 대상을 정하는 1차 레버가 됐다(헤드 텀 90개 발행 제외 / 롱테일 196개 시드).
+  //   ② 경쟁사 분석은 실제로 쓰는데 NAV 에 아예 없어서 URL 을 직접 쳐야 했다 → 추가.
+  //   ③ 실험·학습(A/B·학습 인사이트·자사 영업)은 최근 사용 이력이 없어 기본 접힘으로 강등.
+  //      삭제가 아니라 강등인 이유: 내부 콘솔이라 언제든 다시 필요해질 수 있다.
   { group: '매일', items: [
     { href: '/admin', label: '대시보드', icon: LayoutDashboard, hint: '오늘 상태 · 성과 요약' },
     { href: '/admin/content-queue', label: '콘텐츠 관리', icon: ClipboardCheck, badge: 'pendingContent', hint: '검수 · 발행물 확인' },
+    { href: '/admin/keywords', label: '키워드 풀', icon: Tag, hint: '발행 대상 · 측정 대상 분리 관리' },
     { href: '/admin/scanner-leads', label: '클라이언트 문의', icon: Inbox, badge: 'newLeads', hint: '진단 신청 · 상담 요청' },
   ]},
   { group: '성과 · 보고', items: [
     { href: '/admin/citations', label: 'AI 인용 추적', icon: Zap, hint: '실제 출처 인용 (북극성)' },
+    { href: '/admin/competitors', label: '경쟁사 분석', icon: Beaker, hint: '경쟁 도메인 인용 점유' },
     { href: '/admin/reports', label: '월간 보고서', icon: FileText, hint: '클라이언트 발송' },
     { href: '/admin/funnel', label: '유입 · 전환', icon: LinkIcon, hint: '발행 → 언급 → 클릭' },
     { href: '/admin/traffic', label: '유입 분석', icon: BarChart3, hint: 'GSC · GA4 실측 (병원·검색어·콘텐츠)' },
@@ -87,11 +95,10 @@ const NAV: NavGroup[] = [
   { group: '클라이언트', items: [
     { href: '/admin/tenants', label: '클라이언트 목록', icon: Users, hint: '등록 · 요금 · 상태' },
     { href: '/admin/clients', label: '병원 계정 발급', icon: UserCog, hint: '병원 전용 콘솔 id/pw' },
-    { href: '/admin/keywords', label: '키워드 풀', icon: Tag, hint: '측정 대상 키워드' },
     { href: '/admin/calendar', label: '콘텐츠 캘린더', icon: CalendarDays, hint: '발행 일정' },
     { href: '/admin/overseas', label: '해외 관리', icon: Globe, hint: 'EN · JA · ZH 전용' },
   ]},
-  { group: '실험 · 학습', items: [
+  { group: '실험 · 학습', defaultCollapsed: true, items: [
     { href: '/admin/ab-tests', label: 'A/B 테스트', icon: Beaker, hint: '변형 비교' },
     { href: '/admin/learned-insights', label: '학습 인사이트', icon: BookOpen, hint: '생성 프롬프트 규칙' },
     { href: '/admin/saas-tracking', label: '자사 영업 키워드', icon: Sparkles, hint: '위서클 자체 노출도' },

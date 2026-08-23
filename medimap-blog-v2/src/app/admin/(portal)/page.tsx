@@ -667,240 +667,41 @@ async function fetchDashboardData(opts: {
     return { tierTrend, clientRanking };
   };
 
-  // S8. Top 키워드 grounding rate (30일) + 신규 등장 도메인 (7일)
+  // S8. Top 키워드 grounding rate + 신규 등장 도메인
+  //
+  // 🔴 Round 174 (2026-08-23) — fetchAllRows 3연발 → 단일 RPC.
+  //   이전 구현은 responses.source_domains(jsonb)를 30일·7일·40~7일 세 창으로 끌어와
+  //   JS 에서 집계했다. 실측: 30일 1,715행 3.4MB + 40~7일 2,072행 약 4MB + 7일 337행
+  //   → 한 번 로드에 약 8MB, PostgREST 1,000행 페이지네이션이라 왕복만 6회 이상.
+  //   여기에 keywords/tenants 청크 조회가 더 붙었다. force-dynamic 이라 매 조회마다 반복.
+  //   테이블은 작다(responses 8,246행) — 인덱스가 아니라 왕복·페이로드 문제였다.
+  //   dashboard_grounding() 이 같은 집계를 DB 안에서 끝내고 jsonb 하나만 돌려준다
+  //   (실측 240ms). 집계 의미는 기존 JS 와 동일하게 맞췄다 — 숫자가 바뀌면 회귀로 오인된다.
+  //   되돌리려면 이 블록을 git 이력의 fetchAllRows 버전으로 교체.
   const sectionGrounding = async () => {
-    let keywordGrounding: KeywordGroundingItem[] = [];
-    let newDomains: NewDomainItem[] = [];
     try {
-      const thirtyDaysAgo =
+      const cutoff =
         useCustomRange && customCutoff
           ? customCutoff
           : new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000).toISOString();
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      const fortyDaysAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
-
-      // 4개 대량 fetch 병렬 + 전량 수집 (기존: 직렬 + 캡 잘림)
-      const [queriesAll, respsAll, respRecent, respPrior] = await Promise.all([
-        fetchAllRows<{ id: number; keyword_id: number; tenant_id: number }>((from, to) => {
-          let qa = sb
-            .from('queries')
-            .select('id, keyword_id, tenant_id')
-            .neq('engine', 'stub')
-            .gte('requested_at', thirtyDaysAgo)
-            .order('id')
-            .range(from, to);
-          if (tenantId) qa = qa.eq('tenant_id', tenantId);
-          if (langKwIds) qa = qa.in('keyword_id', langKwIds);
-          return qa;
-        }),
-        // grounded 판정은 source_domains 비어있지 않은 행만 필요 → not-null 필터로 축소
-        fetchAllRows<{ query_id: number; source_domains: unknown[] | null }>((from, to) =>
-          sb
-            .from('responses')
-            .select('query_id, source_domains')
-            .gte('created_at', thirtyDaysAgo)
-            .not('source_domains', 'is', null)
-            .order('id')
-            .range(from, to)
-        ),
-        fetchAllRows<{
-          id: number;
-          query_id: number;
-          source_domains: Array<{ domain: string; final_url?: string | null }> | null;
-          created_at: string;
-        }>((from, to) =>
-          sb
-            .from('responses')
-            .select('id, query_id, source_domains, created_at')
-            .gte('created_at', sevenDaysAgo)
-            .not('source_domains', 'is', null)
-            .order('id')
-            .range(from, to)
-        ),
-        fetchAllRows<{ source_domains: Array<{ domain: string }> | null }>((from, to) =>
-          sb
-            .from('responses')
-            .select('source_domains')
-            .gte('created_at', fortyDaysAgo)
-            .lt('created_at', sevenDaysAgo)
-            .not('source_domains', 'is', null)
-            .order('id')
-            .range(from, to)
-        ),
-      ]);
-
-      const queryIdToKw = new Map<number, { keyword_id: number; tenant_id: number }>();
-      queriesAll.forEach((q) => {
-        queryIdToKw.set(q.id, { keyword_id: q.keyword_id, tenant_id: q.tenant_id });
+      const { data, error } = await sb.rpc('dashboard_grounding', {
+        p_cutoff: cutoff,
+        p_tenant: tenantId ?? null,
+        p_kw_lang: kwLang ?? null,
       });
-
-      // keyword_id 별 — 시도 횟수 + grounding (source_domains 있는) 횟수
-      const kwStats = new Map<number, { tenant_id: number; queries: number; grounded: number }>();
-      queriesAll.forEach((q) => {
-        if (!kwStats.has(q.keyword_id)) {
-          kwStats.set(q.keyword_id, { tenant_id: q.tenant_id, queries: 0, grounded: 0 });
-        }
-        kwStats.get(q.keyword_id)!.queries++;
-      });
-      respsAll.forEach((r) => {
-        const meta = queryIdToKw.get(r.query_id);
-        if (!meta) return;
-        if (r.source_domains && Array.isArray(r.source_domains) && r.source_domains.length > 0) {
-          const s = kwStats.get(meta.keyword_id);
-          if (s) s.grounded++;
-        }
-      });
-
-      // keyword text + tenant name fetch
-      const kwIds = Array.from(kwStats.keys());
-      if (kwIds.length > 0) {
-        const kwsAll = await fetchByIdChunks(kwIds, (chunk) =>
-          sb.from('keywords').select('id, text, tenant_id').in('id', chunk)
-        );
-        const kwTextMap = new Map<number, string>();
-        const kwTenantMap = new Map<number, number>();
-        (kwsAll as Array<{ id: number; text: string; tenant_id: number }>).forEach((k) => {
-          kwTextMap.set(k.id, k.text);
-          kwTenantMap.set(k.id, k.tenant_id);
-        });
-
-        const tenantIdsKw = Array.from(new Set(Array.from(kwTenantMap.values())));
-        const tenantNameMap2 = new Map<number, string>();
-        if (tenantIdsKw.length > 0) {
-          const { data: tenantsKw } = await sb
-            .from('tenants')
-            .select('id, name')
-            .in('id', tenantIdsKw);
-          (tenantsKw ?? []).forEach((t: { id: number; name: string }) =>
-            tenantNameMap2.set(t.id, t.name)
-          );
-        }
-
-        keywordGrounding = Array.from(kwStats.entries())
-          .map(([kwId, v]) => ({
-            keyword: kwTextMap.get(kwId) ?? `#${kwId}`,
-            tenant_name: tenantNameMap2.get(kwTenantMap.get(kwId) ?? -1) ?? '?',
-            queries: v.queries,
-            grounded: v.grounded,
-            rate: v.queries > 0 ? v.grounded / v.queries : 0,
-          }))
-          .filter((r) => r.queries >= 1)
-          .sort((a, b) => b.queries - a.queries)
-          .slice(0, 10);
-      }
-
-      // 신규 도메인 — 최근 7일 등장 hostname 중 그 이전 33일에는 안 등장한 것
-      const priorDomains = new Set<string>();
-      respPrior.forEach((r) => {
-        (r.source_domains ?? []).forEach((sd: { domain: string }) => {
-          if (sd.domain) priorDomains.add(sd.domain.toLowerCase());
-        });
-      });
-
-      // 최근 7일 queries 정보 (tenantId 는 서버 필터, 언어 스코프는 JS 필터 — URL 안전)
-      const recentQueryIds = Array.from(new Set(respRecent.map((r) => r.query_id)));
-      const queryDetailMap = new Map<number, { tenant_id: number; keyword_id: number }>();
-      if (recentQueryIds.length > 0) {
-        const qrows = await fetchByIdChunks(recentQueryIds, (chunk) => {
-          let qd = sb
-            .from('queries')
-            .select('id, tenant_id, keyword_id')
-            .in('id', chunk)
-            .neq('engine', 'stub');
-          if (tenantId) qd = qd.eq('tenant_id', tenantId);
-          return qd;
-        });
-        (qrows as Array<{ id: number; tenant_id: number; keyword_id: number }>).forEach((q) => {
-          if (langKwSet && !langKwSet.has(q.keyword_id)) return;
-          queryDetailMap.set(q.id, { tenant_id: q.tenant_id, keyword_id: q.keyword_id });
-        });
-      }
-
-      // 키워드 + tenant name 매핑
-      const kwIdsForDomain = Array.from(
-        new Set(Array.from(queryDetailMap.values()).map((v) => v.keyword_id))
-      );
-      const kwTextMapForDomain = new Map<number, string>();
-      if (kwIdsForDomain.length > 0) {
-        const kws = await fetchByIdChunks(kwIdsForDomain, (chunk) =>
-          sb.from('keywords').select('id, text').in('id', chunk)
-        );
-        (kws as Array<{ id: number; text: string }>).forEach((k) =>
-          kwTextMapForDomain.set(k.id, k.text)
-        );
-      }
-      const tenantIdsForDomain = Array.from(
-        new Set(Array.from(queryDetailMap.values()).map((v) => v.tenant_id))
-      );
-      const tenantNameMapForDomain = new Map<number, string>();
-      if (tenantIdsForDomain.length > 0) {
-        const { data: ts } = await sb
-          .from('tenants')
-          .select('id, name')
-          .in('id', tenantIdsForDomain);
-        (ts ?? []).forEach((t: { id: number; name: string }) =>
-          tenantNameMapForDomain.set(t.id, t.name)
-        );
-      }
-
-      const recentFirstSeen = new Map<
-        string,
-        {
-          first: string;
-          count: number;
-          urls: Set<string>;
-          keywords: Set<string>;
-          tenants: Set<string>;
-        }
-      >();
-      respRecent.forEach((r) => {
-        const day = r.created_at.slice(5, 10);
-        const meta = queryDetailMap.get(r.query_id);
-        if (tenantId && !meta) return; // tenantId 필터 적용 시 query 없는 건 skip
-        (r.source_domains ?? []).forEach((sd: { domain: string; final_url?: string | null }) => {
-          if (!sd.domain) return;
-          const d = sd.domain.toLowerCase();
-          if (priorDomains.has(d)) return;
-          if (!recentFirstSeen.has(d)) {
-            recentFirstSeen.set(d, {
-              first: day,
-              count: 0,
-              urls: new Set(),
-              keywords: new Set(),
-              tenants: new Set(),
-            });
-          }
-          const entry = recentFirstSeen.get(d)!;
-          entry.count++;
-          if (sd.final_url) entry.urls.add(sd.final_url);
-          if (meta) {
-            const kwText = kwTextMapForDomain.get(meta.keyword_id);
-            const tName = tenantNameMapForDomain.get(meta.tenant_id);
-            if (kwText) entry.keywords.add(kwText);
-            if (tName) entry.tenants.add(tName);
-          }
-        });
-      });
-
-      // tier 분류 lookup (S7 과 공유 fetch)
-      const classifyMap = await domainClassPromise;
-
-      newDomains = Array.from(recentFirstSeen.entries())
-        .map(([domain, info]) => ({
-          domain,
-          tier: classifyMap.get(domain) ?? 'T5',
-          first_seen: info.first,
-          occurrences: info.count,
-          sample_urls: Array.from(info.urls).slice(0, 3),
-          keywords: Array.from(info.keywords).slice(0, 3),
-          tenants: Array.from(info.tenants).slice(0, 3),
-        }))
-        .sort((a, b) => b.occurrences - a.occurrences)
-        .slice(0, 8);
+      if (error) throw error;
+      const payload = (data ?? {}) as {
+        keywordGrounding?: KeywordGroundingItem[];
+        newDomains?: NewDomainItem[];
+      };
+      return {
+        keywordGrounding: payload.keywordGrounding ?? [],
+        newDomains: payload.newDomains ?? [],
+      };
     } catch {
-      /* 신규 차트 실패 시 빈 array */
+      // 실패해도 대시보드 전체를 죽이지 않는다 — 빈 차트로 graceful degrade (기존 동작).
+      return { keywordGrounding: [] as KeywordGroundingItem[], newDomains: [] as NewDomainItem[] };
     }
-    return { keywordGrounding, newDomains };
   };
 
   // S9. 콘텐츠 경쟁력 (Round 87) — 발행 글의 키워드별 멘션 수 (공유 체인 재사용)

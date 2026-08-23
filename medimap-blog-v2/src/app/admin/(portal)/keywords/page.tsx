@@ -23,6 +23,13 @@ interface KwRow {
   // Round 42 D — purpose 컬럼 추가
   purpose?: 'own' | 'competitor_landscape' | string;
   is_saas_marketing?: boolean;
+  // Round 174 (2026-08-23) — is_active 하나가 '발행'과 'AI 인용 측정'을 동시에 제어해서
+  //   헤드 키워드를 측정만 남기고 발행에서 빼는 게 불가능했다. 두 축으로 분리.
+  content_eligible?: boolean;
+  measure_eligible?: boolean;
+  lang?: string;
+  /** 어절 수 — 롱테일 여부의 1차 지표 (GSC: 1~2어절 헤드 텀은 44~91위, 클릭 0) */
+  tokens?: number;
 }
 
 const CATEGORY_SUGGEST = ['라식·라섹', '백내장', '노안교정', '여드름', '모발이식', '임플란트', '교정', '기타'];
@@ -100,6 +107,26 @@ export default function KeywordsPage() {
       await load();
     } catch (e) {
       showToast(`상태 변경 실패: ${(e as Error).message}`, { kind: 'error' });
+    }
+  };
+
+  /**
+   * Round 174 — 발행/측정 플래그 개별 토글.
+   *   content_eligible=false → 발행 로테이션에서만 제외 (AI 인용 측정은 그대로)
+   *   measure_eligible=false → 측정에서만 제외 (발행은 그대로, LLM 크레딧 절약)
+   */
+  const toggleFlag = async (r: KwRow, field: 'content_eligible' | 'measure_eligible') => {
+    const next = !(r[field] ?? true);
+    try {
+      const res = await fetch(`/api/admin/keywords/${r.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: next }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error ?? 'toggle failed');
+      await load();
+    } catch (e) {
+      showToast(`플래그 변경 실패: ${(e as Error).message}`, { kind: 'error' });
     }
   };
 
@@ -216,6 +243,7 @@ export default function KeywordsPage() {
               <th className="px-4 py-3 text-left">카테고리</th>
               <th className="px-4 py-3 text-left">target_brand</th>
               <th className="px-4 py-3 text-left">상태</th>
+              <th className="px-4 py-3 text-left">발행 · 측정</th>
               <th className="px-4 py-3 text-right">액션</th>
             </tr>
           </thead>
@@ -256,6 +284,33 @@ export default function KeywordsPage() {
                     className={cn('chip-base px-2', r.is_active ? 'chip-success' : 'chip-neutral')}>
                     {r.is_active ? '활성' : '일시정지'}
                   </button>
+                </td>
+                {/* Round 174 — 발행/측정 분리 토글 + 어절 수(롱테일 지표) */}
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => toggleFlag(r, 'content_eligible')}
+                      title="발행 로테이션 포함 여부 (측정과 무관)"
+                      className={cn('chip-base px-2', (r.content_eligible ?? true) ? 'chip-success' : 'chip-neutral')}>
+                      발행
+                    </button>
+                    <button
+                      onClick={() => toggleFlag(r, 'measure_eligible')}
+                      title="AI 인용 측정 포함 여부 (LLM 크레딧 소모)"
+                      className={cn('chip-base px-2', (r.measure_eligible ?? true) ? 'chip-success' : 'chip-neutral')}>
+                      측정
+                    </button>
+                    {typeof r.tokens === 'number' && (
+                      <span
+                        title={r.tokens <= 2
+                          ? '헤드 텀 — GSC 실측 44~91위, 클릭 0. 발행 대상으로는 부적합'
+                          : '롱테일 — 이 도메인이 실제로 순위가 나오는 구간'}
+                        className={cn('chip-base px-2 tabular-nums',
+                          r.tokens <= 2 ? 'chip-neutral' : 'chip-success')}>
+                        {r.tokens}어절
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-right">
                   <button onClick={() => remove(r.id)} className="rounded-md p-1.5 text-ink-muted hover:text-status-danger">
