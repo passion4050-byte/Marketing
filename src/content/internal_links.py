@@ -35,6 +35,11 @@ SITE = "https://wecircle.co.kr"
 
 _OVERSEAS_LANG_PATH = {"en": "en", "ja": "ja", "zh-Hans": "zh", "zh-Hant": "tw"}
 
+# medimap-blog/src/app/with-partners/.../page.tsx::stripReferenceSection 와 동일한 패턴.
+_REF_H2 = re.compile(
+    r"<h2[^>]*>\s*(?:참고\s*자료|참고\s*문헌|References?)\s*</h2>", re.IGNORECASE
+)
+
 _A_TAG = re.compile(
     r'<a\b[^>]*\bhref\s*=\s*"([^"]*)"[^>]*>(.*?)</a>',
     re.IGNORECASE | re.DOTALL,
@@ -200,6 +205,16 @@ def ensure(
         return body, 0
     items = "".join(f'<li><a href="{c.path}">{c.title}</a></li>' for c in pick)
     block = f"<h2>{heading}</h2><ul>{items}</ul>"
+    # ⚠ 문서 맨 끝에 붙이면 안 되는 경우가 있다.
+    #   medimap-blog 의 파트너 상세 렌더러(stripReferenceSection)는
+    #   <h2>참고 자료|참고 문헌|References</h2> 부터 **문서 끝까지** 통째로 잘라낸다.
+    #   그 뒤에 붙이면 사용자에게도 구글에게도 안 보인다 — 링크를 보장하려던 코드가
+    #   조용히 아무것도 안 하게 된다. 참고자료 h2 가 있으면 그 앞에 넣는다.
+    #   (현재 발행본 234편 중 해당 h2 는 0건이지만, 렌더러가 그 케이스를 처리하는 이상
+    #    프롬프트가 바뀌면 언제든 다시 생긴다.)
+    m = _REF_H2.search(body)
+    if m:
+        return body[: m.start()] + block + body[m.start() :], len(pick)
     return body.rstrip() + block, len(pick)
 
 
