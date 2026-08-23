@@ -10,10 +10,35 @@
  *   · h2 5개 이상일 때만 주입 (짧은 글은 말미 CTA 로 충분 — 과다 노출은 신뢰를 깎는다)
  *   · 3번째 h2 앞 = 도입·정의를 지나 '비용/방법'이 시작되는 지점
  */
+/**
+ * Round 173b (2026-08-23) — 고정 3번째 h2 → 의미 기반 앵커.
+ *   기존 규칙은 "3번째 h2 앞"이라는 위치 상수였다. 실제 글에서 상담 진입점이 가장
+ *   자연스러운 지점은 위치가 아니라 **주제**다 — 비용·가능 여부·판단 기준을 다룬 직후,
+ *   즉 독자가 "그래서 내 경우는?"에 도달하는 순간. 그 섹션을 지나기 전에 CTA 를 붙이면
+ *   광고가 되고, 한참 뒤에 붙이면 이미 이탈한 뒤다.
+ *   앵커 후보를 못 찾으면 기존 3번째 h2 규칙으로 폴백 — 무회귀.
+ */
+const DECISION_ANCHOR =
+  /(비용|가격|얼마|금액|기준|가능\s*할까|가능한가|적합|판단|검사|체크리스트|준비)/;
+
 export function injectMidCta(body: string, midHtml: string): string {
   const parts = body.split(/(?=<h2)/i);
   if (parts.length < 5) return body;
-  return parts.slice(0, 3).join("") + midHtml + parts.slice(3).join("");
+
+  // 앵커: "결정 순간"을 다루는 h2 를 찾아 그 **다음** 경계에 넣는다(그 내용을 읽은 직후).
+  //   너무 앞(2번째 미만)이나 너무 뒤(80% 이후)는 제외 — 각각 광고처럼 보이고, 이탈 후다.
+  const lo = 2;
+  const hi = Math.max(lo + 1, Math.floor(parts.length * 0.8));
+  let at = -1;
+  for (let i = lo; i < hi; i += 1) {
+    const heading = parts[i].slice(0, 160);
+    if (DECISION_ANCHOR.test(heading)) {
+      at = i + 1;
+      break;
+    }
+  }
+  if (at < 0 || at >= parts.length) at = 3; // 폴백 — Round 169 규칙
+  return parts.slice(0, at).join("") + midHtml + parts.slice(at).join("");
 }
 
 /**

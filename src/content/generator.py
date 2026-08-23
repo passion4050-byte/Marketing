@@ -388,6 +388,48 @@ _TABLE_HINT = (
 )
 
 
+# 🔴 Round 173b (2026-08-23) — 얇은 섹션 게이트.
+#   실측(ko 파트너, 최근 30일): 테넌트별 H2당 평균 글자수가 244자(BGN 잠실)부터
+#   787자(벨리셀)까지 3배 넘게 벌어져 있었다. 244자면 H2 하나에 2~3문장 — 구조(질문형
+#   제목·표·FAQ)는 갖췄지만 답이 없는 글이다. 검색자는 "그래서 내 경우 기준이 뭔데"를
+#   묻는데 문서가 답하지 않으면 2페이지에서 더 못 올라간다.
+#   400자 기준선: 건강한 테넌트들의 중앙값(650~790자)보다 한참 낮게 잡아 재시도 폭주를
+#   막으면서, 2~3문장짜리 빈 섹션만 걸러낸다.
+_MIN_SECTION_CHARS = 400
+
+_DEPTH_HINT = (
+    "깊이 보강(필수): 아래 섹션들이 2~3문장으로 너무 얕습니다. 각 섹션을 400자 이상으로 "
+    "다시 쓰되 분량을 늘리려고 같은 말을 반복하지 마세요. 반드시 아래 중 최소 2가지를 "
+    "구체적으로 넣으세요 — ①판단 기준이 되는 수치·범위(예: 잔여 각막 250~300µm), "
+    "②단계별 절차와 각 단계의 소요 기간, ③해당되는 사람 / 해당되지 않는 사람의 구분, "
+    "④검사·상담 때 실제로 확인하는 항목, ⑤흔한 오해와 그것이 왜 틀렸는지. "
+    "수치를 쓸 때는 범위와 전제를 함께 적고(개인차·검사 결과에 따라 달라짐), "
+    "단정적 효과 보장 표현은 금지합니다. 얕은 섹션: "
+)
+
+
+def _thin_sections(post: BlogPost, min_chars: int = _MIN_SECTION_CHARS) -> list[str]:
+    """min_chars 미만인 h2 섹션의 heading 목록. 표가 든 섹션은 면제."""
+    from src.content.templates.blog_html import _looks_like_md_table
+
+    thin: list[str] = []
+    for sec in post.sections:
+        blocks = list(sec.paragraphs)
+        for sub in sec.sub_sections:
+            blocks.append(sub.heading or "")
+            blocks.extend(sub.paragraphs)
+        # 표·체크리스트가 본체인 섹션은 글자수가 적어도 정보 밀도가 높다 → 면제
+        if any(
+            _looks_like_md_table(seg)
+            for b in blocks
+            for seg in (b or "").split("\n\n")
+        ):
+            continue
+        if sum(len(b or "") for b in blocks) < min_chars:
+            thin.append(sec.heading or "(제목 없음)")
+    return thin
+
+
 def _post_has_md_table(post: BlogPost) -> bool:
     """post 의 어느 paragraph 든 마크다운 표 블록이 있으면 True."""
     from src.content.templates.blog_html import _looks_like_md_table
@@ -818,6 +860,11 @@ def generate_blog_post(
             {"tid": tenant_id, "lang": _il_lang},
         ).fetchall()
         _il_links: list[str] = []
+        # Round 173b — 같은 목록을 프롬프트용 문자열과 사후 검증용 구조체 두 벌로 만든다.
+        #   프롬프트만으로는 안 지켜졌다: 발행된 ko 파트너 234편 중 2세그먼트 깨진 링크 45건,
+        #   정상 4세그먼트 7건, 나머지 182편은 내부 링크 자체가 없었다.
+        from src.content.internal_links import LinkCandidate as _LinkCandidate
+        _il_candidates: list[_LinkCandidate] = []
         for _il_title, _il_slug, _il_partner, _il_pcat, _il_pslug in _il_rows:
             if not _il_slug or not _il_title:
                 continue
@@ -834,6 +881,13 @@ def generate_blog_post(
                 else:
                     _il_url = f"https://wecircle.co.kr/blog/{_il_slug}"
             _il_links.append(f"- {_il_title}: {_il_url}")
+            _il_candidates.append(
+                _LinkCandidate(
+                    title=str(_il_title),
+                    slug=str(_il_slug),
+                    path=_il_url.replace("https://wecircle.co.kr", "", 1),
+                )
+            )
         if _il_links:
             if _il_lang != "ko":
                 _internal_links_directive = (
@@ -854,6 +908,7 @@ def generate_blog_post(
                 )
     except Exception:  # noqa: BLE001
         _internal_links_directive = ""
+        _il_candidates = []
 
     _combined_directive = "\n\n".join(
         d
@@ -972,17 +1027,31 @@ def generate_blog_post(
         # Round 81 — AEO 표 강제. 의료법(compliance) 로직은 그대로 두고, 표 누락 시에만
         #   재시도 힌트를 추가. 끝까지 표가 없어도 발행은 막지 않음(비차단).
         has_table = _post_has_md_table(last_post)
+        # Round 173b — 얇은 섹션도 표 누락과 같은 방식으로 비차단 재시도.
+        thin = _thin_sections(last_post)
 
-        if last_report.status == "pass" and has_table:
+        if last_report.status == "pass" and has_table and not thin:
             logger.info("blog.passed", attempt=attempt, summary=last_report.summary())
             break
 
-        if last_report.status == "pass" and not has_table:
+        if last_report.status == "pass" and (not has_table or thin):
             if attempt < max_corrections:
-                correction_hint = _TABLE_HINT
-                logger.info("blog.retry_for_table", attempt=attempt)
+                hints = []
+                if not has_table:
+                    hints.append(_TABLE_HINT)
+                if thin:
+                    hints.append(_DEPTH_HINT + " / ".join(thin))
+                correction_hint = "\n\n".join(hints)
+                logger.info(
+                    "blog.retry_for_quality",
+                    attempt=attempt, no_table=not has_table, thin_sections=len(thin),
+                )
                 continue
-            logger.info("blog.no_table_accepted", attempt=attempt)
+            # 끝까지 못 고쳐도 발행은 막지 않는다 — 컴플라이언스와 달리 품질은 비차단.
+            logger.info(
+                "blog.quality_accepted",
+                attempt=attempt, no_table=not has_table, thin_sections=len(thin),
+            )
             break
 
         if not last_report.has_errors() and last_report.status == "warn":
@@ -1007,6 +1076,24 @@ def generate_blog_post(
     assert last_result is not None and last_report is not None and last_post is not None
 
     body_html = render_body(last_post)
+
+    # Round 173b — 내부 링크 결정적 보정. 프롬프트 준수에 맡기지 않는다.
+    #   깨진 내부 링크는 404 → 이미 고갈된 크롤 예산을 더 태우고 링크 자산도 샌다.
+    #   sanitize: 알 수 있는 slug 면 정본 경로로 교정, 못 찾으면 <a> 만 벗김(문장 보존).
+    #   ensure:   유효 내부 링크가 2개 미만이면 "함께 읽으면 좋은 글" 블록을 붙임.
+    #   실패해도 생성은 계속 — 링크 보정 때문에 발행이 막히면 안 된다.
+    try:
+        if _il_candidates:
+            from src.content.internal_links import apply as _apply_links
+
+            body_html, _il_stats = _apply_links(
+                body_html, _il_candidates, self_slug=None, min_links=2
+            )
+            if any(_il_stats.values()):
+                logger.info("blog.internal_links", keyword=keyword, **_il_stats)
+    except Exception as _il_err:  # noqa: BLE001
+        logger.warning("blog.internal_links_failed", error=str(_il_err))
+
     meta_block = render_meta_block(last_post)
     full_html = render_full_html(last_post)
     naver_plain = render_naver_blog_plain(last_post)
