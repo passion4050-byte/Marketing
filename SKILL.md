@@ -6214,3 +6214,251 @@ meta-externalagent 1,121 · claudebot 35 · googleother 13 · oai-searchbot 5 ·
 - 내부 링크 재배선 (허브에서 3클릭 이내)
 - 빌드 프리렌더 180초 타임아웃 (크롤 예산에 직접 영향)
 - 외부 백링크 — 파트너 병원 홈페이지 링크가 가장
+
+---
+
+# Round 173 (2026-08-23) — 🔴🔴 크롤 예산의 진짜 범인: 중복 라우트 277개
+
+푸시: `9fa61cc..f533181` (`0f6f974` + `06892ab` + merge)
+
+## 0. 한 줄
+
+Round 172 에서 "발견됨 — 크롤조차 안 됨 326건"을 크롤 예산 문제로 진단한 것까지는 맞았지만,
+**그 예산을 먹고 있던 게 무엇인지는 몰랐다.** 이번에 찾았다 — 사이트가 같은 본문을 두 URL 로
+내보내고 있었고, 그게 277개였다.
+
+## 1. 🔴 `/blog/{slug}` 가 모든 발행 글을 렌더하고 있었다
+
+`medimap-blog/src/lib/posts.ts` 의 `DB_FILTER`:
+
+```sql
+gc.status = 'published' AND gc.channel = 'blog_html' AND gc.compliance_status = 'pass'
+```
+
+`is_partner_content` 도, `market` 도 거르지 않는다. 그래서 `/blog/{slug}` 라우트가
+파트너 글·해외 글까지 **전부** 렌더했다.
+
+| 구분 | URL |
+|---|---|
+| `/blog/{slug}` 로 노출되던 전체 | 312 |
+| 다른 canonical 과 본문이 동일한 중복 | **277** |
+| 실제 `/blog` 고유 문서 | 35 |
+
+- 국내 파트너 221편 → `/with-partners/{cat}/{partner}/{slug}` 와 동일 본문
+- 해외 55편 → `/{lang}/clinics|guides/...` 와 동일 본문
+
+**GSC 의 "중복, 사용자가 선택한 표준 없음 29건" 은 구글이 크롤한 만큼만 센 숫자였다.**
+나머지는 아직 "발견됨 — 크롤조차 안 됨" 쪽에 쌓여 있었다. 두 항목이 별개 문제가 아니라
+같은 원인의 두 단면이었다.
+
+head-to-head 실측 (양쪽에 다 존재하는 slug 13개, 90일):
+
+| 라우트 | URL | 노출 | 클릭 |
+|---|---|---|---|
+| `/with-partners/...` (정본) | 16 | 100 | 3 |
+| `/blog/...` (중복) | 13 | 66 | 1 |
+
+신호가 정확히 반으로 쪼개져 있었다. 심지어 **사이트 유일의 파트너 클릭 문서**
+(`/blog/jamsil-cataract-both-eyes-interval-2026`, 22노출 1클릭)가 중복 쪽이었다.
+
+### 조치
+
+`PostMeta.canonicalPath` 신설 (`posts.ts`):
+
+```ts
+function canonicalPathFor(row: DbPostRow): string | undefined {
+  // overseas → /{langPath}/clinics/{cat}/{partner}/{slug} 또는 /{langPath}/guides/{slug}
+  // domestic partner → /with-partners/{cat}/{partner}/{slug}
+  // 그 외(자사 마케팅·레거시 의료글) → undefined = /blog 가 정본
+}
+```
+
+- `blog/[slug]/page.tsx` → `if (post.canonicalPath) permanentRedirect(post.canonicalPath)` (308)
+- `sitemap.ts` / `/all` 허브 → `!p.canonicalPath` 필터
+- 404 가 아니라 308 인 이유: 이미 쌓인 신호를 버리지 않고 정본으로 합치기 위해
+
+**사이트맵 약 530 → 약 250 URL.**
+
+⚠️ 되돌리려면 `canonicalPathFor` 와 `permanentRedirect` 두 곳만 지우면 된다.
+
+## 2. 🔴 키워드가 헤드 텀이라 순위가 나올 수 없었다 (품질 문제가 아니었다)
+
+사용자 요청은 "구글이 크롤링 잘하도록 좋은 퀄리티 글"이었지만, `llm.py` 의 블로그
+시스템 프롬프트는 이미 AEO 구조(질문형 H2·정의문·마크다운 표·E-E-A-T)를 강제하고 있었다.
+진짜 문제는 **무엇에 대해 쓰라고 지시하는가**였다.
+
+`keywords` 테이블 테넌트별 평균 어절 수: **1.0 ~ 2.6** ("라식", "필러", "백내장", "울쎄라").
+
+GSC 90일 실측:
+
+| 유형 | 실측 | 클릭 |
+|---|---|---|
+| 헤드 텀 | 라식 44.3위 · 백내장 73.9위 · 부산 라식 52.6위 · 부산 스마일 라식 45.1위 · 홍대 피부과 90.5위 · 스마일라식 비용 35.0위 | **전부 0** |
+| 브랜드형 | dear clinic seoul 5.0위 · 韓國近視雷射 6.0위 · 서울병원마케팅 7.0위 · cheongdam dear clinic 8.0위 · bright eye clinic gangnam review 9.0위 · 이마 라인 14.0위 · 부산 밝은 눈 안과 18.6위 · 서면 밝은눈안과 19.0위 | 대부분 |
+| 롱테일 질문형 | 양안 백내장 수술 간격 = 사이트 최고 성과 문서 | 유일한 파트너 클릭 |
+
+**DR 0 도메인이 주 3회 발행으로 "라식"을 이길 경로는 없다.** 이길 수 있는 건
+브랜드+수식어와 구체적 질문형이다.
+
+### 조치 — `is_active` 하나로는 분리가 불가능했다
+
+`is_active` 가 **발행 로테이션과 AI 인용 측정을 동시에** 제어하고 있었다. "라식"은 측정
+대상으로는 여전히 유효하므로 그냥 끌 수 없다. 컬럼을 쪼갰다:
+
+```sql
+alter table keywords add column if not exists content_eligible boolean not null default true;
+alter table keywords add column if not exists measure_eligible boolean not null default true;
+```
+
+- `scheduler.py` 측정 경로 → `getattr(k, "measure_eligible", True) is not False`
+- `scheduler.py` 발행 경로 → `getattr(k, "content_eligible", True) is not False`
+- ⚠️ **폴백 경로(`if not kw_rows and _capped:`)에도 반드시 적용**. 빠뜨리면 상한 도달
+  테넌트가 조용히 헤드 키워드로 되돌아간다.
+- `getattr` 폴백을 쓴 이유: 컬럼 미배포 환경에서도 기존 동작 유지
+
+시드: 롱테일 질문형 **196개** (`scripts/seed_longtail_keywords.py`, `measure_eligible=false`
+→ LLM 측정 비용 0). 헤드 텀 90개 `content_eligible=false`.
+
+결과: 13개 활성 테넌트 전부 content 키워드 12~27개, **평균 4.8~5.8 어절** (이전 1.0~2.6).
+
+`llm.py` 에 `[D-3. 롱테일 질문형 키워드 대응]` 섹션 + `_build_blog_user_prompt` 에
+질문형 감지 분기 추가 (첫 100자 안에 답 제시, title/첫 h2 = 질문 그대로, 주제 확장 금지).
+
+## 3. 내부 링크가 끊겨 있었다 → `/all` 허브 신설
+
+- `/blog` 인덱스가 `slice(0, 12)` — 나머지는 sitemap 에만 존재
+- 레거시 의료 글(`blogCategory` 없음)은 허브 자체가 없었다
+- 파트너 글은 홈에서 4클릭 (`/with-partners/{cat}/{partner}/{slug}`)
+
+`src/app/all/page.tsx` — HTML 사이트맵 허브. Footer 전역 링크 → **모든 문서가 2클릭**.
+`noindex` 와 `canonicalPath` 는 제외(크롤 예산을 다시 새게 하지 않기 위해).
+`/blog` 전량 링크, 파트너 카테고리 12→60, 형제 글 4→8.
+
+## 4. 빌드 프리렌더 180s 타임아웃
+
+`posts.ts`/`partners.ts` 모듈 캐시 TTL 60초가 ~350페이지 프리렌더 중 반복 만료 →
+Supabase 왕복 반복 → Vercel 180s 워치독. 빌드 중에는 발행이 없으므로 stale 이 불가능:
+
+```ts
+const IS_BUILD_PHASE = process.env.NEXT_PHASE === "phase-production-build";
+const POSTS_CACHE_TTL_MS = IS_BUILD_PHASE ? 3_600_000 : 60_000;
+```
+
+## 5. 🔴 Googlebot 이 crawler_hits 감지 목록에 아예 없었다
+
+14일 `crawler_hits`: meta-externalagent 1,180 / claudebot 35 / googleother 15 /
+oai-searchbot 5 / **googlebot 0**.
+
+안 온 게 아니라 `crawler-detect.ts` 의 `BOT_PATTERNS` 에 Googlebot 패턴이 없었다
+(GoogleOther·Google-Extended 만 있었음). **크롤 예산 작업의 성패를 볼 계기가 없었던 것.**
+
+추가: `google-inspectiontool` → `googlebot-image` → `googlebot` → `bingbot` →
+`naver-yeti`(`/Yeti\/[\d.]+/i`). 순서 중요 — 구글 비검색 에이전트가 먼저 매칭돼야 한다.
+
+**Daum 은 의도적으로 제외.** 크롤러 토큰은 `Daum/4.1` 이지만 다음·카카오톡 인앱 브라우저
+UA 에도 `Daum` 이 들어간다. `detectAiCrawler` 는 `/r/{slug}` 의 봇 필터로도 쓰이므로
+오탐 시 **사람 클릭이 `shortlink_clicks` 에서 조용히 사라진다.**
+
+`/all` 을 middleware matcher 에 추가. ⚠️ matcher 에 경로를 넣으면 **early-return 분기에도
+반드시 넣어야 한다.** 안 그러면 admin 인증 분기로 떨어져 `/admin/login` 으로 리다이렉트된다.
+
+## 6. 🔴 Round 172 의 청담디어 판단이 틀렸다
+
+R172 에서 "청담디어 40편 → 0 노출"이라며 발행을 껐는데, ko-partner 실측:
+
+| 테넌트 | 발행 | 노출된 URL | 노출 | 평균순위 |
+|---|---|---|---|---|
+| BGN 잠실 | 57 | 36 | 51 | 10.4 |
+| 밝은눈안과 부산 | 12 | 21 | 32 | 34.7 |
+| 모우림 | 18 | 16 | 24 | 16.8 |
+| 밴스모자이너 | 12 | 12 | 19 | 20.0 |
+| 벨리셀 | 16 | 9 | 12 | 17.6 |
+| **청담디어** | 40 | 8 | 9 | **11.9** |
+| 밝은눈안과 강남 | 15 | 5 | 6 | 9.8 |
+| 포레나 | 6 | 1 | 3 | 63.7 |
+| 강남연세 | 4 | 2 | 3 | 8.0 |
+| 바를정 | 13 | 1 | 1 | 3.0 |
+| 지우피부과 | 14 | **0** | 0 | — |
+
+유지 중인 12곳 중 7곳보다 낫다. → 롱테일 16개 시드 후 **발행 재개**(tenant 17).
+
+## 7. 광동병원 partner_slug 정규화
+
+`partner-20` → `kwangdong`. 발행글 1편·노출 0 이라 URL 을 깰 수 있는 마지막 시점.
+브랜드가 URL 에 들어가야 브랜드 쿼리(이 도메인이 1페이지에 드는 유일한 유형)에서 잡힌다.
+`guides.ts` 는 구 키를 하위호환으로 남김.
+
+## 8. 🔴 아직 안 풀린 근본 제약 — 발행량
+
+주간 실측 발행: 7/13주 23 · 7/20주 37 · 7/27주 31 · 8/3주 20 · 8/10주 **59** · 8/17주 **64**.
+
+**R172 의 "주 14회 → 주 6회 (−57%)" 는 cron 실행 횟수였지 발행량이 아니었다.**
+cron 1회당 활성 tenant 전부 × `daily_count`(=1) 이므로 실제 주 40~78편.
+
+이번에 277 URL 을 비웠지만 **주 60편이면 4~5주면 도로 찬다.** 크롤 예산이 근본 제약인
+이상 발행량 상한(`daily_count` 또는 tenant 로테이션)을 다음 라운드에서 반드시 손봐야 한다.
+지금 한 일은 시간을 산 것이지 문제를 없앤 게 아니다.
+
+## 9. noindex 70편의 근거 한계 (자체 정정)
+
+R172 에서 "45일 경과 + GSC 노출 0"으로 70편을 noindex 했는데, `gsc_daily` 는 2026-07-05
+부터만 있고 **62편이 그 이전 발행**이다. 즉 "노출 0"은 측정이 아니라 데이터 부재였다.
+다만 최근 46일 내내 노출 0 이면 현재 죽은 문서라는 판단 자체는 유효. 2~3주 뒤 크롤률
+개선이 확인되면 일부 복구 재검토.
+
+## 10. 🔴 이번에 또 터진 함정 — `git pull --rebase` 무한 프롬프트
+
+```
+Deletion of directory 'medimap-blog/src/app/all' failed. Should I try again? (y/n)
+```
+
+R172 의 `git stash -u` 와 **같은 함정**. rebase 는 로컬 커밋을 다시 얹기 위해 워킹트리를
+원격 상태로 되돌리는데, 그때 새로 만든 디렉터리를 삭제해야 한다. 이 환경은 디렉터리 삭제가
+막혀 있어 영원히 재시도한다. **`y` 도 `n` 도 안 먹는다.**
+
+### 탈출 + 복구
+
+1. **Ctrl+C** (y/n 입력 금지)
+2. `git rebase --abort` — 커밋은 살아있고 워킹트리가 복구된다
+3. `git pull --no-rebase --no-edit` ← **merge 는 워킹트리를 되돌리지 않아 삭제 시도가 없다**
+4. `git push`
+
+**이 리포에서는 `git pull --rebase` 를 쓰지 않는다.** 새 파일/폴더가 하나라도 있으면 재발한다.
+
+### 부수 발견 — `.gitignore` 가 UTF-16LE 로 깨져 있었다
+
+바이트 691 이후가 UTF-16LE 로 커밋돼 있어 `.fuse_hidden*` 규칙이 실제로는 무시된 적이 없었다.
+UTF-8 로 재작성 + `_to_delete/`, `*.tgz` 추가.
+
+## 11. 파일 전달 방식 개선 — 파워셸 base64 붙여넣기 대체
+
+`GH_TOKEN` 으로 리포 **clone(읽기)은 되지만 push 는 프록시가 막는다.** 그러나
+`device_bash` + `device_commit_files` 로 사용자 PC(`C:\Users\user\Documents\Marketing`)에
+파일을 **직접 쓸 수 있다.**
+
+절차:
+1. 컨테이너에서 변경 파일을 `tar -czf` 로 묶는다
+2. `SendUserFile` → `file_uuid` 획득
+3. `device_commit_files` 로 `_to_delete/` 에 tgz 를 쓴다
+4. ⚠️ `tar -xzf` 로 **덮어쓰기는 실패한다** (`Cannot open: File exists` — tar 가 unlink 를 하는데 마운트가 막음).
+   `/tmp` 에 풀고 `cat "$f" > "$HOME/mnt/Marketing/$rel"` 로 **truncate 쓰기**
+5. 양쪽 `sha256sum` 대조
+
+R170~172 의 gzip+base64 붙여넣기(80KB 페이스트)가 완전히 불필요해졌다.
+
+## 12. 검증 게이트
+
+- `npx tsc --noEmit` exit 0 (매 편집 후)
+- `npx next build --no-lint` exit 0 (2회)
+- 원격 `origin/main` 재클론 후 9개 핵심 파일 `sha256` 대조 — 전부 일치
+
+## 13. 이월 (Round 174+)
+
+- **발행량 상한** (§8) — 최우선. 이거 안 하면 이번 라운드 성과가 4~5주 뒤 소멸
+- `crawler_hits` 에 `googlebot` 행이 실제로 생기는지 — 안 생기면 진짜로 안 오는 것
+- `/blog/jamsil-cataract-both-eyes-interval-2026` 308 → partner URL 신호 이전 확인
+- sitemap URL 수 ~250 확인, `/all` 크롤 여부
+- 다음 발행분 title/첫 h2 가 질문형인지
+- 외부 백링크(파트너 병원 홈페이지) — 도메인 권위가 근본 제약
+- Vercel Hobby 상업적 이용 약관 리스크
+- 클리어서울(13)·힐링안과(14): 7편씩 노출 0, 계속 off
