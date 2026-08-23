@@ -1,0 +1,81 @@
+name: Enrich thin posts (manual)
+
+# Round 174d (2026-08-23) — 얇은 기존 발행글을 같은 URL 에서 심화 재생성.
+#   Round 173 의 깊이 게이트는 새 글에만 적용된다. 이미 나간 50편(BGN 잠실 45편,
+#   평균 1,257자 = 섹션당 약 210자) 중 21편은 이미 GSC 노출이 있다 — 색인은 됐는데
+#   얕아서 클릭이 안 되는 구간이다. 새 URL 을 안 늘리고 순위를 올릴 수 있어 효율이 가장 좋다.
+#   ⚠ cron 없음. LLM 비용이 드는 작업이라 사람이 판단해서 돌린다.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '1이면 대상만 출력하고 아무것도 바꾸지 않음'
+        required: false
+        default: '1'
+        type: string
+      limit:
+        description: '한 번에 처리할 편수 (비용 통제 — 5부터 시작 권장)'
+        required: false
+        default: '5'
+        type: string
+      min_chars:
+        description: '이 글자 수 미만을 얇은 글로 간주'
+        required: false
+        default: '2000'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: enrich-thin-posts
+  cancel-in-progress: false
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    # 1편당 LLM + 이미지 약 2~3분. limit 10 까지 여유.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Verify required secrets
+        run: |
+          if [ -z "${{ secrets.DATABASE_URL }}" ]; then
+            echo "::error::DATABASE_URL secret 미설정"; exit 1
+          fi
+      - name: Run enrichment
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          LLM_PROVIDER: ${{ secrets.LLM_PROVIDER || 'gemini' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ secrets.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001' }}
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          MAX_DAILY_USD: ${{ secrets.MAX_DAILY_USD || '10' }}
+          MAX_CONTENT_GEN_PER_DAY: ${{ secrets.MAX_CONTENT_GEN_PER_DAY || '50' }}
+          IMAGE_GEN_ENABLED: ${{ secrets.IMAGE_GEN_ENABLED || 'true' }}
+          IMAGE_PROVIDER: ${{ secrets.IMAGE_PROVIDER || 'nano_banana' }}
+          IMAGE_STRICT: ${{ secrets.IMAGE_STRICT || 'true' }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          LIMIT: ${{ github.event.inputs.limit }}
+          MIN_CHARS: ${{ github.event.inputs.min_chars }}
+        run: python scripts/enrich_thin_posts.py
+
+      # 본문만 바뀌고 URL 은 그대로라 sitemap 변화는 없지만, 60초 모듈 캐시를 깨워
+      # 새 본문이 바로 노출되게 한다.
+      - name: Trigger Vercel deploy hook — medimap-blog
+        if: success() && env.VERCEL_DEPLOY_HOOK_BLOG != '' && github.event.inputs.dry_run != '1'
+        env:
+          VERCEL_DEPLOY_HOOK_BLOG: ${{ secrets.VERCEL_DEPLOY_HOOK_BLOG }}
+        run: curl -sS -X POST "$VERCEL_DEPLOY_HOOK_BLOG" || true
