@@ -12,6 +12,11 @@ export const config = {
     "/admin/:path*",
     "/with-partners/:path*",
     "/blog/:path*",
+    // Round 173 - /all HTML sitemap hub. Its whole job is to be crawled, so its
+    //   crawl rate is the fastest readout on whether budget actually freed up.
+    //   ⚠ Adding a path here REQUIRES a matching early-return below, otherwise it
+    //   falls through to the admin-auth branch and redirects to /admin/login.
+    "/all",
     "/en/:path*",
     "/ja/:path*",
     "/zh/:path*",
@@ -57,7 +62,8 @@ export async function middleware(req: NextRequest) {
   //   신규 발행 노출 지연은 최대 60초 — 즉시 반영이 필요하면 /api/revalidate 사용.
   if (
     pathname.startsWith("/with-partners") ||
-    pathname.startsWith("/blog")
+    pathname.startsWith("/blog") ||
+    pathname === "/all"
   ) {
     logCrawlerIfDetected(req, pathname);
     return NextResponse.next();
