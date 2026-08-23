@@ -35,6 +35,15 @@ from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
+
+# 🔴 이 리포의 scripts/* 는 반드시 이 3줄이 있어야 한다.
+#   `python scripts/foo.py` 로 실행하면 sys.path[0] 이 scripts/ 라서 `src` 패키지를
+#   못 찾는다(ModuleNotFoundError: No module named 'src'). 함수 안에서 import 해도
+#   마찬가지 — 경로 문제라 지연 import 로는 해결되지 않는다.
+#   run_auto_content_once.py 등 기존 스크립트가 전부 쓰는 관례.
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 
 MIN_CHARS = int(os.getenv("MIN_CHARS", "2000"))
 LIMIT = int(os.getenv("LIMIT", "5"))
@@ -70,8 +79,12 @@ LIMIT :limit
 def main() -> int:
     from sqlalchemy import text as sql_text
 
-    from src.storage.db import get_session_factory  # type: ignore
+    from src.storage.db import get_session_factory
     from src.content.generator import generate_blog_post
+
+    if not os.environ.get("DATABASE_URL"):
+        print("ERROR: DATABASE_URL 미설정", file=sys.stderr)
+        return 1
 
     session_factory = get_session_factory()
 
