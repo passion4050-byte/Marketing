@@ -38,6 +38,25 @@ import type {
 } from '@/components/admin/DashboardCharts';
 import { DashboardFilters } from '@/components/admin/DashboardFilters';
 
+/** Round 174 — publish_volume_weekly() RPC payload. */
+interface PublishVolume {
+  thisWeek: number;
+  lastWeek: number;
+  target: number;
+  targetPerTenant: number;
+  overCount: number;
+  tenants: Array<{
+    tenant_id: number;
+    tenant_name: string;
+    this_week: number;
+    last_week: number;
+    this_week_ko: number | null;
+    langs: number;
+    enabled: boolean;
+    over_target: number;
+  }>;
+}
+
 /*
  * Round 169 (2026-08-20) — 모바일: DashboardChartsTabbed lazy 복구.
  * 정적 import 로 되돌아가 있어 recharts(≈120KB gzip)가 첫 페인트 경로에 다시 들어와 있었다.
@@ -133,6 +152,7 @@ async function fetchDashboardData(opts: {
       clientRanking: [] as ClientRankingItem[],
       keywordGrounding: [] as KeywordGroundingItem[],
       newDomains: [] as NewDomainItem[],
+      publishVolume: null as PublishVolume | null,
       // Round 86/87/88 — null branch 누락 필드 보강 (Vercel TypeScript build fix)
       citations30d: 0,
       publishedThisMonth: 0,
@@ -704,6 +724,28 @@ async function fetchDashboardData(opts: {
     }
   };
 
+  /**
+   * S8-b. 주간 발행량 (Round 174, 2026-08-23)
+   *
+   * Round 173 에서 중복 URL 277개를 걷어내 사이트맵을 622→379 로 줄였는데, 발행량이
+   * 그대로면 4~5주 만에 도로 찬다. 그런데 콘솔 어디에도 "이번 주 몇 편"이 안 보였다.
+   * 실측(최근 7일 75편): 밝은눈안과 강남점 43 · BGN 잠실 11 · 나머지 13곳 합계 21 —
+   * 두 테넌트가 72%다. 강남점 43편은 daily-brighteye-all-langs.yml 이 매일 5개 언어를
+   * 돌려서 나온 값으로, 정책(병원당 주 3회)의 약 5.7배(ko 만 17편)다.
+   * 그래서 합계가 아니라 **테넌트별 초과분**을 보여준다 — 전역 상한으로는 못 잡는다.
+   */
+  const sectionPublishVolume = async () => {
+    try {
+      const { data, error } = await sb.rpc('publish_volume_weekly', {
+        p_target_per_tenant: 3,
+      });
+      if (error) throw error;
+      return (data ?? null) as PublishVolume | null;
+    } catch {
+      return null; // 실패해도 대시보드는 그대로 뜬다
+    }
+  };
+
   // S9. 콘텐츠 경쟁력 (Round 87) — 발행 글의 키워드별 멘션 수 (공유 체인 재사용)
   const sectionTopContents = async () => {
     let topContents: Array<{
@@ -953,6 +995,7 @@ async function fetchDashboardData(opts: {
     topContents,
     structureStats,
     domainDist,
+    publishVolume,
   ] = await Promise.all([
     sectionClientCount(),
     sectionPending(),
@@ -964,6 +1007,7 @@ async function fetchDashboardData(opts: {
     sectionTopContents(),
     sectionStructure(),
     sectionDomainDist(),
+    sectionPublishVolume(),
   ]);
 
   return {
@@ -982,6 +1026,7 @@ async function fetchDashboardData(opts: {
     recentCitations: draftsAndRecent.recentCitations,
     tierTrend: charts.tierTrend,
     clientRanking: charts.clientRanking,
+    publishVolume,
     keywordGrounding: grounding.keywordGrounding,
     newDomains: grounding.newDomains,
     topContents,
@@ -1084,6 +1129,21 @@ export default async function AdminDashboardPage({
       href: '/admin/content-queue',
       icon: FileText,
       hint: `7일 평균 ${(d.avg7d ?? 0).toFixed(1)}편 · 이번 달 ${d.publishedThisMonth ?? 0}편`,
+    },
+    {
+      // 🔴 Round 174 — 주간 발행량 vs 정책(병원당 주 3회).
+      //   크롤 예산이 병목인 사이트에서 발행량은 '많을수록 좋은 수치'가 아니다.
+      //   R173 에서 비운 277 URL 은 이 수치가 목표를 넘으면 4~5주 만에 도로 찬다.
+      label: '이번 주 발행',
+      value: d.publishVolume?.thisWeek ?? 0,
+      suffix: `편 / 목표 ${d.publishVolume?.target ?? 0}`,
+      href: '/admin/content-queue',
+      icon: FileText,
+      hint: d.publishVolume
+        ? (d.publishVolume.overCount > 0
+            ? `초과 ${d.publishVolume.overCount}곳 · 지난주 ${d.publishVolume.lastWeek}편`
+            : `정책 이내 · 지난주 ${d.publishVolume.lastWeek}편`)
+        : '집계 불가',
     },
     {
       // Round 116 Phase 5 (2026-07-02): 오늘값이 0이면 어제/14일 노출로 실미터링 상태 명시.
@@ -1266,6 +1326,44 @@ export default async function AdminDashboardPage({
         <div className="mt-4">
           <CitationProof />
         </div>
+
+        {/* 🔴 Round 174 — 발행량 정책 초과 경고.
+            크롤 예산이 병목인 사이트에서 발행량은 많을수록 좋은 수치가 아니다.
+            초과가 없으면 아예 렌더하지 않는다 — 평시에 화면을 어지럽히지 않기 위해. */}
+        {d.publishVolume && d.publishVolume.overCount > 0 && (
+          <div className="mt-4 rounded-lg border border-status-warning/40 bg-status-warning/5 p-4">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-status-warning">
+                발행량 정책 초과
+              </span>
+              <span className="text-sm font-semibold text-ink tabular-nums">
+                이번 주 {d.publishVolume.thisWeek}편 / 목표 {d.publishVolume.target}편
+              </span>
+              <span className="text-xs text-ink-muted">
+                병원당 주 {d.publishVolume.targetPerTenant}회 기준
+              </span>
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-ink-muted">
+              Round 173 에서 중복 URL 277개를 걷어내 사이트맵을 622→379 로 줄였습니다.
+              이 속도면 비운 크롤 예산이 4~5주 만에 다시 찹니다.
+            </p>
+            <ul className="mt-3 space-y-1.5">
+              {d.publishVolume.tenants
+                .filter((t) => t.over_target > 0)
+                .map((t) => (
+                  <li key={t.tenant_id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
+                    <span className="font-semibold text-ink">{t.tenant_name}</span>
+                    <span className="tabular-nums text-status-warning">
+                      {t.this_week}편 (+{t.over_target})
+                    </span>
+                    <span className="text-ink-muted">
+                      ko {t.this_week_ko ?? 0}편 · {t.langs}개 언어 · 지난주 {t.last_week}편
+                    </span>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       {/* === 02 성과 분석 — Round 144: 접이식. 매일 보는 화면이 아니라 주간 판단용. === */}
