@@ -59,36 +59,47 @@ LIMIT = int(os.getenv("LIMIT", "20"))
 BATCH = int(os.getenv("BATCH", "12"))
 
 _SELECT = """
-SELECT gc.id, gc.slug, gc.title, gc.keyword_text, t.region
-FROM generated_contents gc
-JOIN tenants t ON t.id = gc.tenant_id
-WHERE gc.status = 'published'
-  AND gc.channel = 'blog_html'
-  AND gc.compliance_status = 'pass'
-  AND gc.is_partner_content = true
-  AND COALESCE(gc.market, 'domestic') <> 'overseas'
-  AND COALESCE(gc.lang, 'ko') = 'ko'
-  AND gc.slug IS NOT NULL
-  AND gc.slug !~ '^[a-z0-9-]+$'      -- 비ASCII 슬러그만
-  AND gc.former_slug IS NULL          -- 이미 리네임한 건 재처리 금지(멱등)
-  -- 🔴 Round 174j-b — 첫 dry_run 이 잡아낸 두 가지. 이 두 줄이 없으면
-  --    LLM 비용을 태우고 URL 만 흔들면서 얻는 게 0 이다.
-  --  (1) noindex 글 제외. 사이트맵에서 빠지고 robots noindex 가 걸린 글이라
-  --      슬러그를 고쳐도 검색에 아무 영향이 없다. 첫 dry_run 10편이 **전부**
-  --      noindex 였다(#169·175·176·177·178·179·180·183·185·186).
-  --      대상 153편 중 21편이 여기 해당.
-  AND NOT COALESCE(gc.noindex, false)
-  --  (2) 자사(wecircle-self) 제외. 자사 글은 /blog/{slug} 로 서빙되는데
-  --      301 은 /with-partners 상세 페이지에만 넣었다(canonicalPathFor 가
-  --      wecircle-self 를 의도적으로 제외하므로 /blog 쪽은 리다이렉트가 안 걸린다).
-  --      지금 리네임하면 구 URL 이 새 본문을 그대로 렌더해 중복 URL 이 생긴다 —
-  --      Round 173 에서 277개를 없앤 그 문제를 다시 만드는 셈.
-  --      자사 글까지 하려면 /blog/[slug] 에도 former_slug 301 을 먼저 넣을 것.
-  --      대상 153편 중 12편이 여기 해당.
-  AND t.partner_slug <> 'wecircle-self'
-ORDER BY gc.id
+SELECT id, slug, title, keyword_text, region FROM (
+  SELECT gc.id, gc.slug, gc.title, gc.keyword_text, t.region,
+         t.status AS tstatus,
+         -- 🔴 Round 174j-c — 병원별 라운드로빈. 두 가지를 동시에 해결한다.
+         --  (1) 중간에 멈춰도 커버리지가 전 병원에 고르게 퍼진다. gc.id 순이면
+         --      앞쪽 132편 중 상당수가 청담디어 '필러' 한 곳에 몰린다.
+         --  (2) 슬러그 충돌이 줄어든다. 같은 배치에 같은 키워드 글이 5편 들어오면
+         --      제목이 거의 같아서(“자연스러운 아름다움을 위한 현명한 선택” x3)
+         --      LLM 이 뚜렷이 다른 슬러그를 못 만들고 전부 -{id} 접미로 끝난다.
+         --      배치를 병원별로 흩으면 제목이 다양해져 충돌 자체가 안 생긴다.
+         row_number() OVER (PARTITION BY gc.tenant_id ORDER BY gc.id) AS rn
+  FROM generated_contents gc
+  JOIN tenants t ON t.id = gc.tenant_id
+  WHERE gc.status = 'published'
+    AND gc.channel = 'blog_html'
+    AND gc.compliance_status = 'pass'
+    AND gc.is_partner_content = true
+    AND COALESCE(gc.market, 'domestic') <> 'overseas'
+    AND COALESCE(gc.lang, 'ko') = 'ko'
+    AND gc.slug IS NOT NULL
+    AND gc.slug !~ '^[a-z0-9-]+$'      -- 비ASCII 슬러그만
+    AND gc.former_slug IS NULL          -- 이미 리네임한 건 재처리 금지(멱등)
+    -- 🔴 Round 174j-b — 첫 dry_run 이 잡아낸 두 가지. 이 두 줄이 없으면
+    --    LLM 비용을 태우고 URL 만 흔들면서 얻는 게 0 이다.
+    --  (1) noindex 글 제외. 사이트맵에서 빠지고 robots noindex 가 걸린 글이라
+    --      슬러그를 고쳐도 검색에 아무 영향이 없다. 첫 dry_run 10편이 **전부**
+    --      noindex 였다(#169·175·176·177·178·179·180·183·185·186).
+    AND NOT COALESCE(gc.noindex, false)
+    --  (2) 자사(wecircle-self) 제외. 자사 글은 /blog/{slug} 로 서빙되는데
+    --      301 은 /with-partners 상세 페이지에만 넣었다(canonicalPathFor 가
+    --      wecircle-self 를 의도적으로 제외하므로 /blog 쪽은 리다이렉트가 안 걸린다).
+    --      지금 리네임하면 구 URL 이 새 본문을 렌더해 중복 URL 이 생긴다 —
+    --      Round 173 에서 277개를 없앤 그 문제를 다시 만드는 셈.
+    --      자사까지 하려면 /blog/[slug] 에도 former_slug 301 을 먼저 넣을 것.
+    AND t.partner_slug <> 'wecircle-self'
+) x
+-- 활성 병원 우선 → 병원별 1편씩 → id. 일시정지 병원(청담디어 등)은 뒤로 민다.
+ORDER BY (tstatus = 'active') DESC, rn, id
 LIMIT :lim
 """
+
 
 _SYSTEM = """당신은 의료 콘텐츠의 URL 슬러그를 만드는 SEO 엔지니어입니다.
 한국어 제목 목록을 받아 각각에 대응하는 영문 URL 슬러그를 만듭니다.
