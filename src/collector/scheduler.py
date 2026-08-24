@@ -728,6 +728,19 @@ def _generate_draft(
                 from sqlalchemy import text as _sql_slug
                 s.execute(
                     _sql_slug(
+                        # 🔴 Round 174h (2026-08-24) — 이 COALESCE 는 두 달간
+                        #   아무 일도 하지 않았다. Supabase BEFORE INSERT 트리거
+                        #   `trg_autofill_title_slug` 가 INSERT 시점에 한글
+                        #   `keyword_text-{id}` 를 이미 박아넣어서 NULLIF(slug,'')
+                        #   가 항상 non-null → :slug 이 절대 채택되지 않는다.
+                        #   직접 증거: _make_slug 는 미매핑 키워드에 'post-{id}' 를
+                        #   주는데 DB 에 'post-{id}' 슬러그가 0건, 한글 슬러그가 130건.
+                        #   실측 결과 한글 슬러그 130편 GSC 노출 전부 0, ASCII 52편은
+                        #   27편(51.9%)이 노출. 정본 슬러그는 이제 generator.py 가
+                        #   LLM 영문 슬러그로 무조건 UPDATE 한다. 이 줄은 그 이후에
+                        #   실행되므로 여전히 no-op — 안전망으로만 남긴다.
+                        #   ⚠ 여기를 "고쳐서" 무조건 덮어쓰게 만들지 말 것.
+                        #     운영자가 어드민에서 수정한 슬러그까지 날아간다.
                         "UPDATE generated_contents SET "
                         "slug = COALESCE(NULLIF(slug, ''), :slug), "
                         "published_at = CASE WHEN status = 'published' AND published_at IS NULL "

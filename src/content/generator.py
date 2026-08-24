@@ -1141,6 +1141,49 @@ def generate_blog_post(
         session.add(gc)
         session.flush()
         saved_id = gc.id
+
+        # ── Round 174h (2026-08-24) — 🔴 슬러그를 LLM 영문 슬러그로 덮어쓴다.
+        #   왜 INSERT 후 raw UPDATE 인가:
+        #     1) `slug` 는 GeneratedContent ORM 에 미매핑이라 insert 시 지정 불가.
+        #     2) Supabase BEFORE INSERT 트리거 `trg_autofill_title_slug` 가
+        #        `keyword_text || '-' || id` 를 한글 그대로 박는다. flush 시점에
+        #        이미 채워지므로 "빈 값일 때만 채우기"식 후속 UPDATE 로는 못 이긴다.
+        #        (scheduler.py 의 COALESCE(NULLIF(slug,''), :slug) 가 정확히 그 함정
+        #         이었고, 그래서 파이썬 슬러그가 두 달간 한 번도 반영되지 않았다.)
+        #   따라서 조건 없이 UPDATE 한다. 신규 INSERT 직후라 보존할 운영자 편집값이
+        #   없다 — 기존 글 리네임과 달리 여기서는 무조건 덮어써도 안전하다.
+        _llm_slug = (getattr(last_post, "slug", "") or "").strip()
+        _slug_source = "llm"
+        if _llm_slug:
+            # 충돌 시에만 -{id} 접미. 접미 없는 서술형이 URL 로 더 낫다.
+            from sqlalchemy import text as _sql_slug_u
+            _taken = session.execute(
+                _sql_slug_u(
+                    "SELECT 1 FROM generated_contents WHERE slug = :s AND id <> :id LIMIT 1"
+                ),
+                {"s": _llm_slug, "id": saved_id},
+            ).first()
+            if _taken:
+                _llm_slug = f"{_llm_slug[:52].rstrip('-')}-{saved_id}"
+                _slug_source = "llm+id"
+            session.execute(
+                _sql_slug_u("UPDATE generated_contents SET slug = :s WHERE id = :id"),
+                {"s": _llm_slug, "id": saved_id},
+            )
+        else:
+            # LLM 이 슬러그를 안 주거나 한글이 섞여 sanitize 에서 버려진 경우.
+            #   여기서 'post-{id}' 로 바꾸지 않는다 — 한글 슬러그와 'post-{id}' 중
+            #   어느 쪽이 나은지는 실측 근거가 없고, 후자는 키워드 신호가 0 이다.
+            #   대신 플래그를 남겨 나중에 쿼리로 찾아 수동 교정할 수 있게 한다.
+            _slug_source = "trigger_fallback_ko"
+        try:
+            _rq = dict(gc.raw_qa_pairs or {})
+            _rq["slug_source"] = _slug_source
+            _rq["slug"] = _llm_slug or None
+            gc.raw_qa_pairs = _rq
+        except Exception:
+            pass
+
         session.commit()
 
     return BlogResult(

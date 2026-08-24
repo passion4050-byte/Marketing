@@ -52,6 +52,12 @@ class BlogPost:
     sections: list[BlogSection]
     conclusion_paragraphs: list[str]
     references: list[str] = field(default_factory=list)  # 출처 URL 목록
+    # Round 174h (2026-08-24) — LLM 이 직접 만드는 영문 슬러그.
+    #   왜 LLM 인가: 파이썬 KEYWORD_SLUG_MAP 은 19개짜리 수동 매핑이라 미등록
+    #   키워드가 전부 'post-{id}' 로 떨어졌고, 그마저도 DB 트리거에 밀려 한 번도
+    #   반영되지 않았다(아래 sanitize_slug 주석 참조). 키워드는 계속 늘어나므로
+    #   수동 매핑은 구조적으로 못 따라간다. 제목을 아는 LLM 이 만드는 편이 맞다.
+    slug: str = ""
     images: list[ImageSlot] = field(default_factory=list)
     canonical_keyword: str = ""
     # 영업 정보 — 본문 끝에 자연 노출 (Phase 1.5)
@@ -381,6 +387,55 @@ def render_naver_blog_plain(post: BlogPost) -> str:
     return "\n".join(out).strip()
 
 
+_SLUG_STOPWORDS = {
+    "a", "an", "the", "of", "for", "and", "or", "to", "in", "on", "at", "is", "are",
+}
+
+
+def sanitize_slug(raw: str, max_len: int = 60) -> str:
+    """LLM 이 준 슬러그를 URL-safe ASCII 로 정규화. 실패 시 빈 문자열.
+
+    Round 174h (2026-08-24) — 🔴 이 함수가 왜 생겼는지.
+      실측: 국내 ko 파트너 라이브 182편 중 한글 슬러그(`라식-318`) 130편의
+      GSC 노출이 **전부 0**, ASCII 슬러그 52편은 27편(51.9%)이 노출을 받았다.
+      130편 모두 gsc_daily 관측 시작(2026-07-05) 이후 발행이라 측정된 0이다.
+
+      원인은 Supabase BEFORE INSERT 트리거 `trg_autofill_title_slug` 였다:
+          NEW.slug := regexp_replace(NEW.keyword_text || '-' || NEW.id, '\s+', '-', 'g')
+      원본 한글 keyword_text 를 그대로 박는다. 그리고 파이썬 쪽 후속 UPDATE 는
+          slug = COALESCE(NULLIF(slug, ''), :slug)
+      라서 트리거가 이미 채운 값을 절대 못 이긴다. Round 29(2026-05-30)에 만든
+      `_make_slug()` / `KEYWORD_SLUG_MAP` 은 그날 이후 죽은 코드였다.
+      직접 증거: 현재 코드는 미매핑 키워드에 'post-{id}' 를 주는데 DB 에
+      'post-{id}' 슬러그가 **0건**이다 — 파이썬 경로가 한 번도 이긴 적이 없다.
+
+      ⚠ 인과 주의: 한글 슬러그 자체가 색인 불가는 아니다(구글은 percent-encoding 을
+      처리한다). 한글 슬러그 글들은 같은 구버전 경로에서 나와 제목도 자기홍보형이라
+      교란 요인이 있다. 다만 130/130 이 0 인 분리는 우연으로 보기 어려워 교정한다.
+    """
+    s = (raw or "").strip().lower()
+    if not s:
+        return ""
+    # 비ASCII 는 전부 제거 — 한글이 남으면 이 함수의 존재 이유가 없어진다.
+    s = re.sub(r"[^a-z0-9\s/-]+", "", s)
+    s = re.sub(r"[\s/_]+", "-", s)
+    s = re.sub(r"-{2,}", "-", s).strip("-")
+    if not s:
+        return ""
+    # 길이 컷은 단어 경계에서. 중간에서 자르면 의미 없는 토막이 남는다.
+    if len(s) > max_len:
+        s = s[:max_len].rsplit("-", 1)[0] or s[:max_len]
+    s = s.strip("-")
+    # 스톱워드만 남은 쓰레기 슬러그 방어 (예: "the-of-a").
+    parts = [p for p in s.split("-") if p]
+    if not parts or all(p in _SLUG_STOPWORDS for p in parts):
+        return ""
+    # 숫자만 남은 경우도 무의미 (예: "2026").
+    if all(p.isdigit() for p in parts):
+        return ""
+    return s
+
+
 def post_from_dict(data: dict, images: Iterable[ImageSlot] = ()) -> BlogPost:
     """LLM JSON 출력 → BlogPost. 누락 필드는 안전 기본값."""
     sections_raw = data.get("sections", []) or []
@@ -406,5 +461,6 @@ def post_from_dict(data: dict, images: Iterable[ImageSlot] = ()) -> BlogPost:
         conclusion_paragraphs=data.get("conclusion_paragraphs", []) or [],
         references=data.get("references", []) or [],
         canonical_keyword=data.get("canonical_keyword", ""),
+        slug=sanitize_slug(data.get("slug", "")),
         images=list(images),
     )

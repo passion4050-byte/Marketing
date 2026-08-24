@@ -609,6 +609,18 @@ _BLOG_SYSTEM_PROMPT = """당신은 한국 의료기관 블로그를 운영하는
 [D. SEO 구조]
 1. title: 키워드 포함, 30~60자.
 2. meta_description: 150자 이내, 검색결과에 노출되는 요약.
+2-b. slug: **영문 소문자 URL 슬러그** (필수). 규칙 —
+   - 영문 소문자·숫자·하이픈만. 한글·공백·특수문자 절대 금지.
+   - 3~6단어, 60자 이내. 제목의 핵심을 영어로 옮긴다(음역이 아니라 의미 번역).
+   - 지역명은 로마자로 앞에 (jamsil / gangnam / busan / hongdae / sinsa / cheongdam).
+   - 시술명은 통용 영문으로 (lasik / lasek / smile-lasik / cataract / presbyopia /
+     filler / ulthera / thermage / skin-booster / hair-transplant / rejuran).
+   - 연도가 제목에 있으면 끝에 붙인다.
+   - 예: "잠실 라식 후 야간 빛번짐, 얼마나 지속되나요 (2026)"
+         → "jamsil-lasik-night-glare-duration-2026"
+   - 예: "스마일라식 비용은 어떻게 구성될까요"
+         → "smile-lasik-cost-breakdown"
+   ⚠ 한글이 섞이면 시스템이 슬러그를 버리고 폴백을 쓴다. 반드시 영문만.
 3. h2(sections): 3~5개. 각 섹션 200~600자.
 4. 필요시 h3(sub_sections) 1~2개.
 5. 키워드는 자연스럽게 본문 전체에 분포 (1~2% 밀도).
@@ -689,6 +701,7 @@ GSC 90일 실측: 이 사이트는 헤드 키워드에서 순위가 나오지 �
 {
   "title": "...",
   "meta_description": "...",
+  "slug": "english-lowercase-hyphenated-slug",
   "keywords": ["...", "..."],
   "canonical_keyword": "...",
   "intro_paragraphs": ["...단락에 **bold** 와 자연스러운 이모지 ✅ 등 포함...", "..."],
