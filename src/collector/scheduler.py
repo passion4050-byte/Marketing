@@ -355,9 +355,23 @@ def daily_auto_content_job(
         self_settings = []
         partner_settings = []
         plan_skipped: list[int] = []
+        status_skipped: list[int] = []
         for st in active_settings:
             tenant = s.get(_Tenant, st.tenant_id)
             if tenant is None:
+                continue
+            # 🔴 Round 174i (2026-08-24) — 어드민 "일시정지" 가 발행을 멈추지 않던 버그.
+            #   어드민의 일시정지 버튼은 PATCH /api/admin/tenants/[id] 로 `tenants.status`
+            #   만 바꾼다. 이 로테이션은 `auto_content_settings.enabled` 만 보고 있었으므로
+            #   두 플래그가 갈라지면 정지시킨 병원이 계속 발행된다.
+            #   실측(2026-08-24): 청담디어(17) status='paused' 인데 enabled=true 로
+            #   로테이션에 남아 있었다. 사용자가 '필러' 39편 때문에 정지시킨 직후였다.
+            #   (힐링·클리어서울은 enabled=false 도 같이 꺼져 있어 우연히 정상 동작.)
+            #   ⚠ fail-open 으로 설계: status 가 null/미지 값이면 active 로 본다.
+            #     'active' 만 통과시키면 데이터 흠 하나로 전 병원 발행이 조용히 멈춘다.
+            _tstatus = (getattr(tenant, "status", None) or "active").strip().lower()
+            if _tstatus in ("paused", "churned"):
+                status_skipped.append(st.tenant_id)
                 continue
             # Round 83 — plan='A' 인데 오늘이 월/수/금 아니면 skip
             plan = _tenant_plan.get(st.tenant_id, "A")
@@ -376,6 +390,11 @@ def daily_auto_content_job(
                 "scheduler.plan_a_skipped_today",
                 kst_weekday=today_kst_dow,
                 skipped_tenants=plan_skipped,
+            )
+        if status_skipped:
+            logger.info(
+                "scheduler.tenant_status_skipped",
+                skipped_tenants=status_skipped,
             )
 
         # 🔴 Round 174c (2026-08-23) — 파트너 로테이션 1곳 → N곳.
