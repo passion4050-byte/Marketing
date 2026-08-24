@@ -49,13 +49,25 @@ export async function generateMetadata(
     //   (sitemap exclusion + noindex here). The page itself stays reachable.
     //   Revert by setting generated_contents.noindex = false.
     robots: post.noindex ? { index: false, follow: true } : undefined,
+    // 🔴 Round 174j-d (2026-08-24) — canonical 을 요청 slug 가 아니라 **post.slug**
+    //   (= 정본 슬러그)로 만든다.
+    //   왜: 한글 슬러그를 영문으로 리네임한 뒤 구 URL 로 들어와도 페이지가 200 을
+    //   반환하는데(former_slug 매칭), canonical 이 요청 slug 로 만들어지면 구 URL 이
+    //   자기 자신을 정본이라고 선언한다 → 같은 글이 두 URL 로 색인되는 중복.
+    //   실측: 리네임 직후 구 URL 이 canonical=구 URL 로 응답했다.
+    //   ⚠ 아래 PartnerPostPage 의 permanentRedirect 만으로는 부족하다. 이 라우트는
+    //     `export const revalidate = 60` 인 ISR 라우트라 정적 재생성 경로에서
+    //     리다이렉트가 캐시 엔트리로 저장되지 않고 이전 HTML 이 계속 서빙된다
+    //     (실측: 리네임 30분 뒤에도 구 URL 이 리다이렉트 없이 200). canonical 은
+    //     캐시된 HTML 안에 그대로 들어가므로 이 경로에서 확실히 동작한다.
+    //     리다이렉트는 동적 렌더 시 보조로 남겨둔다.
     alternates: {
-      canonical: absoluteUrl(`/with-partners/${category}/${partner}/${slug}`),
+      canonical: absoluteUrl(`/with-partners/${category}/${partner}/${post.slug}`),
     },
     openGraph: {
       title: post.title,
       description: post.excerpt,
-      url: absoluteUrl(`/with-partners/${category}/${partner}/${slug}`),
+      url: absoluteUrl(`/with-partners/${category}/${partner}/${post.slug}`),
       siteName: siteConfig.name,
       type: "article",
       images: post.cover_image_url
