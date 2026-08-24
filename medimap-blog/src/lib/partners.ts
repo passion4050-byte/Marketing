@@ -112,6 +112,13 @@ export interface PartnerPost {
   cover_image_alt: string | null;
   /** Round 172 - crawl budget reclaim flag: excluded from sitemap + robots noindex. */
   noindex?: boolean;
+  /**
+   * Round 174j (2026-08-24) — 슬러그 리네임 전 URL. 301 대상.
+   *   한글 슬러그(`라식-318`) 130편을 영문으로 바꾸면 구 URL 이 404 가 된다.
+   *   getPartnerPost 가 이 값으로도 매칭하고, 상세 페이지가 새 URL 로 301 을 태운다.
+   *   ⚠ 여기서 빼면 리네임된 글의 구 URL 이 즉시 404 — GSC 가 발견한 URL 이 통째로 죽는다.
+   */
+  former_slug?: string | null;
 }
 
 interface PartnerPostRow {
@@ -130,6 +137,7 @@ interface PartnerPostRow {
   cover_image_url: string | null;
   cover_image_alt: string | null;
   noindex: boolean | null;
+  former_slug: string | null;
 }
 
 const POST_SELECT = `
@@ -138,7 +146,8 @@ const POST_SELECT = `
   gc.slug, gc.title, gc.excerpt, gc.body, gc.keyword_text,
   gc.published_at, gc.created_at,
   gc.cover_image_url, gc.cover_image_alt,
-  gc.noindex
+  gc.noindex,
+  gc.former_slug
 `;
 
 const POST_FILTER = `
@@ -190,6 +199,8 @@ function rowToPost(row: PartnerPostRow): PartnerPost | null {
     cover_image_alt: row.cover_image_alt,
     // Round 172 - crawl budget reclaim flag (sitemap exclusion + robots noindex)
     noindex: row.noindex ?? false,
+    // Round 174j - 구 슬러그(301 대상). getPartnerPost 매칭에만 쓰인다.
+    former_slug: row.former_slug ?? null,
   };
 }
 
@@ -292,7 +303,16 @@ export async function getPartnerPost(
     // malformed escape 시 raw 그대로
   }
   const posts = await getPartnerPostsByPartner(category, partnerSlug);
-  return posts.find((p) => p.slug === decoded || p.slug === postSlug) ?? null;
+  // Round 174j — 현재 슬러그 우선 매칭, 없으면 구 슬러그(former_slug)로 폴백.
+  //   순서가 중요하다: 같은 문자열이 A 글의 현재 슬러그이면서 B 글의 구 슬러그일 수
+  //   있는데, 그때 현재 슬러그 쪽이 정답이다. 구 슬러그로 잡히면 상세 페이지가
+  //   post.slug(= 새 슬러그)와 요청 슬러그가 달라지는 것을 보고 301 을 태운다.
+  const current = posts.find((p) => p.slug === decoded || p.slug === postSlug);
+  if (current) return current;
+  return (
+    posts.find((p) => p.former_slug === decoded || p.former_slug === postSlug) ??
+    null
+  );
 }
 
 /** 카테고리에서 파트너 (tenant) 목록 — list 페이지 카드 그리드 */

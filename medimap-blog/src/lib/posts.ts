@@ -229,6 +229,14 @@ interface DbPostRow {
   partner_category: string | null;
   market: string | null;
   lang: string | null;
+  /**
+   * Round 174j (2026-08-24) — 슬러그 리네임 전 URL. 301 대상.
+   *   한글 슬러그(`라식-318`) 130편을 영문으로 바꾸면서 구 URL 이 404 가 되면
+   *   GSC 가 이미 "발견" 한 URL 이 통째로 죽는다. 구 슬러그를 여기 보관하고
+   *   by-slug 조회에서 같이 매칭한 뒤, canonicalPath 로 301 을 태운다.
+   *   ⚠ 조회 조건에서 이 컬럼을 빼면 리네임된 130편의 구 URL 이 즉시 404 가 된다.
+   */
+  former_slug: string | null;
 }
 
 const DB_SELECT = `
@@ -240,7 +248,8 @@ const DB_SELECT = `
   gc.created_at, gc.updated_at,
   gc.cover_image_url, gc.cover_image_alt, gc.cover_image_prompt,
   gc.noindex,
-  gc.is_partner_content, gc.partner_category, gc.market, gc.lang
+  gc.is_partner_content, gc.partner_category, gc.market, gc.lang,
+  gc.former_slug
 `;
 
 const DB_FILTER = `
@@ -362,13 +371,18 @@ async function getDbPostRowBySlug(slug: string): Promise<DbPostRow | null> {
         gc.created_at, gc.updated_at,
         gc.cover_image_url, gc.cover_image_alt, gc.cover_image_prompt,
         gc.noindex,
-        gc.is_partner_content, gc.partner_category, gc.market, gc.lang
+        gc.is_partner_content, gc.partner_category, gc.market, gc.lang,
+        gc.former_slug
       FROM generated_contents gc
       LEFT JOIN tenants t ON t.id = gc.tenant_id
-      WHERE gc.slug = ${slug}
+      -- Round 174j — 구 슬러그도 매칭. 여기서 잡히면 canonicalPath 가 새 URL 을
+      --   가리키므로 상세 페이지가 permanentRedirect 를 태운다.
+      --   slug 우선: 같은 문자열이 한쪽에선 신규, 다른 쪽에선 구 슬러그일 수 있다.
+      WHERE (gc.slug = ${slug} OR gc.former_slug = ${slug})
         AND gc.status = 'published'
         AND gc.channel = 'blog_html'
         AND gc.compliance_status = 'pass'
+      ORDER BY (gc.slug = ${slug}) DESC
       LIMIT 1
     `;
     return rows[0] ?? null;

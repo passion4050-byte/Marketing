@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { getCategoryMeta, getPartnerPost, getPartnerPostsByPartner } from "@/lib/partners";
 import { siteConfig, absoluteUrl } from "@/lib/site";
 import { kakaoTrackHrefContent, TRACK_LINK_REL } from "@/lib/ctaLink";
@@ -104,6 +104,23 @@ export default async function PartnerPostPage({ params }: PageProps) {
   if (!meta) notFound();
   const post = await getPartnerPost(meta.slug, partner, slug);
   if (!post) notFound();
+
+  // Round 174j (2026-08-24) — 구 슬러그 접근이면 새 URL 로 301.
+  //   한글 슬러그 130편을 영문으로 리네임하면서 구 URL 이 404 가 되는 것을 막는다.
+  //   posts.ts 의 by-slug 조회가 former_slug 도 매칭하므로 여기까지 도달하는데,
+  //   그때 post.slug 는 **새 슬러그**라 canonicalPath 가 요청 경로와 달라진다.
+  //   정상 접근(신규 슬러그)에서는 두 값이 같아 자연히 no-op — 별도 플래그가 필요 없다.
+  //   ⚠ decodeURIComponent: 한글 구 슬러그는 percent-encoding 으로 들어온다.
+  //     비교 전에 디코딩하지 않으면 정상 접근까지 리다이렉트 루프에 빠진다.
+  let _reqSlug = slug;
+  try {
+    _reqSlug = decodeURIComponent(slug);
+  } catch {
+    // malformed escape — raw 그대로 비교
+  }
+  if (post.slug && post.slug !== _reqSlug) {
+    permanentRedirect(`/with-partners/${meta.slug}/${partner}/${post.slug}`);
+  }
 
   // Round 108-e — 같은 병원의 다른 콘텐츠 3~4편 (관련 콘텐츠 CTA)
   const partnerPosts = await getPartnerPostsByPartner(meta.slug, partner);
