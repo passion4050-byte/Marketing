@@ -1,0 +1,31 @@
+# Round 174g (2026-08-24) — CRLF 노이즈 근본 차단.
+#
+# 증상: 사무실 PC ↔ 집 PC 를 오갈 때마다 462개 파일이 "변경됨" 으로 떴다.
+# 실측: `git diff --stat --ignore-all-space` 출력이 완전히 비어 있었다.
+#       = 내용 변경 0건, 전부 줄바꿈만 다름.
+# 원인: 리포에 .gitattributes 가 없어서 체크아웃 줄바꿈이 기기별
+#       core.autocrlf 설정에 좌우됐다 (한 PC 는 unset, 다른 PC 는 true).
+#
+# 🔴 이게 만든 실사고 (Round 174f):
+#   1) middleware.ts 한 줄 수정을 커밋하려는데 462개 파일이 스테이징에 섞일 위험
+#   2) `.github/workflows/auto-publish.yml` 이 그 462개에 포함돼 있어 git pull 거부
+#   3) 그 결과 로컬이 remote 보다 뒤처진 채 push → rejected
+#   4) 파일 교체가 안 된 것을 "nothing to commit" 으로 오진 → 원인 추적에 왕복 4회
+#
+# 해결: 저장소 안은 항상 LF, 작업 트리도 LF 로 고정한다.
+#   eol=lf 를 명시하는 이유 — `* text=auto` 만 쓰면 작업 트리 줄바꿈이 여전히
+#   기기별 core.eol / core.autocrlf 에 좌우돼서 같은 문제가 재발한다.
+#   LF 로 고정하면 3대 PC 와 GitHub Actions(Linux) 가 모두 같은 바이트를 본다.
+* text=auto eol=lf
+
+# Windows 배치 파일은 CRLF 가 아니면 실행이 깨진다. PowerShell 은 LF 도 되지만
+#   here-string 엣지 케이스가 있어 같이 고정한다.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# 바이너리 — 변환되면 파일이 손상된다. 리포에 실제로 있는 확장자만 명시.
+*.png  binary
+*.ico  binary
+*.pdf  binary
+*.tgz  binary
