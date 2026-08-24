@@ -38,7 +38,7 @@ jobs:
     #   1회 실행이 최대 6편이 된다. 1편당 LLM+이미지 약 2~3분 → 최악 18분 + 재시도 여유.
     #   여기서 잘리면 뒤쪽 병원이 조용히 누락되고, last_run_at 이 안 갱신돼 다음 회차에
     #   다시 선택되긴 하지만 그 사이 발행 공백이 생긴다.
-    timeout-minutes: 32
+    timeout-minutes: 90
 
     steps:
       - name: Checkout
