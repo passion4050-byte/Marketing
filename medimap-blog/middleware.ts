@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextRequest, type NextFetchEvent } from "next/server";
 import {
   ADMIN_COOKIE_NAME,
   isAdminConfigured,
@@ -27,16 +27,32 @@ export const config = {
 };
 
 /**
- * Round 110-B (2026-07-02) — AI 크롤러 감지 시 fire-and-forget 로 /api/track/crawler 호출.
- * middleware 는 edge runtime → postgres 직접 못 씀 → nodejs endpoint 로 delegate.
+ * Round 110-B (2026-07-02) — AI 크롤러 감지 시 /api/track/crawler 로 delegate.
+ *   middleware 는 edge runtime → postgres 직접 못 씀 → nodejs endpoint 경유.
+ *
+ * Round 174 (2026-08-24) — 🔴 이 함수는 두 달간 단 한 건도 기록하지 못했다.
+ *   실측: crawler_hits 1,281건이 전부 `/r/*` (별도 nodejs 라우트가 직접 INSERT).
+ *   콘텐츠 경로(/blog·/with-partners·/all·해외) 히트는 **0건**. 원인 두 가지:
+ *     1) AbortSignal.timeout(300) — 대상이 nodejs serverless 함수라 콜드스타트
+ *        (부팅 + TLS + postgres connect, connect_timeout 만 5s)만으로 300ms 를
+ *        넘긴다. 사실상 항상 abort.
+ *     2) waitUntil 없음 — NextResponse.next() 를 반환하는 순간 edge isolate 가
+ *        정리되면서 in-flight fetch 가 같이 죽는다. 300ms 를 늘려도 이것만으로는
+ *        안 고쳐진다. 둘을 같이 고쳐야 한다.
+ *   ⚠ 따라서 "googlebot 0건"은 구글이 안 왔다는 뜻이 아니라 **계측이 없었다**는
+ *     뜻이다. Round 173 에서 crawler-detect.ts 에 Googlebot 을 추가한 것만으로는
+ *     아무것도 관측되지 않았다. 이 수정 이후에 쌓이는 0 만 신호로 취급할 것.
  */
-function logCrawlerIfDetected(req: NextRequest, pathname: string): void {
+function logCrawlerIfDetected(
+  req: NextRequest,
+  pathname: string,
+  event: NextFetchEvent,
+): void {
   const ua = req.headers.get("user-agent");
   const bot = detectAiCrawler(ua);
   if (!bot) return;
   const origin = req.nextUrl.origin;
-  // fire-and-forget — 응답 지연 방지 (300ms timeout)
-  fetch(`${origin}/api/track/crawler`, {
+  const p = fetch(`${origin}/api/track/crawler`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -46,11 +62,15 @@ function logCrawlerIfDetected(req: NextRequest, pathname: string): void {
       referer: req.headers.get("referer"),
       country: req.headers.get("x-vercel-ip-country"),
     }),
-    signal: AbortSignal.timeout(300),
-  }).catch(() => { /* swallow */ });
+    // 콜드스타트 + pg connect 여유. 응답을 기다리지 않으므로(waitUntil) 사용자
+    //   지연에는 영향이 없다. 상한만 둬서 edge 실행이 매달리지 않게 한다.
+    signal: AbortSignal.timeout(4000),
+  }).catch(() => { /* swallow — 계측 실패가 페이지를 막으면 안 된다 */ });
+  // 응답 반환 후에도 이 promise 가 살아있도록 런타임에 알린다.
+  event.waitUntil(p);
 }
 
-export async function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest, event: NextFetchEvent) {
   const { pathname, search } = req.nextUrl;
 
   // Round 165 (2026-08-18) — 국내(/blog·/with-partners) no-store 강제 제거.
@@ -65,7 +85,7 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/blog") ||
     pathname === "/all"
   ) {
-    logCrawlerIfDetected(req, pathname);
+    logCrawlerIfDetected(req, pathname, event);
     return NextResponse.next();
   }
 
@@ -79,7 +99,7 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/guides") ||
     pathname.startsWith("/review")
   ) {
-    logCrawlerIfDetected(req, pathname);
+    logCrawlerIfDetected(req, pathname, event);
     return NextResponse.next();
   }
 
