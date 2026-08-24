@@ -71,6 +71,21 @@ WHERE gc.status = 'published'
   AND gc.slug IS NOT NULL
   AND gc.slug !~ '^[a-z0-9-]+$'      -- 비ASCII 슬러그만
   AND gc.former_slug IS NULL          -- 이미 리네임한 건 재처리 금지(멱등)
+  -- 🔴 Round 174j-b — 첫 dry_run 이 잡아낸 두 가지. 이 두 줄이 없으면
+  --    LLM 비용을 태우고 URL 만 흔들면서 얻는 게 0 이다.
+  --  (1) noindex 글 제외. 사이트맵에서 빠지고 robots noindex 가 걸린 글이라
+  --      슬러그를 고쳐도 검색에 아무 영향이 없다. 첫 dry_run 10편이 **전부**
+  --      noindex 였다(#169·175·176·177·178·179·180·183·185·186).
+  --      대상 153편 중 21편이 여기 해당.
+  AND NOT COALESCE(gc.noindex, false)
+  --  (2) 자사(wecircle-self) 제외. 자사 글은 /blog/{slug} 로 서빙되는데
+  --      301 은 /with-partners 상세 페이지에만 넣었다(canonicalPathFor 가
+  --      wecircle-self 를 의도적으로 제외하므로 /blog 쪽은 리다이렉트가 안 걸린다).
+  --      지금 리네임하면 구 URL 이 새 본문을 그대로 렌더해 중복 URL 이 생긴다 —
+  --      Round 173 에서 277개를 없앤 그 문제를 다시 만드는 셈.
+  --      자사 글까지 하려면 /blog/[slug] 에도 former_slug 301 을 먼저 넣을 것.
+  --      대상 153편 중 12편이 여기 해당.
+  AND t.partner_slug <> 'wecircle-self'
 ORDER BY gc.id
 LIMIT :lim
 """
