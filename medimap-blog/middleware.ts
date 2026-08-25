@@ -27,21 +27,29 @@ export const config = {
 };
 
 /**
- * Round 110-B (2026-07-02) — AI 크롤러 감지 시 /api/track/crawler 로 delegate.
- *   middleware 는 edge runtime → postgres 직접 못 씀 → nodejs endpoint 경유.
+ * AI·검색 크롤러 방문 기록.
  *
- * Round 174 (2026-08-24) — 🔴 이 함수는 두 달간 단 한 건도 기록하지 못했다.
- *   실측: crawler_hits 1,281건이 전부 `/r/*` (별도 nodejs 라우트가 직접 INSERT).
- *   콘텐츠 경로(/blog·/with-partners·/all·해외) 히트는 **0건**. 원인 두 가지:
- *     1) AbortSignal.timeout(300) — 대상이 nodejs serverless 함수라 콜드스타트
- *        (부팅 + TLS + postgres connect, connect_timeout 만 5s)만으로 300ms 를
- *        넘긴다. 사실상 항상 abort.
- *     2) waitUntil 없음 — NextResponse.next() 를 반환하는 순간 edge isolate 가
- *        정리되면서 in-flight fetch 가 같이 죽는다. 300ms 를 늘려도 이것만으로는
- *        안 고쳐진다. 둘을 같이 고쳐야 한다.
- *   ⚠ 따라서 "googlebot 0건"은 구글이 안 왔다는 뜻이 아니라 **계측이 없었다**는
- *     뜻이다. Round 173 에서 crawler-detect.ts 에 Googlebot 을 추가한 것만으로는
- *     아무것도 관측되지 않았다. 이 수정 이후에 쌓이는 0 만 신호로 취급할 것.
+ * Round 174k (2026-08-25) — 🔴 내부 self-fetch 를 버리고 Supabase REST 로 직접 쓴다.
+ *
+ * 왜 바꿨나 — Round 174f 의 `waitUntil` 수정은 **실패했다**:
+ *   배포 4시간 뒤에도 콘텐츠 경로 히트 0건. 그런데 봇은 분명히 왔다 —
+ *   15:48~15:49 사이 meta-externalagent 가 `/r/p508·p492·p484·p498·p450` 를
+ *   80초 안에 찍었다. 이 `p{id}` 숏링크는 **본문 안에만** 존재하므로 그 5개 글을
+ *   방금 가져왔다는 뜻이고, 5편 전부 `/with-partners/...` = 아래 matcher 대상이다.
+ *   → matcher 문제도, 봇 유입 부족도 아니었다.
+ *
+ * 배포 여부도 확정됐다: 같은 라운드의 뒤 커밋(727b55b, posts.ts former_slug 매칭)이
+ *   라이브에서 동작하므로 그보다 앞선 f92c21e(middleware)는 배포돼 있다.
+ *   따라서 남은 원인은 **edge → 자기 자신 `/api/track/crawler` fetch 가 실패**하는 것.
+ *   (self-fetch 는 origin 해석·재귀 방지·배포 보호 등으로 조용히 깨지기 쉽고
+ *    `.catch()` 가 삼켜서 로그도 안 남는다.)
+ *
+ * 그래서 서버리스 함수를 한 홉 거치지 않고 Supabase PostgREST 에 직접 POST 한다.
+ *   edge 에서 되는 건 fetch 뿐인데 PostgREST 는 순수 HTTP 라 딱 맞는다.
+ *
+ * ⚠ env 2개가 있어야 이 경로가 켜진다. 없으면 기존 경로로 폴백 — 무회귀.
+ *   확인 방법: GET /api/debug-partners → has_SUPABASE_URL / has_SUPABASE_SERVICE_ROLE_KEY
+ *   (값은 노출 안 함, 존재 여부만)
  */
 function logCrawlerIfDetected(
   req: NextRequest,
@@ -51,22 +59,50 @@ function logCrawlerIfDetected(
   const ua = req.headers.get("user-agent");
   const bot = detectAiCrawler(ua);
   if (!bot) return;
-  const origin = req.nextUrl.origin;
-  const p = fetch(`${origin}/api/track/crawler`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      bot_name: bot,
-      path: pathname,
-      user_agent: ua,
-      referer: req.headers.get("referer"),
-      country: req.headers.get("x-vercel-ip-country"),
-    }),
-    // 콜드스타트 + pg connect 여유. 응답을 기다리지 않으므로(waitUntil) 사용자
-    //   지연에는 영향이 없다. 상한만 둬서 edge 실행이 매달리지 않게 한다.
-    signal: AbortSignal.timeout(4000),
-  }).catch(() => { /* swallow — 계측 실패가 페이지를 막으면 안 된다 */ });
-  // 응답 반환 후에도 이 promise 가 살아있도록 런타임에 알린다.
+
+  const row = {
+    bot_name: bot,
+    path: pathname.slice(0, 512),
+    user_agent: ua ? ua.slice(0, 512) : null,
+    // ⚠ 길이 컷을 여기서 직접 한다. 기존엔 /api/track/crawler 가 slice 했는데
+    //   이제 그 라우트를 건너뛰므로 컬럼 길이 초과로 INSERT 가 조용히 실패할 수 있다.
+    referer: (req.headers.get("referer") || "").slice(0, 512) || null,
+    country: (req.headers.get("x-vercel-ip-country") || "").slice(0, 8) || null,
+    status_code: 200,
+    // hit_at 은 컬럼 기본값 now() 에 맡긴다 (스키마 확인함).
+  };
+
+  // ⚠ env 이름이 프로젝트마다 갈린다. 예전에 넣어둔 것이 NEXT_PUBLIC_SUPABASE_URL
+  //   일 수 있어 둘 다 본다. 이름 하나 어긋나면 조용히 폴백으로 떨어져 또 0건이
+  //   된다 — 그게 Round 174f 의 실패 방식이었다.
+  const sbUrl =
+    process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const sbKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+
+  let p: Promise<unknown>;
+  if (sbUrl && sbKey) {
+    // 1홉. 서버리스 콜드스타트 없음.
+    p = fetch(`${sbUrl}/rest/v1/crawler_hits`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: sbKey,
+        Authorization: `Bearer ${sbKey}`,
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify(row),
+      signal: AbortSignal.timeout(3000),
+    }).catch(() => { /* 계측 실패가 페이지를 막으면 안 된다 */ });
+  } else {
+    // 폴백 — env 미설정 환경(로컬·프리뷰)에서 기존 동작 유지.
+    p = fetch(`${req.nextUrl.origin}/api/track/crawler`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(row),
+      signal: AbortSignal.timeout(4000),
+    }).catch(() => { /* swallow */ });
+  }
   event.waitUntil(p);
 }
 

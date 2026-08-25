@@ -23,6 +23,11 @@ export async function GET() {
   const env = {
     has_DATABASE_URL: !!process.env.DATABASE_URL,
     has_NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    // Round 174k — 크롤러 계측이 edge 에서 Supabase REST 로 직접 쓰는 데 필요한 env.
+    //   값은 노출하지 않고 존재 여부만.
+    has_SUPABASE_URL: !!process.env.SUPABASE_URL,
+    has_SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    has_SUPABASE_SERVICE_KEY: !!process.env.SUPABASE_SERVICE_KEY,
     VERCEL_ENV: process.env.VERCEL_ENV ?? null,
     VERCEL_REGION: process.env.VERCEL_REGION ?? null,
   };
