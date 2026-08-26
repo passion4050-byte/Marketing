@@ -23,10 +23,8 @@ export const config = {
     "/tw/:path*",
     "/guides/:path*",
     "/review/:path*",
-    // Round 174L (temp) self-verification. middleware writes status_code=200,
     //   /r/[slug]/route.ts writes 302. One 200 row on /r/ proves Supabase REST works.
     //   MUST also early-return below or every CTA link breaks.
-    "/r/:path*",
   ],
 };
 
@@ -123,9 +121,7 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
   if (
     pathname.startsWith("/with-partners") ||
     pathname.startsWith("/blog") ||
-    pathname === "/all" ||
-    // Round 174L (temp) - early return is REQUIRED here.
-    pathname.startsWith("/r/")
+    pathname === "/all"
   ) {
     logCrawlerIfDetected(req, pathname, event);
     return NextResponse.next();
