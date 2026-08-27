@@ -463,20 +463,39 @@ def daily_auto_content_job(
             #   실측: "의료 GEO 최적화" 41편 + "필러" 38편 = 발행의 33% 가 단 2개
             #   키워드에 집중 — 같은 주제 반복은 유입도 문의도 못 늘린다(카니벌라이즈).
             #   상한 도달 키워드는 로테이션에서 제외 → 남은 키워드(롱테일)로 강제 순환.
-            _KW_PUBLISH_CAP = 12
+            # 🔴 Round 177 (2026-08-27) — 상한을 (키워드, 언어) 단위로 바꾸고 해외는 1편.
+            #   실사고: kwangdong en 활성 키워드가 3개뿐이라 날짜 로테이션이 3일마다
+            #   같은 키워드로 돌아오는데 상한이 12 라 같은 의도로 계속 새 글을 찍었다.
+            #   결과: 502·537·550 "Traditional Korean Medicine Treatment in Seoul" 3편
+            #   (537·550 은 제목이 사실상 동일), brighteye en 434·459·543,
+            #   dear en 울쎄라 249·256·261 — 전부 자기들끼리 카니벌라이즈.
+            #   또 기존 상한은 lang 을 무시해 ko/en 발행이 한 통에 섞여 세졌다.
+            #   ⚠ noindex 글도 카운트에 포함한다. 빼면 중복을 noindex 하는 순간
+            #     슬롯이 비어 같은 키워드로 또 찍는다.
+            _KW_CAP_DOMESTIC = 12
+            _KW_CAP_OVERSEAS = 1
             from sqlalchemy import text as _sql_cap
-            _capped: set[str] = {
-                r[0]
+            _pub_counts: dict = {
+                (r[0], r[1] or "ko"): int(r[2])
                 for r in s.execute(
                     _sql_cap(
-                        "SELECT keyword_text FROM generated_contents "
+                        "SELECT keyword_text, COALESCE(lang,'ko') AS lang, count(*) "
+                        "FROM generated_contents "
                         "WHERE tenant_id = :tid AND status = 'published' "
                         "AND channel = 'blog_html' AND keyword_text IS NOT NULL "
-                        "GROUP BY keyword_text HAVING count(*) >= :cap"
+                        "GROUP BY keyword_text, COALESCE(lang,'ko')"
                     ),
-                    {"tid": tenant_id, "cap": _KW_PUBLISH_CAP},
+                    {"tid": tenant_id},
                 ).fetchall()
             }
+
+            def _kw_capped(text_: str, lang_: str, market_: str) -> bool:
+                cap = (
+                    _KW_CAP_DOMESTIC
+                    if (market_ == "domestic" or lang_ == "ko")
+                    else _KW_CAP_OVERSEAS
+                )
+                return _pub_counts.get((text_, lang_), 0) >= cap
             # 키워드별 lang/market 동반 로드 + 발행 게이팅. 해외 키워드는 그 언어로 생성.
             kw_rows = [
                 (
@@ -485,7 +504,11 @@ def daily_auto_content_job(
                     (getattr(k, "market", "domestic") or "domestic"),
                 )
                 for k in kws
-                if k.text not in _capped
+                if not _kw_capped(
+                    k.text,
+                    (getattr(k, "lang", "ko") or "ko"),
+                    (getattr(k, "market", "domestic") or "domestic"),
+                )
                 # Round 173 — 발행 로테이션 제외 플래그. 순위가 나올 수 없는 헤드 키워드
                 #   (GSC 실측 44~90위, 클릭 0)를 측정은 유지한 채 발행에서만 뺀다.
                 and getattr(k, "content_eligible", True) is not False
@@ -498,8 +521,10 @@ def daily_auto_content_job(
                     or (getattr(k, "market", "domestic") or "domestic") == market_only
                 )
             ]
-            # 전 키워드 상한 도달 시 발행 중단이 아니라 전체 풀로 폴백 (발행 0 방지)
-            if not kw_rows and _capped:
+            # 전 키워드 상한 도달 시 발행 중단이 아니라 전체 풀로 폴백 (발행 0 방지).
+            # 🔴 Round 177 — 해외는 폴백 금지. 여기서 폴백하면 그게 곧 중복 재생산이다.
+            #   해외 풀이 소진되면 발행을 건너뛰고 로그로 알린다(= 키워드 추가 신호).
+            if not kw_rows and _pub_counts:
                 kw_rows = [
                     (k.text, (getattr(k, "lang", "ko") or "ko"),
                      (getattr(k, "market", "domestic") or "domestic"))
@@ -507,6 +532,8 @@ def daily_auto_content_job(
                     # Round 173 — 폴백 경로에도 content_eligible 적용. 여기서 빠뜨리면
                     #   상한 도달 tenant 가 조용히 헤드 키워드로 되돌아간다.
                     if getattr(k, "content_eligible", True) is not False
+                    # Round 177 — 폴백은 국내 전용.
+                    and (getattr(k, "market", "domestic") or "domestic") == "domestic"
                     and _publish_ok(
                         (getattr(k, "lang", "ko") or "ko"),
                         (getattr(k, "market", "domestic") or "domestic"),
@@ -517,6 +544,11 @@ def daily_auto_content_job(
         if lang_only is not None:
             kw_rows = [r for r in kw_rows if r[1] == lang_only]
         if not kw_rows:
+            # Round 177 — 조용한 스킵 금지. 해외 풀 소진은 운영자가 알아야 하는 상태다.
+            logger.warning(
+                "scheduler.keyword_pool_exhausted",
+                tenant_id=tenant_id, lang_only=lang_only, market_only=market_only,
+            )
             continue
 
         summary["tenants"] += 1
