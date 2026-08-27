@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminTopbar } from "@/components/admin/AdminTopbar";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { ADMIN_COOKIE_NAME, isAdminConfigured, verifySessionCookie } from "@/lib/admin-auth";
 
 export const metadata: Metadata = {
   title: "관리자 — 위서클",
@@ -9,11 +12,17 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function AdminPanelLayout({
+export default async function AdminPanelLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Round 175 - defense in depth. This panel was publicly reachable while
+  //   middleware.ts sat outside src/ and never ran. Do not rely on it alone.
+  const session = cookies().get(ADMIN_COOKIE_NAME)?.value;
+  const authed = isAdminConfigured() && (await verifySessionCookie(session));
+  if (!authed) redirect("/admin/login");
+
   return (
     <div className="min-h-screen bg-[#F7F8FB]">
       <div className="flex min-h-screen">
