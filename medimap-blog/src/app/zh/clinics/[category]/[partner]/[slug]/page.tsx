@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: g.title,
     description: g.excerpt ?? undefined,
-    alternates: overseasAlternates("zh", `/clinics/${category}/${partner}/${slug}`),
+    alternates: overseasAlternates("zh", `/clinics/${category}/${partner}/${g.slug}`),
   };
 }
 

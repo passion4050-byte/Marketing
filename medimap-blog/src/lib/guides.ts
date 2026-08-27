@@ -190,9 +190,14 @@ export async function getClinicContent(
     const rows = await sql.unsafe<Array<Record<string, unknown>>>(
       `SELECT g.slug, g.title, g.excerpt, g.body, g.raw_qa_pairs, g.lang, g.published_at, g.cover_image_url, g.cover_image_alt
        FROM generated_contents g JOIN tenants t ON t.id = g.tenant_id
-       WHERE g.lang = $1 AND g.market = 'overseas' AND g.slug = $2 AND t.partner_slug = $3
+       WHERE g.lang = $1 AND g.market = 'overseas' AND t.partner_slug = $3
+         -- Round 176 (2026-08-27): former_slug fallback. Renaming an overseas
+         --   slug used to 404 the old URL because this lookup matched g.slug only.
+         --   ORDER BY keeps the current slug winning when both rows could match.
+         AND (g.slug = $2 OR g.former_slug = $2)
          AND g.is_partner_content = true
          AND g.status = 'published' AND g.compliance_status = 'pass'
+       ORDER BY (g.slug = $2) DESC
        LIMIT 1`,
       [lang, slug, partner]
     );
