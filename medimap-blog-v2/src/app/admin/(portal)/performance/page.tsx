@@ -34,11 +34,17 @@ interface Summary {
   citations30d: number; citationsAll: number; hospitals: number;
 }
 
+// GSC 평균 게재순위라 소수가 나온다(2.5위). 정수면 소수점을 떼고, 아니면 한 자리.
+function fmtRank(v: number) {
+  return Number.isInteger(v) ? `${v}` : v.toFixed(1);
+}
+
 function rankBadge(cur: number | null, target: number | null) {
   if (cur == null) return { text: '미진입', cls: 'bg-stone-100 text-stone-500' };
-  if (target != null && cur <= target) return { text: `${cur}위`, cls: 'bg-emerald-100 text-emerald-700' };
-  if (cur <= 10) return { text: `${cur}위`, cls: 'bg-amber-100 text-amber-700' };
-  return { text: `${cur}위`, cls: 'bg-rose-100 text-rose-700' };
+  const t = `${fmtRank(cur)}위`;
+  if (target != null && cur <= target) return { text: t, cls: 'bg-emerald-100 text-emerald-700' };
+  if (cur <= 10) return { text: t, cls: 'bg-amber-100 text-amber-700' };
+  return { text: t, cls: 'bg-rose-100 text-rose-700' };
 }
 
 function delta(base: number | null, cur: number | null) {

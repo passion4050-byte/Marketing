@@ -173,8 +173,18 @@ async def main() -> int:
                    k.target_brand, k.purpose, k.last_measured_at
             FROM keywords k JOIN tenants t ON t.id=k.tenant_id
             WHERE k.is_active = true
-              AND COALESCE(k.measure_eligible, true) = true
-              {where_purpose}
+              AND (
+                    -- 🔴 Round 180b — tracked 는 measure_eligible / purpose 게이트를 건너뛴다.
+                    --   Round 173 이 롱테일 질문형 키워드를 measure_eligible=false 로 막았다
+                    --   ("발행 방향만 잡는 용도, 측정 크레딧 아끼자"). 그런데 Round 180 의
+                    --   근거가 정확히 그 반대다 — 인용 6건 중 4건이 롱테일 질문형
+                    --   '강남 모발이식 회복'(3위) 에서 나왔고, 헤드텀 '잠실 라식'(3.5위, 11편)
+                    --   은 0건이다. 그 정책을 그대로 두면 추적 키워드 76개 중 27개가
+                    --   영구 미측정 → 성과 보드에 영원히 0 으로 남는다. 약속한 키워드는
+                    --   반드시 측정한다. 비용 상한은 tracked 개수(76) 와 LIMIT 이 잡는다.
+                    COALESCE(k.tracked, false) = true
+                 OR (COALESCE(k.measure_eligible, true) = true {where_purpose})
+              )
             ORDER BY COALESCE(k.tracked, false) DESC,
                      COALESCE(t.focus_tier, 0) DESC,
                      k.last_measured_at ASC NULLS FIRST,

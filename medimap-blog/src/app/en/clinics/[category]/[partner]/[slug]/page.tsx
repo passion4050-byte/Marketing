@@ -26,6 +26,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const g = await getClinicContent("en", partner, slug);
   if (!g) return { title: "Clinic — WECIRCLE Global" };
   return {
+    // 🔴 Round 180b (2026-08-30) — 해외 라우트에는 robots 가 아예 없었다.
+    //   그래서 Round 178 의 해외 중복 noindex 처리는 전부 no-op 였다.
+    //   페이지는 살려두고(follow: true) 색인만 뺀다. 되돌리려면 noindex=false.
+    robots: g.noindex ? { index: false, follow: true } : undefined,
     title: g.title,
     description: g.excerpt ?? undefined,
     alternates: overseasAlternates("en", `/clinics/${category}/${partner}/${g.slug}`),

@@ -69,7 +69,13 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           ENGINE_MODE: ${{ inputs.engine_mode || secrets.ENGINE_MODE || 'stub' }}
           # Round 85 (2026-06-28) — 20 → 60 (활성 9 tenant × 평균 5 키워드 × 1 round 충분 커버)
-          KEYWORD_LIMIT: ${{ inputs.keyword_limit || '60' }}
+          # 🔴 Round 180b (2026-08-30) — 60 → 90. 상한은 반드시 tracked 개수(76)보다 커야 한다.
+          #   60 이면 추적 키워드가 슬롯을 전부 먹고 나머지 572개가 영구 미측정이 되고,
+          #   추적 키워드 자체도 76 중 60 만 돌아 월 24회로 떨어진다. 7월에 인용률 13%를
+          #   관측한 밀도가 키워드당 월 31회였다 — 90 이면 76개 전부 매일 = 월 30회로
+          #   그 밀도를 복원하고, 남는 14 슬롯이 나머지를 천천히 돈다.
+          #   비용은 제약이 아니다(측정 LLM 비용 실측 일 $0.05~0.3). 제약은 Gemini 분당 한도뿐.
+          KEYWORD_LIMIT: ${{ inputs.keyword_limit || '90' }}
           # Round 85 — $1 → $5 (3엔진 활성, OpenAI/Anthropic paid 활용)
           MAX_DAILY_USD: ${{ secrets.MAX_DAILY_USD || '5.0' }}
           # Round 35 (2026-05-31): 자사 own 키워드만 측정 (기본).
@@ -108,7 +114,7 @@ jobs:
         #   (실제 호출 여부의 정본은 llm_call_logs 다.)
         env:
           ENGINE_MODE: ${{ inputs.engine_mode || secrets.ENGINE_MODE || 'stub' }}
-          KEYWORD_LIMIT: ${{ inputs.keyword_limit || '60' }}
+          KEYWORD_LIMIT: ${{ inputs.keyword_limit || '90' }}
         run: |
           {
             echo "## AI 측정 결과"

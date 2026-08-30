@@ -23,6 +23,15 @@ export interface Guide {
   is_partner?: boolean;
   partner_category?: string | null;
   partner_slug?: string | null;
+  /**
+   * 🔴 Round 180b (2026-08-30) — 해외 라우트는 noindex 를 **아예 읽지 않았다**.
+   *   Round 178 에서 해외 중복 7편을 generated_contents.noindex = true 로 처리했지만,
+   *   (a) 상세 페이지 generateMetadata 에 robots 가 없고
+   *   (b) getOverseasCards(사이트맵·허브 목록)에도 필터가 없어
+   *   그 작업은 통째로 no-op 였다. 국내(/blog, /with-partners)만 noindex 를 지킨다.
+   *   Round 165 · 174 와 같은 패턴 — "고쳤는데 그 레이어가 안 돈다".
+   */
+  noindex?: boolean;
 }
 
 export interface GuideCard {
@@ -52,7 +61,7 @@ export async function getGuide(lang: string, slug: string): Promise<Guide | null
   try {
     const rows = await sql.unsafe<Array<Record<string, unknown>>>(
       `SELECT g.slug, g.title, g.excerpt, g.body, g.raw_qa_pairs, g.lang, g.published_at, g.cover_image_url, g.cover_image_alt,
-              g.is_partner_content, g.partner_category, t.partner_slug
+              g.is_partner_content, g.partner_category, t.partner_slug, COALESCE(g.noindex, false) AS noindex
        FROM generated_contents g LEFT JOIN tenants t ON t.id = g.tenant_id
        WHERE g.lang = $1
          AND g.market = 'overseas'
@@ -77,6 +86,7 @@ export async function getGuide(lang: string, slug: string): Promise<Guide | null
       is_partner: Boolean(r.is_partner_content),
       partner_category: (r.partner_category as string) ?? null,
       partner_slug: (r.partner_slug as string) ?? null,
+      noindex: Boolean(r.noindex),
     };
   } catch {
     return null;
@@ -94,6 +104,8 @@ export async function getGuides(lang: string): Promise<GuideCard[]> {
          AND market = 'overseas'
          AND status = 'published'
          AND compliance_status = 'pass'
+         -- Round 180b — noindex 글을 목록에서 링크하면 noindex 의 의미가 없다.
+         AND COALESCE(noindex, false) = false
        ORDER BY COALESCE(published_at, created_at) DESC
        LIMIT 200`,
       [lang]
@@ -139,6 +151,9 @@ export async function getOverseasCards(
       "g.market = 'overseas'",
       "g.status = 'published'",
       "g.compliance_status = 'pass'",
+      // 🔴 Round 180b — 사이트맵(sitemap.ts)과 허브 목록이 모두 이 함수를 쓴다.
+      //   필터가 없어서 noindex 로 표시한 중복 글이 계속 사이트맵에 실렸다.
+      "COALESCE(g.noindex, false) = false",
     ];
     const params: string[] = [lang];
     if (opts.kind === "blog") where.push("g.is_partner_content = false");
@@ -188,7 +203,8 @@ export async function getClinicContent(
   if (!sql) return null;
   try {
     const rows = await sql.unsafe<Array<Record<string, unknown>>>(
-      `SELECT g.slug, g.title, g.excerpt, g.body, g.raw_qa_pairs, g.lang, g.published_at, g.cover_image_url, g.cover_image_alt
+      `SELECT g.slug, g.title, g.excerpt, g.body, g.raw_qa_pairs, g.lang, g.published_at, g.cover_image_url, g.cover_image_alt,
+              COALESCE(g.noindex, false) AS noindex
        FROM generated_contents g JOIN tenants t ON t.id = g.tenant_id
        WHERE g.lang = $1 AND g.market = 'overseas' AND t.partner_slug = $3
          -- Round 176 (2026-08-27): former_slug fallback. Renaming an overseas
@@ -213,6 +229,8 @@ export async function getClinicContent(
       published_at: r.published_at ? String(r.published_at) : null,
       cover_image_url: (r.cover_image_url as string) ?? null,
       cover_image_alt: (r.cover_image_alt as string) ?? null,
+      // Round 180b — 중복글은 페이지를 살려두되(백링크·직접방문 보존) robots noindex 만 건다.
+      noindex: Boolean(r.noindex),
     };
   } catch {
     return null;

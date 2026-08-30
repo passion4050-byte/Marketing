@@ -14,6 +14,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const guide = await getGuide("ja", slug);
   if (!guide) return { title: "ガイド — WECIRCLE Global" };
   return {
+    // 🔴 Round 180b (2026-08-30) — 해외 라우트에는 robots 가 아예 없었다.
+    //   그래서 Round 178 의 해외 중복 noindex 처리는 전부 no-op 였다.
+    //   페이지는 살려두고(follow: true) 색인만 뺀다. 되돌리려면 noindex=false.
+    robots: guide.noindex ? { index: false, follow: true } : undefined,
     title: guide.title,
     description: guide.excerpt ?? undefined,
     alternates: {

@@ -50,7 +50,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  const rows = (data ?? []) as BoardRow[];
+  // ⚠ postgrest 는 numeric(avg position) 을 **문자열**로 돌려준다("3.0").
+  //   비교연산은 강제변환 덕에 우연히 동작하지만 화면엔 "3.0위" 로 찍히고,
+  //   나중에 toFixed/산술을 붙이는 순간 조용히 깨진다. 경계에서 한 번만 정규화한다.
+  const num = (v: unknown): number | null =>
+    v === null || v === undefined || v === '' ? null : Number(v);
+  const rows: BoardRow[] = ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    ...(r as unknown as BoardRow),
+    target_rank: num(r.target_rank),
+    baseline_rank: num(r.baseline_rank),
+    current_rank: num(r.current_rank),
+    impressions: Number(r.impressions ?? 0),
+    clicks: Number(r.clicks ?? 0),
+    posts: Number(r.posts ?? 0),
+    citations_30d: Number(r.citations_30d ?? 0),
+    citations_all: Number(r.citations_all ?? 0),
+  }));
 
   // 목표 달성 = 현재 순위가 target 이하. 순위가 없으면 미진입.
   const achieved = rows.filter((r) => r.current_rank != null && r.target_rank != null
