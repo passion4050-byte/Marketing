@@ -114,11 +114,15 @@ def analyze_patterns(session_factory) -> dict:
                 JOIN queries q ON q.keyword_id = k.id
                 JOIN responses r ON r.query_id = q.id
                 WHERE q.requested_at > NOW() - INTERVAL '30 days'
+                  -- 🔴 Round 180b (2026-08-30) — '%medimap%' 제거. 전부 오탐이었다.
+                  --   실측: 이 패턴에 걸리는 호스트는 medi-map.co.kr / global.medi-map.co.kr
+                  --   (전 직장 메디맵, 리브랜딩 전 잔재) 와 www.medimap.com.hk (홍콩의 무관한 회사)
+                  --   뿐이고, 우리 도메인은 하나도 없다. 남의 인용에 ×10 가중을 줘서
+                  --   그 키워드 구조를 학습하고 있었다. 자사 판정의 정본은 wecircle.co.kr 이다
+                  --   (scripts/collect_citation_events.py SELF_HOSTS 와 동일).
                   AND (
-                    r.source_domains::text ILIKE '%wecircle%'
-                    OR r.source_domains::text ILIKE '%medimap%'
-                    OR r.cited_urls::text ILIKE '%wecircle%'
-                    OR r.cited_urls::text ILIKE '%medimap%'
+                    r.source_domains::text ILIKE '%wecircle.co.kr%'
+                    OR r.cited_urls::text ILIKE '%wecircle.co.kr%'
                   )
                 GROUP BY k.text
                 """

@@ -17,7 +17,10 @@ class CtaConfig:
     naver_place_url: str = "https://map.naver.com/v5/search/메디맵"
     phone: str = "02-0000-0000"
     brand_name: str = "메디맵"
-    own_blog_url: str = "https://medimap.kr/blog"
+    # Round 180b (2026-08-30) — 리브랜딩 잔재. medimap.kr 은 전 직장 도메인이라
+    #   tenant.homepage 가 비면 남의 URL 이 본문 CTA 에 박힌다(현재는 16/16 이 homepage
+    #   보유라 휴면 상태). 정본 도메인으로 교체.
+    own_blog_url: str = "https://wecircle.co.kr/blog"
 
 
 # 표준 안내 문구 — 의료법 린터 통과 보수 버전 (광고 표현 금지)

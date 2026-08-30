@@ -107,7 +107,7 @@ async function fetchHtml(url: string, timeoutMs = 5000): Promise<string | null> 
     const res = await fetch(url, {
       signal: ctrl.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; MedimapLearnBot/1.0; +https://medi-map.co.kr)',
+        'User-Agent': 'Mozilla/5.0 (compatible; WecircleLearnBot/1.0; +https://wecircle.co.kr)',
         Accept: 'text/html,application/xhtml+xml',
       },
       redirect: 'follow',
