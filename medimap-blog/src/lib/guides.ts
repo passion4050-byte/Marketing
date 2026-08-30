@@ -4,6 +4,7 @@
  *   본문 body(HTML) + raw_qa_pairs(FAQ) 로 렌더. 국내 partners.ts 와 동일 테이블·패턴.
  */
 import { getSql } from "./db";
+import { deriveExcerpt } from "./bodyHtml";
 
 export interface GuideFaq {
   q: string;
@@ -98,7 +99,8 @@ export async function getGuide(lang: string, slug: string): Promise<Guide | null
     return {
       slug: String(r.slug),
       title: String(r.title ?? ""),
-      excerpt: (r.excerpt as string) ?? null,
+      // Round 181 — 해외 59/59 가 excerpt 없음 → description 태그 자체가 안 나갔다.
+      excerpt: ((r.excerpt as string) || "").trim() || deriveExcerpt(String(r.body ?? "")),
       body: String(r.body ?? ""),
       faq: normFaq(r.raw_qa_pairs),
       lang: String(r.lang ?? lang),
@@ -120,7 +122,7 @@ export async function getGuides(lang: string): Promise<GuideCard[]> {
   if (!sql) return [];
   try {
     const rows = await sql.unsafe<Array<Record<string, unknown>>>(
-      `SELECT slug, title, excerpt
+      `SELECT slug, title, excerpt, left(body, 600) AS body
        FROM generated_contents
        WHERE lang = $1
          AND market = 'overseas'
@@ -135,7 +137,8 @@ export async function getGuides(lang: string): Promise<GuideCard[]> {
     return rows.map((r) => ({
       slug: String(r.slug),
       title: String(r.title ?? ""),
-      excerpt: (r.excerpt as string) ?? null,
+      // Round 181 — 해외 59/59 가 excerpt 없음 → description 태그 자체가 안 나갔다.
+      excerpt: ((r.excerpt as string) || "").trim() || deriveExcerpt(String(r.body ?? "")),
     }));
   } catch {
     return [];
@@ -193,7 +196,7 @@ export async function getOverseasCards(
       where.push(`t.partner_slug = $${params.length}`);
     }
     const rows = await sql.unsafe<Array<Record<string, unknown>>>(
-      `SELECT g.slug, g.title, g.excerpt, g.cover_image_url, g.partner_category, g.is_partner_content, g.blog_category, t.partner_slug
+      `SELECT g.slug, g.title, g.excerpt, left(g.body, 600) AS body, g.cover_image_url, g.partner_category, g.is_partner_content, g.blog_category, t.partner_slug
        FROM generated_contents g LEFT JOIN tenants t ON t.id = g.tenant_id
        WHERE ${where.join(" AND ")}
        ORDER BY COALESCE(g.published_at, g.created_at) DESC
@@ -203,7 +206,8 @@ export async function getOverseasCards(
     return rows.map((r) => ({
       slug: String(r.slug),
       title: String(r.title ?? ""),
-      excerpt: (r.excerpt as string) ?? null,
+      // Round 181 — 해외 59/59 가 excerpt 없음 → description 태그 자체가 안 나갔다.
+      excerpt: ((r.excerpt as string) || "").trim() || deriveExcerpt(String(r.body ?? "")),
       cover_image_url: (r.cover_image_url as string) ?? null,
       partner_category: (r.partner_category as string) ?? null,
       partner_slug: (r.partner_slug as string) ?? null,
@@ -245,7 +249,8 @@ export async function getClinicContent(
     return {
       slug: String(r.slug),
       title: String(r.title ?? ""),
-      excerpt: (r.excerpt as string) ?? null,
+      // Round 181 — 해외 59/59 가 excerpt 없음 → description 태그 자체가 안 나갔다.
+      excerpt: ((r.excerpt as string) || "").trim() || deriveExcerpt(String(r.body ?? "")),
       body: String(r.body ?? ""),
       faq: normFaq(r.raw_qa_pairs),
       lang: String(r.lang ?? lang),

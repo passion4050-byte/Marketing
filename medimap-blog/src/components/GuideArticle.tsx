@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { normalizeBodyHeadings } from "@/lib/bodyHtml";
 import { injectMidCta } from "@/lib/midCta";
 import { JsonLd } from "@/components/JsonLd";
 import { ContactButtons } from "@/components/ContactButtons";
@@ -191,8 +192,10 @@ export function GuideArticle({
       <div
         className="prose-medimap mt-8 max-w-none"
         dangerouslySetInnerHTML={{
+          // Round 181 — 해외 라우트에는 본문 h1 정리가 아예 없어서 h1 이 2개로 나갔다.
+          //   (네이버 「<H1> 2개 이상」 진단에 /en/clinics/... 가 포함돼 있었다.)
           __html: injectMidCta(
-            guide.body,
+            normalizeBodyHeadings(guide.body, guide.title),
             `<div class="not-prose my-8 flex flex-wrap items-center justify-between gap-3 rounded-none border border-stone-300 bg-stone-100 px-5 py-4">` +
               `<span class="text-sm font-semibold text-stone-800">${pc.midQ}</span>` +
               `<a href="${langPath === "ja" ? siteConfig.contact.line : waHref(langPath)}" target="_blank" rel="noopener noreferrer" class="shrink-0 rounded-full ${langPath === "ja" ? "bg-[#06C755]" : "bg-[#25D366]"} px-4 py-2 text-[13px] font-bold text-white">${pc.midBtn}</a>` +

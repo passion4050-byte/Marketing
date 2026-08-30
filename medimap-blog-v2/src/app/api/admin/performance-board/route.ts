@@ -23,13 +23,17 @@ export interface BoardRow {
   tenant_id: number;
   partner_slug: string;
   tenant_name: string;
+  focus_tier: number;
   keyword_id: number;
   keyword_text: string;
   target_rank: number | null;
   baseline_rank: number | null;
   current_rank: number | null;
-  impressions: number;
-  clicks: number;
+  impressions: number;       // 구글(GSC)
+  clicks: number;            // 구글(GSC)
+  naver_impressions: number; // 네이버 서치어드바이저
+  naver_clicks: number;
+  naver_ctr: number | null;
   posts: number;
   citations_30d: number;
   citations_all: number;
@@ -39,13 +43,17 @@ export interface BoardRow {
 export async function GET(req: NextRequest) {
   const sp = new URL(req.url).searchParams;
   const days = Math.min(180, Math.max(7, Number(sp.get('days') ?? '90') || 90));
+  // Round 181 — focus=all 이면 tracked 키워드 전체(비집중 병원 포함).
+  //   네이버 클릭 30건 중 다수가 focus_tier=0(벨리셀·청담디어)에서 나왔다는 사실을
+  //   기본 화면에서는 감추되, 한 번의 토글로 볼 수 있어야 한다.
+  const focusOnly = (sp.get('focus') ?? 'focus') !== 'all';
 
   const sb = getServerClient();
   if (!sb) {
     return NextResponse.json({ ok: false, error: 'supabase not configured' }, { status: 503 });
   }
 
-  const { data, error } = await sb.rpc('focus_performance_board', { _days: days });
+  const { data, error } = await sb.rpc('focus_performance_board', { _days: days, _focus_only: focusOnly });
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
@@ -62,6 +70,10 @@ export async function GET(req: NextRequest) {
     current_rank: num(r.current_rank),
     impressions: Number(r.impressions ?? 0),
     clicks: Number(r.clicks ?? 0),
+    focus_tier: Number(r.focus_tier ?? 0),
+    naver_impressions: Number(r.naver_impressions ?? 0),
+    naver_clicks: Number(r.naver_clicks ?? 0),
+    naver_ctr: num(r.naver_ctr),
     posts: Number(r.posts ?? 0),
     citations_30d: Number(r.citations_30d ?? 0),
     citations_all: Number(r.citations_all ?? 0),
@@ -76,6 +88,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     days,
+    focusOnly,
     summary: {
       keywords: rows.length,
       ranked,                                   // 구글 순위가 잡힌 키워드
@@ -84,6 +97,11 @@ export async function GET(req: NextRequest) {
       citations30d: rows.reduce((s, r) => s + Number(r.citations_30d || 0), 0),
       citationsAll: rows.reduce((s, r) => s + Number(r.citations_all || 0), 0),
       hospitals: new Set(rows.map((r) => r.tenant_id)).size,
+      // 🔴 Round 181 — 두 엔진을 나란히. 실측(같은 30일): 네이버가 구글보다 크다.
+      googleImpressions: rows.reduce((s, r) => s + Number(r.impressions || 0), 0),
+      googleClicks: rows.reduce((s, r) => s + Number(r.clicks || 0), 0),
+      naverImpressions: rows.reduce((s, r) => s + Number(r.naver_impressions || 0), 0),
+      naverClicks: rows.reduce((s, r) => s + Number(r.naver_clicks || 0), 0),
     },
     rows,
   });

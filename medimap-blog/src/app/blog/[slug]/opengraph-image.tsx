@@ -22,6 +22,8 @@ export default async function BlogPostOgImage({
   const title = post?.title ?? "위서클 블로그";
   const category = post?.category ?? "헬스케어 인사이트";
   const reviewedBy = post?.reviewedBy;
+  // Satori 에는 line-clamp 가 없다 — 카드 밖으로 넘치지 않게 문자열에서 자른다.
+  const clampedTitle = title.length > 62 ? `${title.slice(0, 62)}…` : title;
 
   return new ImageResponse(
     (
@@ -97,31 +99,33 @@ export default async function BlogPostOgImage({
             gap: 28,
           }}
         >
+          {/*
+            🔴 Round 181 — Satori 는 `display: -webkit-box` / WebkitLineClamp 를
+              모른다. flex 로 바꾸고 길이는 JS 에서 잘라 넘긴다(위 clampedTitle).
+          */}
           <div
             style={{
+              display: "flex",
               fontSize: 72,
               fontWeight: 900,
               letterSpacing: "-0.035em",
               lineHeight: 1.15,
-              // Wrap long titles cleanly without overflowing the card.
               overflow: "hidden",
-              display: "-webkit-box",
-              WebkitLineClamp: 3,
-              WebkitBoxOrient: "vertical",
             }}
           >
-            {title}
+            {clampedTitle}
           </div>
           {reviewedBy && (
             <div
               style={{
+                display: "flex",
                 fontSize: 26,
                 fontWeight: 500,
                 opacity: 0.92,
                 letterSpacing: "-0.01em",
               }}
             >
-              의료진 검수: {reviewedBy}
+              {`의료진 검수: ${reviewedBy}`}
             </div>
           )}
         </div>

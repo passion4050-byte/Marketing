@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { normalizeBodyHeadings } from "@/lib/bodyHtml";
 import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -77,12 +78,10 @@ export async function generateMetadata(
   };
 }
 
+// Round 181 — normalizeBodyHeadings 로 위임. 기존 구현은 "제목과 정확히 일치하는
+//   첫 h1" 만 지워서, 제목에 ` | 병원명` 이 붙은 글은 h1 이 2개로 남았다(네이버 진단 23건).
 function stripFirstH1IfMatchesTitle(body: string, title: string): string {
-  if (!body) return body;
-  const norm = (s: string) => s.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
-  return body.replace(/<h1[^>]*>([\s\S]*?)<\/h1>\s*/i, (m, inner) => {
-    return norm(inner) === norm(title) ? '' : m;
-  });
+  return normalizeBodyHeadings(body, title);
 }
 
 /**

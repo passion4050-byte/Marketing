@@ -6750,3 +6750,154 @@ Round 173 은 롱테일 질문형 키워드를 `measure_eligible=false` 로 막�
 - 아키타입별 인용률 비교 — 인용 20~30건 누적 전에는 통계적으로 무의미(현재 6건)
 - 파트너 백링크 실행 큐 — 상위 5개 병원부터
 - Round 165 성능 결론 재조사(no-op 확인됨, 진짜 원인 미상)
+
+---
+
+# Round 181 (2026-08-30) — 🔴🔴 네이버가 이미 우리 최대 채널이었다 + OG 이미지 전량 500
+
+> 이 라운드의 한 문장: **국내 병원 상품이면서 구글만 보고 있었다.**
+> 같은 30일 창 실측 — 네이버 노출 **1,800** / 클릭 **30**, 구글(GSC) 노출 644 / 클릭 17.
+> 성과 보드의 baseline_rank 도 전부 GSC 기준이었으니 **유입의 2/3 가 화면 밖**이었다.
+
+## 0. 먼저 알아야 할 사실 3개 (전부 원문 확인)
+
+### 0-1. 네이버 블로그는 모든 외부 AI 봇을 차단한다
+
+`blog.naver.com/robots.txt` 원문:
+
+```
+User-agent: Yeti
+Disallow: /
+# BOT ACCESS FOR THE PURPOSES OF AI TRAINING AND RETRIEVAL-AUGMENTED GENERATION (RAG)
+# IS STRICTLY PROHIBITED.
+User-agent: GPTBot           Disallow: /
+User-agent: OAI-SearchBot    Disallow: /
+User-agent: PerplexityBot    Disallow: /
+User-agent: Google-Extended  Disallow: /
+User-agent: ClaudeBot        Disallow: /
+User-agent: Claude-SearchBot Disallow: /
+User-agent: CCBot            Disallow: /
+```
+
+**함의 — 이게 우리 상품의 물리적 근거다.**
+네이버 블로그에 쓴 글은 ChatGPT·Gemini·Perplexity·Claude 어디에도 인용될 수 없다.
+우리 인용 6건이 전부 gemini(구글 그라운딩)였는데 `Google-Extended` 가 Disallow 이므로
+네이버 블로그는 그 경로에 아예 못 들어간다.
+→ **AI 인용을 받을 수 있는 자산은 wecircle.co.kr 뿐이다.**
+→ `medimap-blog/src/app/robots.ts` 의 AI 봇 Allow 목록을 **절대 좁히지 말 것.**
+   (Round 181 에 `User-agent: Yeti / Allow: /` 도 명시 추가 — 크롤러 트래픽 55%가 naver-yeti)
+
+### 0-2. 네이버에도 AEO 가 있다 — 「AI 브리핑」
+
+네이버 공식 가이드(NAVER Search & Tech, 2026-05-26)
+`https://blog.naver.com/naver_search/224296857688`
+
+**FAQ 8 원문: "검색 결과 상위에 노출되는 글이 AI 브리핑에 잘 인용되나요? → 네 그렇습니다."**
+
+우리가 GSC 로 관측한 "인용은 랭킹의 함수"를 **네이버가 공식 문서로 확인해 준 것**이다.
+서로 독립적인 근거 3개가 같은 곳을 가리킨다:
+
+| 근거 | 내용 |
+|---|---|
+| 우리 GSC | 1편 3위 → AI 인용 4회 / 369편 17위 → 0회 |
+| 우리 네이버 | 질문형 롱테일 `백옥주사 효과는 얼마나 지속되나요?` CTR **14.3%**, 클릭 1위 (해당 글 **1편**) |
+| 네이버 공식 | FAQ 8 (위) |
+
+공식 가이드가 **명시적으로 "지양"** 이라고 쓴 것 중 우리가 저지를 수 있는 것:
+- "사람이 직접 쓴 문장이 아닌 **AI가 기계적으로 생성·요약한 글을 무분별하게 발행**" ← 우리는 자동 생성 파이프라인이다
+- "**홍보만을 목적으로 외부로 이동하는 URL을 과도하게 삽입**" ← 백링크 심기 전략이 여기 걸린다
+
+→ `generator.py` 에 `_NAVER_AEO_DIRECTIVE` 주입(국내/해외 공용).
+
+### 0-3. 우리 키워드 테이블과 실제 유입 키워드는 겹치지 않는다
+
+네이버 상위 30개 검색어 ↔ `keywords` 테이블 전수 대조: **exact match 0/30.**
+`모발이식 탈락기`, `bgn무슨뜻`, `엑소좀 종류별 비교`, `테헤란로 주변 스킨부스터`,
+`향기오래가는 헤어라인교정` — 우리가 상상하지 못한 질문들이다.
+
+**규칙: 키워드는 상상하지 말고 관측한다.** 30개를 그대로 tracked 로 등록(76 → 106).
+
+## 1. OG 이미지가 전부 500이었다 (= 오래된 "썸네일 엑박"의 정답)
+
+```
+before  /blog/*/opengraph-image  500 · /twitter-image  500 · 루트 200인데 본문 0바이트
+after   4개 라우트 전부 200 + 실제 PNG (20~21KB), Satori 에러 0
+```
+
+원인 2개 — **둘 다 next/og 를 쓸 때 반복될 수 있으므로 규칙으로 기억할 것:**
+
+1. **Satori 는 자식이 2개 이상인 div 에 `display: flex|none` 을 요구한다.**
+   `헬스케어의 미래를{"\n"}함께 만들어갑니다` 는 JSX 상 자식 3개(텍스트+표현식+텍스트).
+   `의료진 검수: {reviewedBy}` 도 같은 위반. → throw:
+   `Expected <div> to have explicit display: flex or display: none if it has more than one child node.`
+   **줄바꿈은 개행 문자가 아니라 flex column + 자식 div 로 만든다.**
+   `display: "-webkit-box"` / `WebkitLineClamp` 도 Satori 미지원 → 문자열에서 잘라 넘긴다.
+2. **metadata image 라우트를 재export 하면 segment config 가 유실된다.**
+   `export { default, runtime, dynamic, size } from "./opengraph-image"` 는
+   Next 의 정적 분석을 통과하지 못한다. 같은 내용인데 루트 OG 는 200(빈 본문),
+   twitter-image 는 500 이었던 이유가 이것. **각 파일에서 직접 선언할 것.**
+
+네이버 진단의 「서버 접근 불가로 수집 실패 15건」도 전부 이것이었다.
+
+⚠ 부수 발견: JSX 주석 `{/* ... */}` 안에 **`/blog/*/opengraph-image` 같은 글롭을 쓰지 말 것** —
+`*/` 가 주석을 조기 종료시켜 `TS1161 Unterminated regular expression literal` 이 난다.
+
+## 2. 성과 보드 = 네이버 + 구글
+
+- `naver_search_report` 테이블 (기간 집계 — 서치어드바이저는 일별이 아니다)
+- `scripts/import_naver_report.py` — CSV 임포터. **공식 리포트 API 는 없다.**
+  각 리포트에 「다운로드」(최대 2,000행)가 있으므로 월 1회 수동이면 충분하다.
+  자동화하겠다고 로그인 세션을 흉내내는 것은 ToS 위반 + 계정 리스크 — 하지 않는다.
+- `focus_performance_board(_days, _focus_only)` — 네이버 노출/클릭/CTR 컬럼 추가.
+  `_focus_only=false` 토글을 둔 이유: **네이버 클릭 30건 중 다수가 focus_tier=0**
+  (벨리셀 백옥주사·TCA, 청담디어)에서 나온다. 제품 화면은 집중 9곳을 기본으로 하되
+  이 사실을 감추지 않는다.
+- `KEYWORD_LIMIT` 90 → 120 (상한 > tracked 개수 규칙 유지)
+
+**CTR 렌즈**: 노출은 큰데 CTR 이 바닥인 항목이 가장 싼 개선 지점이다.
+`강남힐링안과` 노출 **425 / CTR 0.2%** — 순위는 이미 잡혔고 제목·description 만 고치면 된다.
+편수를 늘릴 문제가 아니다.
+
+## 3. 네이버 SEO 진단 2건 — 둘 다 "일부만 고쳐져 있었다"
+
+- **`<H1>` 2개 이상 23개**: 기존 `stripFirstH1IfMatchesTitle` 은 본문 h1 이 **제목과 정확히
+  일치할 때만** 지웠다. 제목에 ` | 병원명` 이 붙으면 남는다. 해외 라우트엔 처리가 아예 없었다.
+  → `lib/bodyHtml.ts` `normalizeBodyHeadings()`: 본문 h1 을 **h2 로 강등**(삭제 아님 — 구조 보존).
+- **`meta description` 누락**: 네이버가 찾은 9건은 빙산의 일각.
+  실측 **해외 59/59 = 100% 누락**, 국내 142/213(단 posts.ts·partners.ts 에 폴백이 있어 렌더 시엔 채워짐).
+  해외 계층 `guides.ts` 에만 폴백이 없었다 → `deriveExcerpt()` 4곳 적용.
+
+→ **패턴 반복 확인**: 국내는 되는데 해외만 안 된다 = 데이터가 아니라 **계층 간 처리 비대칭**.
+  Round 180e 의 slug 디코딩 누락과 완전히 같은 형태다. 해외 계층을 고칠 땐 국내 계층에
+  이미 있는 처리를 먼저 전수 대조할 것.
+
+## 4. 전략 — "네이버 블로그에 백링크" 검토 결과
+
+사용자 제안: 자체 네이버 블로그를 발행해 wecircle.co.kr 로 백링크를 걸고 병원에 판매.
+
+**방향(네이버를 잡아야 한다)은 맞다. 수단(백링크)은 근거가 약하고 리스크가 크다.**
+
+| 검토 항목 | 결론 |
+|---|---|
+| 백링크로 wecircle 순위 상승 | 근거 없음. 도메인 다양성 0(한 블로그 반복), 네이버 공식 가이드가 "홍보 목적 외부 URL 과다 삽입"을 지양으로 명시 |
+| 어드민에서 자동 발행 | **하지 말 것.** 글쓰기 공식 API 없음 + 자동화 게시는 운영원칙상 비정상 행위(계정 정지·저품질) + 네이버가 "AI가 기계적으로 생성한 글 무분별 발행"을 명시적 지양. **병원 계정으로 하면 리스크를 병원이 진다** — 우리가 고객에게 손해를 입히는 구조 |
+| 네이버 블로그를 유입 채널로 | 유효. 단 C-Rank 는 **블로그 단위 주제 일관성**을 요구하므로 병원별 계정이 필요하고, D.I.A 는 유사 콘텐츠를 벌한다(우리 파이프라인의 기존 약점) |
+| **네이버 AI 브리핑을 웹문서로 직접 노린다** | **이게 정답.** 우리는 이미 네이버 색인 230p / 노출 1,800. 웹문서 영역은 블로그 대행사가 안 건드린다. 그리고 이 자산은 **구글 AI + 네이버 AI 양쪽에 인용 가능** — 네이버 블로그는 구글 AI 에 영원히 인용 불가(0-1) |
+
+**세일즈 논거(사실 기반, 검증 가능):**
+> "네이버 블로그 대행은 월 30~150만원에 널려 있습니다. 그런데 그 글은 ChatGPT 도
+> Gemini 도 Perplexity 도 읽을 수 없습니다 — 네이버가 robots.txt 로 전부 막아뒀기
+> 때문입니다. 우리가 만드는 자산은 네이버 AI 브리핑과 구글 AI 양쪽에서 인용됩니다."
+
+원고 자체가 필요하면 `medimap-blog-v2/src/lib/publish/naver.ts` 의 `buildManualArtifact`
+(Smart Editor 호환 HTML + 태그 + 단축링크 CTA)로 **사람이 붙여넣어 발행**한다.
+계정 리스크 0, ToS 문제 0. 유입 측정은 `wecircle.co.kr/r/{slug}` 단축링크로 실측한다
+(백링크 가설보다 정직한 지표 — 현재 활성 394건 / 클릭 216건 인프라가 이미 있다).
+
+## 5. 남은 것
+
+- `/blog/{한글슬러그}` 콜드 렌더 **504 FUNCTION_INVOCATION_TIMEOUT** 간헐 발생
+  (Vercel Hobby = 함수 시간 제한 빠듯 + 수집 다운로드 평균 2,000ms 구간 존재). 재현/원인 미확정.
+- 네이버 AI 브리핑 **인용 측정 수단 없음** — 현재 measurement 는 gemini/claude/openai 뿐.
+  네이버는 API 가 없어 수동 확인이 필요하다. 측정 못 하는 채널을 성과로 약속하지 말 것.
+- 노출 상위·CTR 하위 글의 title/description 재작성 (강남힐링안과 425/0.2% 부터)
