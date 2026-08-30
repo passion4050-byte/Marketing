@@ -158,6 +158,14 @@ async def main() -> int:
     # Round 36 (2026-05-31) — fairness ORDER BY.
     # 기존 ORDER BY k.id 는 id 큰 키워드 영원히 미측정 (own 24 + comp 12 = 36, LIMIT 20)
     # 변경 ORDER BY k.last_measured_at NULLS FIRST → 신규/오래된 키워드 우선
+    #
+    # 🔴 Round 180 (2026-08-30) — 추적 키워드 우선. 공정 로테이션이 신호를 죽이고 있었다.
+    #   실측: 활성 키워드 537개 vs LIMIT 60 → 키워드당 9일에 1회.
+    #   '강남 모발이식 회복' 은 7월 gemini 31회 측정(인용 4회, 인용률 13%)에서
+    #   8월 7회로 떨어졌고, 그래서 8월 인용 0 이 "성과 하락"인지 "측정 부족"인지
+    #   구분할 수 없게 됐다. 기대값이 0.9 인데 0 을 관측한 것뿐일 수 있다.
+    #   → 성과를 약속한 키워드(keywords.tracked)를 항상 먼저 채우고, 남는 자리를
+    #     나머지가 last_measured_at 순으로 쓴다. 비용은 그대로, 신호 밀도만 올린다.
     with sql_engine.connect() as conn:
         rows = conn.execute(text(
             f"""
@@ -165,8 +173,12 @@ async def main() -> int:
                    k.target_brand, k.purpose, k.last_measured_at
             FROM keywords k JOIN tenants t ON t.id=k.tenant_id
             WHERE k.is_active = true
+              AND COALESCE(k.measure_eligible, true) = true
               {where_purpose}
-            ORDER BY k.last_measured_at ASC NULLS FIRST, k.id
+            ORDER BY COALESCE(k.tracked, false) DESC,
+                     COALESCE(t.focus_tier, 0) DESC,
+                     k.last_measured_at ASC NULLS FIRST,
+                     k.id
             LIMIT :limit
             """
         ), {"limit": keyword_limit}).mappings().all()

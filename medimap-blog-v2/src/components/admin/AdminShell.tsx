@@ -36,7 +36,8 @@ import {
   UserCog,
   Users,
   X,
-  Zap
+  Zap,
+  Target,
 } from 'lucide-react';
 import { showToast } from '@/lib/clientActions';
 import { cn } from '@/lib/cn';
@@ -81,6 +82,9 @@ const NAV: NavGroup[] = [
   //      삭제가 아니라 강등인 이유: 내부 콘솔이라 언제든 다시 필요해질 수 있다.
   { group: '매일', items: [
     { href: '/admin', label: '대시보드', icon: LayoutDashboard, hint: '오늘 상태 · 성과 요약' },
+    // Round 180 (2026-08-30) — 제품 축 전환. 파는 것이 '월 N편'이 아니라
+    //   '키워드 N개 상위 진입 + AI 인용 증명'이므로, 그 이행 상태가 콘텐츠 관리보다 위에 온다.
+    { href: '/admin/performance', label: '성과 보드', icon: Target, hint: '추적 키워드 순위 · AI 인용' },
     { href: '/admin/content-queue', label: '콘텐츠 관리', icon: ClipboardCheck, badge: 'pendingContent', hint: '검수 · 발행물 확인' },
     { href: '/admin/keywords', label: '키워드 풀', icon: Tag, hint: '발행 대상 · 측정 대상 분리 관리' },
     { href: '/admin/scanner-leads', label: '클라이언트 문의', icon: Inbox, badge: 'newLeads', hint: '진단 신청 · 상담 요청' },

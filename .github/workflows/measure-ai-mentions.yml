@@ -90,6 +90,16 @@ jobs:
           echo "PURPOSE_FILTER=${PURPOSE_FILTER:-(all)}"
           python scripts/run_measurement_batch.py
 
+      # Round 180 (2026-08-30) — 측정 직후 인용 이벤트를 정규화 테이블로 적재.
+      #   제품 축이 "발행량"에서 "순위 + AI 인용 증명"으로 바뀌었고, 그 증명의 정본이
+      #   citation_events 다. 측정과 같은 잡에서 돌려야 지연 없이 대시보드에 반영된다.
+      - name: Collect citation events
+        if: always()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DAYS: '7'
+        run: python scripts/collect_citation_events.py
+
       - name: Job summary
         if: always()
         # Round 178 (2026-08-30) — env 누락 버그. 이 스텝에 ENGINE_MODE 가 안 넘어와

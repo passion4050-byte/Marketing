@@ -878,6 +878,16 @@ def generate_blog_post(
             )
         else:
             _overseas_directive = _OVERSEAS_ARCHETYPE_DIRECTIVE
+
+    # Round 180 (2026-08-30) — 실제로 사용된 아키타입을 DB 에 남긴다.
+    #   지금까지 _pick_structure_type() 은 결정적 함수라 흔적이 없었고, 그래서
+    #   "어떤 구조가 AI 인용을 받는가"를 사후에 집계할 수 없었다.
+    #   실측 근거: 인용 6건 중 4건이 단 한 편(시기별 단계 분해형, GSC 3위)이었다.
+    _effective_archetype = _structure_type
+    if lang and lang != "ko":
+        _effective_archetype = (
+            "overseas_question" if _prior_titles else "overseas_listicle"
+        )
     # Round 162 (2026-08-16) — 검증된 NAP 주입 (지도 축).
     #   'Getting there' 를 모델 기억이 아니라 DB 원본(tenants.name_en/address_en/...)으로
     #   쓰게 한다 — GBP 표기와 글자 단위 일치(경쟁사 growly 분석: NAP 인용 일관성이
@@ -1211,6 +1221,15 @@ def generate_blog_post(
         session.add(gc)
         session.flush()
         saved_id = gc.id
+        # Round 180 — 아키타입 기록. 실패해도 발행은 계속(무회귀).
+        try:
+            from sqlalchemy import text as _sql_arch
+            session.execute(
+                _sql_arch("UPDATE generated_contents SET structure_type = :st WHERE id = :id"),
+                {"st": _effective_archetype, "id": saved_id},
+            )
+        except Exception as _e_arch:  # noqa: BLE001
+            logger.warning("blog.structure_type_save_failed", error=str(_e_arch))
 
         # ── Round 174h (2026-08-24) — 🔴 슬러그를 LLM 영문 슬러그로 덮어쓴다.
         #   왜 INSERT 후 raw UPDATE 인가:
