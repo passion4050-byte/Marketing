@@ -92,9 +92,17 @@ jobs:
 
       - name: Job summary
         if: always()
+        # Round 178 (2026-08-30) — env 누락 버그. 이 스텝에 ENGINE_MODE 가 안 넘어와
+        #   실제로 production 으로 돌아도 요약에는 항상 "stub" 이 찍혔다.
+        #   2026-08-30 키 복구 검증 때 "테스트가 안 돌았다"고 오진할 뻔했다.
+        #   (실제 호출 여부의 정본은 llm_call_logs 다.)
+        env:
+          ENGINE_MODE: ${{ inputs.engine_mode || secrets.ENGINE_MODE || 'stub' }}
+          KEYWORD_LIMIT: ${{ inputs.keyword_limit || '60' }}
         run: |
           {
             echo "## AI 측정 결과"
-            echo "- engine_mode: ${ENGINE_MODE:-stub}"
+            echo "- engine_mode: ${ENGINE_MODE}"
+            echo "- keyword_limit: ${KEYWORD_LIMIT}"
             echo "- 자세한 결과는 어드민 \`/admin/citations\` 페이지 참조"
           } >> "$GITHUB_STEP_SUMMARY"
