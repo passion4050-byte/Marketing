@@ -40,6 +40,27 @@ export interface GuideCard {
   excerpt: string | null;
 }
 
+/**
+ * 🔴 Round 180e (2026-08-30) — 해외 라우트의 비ASCII 슬러그가 전부 soft-404 였다.
+ *
+ *   Next.js 의 params.slug 는 percent-encoding 된 채로 들어온다. 국내 계층은
+ *   posts.ts:getPostBySlug / partners.ts 에서 decodeURIComponent 를 하고 있었지만
+ *   해외 계층(guides.ts)에는 그 처리가 없었다. 그래서:
+ *     /blog/의료-AI-마케팅-도구-501            → 정상 (국내, 디코딩함)
+ *     /en/clinics/.../korea-smile-pro-...     → 정상 (해외지만 ASCII 라 무관)
+ *     /ja/clinics/hair/mowoolim/韓国-植毛-費用-297 → HTTP 200 + "このページはありません"
+ *   실측(2026-08-30 프로덕션): 발행·색인 대상 해외 비ASCII 슬러그 24편이 전부
+ *   soft-404 였고, 그 중 26개가 sitemap.xml 에 실려 구글에 제출되고 있었다.
+ *   200 을 주면서 본문은 없음 = 구글에게 가장 나쁜 형태다.
+ */
+function decodeSlug(slug: string): string {
+  try {
+    return decodeURIComponent(slug);
+  } catch {
+    return slug; // malformed escape 는 raw 그대로 (국내 posts.ts 와 동일 처리)
+  }
+}
+
 function normFaq(raw: unknown): GuideFaq[] {
   if (!Array.isArray(raw)) return [];
   return raw
@@ -58,6 +79,7 @@ function normFaq(raw: unknown): GuideFaq[] {
 export async function getGuide(lang: string, slug: string): Promise<Guide | null> {
   const sql = getSql();
   if (!sql) return null;
+  const wanted = decodeSlug(slug);
   try {
     const rows = await sql.unsafe<Array<Record<string, unknown>>>(
       `SELECT g.slug, g.title, g.excerpt, g.body, g.raw_qa_pairs, g.lang, g.published_at, g.cover_image_url, g.cover_image_alt,
@@ -69,7 +91,7 @@ export async function getGuide(lang: string, slug: string): Promise<Guide | null
          AND g.status = 'published'
          AND g.compliance_status = 'pass'
        LIMIT 1`,
-      [lang, slug]
+      [lang, wanted]
     );
     const r = rows[0];
     if (!r) return null;
@@ -201,6 +223,7 @@ export async function getClinicContent(
 ): Promise<Guide | null> {
   const sql = getSql();
   if (!sql) return null;
+  const wanted = decodeSlug(slug);
   try {
     const rows = await sql.unsafe<Array<Record<string, unknown>>>(
       `SELECT g.slug, g.title, g.excerpt, g.body, g.raw_qa_pairs, g.lang, g.published_at, g.cover_image_url, g.cover_image_alt,
@@ -215,7 +238,7 @@ export async function getClinicContent(
          AND g.status = 'published' AND g.compliance_status = 'pass'
        ORDER BY (g.slug = $2) DESC
        LIMIT 1`,
-      [lang, slug, partner]
+      [lang, wanted, partner]
     );
     const r = rows[0];
     if (!r) return null;
