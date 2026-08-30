@@ -614,6 +614,39 @@ _OVERSEAS_ARCHETYPE_DIRECTIVE = (
     "success-rate claims, 'No.1' claims, or competitor disparagement."
 )
 
+# 🔴 Round 179 (2026-08-30) — 해외 '후속 글' 아키타입.
+#   위 _OVERSEAS_ARCHETYPE_DIRECTIVE 는 제목 공식과 10개 H2 순서를 고정한다.
+#   그 키워드의 **첫 글**에는 맞지만 2번째부터는 같은 글을 다시 쓰게 만든다.
+#   실사고(2026-08): kwangdong 502/537/550, brighteye 434/459/543, dear 249/256/261 —
+#   전부 제목이 사실상 동일해 자기들끼리 카니벌라이즈했다.
+#   국내는 아키타입이 없어 LLM 이 매번 다른 질문을 잡는다(잠실 라식 11편 = 11개 다른 질문).
+#   그 성질을 해외에도 이식한다.
+_OVERSEAS_QUESTION_DIRECTIVE = (
+    "[OVERSEAS FOLLOW-UP ARCHETYPE - this keyword already has a published listicle page]\n"
+    "Do NOT write another '[Best|Top] N ...' listicle or 'Complete/Comprehensive Guide'. "
+    "That page already exists; a second one competes with it for the same query and both lose.\n"
+    "Write a SINGLE-QUESTION article instead:\n"
+    "1) Title = one specific question a foreign patient actually types or asks, in the target "
+    "language. No year, no 'Best/Top/Complete/Comprehensive/Ultimate'. Narrow beats broad "
+    "(e.g. 'How long does Ultherapy actually last?' not 'Ultherapy in Korea: A Guide').\n"
+    "2) First paragraph answers that question within 2 sentences, leading with a concrete number "
+    "or a yes/no - before any background or context.\n"
+    "3) Each H2 answers ONE sub-question and is itself phrased as a question.\n"
+    "4) Include a price/duration table ONLY if it is specific to this question. Do not repeat the "
+    "full price guide from the listicle page.\n"
+    "5) FAQ: 5+ Q&A pairs, none of them restating an H2. Phrase at least 2 exactly like real "
+    "community/forum posts foreigners write.\n"
+    "6) Keep the CTA messenger rule (EN -> WhatsApp, JA -> LINE, ZH -> WeChat/WhatsApp) and the "
+    "'Getting there' NAP block when one is provided.\n"
+    "Evidence style and medical-ad compliance are unchanged: concrete verifiable numbers (KRW "
+    "ranges, session counts, device model names) over adjectives; NO efficacy guarantees, "
+    "success-rate claims, 'No.1' claims or competitor disparagement; never invent statistics, "
+    "reviews or community quotes.\n"
+    "The question you pick MUST NOT overlap with any already-published title listed below. "
+    "Choose a genuinely different angle - timing, cost breakdown, recovery, eligibility, "
+    "side effects, comparison with an alternative, aftercare, what to bring, stay length."
+)
+
 
 def _pick_structure_type(keyword: str) -> str:
     """키워드 + 발행일 기준 결정적 구조 픽 — 같은 키워드도 날마다, 키워드끼리 구조가 달라짐.
@@ -807,7 +840,44 @@ def generate_blog_post(
     _structure_directive = _STRUCTURE_DIRECTIVES.get(_structure_type, "")
     _variation_block = _build_variation_block(variation_seed)
     # 해외(lang != ko)만 아키타입 골격 주입 — 국내는 완전 무변경.
-    _overseas_directive = _OVERSEAS_ARCHETYPE_DIRECTIVE if (lang and lang != "ko") else ""
+    # Round 179 — 같은 (tenant, keyword, lang) 로 이미 발행된 글이 있으면 리스티클이 아니라
+    #   질문형 아키타입을 쓰고, 기존 제목들을 프롬프트에 넣어 겹치지 않게 한다.
+    #   조회 실패 시에는 기존 동작(리스티클)으로 폴백 — fail-open.
+    _overseas_directive = ""
+    if lang and lang != "ko":
+        _prior_titles: list[str] = []
+        try:
+            from sqlalchemy import text as _sql_prior
+            _prior_titles = [
+                (r[0] or "").strip()
+                for r in session.execute(
+                    _sql_prior(
+                        "SELECT title FROM generated_contents "
+                        "WHERE tenant_id = :tid AND keyword_text = :kw "
+                        "AND COALESCE(lang,'ko') = :lang AND status = 'published' "
+                        "AND channel = 'blog_html' AND title IS NOT NULL "
+                        "ORDER BY id DESC LIMIT 12"
+                    ),
+                    {"tid": tenant_id, "kw": keyword, "lang": lang},
+                ).fetchall()
+                if (r[0] or "").strip()
+            ]
+        except Exception as e:  # noqa: BLE001
+            logger.warning("blog.prior_titles_load_failed", error=str(e))
+            _prior_titles = []
+
+        if _prior_titles:
+            _overseas_directive = (
+                _OVERSEAS_QUESTION_DIRECTIVE
+                + "\n\nAlready published for this keyword - do not repeat or paraphrase these:\n"
+                + "\n".join(f"- {x}" for x in _prior_titles)
+            )
+            logger.info(
+                "blog.overseas_followup_archetype",
+                tenant_id=tenant_id, keyword=keyword, lang=lang, prior=len(_prior_titles),
+            )
+        else:
+            _overseas_directive = _OVERSEAS_ARCHETYPE_DIRECTIVE
     # Round 162 (2026-08-16) — 검증된 NAP 주입 (지도 축).
     #   'Getting there' 를 모델 기억이 아니라 DB 원본(tenants.name_en/address_en/...)으로
     #   쓰게 한다 — GBP 표기와 글자 단위 일치(경쟁사 growly 분석: NAP 인용 일관성이

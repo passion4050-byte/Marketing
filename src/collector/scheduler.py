@@ -472,8 +472,14 @@ def daily_auto_content_job(
             #   또 기존 상한은 lang 을 무시해 ko/en 발행이 한 통에 섞여 세졌다.
             #   ⚠ noindex 글도 카운트에 포함한다. 빼면 중복을 noindex 하는 순간
             #     슬롯이 비어 같은 키워드로 또 찍는다.
+            # Round 179 (2026-08-30) — 해외 상한 1 → 6 완화.
+            #   177 의 상한 1 은 증상 억제였다(중복은 막지만 발행도 멈춤 — brighteye 4개 언어).
+            #   179 에서 generator 가 같은 키워드의 2번째 글부터 질문형 아키타입 + 기존 제목
+            #   회피로 전환하므로, 이제 여러 편이 서로 다른 질문을 다룬다(국내와 동일한 성질).
+            #   국내 잠실 라식 11편이 11개 다른 질문인 것이 이 방식의 실증.
+            #   6 은 보수적 출발값 — 실제 중복 재발 여부를 보고 조정한다.
             _KW_CAP_DOMESTIC = 12
-            _KW_CAP_OVERSEAS = 1
+            _KW_CAP_OVERSEAS = 6
             from sqlalchemy import text as _sql_cap
             _pub_counts: dict = {
                 (r[0], r[1] or "ko"): int(r[2])
