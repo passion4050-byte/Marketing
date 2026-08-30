@@ -253,14 +253,14 @@ def _utm_link_helper(tenant) -> None:
     with st.expander("🔗 공유용 UTM 링크 / 단축링크 생성", expanded=False):
         st.caption(
             "자사 페이지 URL 을 입력하면 UTM 이 부착된 공유 링크와, 클릭 추적이 가능한 "
-            "단축링크(m.medimap.kr/r/{slug}) 를 만듭니다. **Publication 의 canonical URL 은 "
+            "단축링크(wecircle.co.kr/r/{slug}) 를 만듭니다. **Publication 의 canonical URL 은 "
             "건드리지 않습니다** — AI cite 매칭은 canonical 로만 동작합니다."
         )
         col_u, col_s = st.columns([3, 2])
         url = col_u.text_input(
             "원본 URL (자사 페이지 권장)",
             key=f"utm_helper_url_{tenant.id}",
-            placeholder="https://medimap.kr/blog/lasik-guide",
+            placeholder="https://wecircle.co.kr/blog/lasik-guide",
         )
         source = col_s.selectbox(
             "utm_source",

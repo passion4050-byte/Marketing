@@ -14,7 +14,8 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 /**
- * 단축링크 redirect 라우트 — `m.medimap.kr/r/{slug}` 또는 `medimap-blog-phi.vercel.app/r/{slug}`.
+ * 단축링크 redirect 라우트 — `wecircle.co.kr/r/{slug}`.
+ * Round 180d — 주석의 m.medimap.kr 은 우리 도메인이 아니다(사용자 확인).
  *
  * 데이터 소스 우선순위:
  * 1) Supabase Postgres `shortlinks` 테이블 (DATABASE_URL 설정 시) — 실시간 click 적재

@@ -99,10 +99,17 @@ def apply_publication_funnel(
 
 
 def shortlink_for(slug: str, base: Optional[str] = None) -> str:
-    """단축도메인 URL 을 만든다 — m.medimap.kr/r/{slug} 형식.
+    """단축도메인 URL 을 만든다 — wecircle.co.kr/r/{slug} 형식.
 
-    base 미지정 시 환경변수 SHORTLINK_BASE_URL 을 사용 (기본값 https://m.medimap.kr/r).
+    base 미지정 시 환경변수 SHORTLINK_BASE_URL 을 사용 (기본값 https://wecircle.co.kr/r).
+
+    🔴 Round 180d (2026-08-30) — 기본값이 m.medimap.kr 이었다. 우리 도메인이 아니다.
+      이 함수는 Streamlit publication_tab 이 운영자에게 "복사해서 쓰세요" 하고
+      보여주는 URL 을 만든다. 즉 남의 도메인 링크를 병원 발행물에 넣으라고
+      건네고 있었다. 실제 리다이렉트는 medimap-blog/src/lib/site.ts 의
+      wecircle.co.kr/r 로 이미 동작 중이고(활성 394건·클릭 216건),
+      발행 본문에 medimap.kr 이 박힌 건 0건 — 실피해는 없다.
     """
-    base = (base or os.getenv("SHORTLINK_BASE_URL", "https://m.medimap.kr/r")).rstrip("/")
+    base = (base or os.getenv("SHORTLINK_BASE_URL", "https://wecircle.co.kr/r")).rstrip("/")
     safe_slug = _slugify_campaign(slug)
     return f"{base}/{safe_slug}"

@@ -135,7 +135,7 @@ def _own_url_cite_table(SessionLocal, tenant) -> None:
 def _shortlink_section(SessionLocal, tenant) -> None:
     from src.storage.models import ShortLink
 
-    st.markdown("#### 🔗 ShortLink (m.medimap.kr/r/{slug})")
+    st.markdown("#### 🔗 ShortLink (wecircle.co.kr/r/{slug})")
     st.caption(
         "활성 ShortLink 는 `scripts/export_shortlinks.py` 가 빌드 타임에 "
         "`medimap-blog/content/shortlinks.json` 으로 export 합니다 — Vercel 빌드 시 동기화."
@@ -189,12 +189,12 @@ def _shortlink_create_form(SessionLocal, tenant) -> None:
         with st.form(f"sl_new_{tenant.id}", clear_on_submit=True):
             slug = st.text_input(
                 "slug",
-                placeholder="예: lasik (m.medimap.kr/r/lasik)",
+                placeholder="예: lasik (wecircle.co.kr/r/lasik)",
                 key=f"sl_new_slug_{tenant.id}",
             )
             target = st.text_input(
                 "Target URL (UTM 포함 권장)",
-                placeholder="https://medimap.kr/blog/lasik-guide?utm_source=...",
+                placeholder="https://wecircle.co.kr/blog/lasik-guide?utm_source=...",
                 key=f"sl_new_target_{tenant.id}",
             )
             label = st.text_input(
@@ -233,7 +233,7 @@ def _shortlink_create_form(SessionLocal, tenant) -> None:
                 )
                 s.add(sl)
                 s.commit()
-            st.success(f"등록되었습니다 — m.medimap.kr/r/{slug_clean}")
+            st.success(f"등록되었습니다 — wecircle.co.kr/r/{slug_clean}")
             st.rerun()
 
 

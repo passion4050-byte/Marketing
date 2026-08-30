@@ -7,7 +7,7 @@
  *
  * 매니페스트 형식:
  * ```
- * { "lasik_guide": { "target_url": "https://medimap.kr/blog/lasik-guide?utm_source=...", "label": "..." } }
+ * { "lasik_guide": { "target_url": "https://wecircle.co.kr/blog/lasik-guide?utm_source=...", "label": "..." } }
  * ```
  */
 

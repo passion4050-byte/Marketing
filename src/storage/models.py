@@ -472,7 +472,7 @@ class Publication(Base):
 
 
 class ShortLink(Base):
-    """tenant 가 단축한 링크 (m.medimap.kr/r/{slug} → target_url).
+    """tenant 가 단축한 링크 (wecircle.co.kr/r/{slug} → target_url).
 
     target_url 은 *공유용 UTM-fied URL* 또는 canonical URL 둘 다 가능. Publication 과의 FK 는
     선택적 — PR 보도자료 등 외부 도메인 링크에도 단축을 적용할 수 있다.
