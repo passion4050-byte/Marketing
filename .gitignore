@@ -74,3 +74,6 @@ desktop.ini
 #   Rewritten as UTF-8. Keep this file ASCII.
 _to_delete/
 *.tgz
+
+# local patch artifacts - never commit (Round 181bc incident)
+*.patch

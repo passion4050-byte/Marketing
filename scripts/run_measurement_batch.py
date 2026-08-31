@@ -197,7 +197,20 @@ async def main() -> int:
                     --   반드시 측정한다. 비용 상한은 tracked 개수(76) 와 LIMIT 이 잡는다.
                     {_tracked_bypass}(COALESCE(k.measure_eligible, true) = true {where_purpose})
               )
+            -- Round 182 (2026-08-31) - focus_tier ranked above the fairness key,
+            --   which starved tier 0 tenants permanently. Measured: 22 of 106
+            --   tracked keywords (bellisel 13, healingeye 4, wecircle-self 2,
+            --   dear 2, forena 1 - all focus_tier=0) had never been measured,
+            --   because the 84 tier 1 tracked keywords always fill LIMIT first.
+            --   Fix: staleness in days (capped at 7) ranks ABOVE focus_tier.
+            --   Anything idle 7+ days wins regardless of tier; inside the same
+            --   staleness bucket focus tenants still win (Round 180 intent kept).
             ORDER BY COALESCE(k.tracked, false) DESC,
+                     LEAST(
+                       EXTRACT(EPOCH FROM (NOW() - COALESCE(k.last_measured_at, TIMESTAMPTZ '2000-01-01')))
+                         / 86400.0,
+                       7
+                     ) DESC,
                      COALESCE(t.focus_tier, 0) DESC,
                      k.last_measured_at ASC NULLS FIRST,
                      k.id
@@ -239,7 +252,21 @@ async def main() -> int:
             )
         logger.info("last_measured_at 갱신: %d 건", len(processed))
 
+    # Round 182 (2026-08-31) - marking once at the end of the batch loses the
+    #   whole run's bookkeeping the moment the process dies.
+    #   Measured (2026-08-31 00:00 run): 135 responses stored (46 keywords x 3
+    #   engines) but ZERO last_measured_at updates. The API spend happened and
+    #   only the ledger was lost. Round 181b covered the guardrail return path
+    #   only; kill/crash still relied on one UPDATE at the end.
+    #   Fix: flush after every keyword (one tiny UPDATE, negligible cost).
     _processed_ids: list = []
+    _marked_upto = 0
+
+    def _flush_marks() -> None:
+        nonlocal _marked_upto
+        if len(_processed_ids) > _marked_upto:
+            _mark_measured(_processed_ids[_marked_upto:])
+            _marked_upto = len(_processed_ids)
 
     for r in rows:
         keyword_id = r["id"]
@@ -300,13 +327,16 @@ async def main() -> int:
             total_mentions += result.n_mentions
             if result.guardrail_stopped:
                 _guardrail = True
+
+        _flush_marks()
+
         if _guardrail:
             logger.warning("MAX_DAILY_USD 가드 도달 — 중단")
             logger.info("최종: success=%d fail=%d mentions=%d",
                         total_success, total_failed, total_mentions)
             # Round 181b — 중단하더라도 처리한 데까지는 기록해야
             #   다음 런이 큐의 다음 구간으로 넘어간다.
-            _mark_measured(_processed_ids)
+            _flush_marks()
             return 0
 
     logger.info("==== 측정 완료 ====")
@@ -315,7 +345,7 @@ async def main() -> int:
     # Round 36 (2026-05-31) — fairness 갱신.
     # 이번 batch 에서 처리된 keyword 들 last_measured_at = NOW() UPDATE.
     # 다음 cron 은 last_measured_at 가장 오래된 (또는 NULL) 키워드 우선 픽업.
-    _mark_measured(_processed_ids)
+    _flush_marks()
 
     # Round 32 (2026-05-30) — 측정 직후 cited_urls 의 source domain 추적.
     # mode=production 의 Gemini/OpenAI/etc 응답에 cited_urls 가 있으면

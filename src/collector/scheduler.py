@@ -545,6 +545,44 @@ def daily_auto_content_job(
                         (getattr(k, "market", "domestic") or "domestic"),
                     )
                 ]
+
+            # Round 182 (2026-08-31) - drain A/B experiment keywords first.
+            #   The rotation walks the whole tenant pool (20-30 kws) by date offset,
+            #   but a tenant publishes only 1-2 posts a week, so reaching a specific
+            #   pair takes months and the two halves of a pair would land in
+            #   different seasons - the comparison becomes meaningless.
+            #   Fix: while tagged, unpublished experiment keywords remain in the
+            #   pool, rotate only those, ordered by (pair_id, arm) so a pair's two
+            #   posts go out in adjacent cycles. Clearing the tags makes this a no-op.
+            #   NOTE: domestic ko runs only. Narrowing to ko experiment keywords on a
+            #   lang_only='en' run would leave the pool empty after the lang_only
+            #   filter below and silently stop brighteye multilang publishing.
+            _exp_scope_ok = (lang_only in (None, "ko")) and (
+                market_only in (None, "domestic")
+            )
+            try:
+                _exp_texts = [
+                    r[0]
+                    for r in s.execute(
+                        _sql_text(
+                            "SELECT text FROM keywords "
+                            "WHERE tenant_id = :tid AND experiment_arm IS NOT NULL "
+                            "AND is_active AND COALESCE(content_eligible, true) = true "
+                            "ORDER BY experiment_pair_id, experiment_arm, id"
+                        ),
+                        {"tid": tenant_id},
+                    ).fetchall()
+                ]
+            except Exception:  # pragma: no cover - column not deployed
+                _exp_texts = []
+            if _exp_texts and _exp_scope_ok:
+                _by_text = {r[0]: r for r in kw_rows}
+                _exp_rows = [_by_text[t] for t in _exp_texts if t in _by_text]
+                _fresh = [r for r in _exp_rows if _pub_counts.get((r[0], r[1] or "ko"), 0) == 0]
+                if _fresh:
+                    kw_rows = _fresh
+                elif _exp_rows:
+                    kw_rows = _exp_rows
         # Round 160 (2026-08-16) — LANG_ONLY 타깃: brighteye 전 언어 데일리 워크플로가
         #   언어별로 1회씩 호출한다 (ko/en/ja/zh-Hans/zh-Hant). 미지정 시 무변경.
         if lang_only is not None:
