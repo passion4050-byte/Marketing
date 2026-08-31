@@ -41,7 +41,15 @@ jobs:
   measure:
     name: Run AI engine measurement
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 🔴 Round 181c (2026-08-31) — 30 → 75. 여기가 진짜 상한이었다.
+    #   실측: 키워드당 약 2분(엔진 3개 순차 × ~40초) → 30분이면 **15개 남짓**.
+    #   KEYWORD_LIMIT 을 60 → 90 → 120 으로 올린 세 번의 조정이 전부 무의미했던 이유다.
+    #   상한이 아니라 벽시계 시간이 구속 조건이었는데 엉뚱한 손잡이를 돌리고 있었다.
+    #   Round 181c 에서 엔진을 동시 실행으로 바꿔 키워드당 ~40초가 됐으므로
+    #   75분이면 tracked 106개를 한 런에 전부 돈다(≈71분).
+    #   ⚠ private repo 는 Actions 분을 소모한다 — 이 잡만 최대 75분/일 × 30일 = 2,250분/월.
+    #      무료 한도(2,000분)를 넘길 수 있으니 청구서를 한 번 확인할 것.
+    timeout-minutes: 75
 
     steps:
       - name: Checkout

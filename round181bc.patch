@@ -1,0 +1,254 @@
+From b3b224fc543cfe66efcb0f9153082abf424d23f6 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 31 Aug 2026 01:41:59 +0000
+Subject: [PATCH] =?UTF-8?q?Round=20181c:=20KEYWORD=5FLIMIT=20=EC=83=81?=
+ =?UTF-8?q?=ED=96=A5=EC=9D=B4=203=EB=B2=88=20=EB=8B=A4=20=EB=AC=B4?=
+ =?UTF-8?q?=EC=9D=98=EB=AF=B8=ED=96=88=EB=8D=98=20=EC=9D=B4=EC=9C=A0=20?=
+ =?UTF-8?q?=E2=80=94=20=EC=83=81=ED=95=9C=EC=9D=B4=20=EC=95=84=EB=8B=88?=
+ =?UTF-8?q?=EB=9D=BC=20=EB=B2=BD=EC=8B=9C=EA=B3=84=EC=98=80=EB=8B=A4?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+🔴 실측으로 병목을 특정했다 (llm_call_logs, 2026-08-30~31):
+
+  엔진당 호출 간격      ~37~43초
+  엔진 3개를 **순차** 실행 → 키워드당 약 2분
+  workflow timeout-minutes = 30 → **한 런에 15개 남짓**
+
+  실제 관측:
+    08-30 23:00 런  20개 처리 후 종료
+    08-31 00:00 런  44개까지 가고 죽음 (last_measured_at 갱신 0건)
+
+  즉 KEYWORD_LIMIT 을 60 → 90 → 120 으로 올린 세 번의 조정은 **전부 무의미**했다.
+  구속 조건은 상한이 아니라 벽시계 시간이었는데 엉뚱한 손잡이를 돌리고 있었다.
+  Round 165·174·178 과 같은 패턴 — "고쳤는데 그 레이어가 아니었다".
+
+수정 2가지:
+
+1) 엔진 동시 실행 (asyncio.gather)
+   세 엔진은 서로 독립이고 각자 다른 벤더 API 를 친다 — 순차로 기다릴 이유가 없었다.
+   키워드당 ~2분 → ~40초. 같은 시간에 3배를 돈다.
+   벤더 rate limit 은 엔진별로 따로 걸리므로 한 벤더의 분당 한도를 올리지 않는다
+   (키워드 간에는 여전히 순차).
+   엔진 하나가 예외를 던져도 나머지 둘은 그대로 진행하도록 개별 try/except 유지.
+
+2) timeout-minutes 30 → 75
+   tracked 106개 × ~40초 ≈ 71분 → 한 런에 전량 커버.
+   ⚠ private repo 는 Actions 분을 소모한다. 이 잡만 최대 75분/일 × 30일 = 2,250분/월로
+     무료 한도(2,000분)를 넘길 수 있다 — 청구서 확인 필요.
+
+참고(별건 판단 재료): 120일간 엔진별 자사 인용
+  gemini  응답 4,556 · 출처보유 2,637 · 우리 인용 6
+  openai  응답 3,177 · 출처보유   817 · 우리 인용 0
+  claude  응답 1,368 · 출처보유   509 · 우리 인용 0
+openai/claude 도 출처를 반환하므로 측정 아티팩트가 아니다 — 1,326회의 인용 기회에서
+전부 우리를 고르지 않았다는 실측이다. 다만 브랜드 언급은 332건 생산하므로
+엔진 축소는 인용 측정과 언급 측정을 맞바꾸는 결정이다. 여기서는 바꾸지 않는다.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_0183e7aYmdvDoCqxQt65o4v7
+---
+ .github/workflows/measure-ai-mentions.yml |  10 +-
+ scripts/run_measurement_batch.py          | 120 ++++++++++++++++------
+ 2 files changed, 95 insertions(+), 35 deletions(-)
+
+diff --git a/.github/workflows/measure-ai-mentions.yml b/.github/workflows/measure-ai-mentions.yml
+index be5fafc..cd6fade 100644
+--- a/.github/workflows/measure-ai-mentions.yml
++++ b/.github/workflows/measure-ai-mentions.yml
+@@ -41,7 +41,15 @@ jobs:
+   measure:
+     name: Run AI engine measurement
+     runs-on: ubuntu-latest
+-    timeout-minutes: 30
++    # 🔴 Round 181c (2026-08-31) — 30 → 75. 여기가 진짜 상한이었다.
++    #   실측: 키워드당 약 2분(엔진 3개 순차 × ~40초) → 30분이면 **15개 남짓**.
++    #   KEYWORD_LIMIT 을 60 → 90 → 120 으로 올린 세 번의 조정이 전부 무의미했던 이유다.
++    #   상한이 아니라 벽시계 시간이 구속 조건이었는데 엉뚱한 손잡이를 돌리고 있었다.
++    #   Round 181c 에서 엔진을 동시 실행으로 바꿔 키워드당 ~40초가 됐으므로
++    #   75분이면 tracked 106개를 한 런에 전부 돈다(≈71분).
++    #   ⚠ private repo 는 Actions 분을 소모한다 — 이 잡만 최대 75분/일 × 30일 = 2,250분/월.
++    #      무료 한도(2,000분)를 넘길 수 있으니 청구서를 한 번 확인할 것.
++    timeout-minutes: 75
+ 
+     steps:
+       - name: Checkout
+diff --git a/scripts/run_measurement_batch.py b/scripts/run_measurement_batch.py
+index 6907346..17f2fc6 100644
+--- a/scripts/run_measurement_batch.py
++++ b/scripts/run_measurement_batch.py
+@@ -155,6 +155,18 @@ async def main() -> int:
+     if purpose_filter in ("own", "competitor_landscape"):
+         where_purpose = f"AND k.purpose = '{purpose_filter}'"
+         logger.info("PURPOSE_FILTER=%s", purpose_filter)
++
++    # 🔴 Round 181b (2026-08-31) — tracked 바이패스를 purpose 별로 제한.
++    #   Round 180b 가 tracked 에 purpose 게이트까지 면제해 준 결과, **경쟁 지형 잡이 굶었다.**
++    #   실측(2026-08-30 21:00 measure-competitor-mentions 런, LIMIT 20):
++    #     측정된 20개 중 19개가 purpose='own' tracked, competitor_landscape 는 단 1개.
++    #   tracked 는 거의 전부 own 이므로, competitor 전용 잡에서까지 먼저 집으면
++    #   그 잡이 존재할 이유가 사라진다.
++    #   → 바이패스는 own 잡(또는 필터 미지정)에서만 적용한다.
++    #     competitor_landscape 잡은 원래대로 그 purpose 만 본다.
++    _tracked_bypass = "COALESCE(k.tracked, false) = true OR " if purpose_filter in ("", "own") else ""
++    if not _tracked_bypass:
++        logger.info("tracked 바이패스 비활성 (PURPOSE_FILTER=%s 전용 잡)", purpose_filter)
+     # Round 36 (2026-05-31) — fairness ORDER BY.
+     # 기존 ORDER BY k.id 는 id 큰 키워드 영원히 미측정 (own 24 + comp 12 = 36, LIMIT 20)
+     # 변경 ORDER BY k.last_measured_at NULLS FIRST → 신규/오래된 키워드 우선
+@@ -175,6 +187,7 @@ async def main() -> int:
+             WHERE k.is_active = true
+               AND (
+                     -- 🔴 Round 180b — tracked 는 measure_eligible / purpose 게이트를 건너뛴다.
++                    --   (Round 181b: 이 바이패스는 own 잡에서만 켠다 — 위 _tracked_bypass 주석 참조)
+                     --   Round 173 이 롱테일 질문형 키워드를 measure_eligible=false 로 막았다
+                     --   ("발행 방향만 잡는 용도, 측정 크레딧 아끼자"). 그런데 Round 180 의
+                     --   근거가 정확히 그 반대다 — 인용 6건 중 4건이 롱테일 질문형
+@@ -182,8 +195,7 @@ async def main() -> int:
+                     --   은 0건이다. 그 정책을 그대로 두면 추적 키워드 76개 중 27개가
+                     --   영구 미측정 → 성과 보드에 영원히 0 으로 남는다. 약속한 키워드는
+                     --   반드시 측정한다. 비용 상한은 tracked 개수(76) 와 LIMIT 이 잡는다.
+-                    COALESCE(k.tracked, false) = true
+-                 OR (COALESCE(k.measure_eligible, true) = true {where_purpose})
++                    {_tracked_bypass}(COALESCE(k.measure_eligible, true) = true {where_purpose})
+               )
+             ORDER BY COALESCE(k.tracked, false) DESC,
+                      COALESCE(t.focus_tier, 0) DESC,
+@@ -209,46 +221,93 @@ async def main() -> int:
+     total_failed = 0
+     total_mentions = 0
+ 
++    def _mark_measured(processed: list) -> None:
++        """이번 batch 에서 건드린 키워드의 last_measured_at 갱신.
++
++        🔴 Round 181b (2026-08-31) — 예전엔 이 UPDATE 가 루프를 **끝까지 돈 경우에만**
++          실행됐다. MAX_DAILY_USD 가드에 걸려 중간에 return 하면 갱신이 통째로 건너뛰어지고,
++          다음 런은 last_measured_at 이 그대로인 **같은 키워드 머리**를 다시 집는다.
++          → 큐 앞쪽만 무한 반복되고 뒤쪽은 영원히 굶는다(공정 로테이션의 자기부정).
++          가드에 걸렸어도 **실제로 처리한 데까지는** 기록해야 다음 런이 그다음으로 넘어간다.
++        """
++        if not processed:
++            return
++        with sql_engine.begin() as conn:
++            conn.execute(
++                text("UPDATE keywords SET last_measured_at = NOW() WHERE id = ANY(:ids)"),
++                {"ids": processed},
++            )
++        logger.info("last_measured_at 갱신: %d 건", len(processed))
++
++    _processed_ids: list = []
++
+     for r in rows:
+         keyword_id = r["id"]
+         keyword_text = r["keyword_text"]
+         tenant_name = r["tenant_name"]
+         logger.info("[k=%d] %s · %s", keyword_id, tenant_name, keyword_text[:30])
+-
+-        for engine in engines:
++        _processed_ids.append(keyword_id)
++
++        # Round 31 fix (2026-05-30): collect_for_keyword 의 실제 시그니처는
++        #   (session_factory, tenant_id, keyword, engine, *, n_samples, ...)
++        # session_factory 는 `with sf() as s` 로 호출되는 callable.
++        with Session() as _read_session:
++            kw = _read_session.get(Keyword, keyword_id)
++        if not kw:
++            continue
++        # Round 31 fix 3 (2026-05-30): 한국어 brand alias 자동 생성.
++        # target_brand 가 영문 slug (예: "bgn") 만 있으면 한국 응답 매칭 0.
++        aliases = _build_aliases(r["tenant_name"], r.get("target_brand") or "")
++
++        # 🔴 Round 181c (2026-08-31) — 엔진을 **동시에** 돌린다. 이게 진짜 병목이었다.
++        #
++        #   실측(2026-08-30~31 llm_call_logs):
++        #     엔진당 호출 간격 ~37~43초 · 엔진 3개를 순차로 → 키워드당 약 2분
++        #     workflow timeout-minutes = 30  →  **한 런에 최대 15개 내외**
++        #   즉 KEYWORD_LIMIT 을 60 → 90 → 120 으로 올린 것은 전부 무의미했다.
++        #   상한이 아니라 **벽시계 시간**이 구속 조건이었는데 엉뚱한 손잡이를 돌린 것이다.
++        #   (실제로 8/31 00:00 런은 44개까지 가고 죽었고, 그전 런은 20개였다.)
++        #
++        #   세 엔진은 서로 독립이고 각자 다른 벤더 API 를 친다 — 순차로 기다릴 이유가 없다.
++        #   동시 실행으로 키워드당 ~2분 → ~40초. 같은 30분에 3배를 돈다.
++        #   ⚠ 벤더 rate limit 은 엔진별로 따로 걸리므로 동시 실행이 한 벤더의 분당 한도를
++        #     올리지 않는다(키워드 간에는 여전히 순차다).
++        async def _run_engine(_engine):
+             try:
+-                # Round 31 fix (2026-05-30): collect_for_keyword 의 실제 시그니처는
+-                #   (session_factory, tenant_id, keyword, engine, *, n_samples, ...)
+-                # session_factory 는 `with sf() as s` 로 호출되는 callable.
+-                with Session() as _read_session:
+-                    kw = _read_session.get(Keyword, keyword_id)
+-                if not kw:
+-                    continue
+-                # Round 31 fix 3 (2026-05-30): 한국어 brand alias 자동 생성.
+-                # target_brand 가 영문 slug (예: "bgn") 만 있으면 한국 응답 매칭 0.
+-                # tenant.name 에서 한국어 brand 부분 추출 + 합쳐서 alias 리스트.
+-                aliases = _build_aliases(r["tenant_name"], r.get("target_brand") or "")
+-                result = await collect_for_keyword(
++                return await collect_for_keyword(
+                     Session,            # session_factory
+                     r["tenant_id"],     # tenant_id
+                     kw,                 # keyword
+-                    engine,             # engine
++                    _engine,            # engine
+                     n_samples=1,
+                     concurrency=1,
+                     aliases=aliases,    # 한국어 brand alias
+                 )
+-                total_success += result.n_success
+-                total_failed += result.n_failed
+-                total_mentions += result.n_mentions
+-                if result.guardrail_stopped:
+-                    logger.warning("MAX_DAILY_USD 가드 도달 — 중단")
+-                    logger.info("최종: success=%d fail=%d mentions=%d",
+-                                total_success, total_failed, total_mentions)
+-                    return 0
+             except Exception as e:  # noqa: BLE001
+                 logger.exception("[k=%d engine=%s] 측정 실패: %s",
+-                                 keyword_id, engine.__class__.__name__, e)
++                                 keyword_id, _engine.__class__.__name__, e)
++                return None
++
++        results = await asyncio.gather(*(_run_engine(e) for e in engines))
++
++        _guardrail = False
++        for result in results:
++            if result is None:
+                 total_failed += 1
++                continue
++            total_success += result.n_success
++            total_failed += result.n_failed
++            total_mentions += result.n_mentions
++            if result.guardrail_stopped:
++                _guardrail = True
++        if _guardrail:
++            logger.warning("MAX_DAILY_USD 가드 도달 — 중단")
++            logger.info("최종: success=%d fail=%d mentions=%d",
++                        total_success, total_failed, total_mentions)
++            # Round 181b — 중단하더라도 처리한 데까지는 기록해야
++            #   다음 런이 큐의 다음 구간으로 넘어간다.
++            _mark_measured(_processed_ids)
++            return 0
+ 
+     logger.info("==== 측정 완료 ====")
+     logger.info("success=%d fail=%d mentions=%d", total_success, total_failed, total_mentions)
+@@ -256,14 +315,7 @@ async def main() -> int:
+     # Round 36 (2026-05-31) — fairness 갱신.
+     # 이번 batch 에서 처리된 keyword 들 last_measured_at = NOW() UPDATE.
+     # 다음 cron 은 last_measured_at 가장 오래된 (또는 NULL) 키워드 우선 픽업.
+-    processed_ids = [r["id"] for r in rows]
+-    if processed_ids:
+-        with sql_engine.begin() as conn:
+-            conn.execute(
+-                text("UPDATE keywords SET last_measured_at = NOW() WHERE id = ANY(:ids)"),
+-                {"ids": processed_ids},
+-            )
+-        logger.info("last_measured_at 갱신: %d 건", len(processed_ids))
++    _mark_measured(_processed_ids)
+ 
+     # Round 32 (2026-05-30) — 측정 직후 cited_urls 의 source domain 추적.
+     # mode=production 의 Gemini/OpenAI/etc 응답에 cited_urls 가 있으면
+-- 
+2.43.0
+
