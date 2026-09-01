@@ -279,6 +279,42 @@ def daily_auto_content_job(
                         k for k in kws
                         if (getattr(k, "market", "domestic") or "domestic") == market_only
                     ]
+                # Round 182c (2026-09-01) - the target path ignored content_eligible
+                #   and purpose. Incident: 2026-09-01 01:05 a post for the keyword
+                #   '\ub77c\uc2dd' (purpose=competitor_landscape, content_eligible=false)
+                #   was published for gangnamyonsei. Round 173 removed head terms from
+                #   publishing and Round 164b fixed lang/market here, but both gates
+                #   lived only on the normal rotation path - the same door as 164b.
+                #   NOTE: the ORM Keyword model has no purpose / experiment_arm column,
+                #   so getattr always returns the default and cannot filter. Use raw SQL.
+                from sqlalchemy import text as _sql_tgt
+                try:
+                    _ok_rows = s.execute(
+                        _sql_tgt(
+                            "SELECT k.id, COALESCE(k.experiment_arm,'') AS arm, "
+                            "       (SELECT count(*) FROM generated_contents g "
+                            "          WHERE g.tenant_id = k.tenant_id AND g.keyword_text = k.text "
+                            "            AND g.status = 'published' AND g.channel = 'blog_html') AS pub "
+                            "  FROM keywords k "
+                            " WHERE k.tenant_id = :tid AND k.is_active "
+                            "   AND COALESCE(k.content_eligible, true) = true "
+                            "   AND COALESCE(k.purpose, 'own') = 'own'"
+                        ),
+                        {"tid": target_tenant_id},
+                    ).fetchall()
+                except Exception:  # pragma: no cover - column not deployed
+                    _ok_rows = []
+                if _ok_rows:
+                    _ok_ids = {r[0] for r in _ok_rows}
+                    kws = [k for k in kws if k.id in _ok_ids]
+                    # While an experiment runs, the target path drains unpublished
+                    #   experiment keywords first; otherwise one dispatch muddies the
+                    #   A/B publishing window.
+                    _exp_ids = {r[0] for r in _ok_rows if r[1] and int(r[2] or 0) == 0}
+                    if _exp_ids and lang_only in (None, "ko") and market_only in (None, "domestic"):
+                        _k_exp = [k for k in kws if k.id in _exp_ids]
+                        if _k_exp:
+                            kws = _k_exp
                 if not kws:
                     logger.error(
                         "scheduler.target_no_keyword", tenant_id=target_tenant_id,
