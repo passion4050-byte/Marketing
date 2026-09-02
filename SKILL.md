@@ -7155,3 +7155,75 @@ partners_ts mappedCount: 260  (getAllPartnerPosts — 본문 전체 7.4MB 경로
 - 그럴듯한 원인(7.4MB)을 찾았다고 **배포 후 실측 없이 "고쳤다"고 쓰면 안 된다.**
   Round 184 커밋 메시지에 "재측정 전까지 고쳤다 금지"라고 써 놓고도 섹션 제목은
   단정적으로 썼다. 실측이 반증했다.
+
+
+# Round 185 (2026-09-02) — ✅ 해결. 타임아웃이 커넥션을 죽인 채 놔두고 있었다
+
+Round 181 이 "재현/원인 미확정"으로 남기고 184 가 오진했던 `/blog/[slug]` 504.
+**배포 후 실측으로 해결 확인.**
+
+## 1. 진짜 원인
+
+목록 쿼리의 타임아웃은 이렇게 생겼다:
+
+```ts
+await Promise.race([queryPromise, timeoutPromise])   // 60초
+```
+
+**`Promise.race` 는 타이머만 reject 한다. 실제 쿼리는 취소되지 않는다.**
+`postgres` 커넥션은 그 쿼리를 문 채로 남고, 클라이언트는 `max: 1` 이었다.
+→ 한 번 타임아웃이 나는 순간부터 **그 람다 인스턴스의 모든 쿼리가 죽은 커넥션 뒤에
+줄을 선다.** 페이지는 Vercel 런타임 한도 300초까지 가서 504.
+
+`/` 가 살아 있던 건 실력이 아니라 `cache=STALE` 로 연명한 것이다
+(매 요청 `[partners] query timeout (60000ms)` 를 뱉고 있었다).
+
+## 2. 수정 (3개 동시)
+
+| # | 수정 | 근거 |
+|---|---|---|
+| 1 | `resetSql()` — 타임아웃/실패 경로에서 싱글턴을 버린다 | **이게 본체.** 안 버리면 죽은 커넥션이 람다 수명 내내 남는다. `end({timeout:0})` 는 await 하지 않는다 |
+| 2 | 풀 `max: 1 → 3` | 하나가 막혀도 전체가 멈추지 않게. direct URL(5432)이면 인스턴스 수 × max 가 커넥션 상한을 먹으므로 무한정 올리지 말 것 |
+| 3 | 런타임 목록 쿼리 타임아웃 `60s/30s → 8s` | 정상이면 193ms 에 끝난다. 오래 기다려봐야 504 까지 가는 시간만 늘린다. 빌드 프리렌더는 `IS_BUILD_PHASE` 로 60s 유지 |
+
+## 3. 실측 (배포 전/후, 전부 `X-Vercel-Cache: MISS`)
+
+```
+전 (Round 184 배포)                          후 (Round 185 배포)
+  seoul-hospital-content-automation  60.9초    medimap-insights-116        0.92초
+  medimap-insights-124              150초+     medimap-101                 0.25초
+  medimap-138                       120초+     medimap-138                 0.51초
+  gangnam-sports-rehab-...-kwangdong 300초 504  gangnam-sports-rehab-...   0.30초
+  medical-law-compliance-checklist-94 200초+   acne-scar-treatment-505     0.45초
+                                              jamsil-lasik-preop-exam     0.50초
+                                              (CJK 슬러그 잠실の白内障手術) 0.24초
+콜드 10건 전부 200 / 0.22~0.92초. 로그의 query timeout 도 사라짐.
+```
+
+## 4. 🔴 이번에 두 번 속은 함정 — "배포 확인" 을 헤더로 하지 말 것
+
+- **1차 오판**: 시간만 재고 `X-Vercel-Cache` 를 안 봐서 `STALE` 응답(0.18초)을
+  "고쳐졌다"로 읽었다.
+- **2차 오판**: `/` 의 `Etag` 변화를 배포 완료 신호로 썼다. **ISR 재검증마다 etag 가
+  바뀌므로 신호가 아니다.** 실제로는 Round 185 가 아직 `QUEUED` 인데 구 배포를
+  측정하고 "안 고쳐졌다"고 결론냈다.
+
+**배포 확인은 이 둘 중 하나로만:**
+1. `list_deployments` 로 해당 커밋 sha 의 `state: READY` 확인
+2. **런타임 로그에 새 코드에서만 나오는 문자열**이 찍히는지 확인
+   (이번엔 `(60000ms)` → `(8000ms)`, `partner post metas` 문구가 마커였다)
+
+## 5. 부수 발견 — 배포 훅이 중복 발사되고 있다
+
+`list_deployments` 를 보니 커밋 하나에 배포가 여러 개 뜬다. 훅이 3종이다:
+`blog`(jzEAQqRSRa) · `auto-publish-cron`(zhr0hmd7HB) · `supabase-publish`(t1KMrYlLoK).
+Round 182c 커밋 하나로 **9개 배포**가 생성됐고(READY 7 · CANCELED 1 · ERROR 1),
+그 때문에 Round 185 가 큐에서 7분 넘게 대기했다.
+Hobby 빌드 동시성은 1이므로 **긴급 수정이 잡 큐 뒤에 밀린다.** 별도 라운드로 정리할 것.
+
+## 6. 남은 것
+
+- `/blog/[slug]` 의 `relatedPartnerPosts` `.sort(() => Math.random() - 0.5)` — ISR
+  캐시된 서버 렌더라 "매번 다른 4편"이 실제로 동작하지 않는다 (504 와 무관)
+- 배포 훅 3중 발사 정리 (위 5번)
+- `rss.xml` 은 여전히 500편 본문 전체를 싣는다 (전문 피드 의도라 유지)
