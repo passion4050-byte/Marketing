@@ -11,14 +11,28 @@
  *
  * 진단 끝나면 이 파일 삭제 가능.
  */
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { getAllPartnerPosts } from "@/lib/partners";
 import { getSql } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Round 190 (2026-09-02) — 선택적 잠금. `DEBUG_ENDPOINT_SECRET` 를 설정하면
+  //   그때부터 매칭을 요구한다(미설정이면 기존처럼 공개).
+  //   ⚠ 이 엔드포인트를 지우지 말 것 — Round 184b 에서 같은 런타임의 DB 속도를
+  //     193ms 로 실측해 "DB 는 무죄"를 한 번에 증명한 도구다. 진단력은 남기되
+  //     운영자가 원할 때 잠글 수 있게 한다.
+  const gate = process.env.DEBUG_ENDPOINT_SECRET;
+  if (gate) {
+    const given =
+      new URL(req.url).searchParams.get("secret") ??
+      req.headers.get("x-debug-secret");
+    if (given !== gate) {
+      return NextResponse.json({ error: "not found" }, { status: 404 });
+    }
+  }
   const t0 = Date.now();
   const env = {
     has_DATABASE_URL: !!process.env.DATABASE_URL,
