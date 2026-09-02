@@ -7227,3 +7227,89 @@ Hobby 빌드 동시성은 1이므로 **긴급 수정이 잡 큐 뒤에 밀린다
   캐시된 서버 렌더라 "매번 다른 4편"이 실제로 동작하지 않는다 (504 와 무관)
 - 배포 훅 3중 발사 정리 (위 5번)
 - `rss.xml` 은 여전히 500편 본문 전체를 싣는다 (전문 피드 의도라 유지)
+
+
+# Round 186 (2026-09-02) — 발행 1편 = 전체 재빌드 1회였다 (그리고 그게 콜드 렌더를 먹였다)
+
+Round 185 에서 부수 발견한 "배포 훅 중복 발사"의 정체.
+
+## 1. 범인은 워크플로가 아니라 **DB 트리거**였다
+
+리포를 아무리 grep 해도 안 나온다. Supabase 쪽에만 있었다:
+
+```
+trg_fire_vercel_on_publish
+  BEFORE INSERT OR UPDATE OF status ON generated_contents
+  FOR EACH ROW EXECUTE FUNCTION fire_vercel_deploy_hook()
+```
+
+`FOR EACH ROW` — **발행 1편마다 Vercel 배포를 1회 쏜다.** 훅 URL 은
+`deploy_hooks` 테이블(id=1)에 들어 있고, Vercel 쪽 훅 이름이 `supabase-publish`다.
+
+실측(list_deployments): **13.2시간 동안 배포 20건.** 커밋 하나에 9건이 몰린 구간도 있었다.
+하루 15~25편 발행 × 배치 = 하루 30건대 재빌드.
+
+## 2. 이 재빌드는 처음부터 불필요했다
+
+공개 라우트가 **전부 ISR** 이다:
+
+| 라우트 | revalidate |
+|---|---|
+| `/` · `/blog` · `/blog/[slug]`(dynamicParams=true) · `/with-partners` · 해외 전 계층 | 60초 |
+| `sitemap.xml` · `rss.xml` · `/all` | 3600초 |
+
+새 글은 **배포 없이도 60초 안에 뜬다.** 이 트리거는 ISR 전환(Round 129) 이전의 유물이
+그대로 남은 것이다. 아무도 지우지 않았고, 리포에 기록이 없어 보이지도 않았다.
+
+## 3. 🔴 그리고 이게 Round 184~185 의 콜드 렌더를 먹이고 있었다
+
+**배포는 ISR 캐시를 통째로 무효화한다.** 20분마다 재빌드가 돌면 사이트는 영영
+warm 해지지 않는다 — 모든 요청이 콜드 렌더가 되고, 콜드 렌더가 60~300초였으니
+504 가 "간헐적"으로 보였던 것이다.
+
+즉 184~186 은 하나의 사슬이었다:
+```
+발행마다 재빌드  →  ISR 캐시 상시 초기화  →  모든 요청이 콜드
+                 →  콜드 경로의 커넥션 데드락(185)  →  504
+```
+185 가 콜드 렌더 자체를 0.3초로 고쳤고, 186 은 **콜드가 되는 빈도**를 줄인다.
+
+부수 피해도 있었다: Hobby 빌드 동시성은 1이라 **긴급 수정이 큐에 밀린다.**
+Round 185 수정이 실제로 7분 넘게 QUEUED 였고, 그 사이 구 배포를 측정해
+"안 고쳐졌다"고 오판했다(184b 의 2차 오판이 이것 때문이다).
+
+## 4. 조치 — 제거가 아니라 디바운스 30분
+
+`db/supabase/round186_debounce_vercel_deploy_hook.sql` (정본을 리포에 남김).
+배치 발행 1회(5~6편)가 배포 1건으로 접힌다.
+
+**🔴 `published_at` 자동 채움은 디바운스보다 먼저 실행해야 한다.**
+순서를 바꾸면 디바운스 창 안에 발행된 글의 `published_at` 이 NULL 로 남는다.
+(이 함수는 배포 발사와 published_at 채움이라는 **성격이 다른 두 일**을 겸하고 있다 —
+트리거를 나중에 걷어낼 땐 published_at 쪽을 먼저 다른 곳으로 옮겨야 한다.)
+
+### 검증 (BEGIN…ROLLBACK 실측)
+
+```
+baseline  net.http_request_queue                 = 0
+디바운스 창 안에서 published 행 INSERT            = 0   ← 배포 안 나감
+디바운스 만료 후 published 행 INSERT              = 1   ← 배포 나감
+디바운스 창 안에서도 published_at 채워짐           = 1
+롤백 후: generated_contents 538행 그대로 · 테스트 행 0 · last_fired_at 원복
+```
+
+## 5. 🔴 교훈 — 리포에 없는 인프라가 원인일 수 있다
+
+`fire_vercel_deploy_hook` 은 리포 전체 grep 에서 **0건**이었다. 코드만 읽으면
+"배포는 GitHub Actions 훅이 쏜다"로 보이고, 실제 범인은 DB 안에 있었다.
+
+**앞으로 Supabase 함수·트리거·웹훅을 만들거나 고치면 `db/supabase/` 에 정본 SQL 을 남길 것.**
+지금 리포에 없는 것들(확인 필요): `autofill_title_slug_on_insert`, `touch_updated_at`.
+
+## 6. 남은 것
+
+- **다음 발행 배치에서 배포 건수 실측** — 5~6건이 1건으로 줄었는지. (트리거 로직은
+  트랜잭션으로 검증됐지만, 실제 배치 효과는 아직 미실측)
+- 한동안 문제 없으면 트리거 자체 제거 (published_at 채움을 먼저 이관)
+- `db/supabase/` 에 나머지 트리거 2개 정본 남기기
+- `/blog/[slug]` 의 `.sort(() => Math.random() - 0.5)` — ISR 캐시라 동작하지 않음
