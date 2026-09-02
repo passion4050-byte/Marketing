@@ -33,6 +33,26 @@ _CONTENT_JOB_ID = "daily_auto_content"
 _scheduler: Any = None  # BackgroundScheduler 인스턴스 (lazy init)
 
 
+# Round 183 (2026-09-02) — 네이버 실측 수요 키워드 조회 (발행 우선순위용).
+#   keyword_id 경유로 조인한다. 임포터가 리포트 원문(value)을 정규화해
+#   keywords.text 를 만들기 때문에 둘이 어긋날 수 있다. 실측:
+#   "백옥주사 효과는 얼마나 지속되나요?"(노출 42·클릭 6·CTR 14.3% — 최상위 성과
+#   키워드)가 물음표 제거 한 글자 때문에 value 매칭에서만 통째로 누락됐다.
+#   purpose 게이트는 Round 182c 와 같은 이유 — competitor_landscape 키워드가
+#   수요가 크다고 발행 대상이 되면 안 된다.
+#   ⚠ 양쪽 경로(로테이션·타깃)가 이 상수 하나를 공유한다. 조건을 바꿀 땐 여기만 고칠 것.
+_NAVER_DEMAND_SQL = (
+    "SELECT COALESCE(k.text, n.value) AS kw_text "
+    "FROM naver_search_report n "
+    "LEFT JOIN keywords k ON k.id = n.keyword_id "
+    "WHERE n.tenant_id = :tid AND n.dimension = 'keyword' "
+    "AND n.impressions >= :minimp "
+    "AND (k.id IS NULL OR COALESCE(k.purpose, 'own') = 'own') "
+    "GROUP BY COALESCE(k.text, n.value) "
+    "ORDER BY max(n.impressions) DESC"
+)
+
+
 def daily_measurement_job(session_factory) -> dict:
     """모든 tenant 의 활성 keyword 에 대해 수집 실행.
 
@@ -310,11 +330,54 @@ def daily_auto_content_job(
                     # While an experiment runs, the target path drains unpublished
                     #   experiment keywords first; otherwise one dispatch muddies the
                     #   A/B publishing window.
+                    _tgt_claimed = False
                     _exp_ids = {r[0] for r in _ok_rows if r[1] and int(r[2] or 0) == 0}
                     if _exp_ids and lang_only in (None, "ko") and market_only in (None, "domestic"):
                         _k_exp = [k for k in kws if k.id in _exp_ids]
                         if _k_exp:
                             kws = _k_exp
+                            _tgt_claimed = True
+                    # Round 183 (2026-09-02) - the Naver demand drain must live on this
+                    #   path too. Round 182c's whole lesson was that a gate added only to
+                    #   the normal rotation leaves the target path publishing by the old
+                    #   rules (same door as Round 164b). Same rule as the rotation:
+                    #   proven-demand keywords with zero posts go first, ko/domestic only.
+                    _tgt_pub = {r[0]: int(r[2] or 0) for r in _ok_rows}
+                    if (
+                        not _tgt_claimed
+                        and lang_only in (None, "ko")
+                        and market_only in (None, "domestic")
+                    ):
+                        _tgt_dmin = max(
+                            1, int(os.getenv("NAVER_DEMAND_MIN_IMPRESSIONS", "10"))
+                        )
+                        try:
+                            _tgt_demand = {
+                                r[0]
+                                for r in s.execute(
+                                    _sql_tgt(_NAVER_DEMAND_SQL),
+                                    {"tid": target_tenant_id, "minimp": _tgt_dmin},
+                                ).fetchall()
+                            }
+                        except Exception:  # pragma: no cover - 테이블 미배포 환경
+                            _tgt_demand = set()
+                        if _tgt_demand:
+                            _k_dem = [
+                                k for k in kws
+                                if k.text in _tgt_demand
+                                and _tgt_pub.get(k.id, 0) == 0
+                                and (getattr(k, "lang", "ko") or "ko") == "ko"
+                                and (getattr(k, "market", "domestic") or "domestic") == "domestic"
+                            ]
+                            if _k_dem:
+                                logger.info(
+                                    "scheduler.naver_demand_drain",
+                                    path="target",
+                                    tenant_id=target_tenant_id,
+                                    min_impressions=_tgt_dmin,
+                                    keywords=[k.text for k in _k_dem],
+                                )
+                                kws = _k_dem
                 if not kws:
                     logger.error(
                         "scheduler.target_no_keyword", tenant_id=target_tenant_id,
@@ -611,14 +674,63 @@ def daily_auto_content_job(
                 ]
             except Exception:  # pragma: no cover - column not deployed
                 _exp_texts = []
+            _rotation_claimed = False
             if _exp_texts and _exp_scope_ok:
                 _by_text = {r[0]: r for r in kw_rows}
                 _exp_rows = [_by_text[t] for t in _exp_texts if t in _by_text]
                 _fresh = [r for r in _exp_rows if _pub_counts.get((r[0], r[1] or "ko"), 0) == 0]
                 if _fresh:
                     kw_rows = _fresh
+                    _rotation_claimed = True
                 elif _exp_rows:
                     kw_rows = _exp_rows
+                    _rotation_claimed = True
+
+            # 🔴 Round 183 (2026-09-02) — 네이버 실측 수요를 발행 우선순위에 연결.
+            #   실측(naver_search_report 2026-07-31~08-29): 노출 16 이상 · CTR ≤1% 키워드
+            #   10개 중 published 콘텐츠가 있는 것은 **0개**였다.
+            #   (모발이식 탈락기 42노출/0클릭, bgn무슨뜻 24/0, 벨리셀피부과 18/0 …)
+            #   즉 Round 181 이 "제목·description 만 고치면 된다"고 본 문제의 상당수는
+            #   제목 문제가 아니라 **그 키워드를 다루는 글이 아예 없는 것**이었다.
+            #   원인: 로테이션은 Keyword.id 순 + 날짜 오프셋 라운드로빈이라
+            #   노출 425 짜리 키워드와 노출 0 짜리의 선택 확률이 완전히 같다.
+            #   임포터가 키워드를 넣어도 발행까지 도달하는 데 수개월이 걸린다.
+            #   수정: 아직 한 편도 없는 '수요 입증' 키워드를 먼저 소진(drain)한다.
+            #   Round 182 실험 드레인과 같은 형태 — 발행되면 조건에서 자동 이탈하므로
+            #   영구 편향이 아니다. 실험 드레인이 이미 잡았으면 건드리지 않는다.
+            #   ⚠ 네이버 = 국내 ko 전용. 해외 로테이션(lang_only='en' 등)에 적용하면
+            #     풀이 비어 조용히 발행이 멈춘다(Round 182 와 같은 함정).
+            if not _rotation_claimed and _exp_scope_ok:
+                _demand_min = max(1, int(os.getenv("NAVER_DEMAND_MIN_IMPRESSIONS", "10")))
+                try:
+                    _demand_texts = [
+                        r[0]
+                        for r in s.execute(
+                            _sql_text(_NAVER_DEMAND_SQL),
+                            {"tid": tenant_id, "minimp": _demand_min},
+                        ).fetchall()
+                    ]
+                except Exception:  # pragma: no cover - 테이블 미배포 환경
+                    _demand_texts = []
+                if _demand_texts:
+                    _by_demand = {r[0]: r for r in kw_rows}
+                    _demand_rows = [
+                        _by_demand[t]
+                        for t in _demand_texts
+                        if t in _by_demand
+                        and (_by_demand[t][1] or "ko") == "ko"
+                        and (_by_demand[t][2] or "domestic") == "domestic"
+                        and _pub_counts.get((t, _by_demand[t][1] or "ko"), 0) == 0
+                    ]
+                    if _demand_rows:
+                        logger.info(
+                            "scheduler.naver_demand_drain",
+                            path="rotation",
+                            tenant_id=tenant_id,
+                            min_impressions=_demand_min,
+                            keywords=[r[0] for r in _demand_rows],
+                        )
+                        kw_rows = _demand_rows
         # Round 160 (2026-08-16) — LANG_ONLY 타깃: brighteye 전 언어 데일리 워크플로가
         #   언어별로 1회씩 호출한다 (ko/en/ja/zh-Hans/zh-Hant). 미지정 시 무변경.
         if lang_only is not None:
