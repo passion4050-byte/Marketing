@@ -7313,3 +7313,79 @@ baseline  net.http_request_queue                 = 0
 - 한동안 문제 없으면 트리거 자체 제거 (published_at 채움을 먼저 이관)
 - `db/supabase/` 에 나머지 트리거 2개 정본 남기기
 - `/blog/[slug]` 의 `.sort(() => Math.random() - 0.5)` — ISR 캐시라 동작하지 않음
+
+
+# Round 187 (2026-09-02) — 트리거 전수 기록 + 랜덤 정렬 제거 + 🔴 발행 cron 이 실제로는 안 돈다
+
+## 1. 트리거는 2개가 아니라 9개였다
+
+Round 186 랩업에서 "리포에 없는 트리거 2개(`autofill_title_slug_on_insert`,
+`touch_updated_at`)를 기록하자"로 정리했는데, `pg_trigger` 를 전수 조회하니 **9개**였다.
+`db/supabase/_snapshot_triggers.sql` 에 전부 기록했다.
+
+**그중 4개가 조용히 동작을 바꾼다:**
+
+| 트리거 | 무엇을 하는가 | 왜 중요한가 |
+|---|---|---|
+| `sync_business_model_keywords` | `tenants.business_model` 쉼표 목록을 파싱해 **키워드를 자동 생성**(`purpose='competitor_landscape'`), 빠진 건 `is_active=false` | 어드민에서 진료과목만 고쳐도 keywords 가 통째로 바뀐다. **Round 182c 사고('라식' competitor_landscape 발행)의 키워드 출처가 이것이고**, Round 183 수요 드레인이 `purpose='own'` 게이트를 두는 이유도 이것 |
+| `autofill_title_slug_on_insert` | slug 를 `keyword_text-id` 로 만들고 공백만 `-` 치환 — **로마자화 안 함** | `통증재활-후기-473` 같은 한글 슬러그의 출처. Round 180e 비ASCII soft-404 계열 이슈의 뿌리 |
+| `ensure_keyword_target_brand` / `sync_keywords_target_brand` | `target_brand` 를 tenant.name·partner_slug 로 자동 덮어씀 | `partner_slug` 하나 바꾸면 그 tenant 전 키워드가 일괄 변경된다 |
+| `auto_create_content_settings` | 신규 tenant 마다 `enabled=false` 로 행 생성 | **"새 병원이 발행이 안 된다"는 버그가 아니라 이 기본값이다** |
+
+## 2. `relatedPartnerPosts` 의 `Math.random()` 정렬 제거
+
+`.sort(() => Math.random() - 0.5) // 매번 다른 4편 노출 (다양성)` — 두 가지가 틀렸다.
+
+1. 이 페이지는 **ISR 캐시된 서버 렌더**(revalidate 60)다. "매번 다른 노출"은 캐시
+   수명 동안 한 순서로 굳으므로 의도한 다양성이 **애초에 동작한 적이 없다.**
+   랜덤이 준 건 다양성이 아니라 캐시 재생성마다 바뀌는 **재현 불가능한 출력**뿐이다.
+2. `Array#sort` 에 랜덤 비교자는 균등 셔플이 아니다. 비교자가 비일관적이라 엔진
+   정렬 알고리즘에 따라 결과가 편향된다(잘 알려진 안티패턴).
+
+→ `(슬러그 + 날짜)` 해시 기반 결정적 회전으로 교체. **글마다 다른 카드**가 나오고
+(내부 링크 다양성의 실제 목적) 날짜가 바뀌면 조합도 바뀐다. 같은 날 재생성 시 동일 출력.
+
+**일반 규칙: 서버 컴포넌트에서 `Math.random()`/`Date.now()` 로 "다양성"을 만들지 말 것.**
+캐시가 앞에 있으면 무작위성은 사라지고 재현 불가능성만 남는다.
+
+## 3. 🔴 발행 cron 이 예정대로 돌지 않는다 (이번 라운드 최대 발견)
+
+Round 186 디바운스 효과를 실측하려고 05:00 UTC 배치를 기다렸는데 **한 편도 발행되지
+않았다.** 조사 결과 코드 문제가 아니라 **GitHub Actions 스케줄이 안 돈 것**이다.
+
+`gh run list --workflow=auto-publish.yml` 실측 (최근 11일):
+
+```
+2026-09-02 00:50Z  schedule success   ← 23:00 슬롯이 1h50m 지연
+2026-08-31 11:30Z  schedule success   ← 05:00 슬롯이 6시간 30분 지연
+2026-08-31 01:06Z  schedule success
+2026-08-28 17:17Z  schedule FAILURE   ← 12시간 지연 + 실패
+2026-08-28 06:46Z  schedule FAILURE
+2026-08-26 05:40Z  schedule success   (+40분)
+2026-08-25 23:24Z  schedule success
+2026-08-24 05:43Z  schedule success   (+43분)
+2026-08-23 23:20Z  schedule CANCELLED
+2026-08-22 05:29Z  schedule success   (+29분)
+```
+
+- **지연 폭 29분 ~ 6시간 30분.** 정시에 도는 일이 없다
+- 스케줄 9회 중 성공 6회 = **유효 가동률 약 65%** (실패 2 · 취소 1)
+- 2026-09-02 05:00 슬롯은 07:40 UTC 기준 **2시간 40분째 미발사**, 큐에도 없음
+- 06:00 UTC 해외 발행 cron 도 같이 미발사
+
+**이게 왜 중요한가:** 이 프로젝트는 "병원당 주 3회 발행"을 정책으로 잡고 Round 174c 에서
+로테이션 배치를 5곳으로 늘렸다. 그런데 **스케줄 자체가 65%만 돌면 실제 발행량은 정책의
+2/3 이하**다. 굶는 병원을 찾을 때 로테이션 로직만 보면 원인을 못 찾는다.
+GitHub 무료 러너의 스케줄 큐는 원래 best-effort 이고 보장이 없다.
+
+또 이 때문에 **Round 183(수요 드레인) · Round 186(배포 디바운스)이 아직 프로덕션에서
+한 번도 실행되지 않았다.** 마지막 발행 배치(00:50~01:03 UTC)는 Round 183 푸시(01:45)
+이전이다. 둘 다 코드·트랜잭션 레벨 검증만 끝난 상태다.
+
+### 다음 라운드 후보 (187 이후)
+
+- **발행 스케줄 신뢰성 확보** — GitHub 스케줄 대신 Vercel Cron 또는 외부 스케줄러로
+  이관 검토. 최소한 "오늘 발행이 돌았는가" 를 매일 확인하는 알림이 필요하다
+  (지금은 아무도 모른다 — 이번에 우연히 발견했다)
+- Round 183·186 프로덕션 실측 (다음 실제 배치에서)
+- `db/supabase/` 스냅샷을 CI 로 자동 갱신 — 손으로 뜨면 또 어긋난다
