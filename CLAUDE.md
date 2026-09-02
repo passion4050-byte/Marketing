@@ -94,10 +94,23 @@ cd medimap-blog-v2 && bash scripts/build-gate.sh
 위 3대 함정(세그먼트 충돌 · route export · Promise params) + UI 내부용어를 한 번에 검사.
 **RESULT: ✅ PASS 아니면 push 금지.**
 
+⚠ **`scripts/build-gate.sh` 는 `medimap-blog-v2` 에만 있다.** 원본 `medimap-blog` 를 고칠 땐
+스크립트가 없으므로 `npm install → npx tsc --noEmit → npx next build` 를 순서대로 직접 실행할 것
+(esbuild 만으로는 부족 — Round 184 의 `PartnerPost`→`PartnerPostMeta` 같은 순수 타입 교체를
+esbuild 는 전부 통과시킨다).
+
 ### 배포 검증 (Round 144 이후 필수)
 push 후 "됐겠지" 금지. Vercel 프로젝트 `geo-v2`(팀 slug `medimaps-projects`) 배포 상태를
 확인하거나, 신규 API 엔드포인트를 직접 호출해 **404 가 아닌지** 확인할 것.
 빌드 실패해도 이전 성공 빌드가 계속 서빙되므로 화면만 봐서는 구분이 안 된다.
+
+**🔴 배포 완료 판정을 간접 신호로 하지 말 것 (실사고 2회, Round 184b·185)**
+- **Etag 금지.** ISR 재검증마다 바뀌므로 배포와 무관하다. 실제로 신 배포가 아직 `QUEUED`
+  인데 구 배포를 측정하고 "안 고쳐졌다"고 결론낸 사고가 있었다.
+- 판정은 둘 중 하나로만: ① `list_deployments` 에서 **해당 커밋 sha 의 `state: READY`**
+  ② 런타임 로그에 **신 코드에만 있는 문자열**(예: 타임아웃 값 `60000ms`→`8000ms`)
+- **속도를 잴 땐 `X-Vercel-Cache` 를 반드시 같이 볼 것.** `STALE`/`HIT` 응답이 빠른 건
+  당연하다 — 이걸 "고쳐졌다"로 오독한 사고가 있었다. 성능 주장은 `MISS` 로만 한다.
 
 ### JSX 함정 (실사고 2회: 124-B, 131-B)
 - 삼항 `) : ( ... )` / `{cond && ( ... )}` 괄호 안에 `{/* */}` 주석 금지 → 빌드 실패. `//` 줄주석 또는 괄호 밖에 배치
@@ -160,6 +173,9 @@ AI 검색엔진(Perplexity, ChatGPT, Gemini, Claude)에서 의료 도메인 브�
 - **Streamlit stale module cache 가드**: Streamlit Cloud 재배포 후 `sys.modules` 캐시로 신규 ORM 컬럼/모델이 누락된 채 실행될 수 있음. 신규 속성/모델 접근 전 `hasattr(Model, "field")` 또는 `try/except ImportError` 가드 필수. 완전 해소는 앱 reboot.
 - **Design-only changes**: 디자인/UI 작업 시 기능 로직(LLM 호출, DB 쿼리, 스케줄러, 컴플라이언스 린터, 핸들러)은 절대 손대지 말 것. theme.py CSS / Tailwind 토큰 / 마크업만 수정. 기능 변경이 필요하면 별도 커밋으로 분리.
 - **Cross-site design sync**: 3개 사이트가 동일한 강남언니 디자인 토큰을 공유 — `src/dashboard/theme.py`(테넌트), `src/admin/theme.py`(어드민), `medimap-blog/tailwind.config.ts` + `medimap-blog/src/app/globals.css`(블로그). 브랜드 컬러 변경 시 4개 파일을 동시에 갱신. 확정 팔레트 — Brand `#1B68FF`(핫핑크), Accent `#1AD2A4`(민트), Admin Primary `#4F5DF8`(퍼플), Mint `#15CBA8`. SVG `<linearGradient>` stop-color 는 Tailwind 토큰이 미치지 않으므로 별도 체크리스트.
+- **Supabase 함수·트리거 정본화**: Supabase 함수/트리거를 신규 생성하거나 수정하면 반드시 `db/supabase/` 에 정본 SQL 을 남긴다. DB 안의 트리거는 **리포 grep 에 0건**이라 코드 리뷰로는 존재조차 알 수 없다 (Round 186: 발행마다 Vercel 배포를 쏘던 `trg_fire_vercel_on_publish` 를 찾는 데 이 때문에 오래 걸렸다). 원인 불명 증상 조사 시 `pg_trigger`·함수 정의도 스캔 범위에 넣을 것.
+- **발행 대상 선택 규칙은 두 경로 모두에**: 발행 키워드 선택 경로는 **일반 로테이션**과 **타깃 경로(`target_tenant_id`)** 둘이다. 게이트·우선순위 규칙을 한쪽에만 넣으면 다른 쪽이 옛 규칙으로 계속 발행한다 — Round 164b·173·182c·183 에서 같은 문으로 4회 반복됐다.
+- **ORM `Keyword` 에 없는 컬럼이 있다**: 실 DB 에는 `purpose`·`experiment_arm`·`experiment_pair_id`·`tracked` 가 있지만 ORM 모델에는 **없다**. `getattr(k, "purpose", "own")` 은 언제나 기본값을 돌려줘 **필터가 조용히 무력화**된다. 이 컬럼들로 거를 땐 raw SQL 을 쓸 것 (테스트 SQLite 스키마도 `ALTER TABLE` 로 맞춰준다).
 - **Token-first components**: 신규 컴포넌트는 `brand-*` / `accent-*` 토큰 클래스만 사용. `#hexcode` 직접 삽입 금지 (SVG gradient 제외). 한 곳만 빠뜨려도 리브랜딩 시 색이 어긋나는 구멍이 됨.
 <!-- GSD:conventions-end -->
 
