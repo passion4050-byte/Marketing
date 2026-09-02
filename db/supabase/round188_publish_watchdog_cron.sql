@@ -29,9 +29,17 @@
 -- 2) 아래 `<<WATCHDOG_URL>>` 을 실제 URL + cronSecret 으로 치환한 뒤 실행할 것.
 --    시크릿을 이 파일에 커밋하지 말 것 — 리포는 public 이다.
 --
+-- 검증된 엔드포인트(2026-09-02 실측):
+--   https://geo-v2-git-main-geons.vercel.app/api/cron/publish-watchdog
+--   → cronSecret 없이 호출 시 HTTP 401 {"ok":false,"error":"unauthorized"}
+--     (404 가 아니라 401 = 라우트 배포 + 핸들러 실행 + CRON_SECRET 설정 확인)
+--   운영에서 쓰는 정본 URL 은 GitHub secret `VERCEL_PROD_URL` 값을 쓸 것.
+--
 -- ## 되돌리기
 --   SELECT cron.unschedule('publish-watchdog');
 
+-- ✅ 확장은 이미 적용됨 (2026-09-02, round188_enable_pg_cron 마이그레이션, v1.6.4).
+--    아래 CREATE 는 재적용 안전용으로 남겨둔다.
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 
 -- 재적용 안전: 이미 있으면 지우고 다시 건다.
