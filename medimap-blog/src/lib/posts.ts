@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import matter from "gray-matter";
-import { getSql } from "./db";
+import { getSql, resetSql } from "./db";
 
 const POSTS_DIR = path.join(process.cwd(), "content", "blog");
 
@@ -293,7 +293,9 @@ let _allPostsCache: { data: DbPostRow[]; ts: number } | null = null;
 //   Runtime behaviour is unchanged (60s).
 const IS_BUILD_PHASE = process.env.NEXT_PHASE === "phase-production-build";
 const POSTS_CACHE_TTL_MS = IS_BUILD_PHASE ? 3_600_000 : 60_000;
-const POSTS_QUERY_TIMEOUT_MS = 30_000;
+// [R185] Round 185 (2026-09-02) — 런타임 30s -> 8s. partners.ts 와 같은 이유:
+//   정상이면 200ms 안에 끝난다. 오래 기다려봐야 504 로 가는 시간만 늘린다.
+const POSTS_QUERY_TIMEOUT_MS = IS_BUILD_PHASE ? 60_000 : 8_000;
 
 async function getDbPostRows(): Promise<DbPostRow[]> {
   if (_allPostsCache && Date.now() - _allPostsCache.ts < POSTS_CACHE_TTL_MS) {
@@ -325,6 +327,8 @@ async function getDbPostRows(): Promise<DbPostRow[]> {
     return rows;
   } catch (err) {
     console.error("[posts] getDbPostRows query failed (fallback empty):", err);
+    // [R185] 타임아웃난 커넥션을 버린다 — 안 버리면 그 인스턴스가 계속 막힌다.
+    resetSql();
     // Round 17 fix → 18: throw 가 page 에서 잡혀 빈 결과 stuck → 명시적 빈 배열
     // ISR/CDN 캐시는 middleware no-store 헤더로 무효화. 다음 요청에서 재시도.
     return [];
@@ -362,6 +366,8 @@ async function getMarketingDbRows(): Promise<DbPostRow[]> {
     return rows;
   } catch (err) {
     console.error("[posts] getMarketingDbRows query failed (fallback empty):", err);
+    // [R185] 타임아웃난 커넥션을 버린다.
+    resetSql();
     return [];
   }
 }

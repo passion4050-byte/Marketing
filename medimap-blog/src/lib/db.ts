@@ -18,7 +18,13 @@ export function getSql(): Sql | null {
   if (_sql) return _sql;
   try {
     _sql = postgres(url, {
-      max: 1,
+      // [R185] Round 185 (2026-09-02) — max 1 -> 3.
+      //   1이면 쿼리 하나가 막히는 순간 그 람다 인스턴스의 **모든** 이후 쿼리가
+      //   그 뒤에 줄을 선다. 실측(Round 184b): `/blog/[slug]` 콜드 렌더가 300초
+      //   런타임 타임아웃까지 갔는데, 같은 런타임의 API 라우트는 193ms 였다.
+      //   주의: 무한정 올리지 말 것 — direct URL(5432)이면 인스턴스 수 x max 가
+      //   Postgres 커넥션 상한을 먹는다. 3은 보수적 출발값이다.
+      max: 3,
       idle_timeout: 20,
       connect_timeout: 5, // Vercel Hobby function timeout 10초 — 빠르게 fail.
       prepare: false, // pgbouncer/transaction-mode 호환
@@ -26,6 +32,30 @@ export function getSql(): Sql | null {
     return _sql;
   } catch {
     return null;
+  }
+}
+
+/**
+ * [R185] Round 185 (2026-09-02) — 타임아웃난 커넥션을 버린다.
+ *
+ *   목록 쿼리들은 `Promise.race([query, timer])` 로 타임아웃을 구현한다. 그런데
+ *   **타이머가 reject 해도 실제 쿼리는 취소되지 않는다** — 커넥션은 계속 점유된
+ *   채 남는다. `max:1` 이던 시절엔 그 순간부터 그 인스턴스가 영구히 막혔다.
+ *   실측 근거(Round 184b): `/` 가 매 요청 `[partners] query timeout (60000ms)` 를
+ *   뱉으면서 `cache=STALE` 로만 연명하고 있었다.
+ *
+ *   타임아웃 경로에서 이걸 부르면 다음 요청이 새 커넥션을 받는다.
+ *   주의: await 하지 말 것. 요청 경로에서 정리를 기다리면 그게 또 지연이 된다.
+ */
+export function resetSql(): void {
+  const dead = _sql;
+  _sql = null;
+  if (!dead) return;
+  try {
+    // timeout 0 = 진행 중인 쿼리를 기다리지 않고 즉시 끊는다.
+    void dead.end({ timeout: 0 }).catch(() => { /* 정리 실패는 무시 */ });
+  } catch {
+    /* 이미 닫혔거나 지원하지 않는 상태 — 무시 */
   }
 }
 

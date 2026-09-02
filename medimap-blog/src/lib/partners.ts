@@ -16,7 +16,7 @@
  *   안전장치: 60초 query timeout (Vercel ↔ Supabase 일시적 지연 대비). 실패 시 throw
  *         → Next.js ISR 이 실패 결과를 캐싱하지 않음 → 다음 요청에서 재시도.
  */
-import { getSql } from "./db";
+import { getSql, resetSql } from "./db";
 
 export type PartnerCategory =
   | "eyeclinic"
@@ -248,7 +248,12 @@ let _allPostsCache: { data: PartnerPost[]; ts: number } | null = null;
 //   build, so hold the snapshot for the whole build; runtime stays at 60s.
 const IS_BUILD_PHASE = process.env.NEXT_PHASE === "phase-production-build";
 const ALL_POSTS_CACHE_TTL_MS = IS_BUILD_PHASE ? 3_600_000 : 60_000;
-const QUERY_TIMEOUT_MS = 60_000;        // 60s — generous timeout for cold start
+// [R185] Round 185 (2026-09-02) — 런타임 목록 쿼리 타임아웃 60s -> 8s.
+//   페이지 렌더가 60초를 기다리는 건 이미 실패다(Vercel 런타임 한도가 300초인데
+//   그 전에 CDN/사용자가 먼저 포기한다). 빨리 실패하고 STALE 캐시로 넘기는 편이
+//   낫다. 실측 근거: 정상일 때 이 쿼리는 193ms 에 끝난다(Round 184b).
+//   빌드 프리렌더는 한 워커가 수백 페이지를 도므로 넉넉하게 남긴다.
+const QUERY_TIMEOUT_MS = IS_BUILD_PHASE ? 60_000 : 8_000;
 
 function isCacheFresh(ts: number): boolean {
   return Date.now() - ts < ALL_POSTS_CACHE_TTL_MS;
@@ -308,6 +313,8 @@ export async function getAllPartnerPostMetas(): Promise<PartnerPostMeta[]> {
     return metas;
   } catch (err) {
     console.error("[partners] getAllPartnerPostMetas query failed:", err);
+    // [R185] 타임아웃은 쿼리를 취소하지 못한다 — 커넥션을 버려야 다음 요청이 산다.
+    resetSql();
     // 전체 본문 경로와 동일 정책 — throw 해야 ISR 이 실패 결과를 캐시하지 않는다.
     throw err;
   }
@@ -352,6 +359,8 @@ export async function getAllPartnerPosts(): Promise<PartnerPost[]> {
     return posts;
   } catch (err) {
     console.error("[partners] getAllPartnerPosts query failed:", err);
+    // [R185] 타임아웃은 쿼리를 취소하지 못한다 — 커넥션을 버려야 다음 요청이 산다.
+    resetSql();
     // throw → Next.js ISR does not cache failed result → retry on next request
     throw err;
   }
