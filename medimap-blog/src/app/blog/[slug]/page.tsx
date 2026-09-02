@@ -169,10 +169,33 @@ export default async function BlogPostPage({
 
   // Round 184 — 관련 카드 6장을 그리려고 본문 7.4MB 를 끌어오던 자리.
   //   메타만 받는다(본문 없음). 조회는 위에서 병렬로 끝냈다.
-  const relatedPartnerPosts = allPartnerPosts
-    .filter((p) => targetPartnerCats.includes(p.partner_category))
-    .sort(() => Math.random() - 0.5) // 매번 다른 4편 노출 (다양성)
-    .slice(0, 6);
+  //
+  // Round 187 — `.sort(() => Math.random() - 0.5)` 제거. 두 가지가 틀렸다:
+  //   1) 이 페이지는 **ISR 캐시된 서버 렌더**다(revalidate 60). "매번 다른 노출"은
+  //      캐시 수명 동안 한 순서로 굳으므로 의도한 다양성이 애초에 동작하지 않았다.
+  //      랜덤이 준 건 다양성이 아니라 **캐시 재생성마다 바뀌는 재현 불가능한 출력**뿐.
+  //   2) `Array#sort` 에 랜덤 비교자를 넣는 건 균등 셔플이 아니다 — 비교자가
+  //      비일관적이라 엔진 정렬 알고리즘에 따라 결과가 편향된다(잘 알려진 안티패턴).
+  //   대신 (슬러그 + 날짜) 결정적 회전: **글마다 다른 카드**가 나오고(내부 링크
+  //   다양성의 실제 목적), 날짜가 바뀌면 조합도 바뀐다. 같은 날 재생성하면 동일 출력.
+  const _relatedPool = allPartnerPosts.filter((p) =>
+    targetPartnerCats.includes(p.partner_category),
+  );
+  const _rotSeed = (() => {
+    const key = `${post.slug}|${new Date().toISOString().slice(0, 10)}`;
+    let h = 0;
+    for (let i = 0; i < key.length; i += 1) {
+      h = (h * 31 + key.charCodeAt(i)) | 0;
+    }
+    return Math.abs(h);
+  })();
+  const relatedPartnerPosts =
+    _relatedPool.length <= 6
+      ? _relatedPool
+      : Array.from(
+          { length: 6 },
+          (_, i) => _relatedPool[(_rotSeed + i) % _relatedPool.length],
+        );
 
   // DB 자동 발행 글은 generator 가 만든 HTML 을 그대로 노출 — 의료법 린터 통과한
   // 자기 콘텐츠라 XSS 위험 없음. mdx 글은 기존 compileMDX 파이프라인 유지.
