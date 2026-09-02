@@ -479,7 +479,17 @@ def daily_auto_content_job(
                 continue
             bm = (getattr(tenant, "business_model", "") or "").strip().lower()
             ps = (getattr(tenant, "partner_slug", "") or "").strip().lower()
-            is_self = bm == "self" or ps == "medimap-self"
+            # 🔴 Round 189 (2026-09-02) — 리브랜드로 self 판정이 깨져 있었다.
+            #   기존: ps == "medimap-self". 그런데 메디맵→위서클 리브랜드 때
+            #   자사 tenant 의 partner_slug 가 **wecircle-self** 로 바뀌었고
+            #   이 검사는 갱신되지 않았다.
+            #   실측(2026-09-02 08:20 발행 런 로그):
+            #     scheduler.rotation_selected self_tenants=[] partner_tenants=[12, ...]
+            #   → 자사(12 위서클)가 파트너로 분류돼 "self 1곳 + partner N곳" 보장이
+            #     통째로 무력화됐다. 그날 위서클이 발행된 건 last_run_at 이 가장
+            #     오래돼 우연히 파트너 배치 맨 앞이었기 때문이지 설계가 아니다.
+            #   수정: 접미사로 판정한다. 다음 리브랜드에도 안 깨진다.
+            is_self = bm == "self" or ps == "self" or ps.endswith("-self")
             if is_self:
                 self_settings.append(st)
             else:

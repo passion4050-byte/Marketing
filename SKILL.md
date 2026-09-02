@@ -7389,3 +7389,83 @@ GitHub 무료 러너의 스케줄 큐는 원래 best-effort 이고 보장이 없
   (지금은 아무도 모른다 — 이번에 우연히 발견했다)
 - Round 183·186 프로덕션 실측 (다음 실제 배치에서)
 - `db/supabase/` 스냅샷을 CI 로 자동 갱신 — 손으로 뜨면 또 어긋난다
+
+
+# Round 189 (2026-09-02) — ✅ 183·186 프로덕션 검증 + 그 과정에서 나온 버그 2개
+
+수동 트리거(`gh workflow run auto-publish.yml`)로 배치를 돌려 두 라운드를 실측했다.
+GitHub 스케줄이 안 돌아 계속 미검증으로 남아 있던 건이다.
+
+## 1. ✅ Round 186 디바운스 — 발행 5편에 배포 훅 1회
+
+```
+발행: 08:21:49 · 08:23:58 · 08:26:43 · 08:29:28 · 08:31:36  (5편)
+deploy_hooks.last_fired_at: 08:21:49  ← 첫 편에서만 발사, 나머지 4편 억제
+```
+구 코드였으면 5회. Vercel 배포 목록에서도 `supabase-publish` 훅 배포가 **정확히 1건**.
+
+## 2. ✅ Round 183 수요 드레인 — 예측이 그대로 맞았다
+
+발행 전에 반증 가능한 예측을 세웠다: "t9 벨리셀은 실험 키워드가 0개이므로 수요
+드레인이 발동해 `tca cross`(노출 137)를 뽑아야 한다."
+
+```
+scheduler.naver_demand_drain  path=rotation tenant_id=9
+  keywords=['tca cross', '백옥주사 효과는 얼마나 지속되나요', '벨리셀피부과',
+            '테헤란로 주변 스킨부스터', '엑소좀 종류별 비교']
+→ id=633 tenant=9 keyword='tca cross' (naver_impressions=137) published
+```
+드레인 대상 5개가 DB 로 뽑은 목록과 정확히 일치했고, 노출 최대 키워드를 집었다.
+미커버 수요 키워드 14 → 13.
+
+## 3. 🔴 `self_tenants=[]` — 리브랜드가 자사 판정을 깨뜨렸다
+
+같은 로그에서 발견:
+```
+scheduler.rotation_selected  self_tenants=[]  partner_tenants=[12, 20, 15, ...]
+```
+`is_self` 판정이 `ps == "medimap-self"` 였는데, **메디맵→위서클 리브랜드 때 자사
+tenant 의 partner_slug 가 `wecircle-self` 로 바뀌었고 이 검사는 갱신되지 않았다.**
+
+→ 자사(12 위서클)가 파트너로 분류돼 **"self 1곳 + partner N곳" 보장이 통째로 무력화**.
+그날 위서클이 발행된 건 `last_run_at` 이 가장 오래돼 우연히 파트너 배치 맨 앞이었기
+때문이지 설계가 아니다. 파트너가 늘면 자사는 조용히 굶는다.
+
+수정: `bm == "self" or ps == "self" or ps.endswith("-self")` — 접미사 판정이라
+다음 리브랜드에도 안 깨진다.
+
+**교훈: 리브랜드/이름 변경은 문자열 상수 비교를 조용히 죽인다.**
+`== "특정slug"` 같은 하드코딩 비교는 grep 으로 전수 점검할 것.
+(Round 180c 의 "자사 판정에 substring 금지"와 같은 계열 — 그땐 너무 넓어서,
+이번엔 너무 좁아서 틀렸다.)
+
+## 4. 🔴 워크플로가 배포 훅을 2번 더 쏘고 있었다 (+ ADMIN 훅 오배선)
+
+같은 배치에서 medimap-blog 배포가 **3건** 생성됐다. 훅 이름으로 추적하니:
+
+| 훅 | 출처 | 건수 |
+|---|---|---|
+| `supabase-publish` | DB 트리거 (Round 186 디바운스) | 1 ← 5→1 로 접힌 결과 |
+| `blog` | 워크플로 `VERCEL_DEPLOY_HOOK_BLOG` | 1 |
+| `auto-publish-cron` | 워크플로 `VERCEL_DEPLOY_HOOK_ADMIN` | 1 |
+
+**⚠ `VERCEL_DEPLOY_HOOK_ADMIN` 은 이름과 달리 geo-v2 가 아니라 `medimap-blog` 를
+가리키고 있었다**(훅 소유 프로젝트로 확인). 즉 같은 사이트를 두 번 더 빌드한다.
+
+공개 라우트가 전부 ISR 이라 재빌드는 콘텐츠 노출에 필요하지 않고, 오히려 ISR 캐시를
+통째로 무효화해 콜드 렌더를 만든다(Round 186). Hobby 빌드 동시성 1 이라 긴급 수정도
+이 뒤에 밀린다.
+
+→ 발행 워크플로 3개(auto-publish · auto-publish-overseas · daily-brighteye-all-langs)
+에서 배포 훅 스텝 **6개를 전부 제거**. 재빌드는 DB 트리거 하나가 담당한다 —
+그쪽이 더 일반적이다(어드민 즉시발행·백필 등 모든 발행 경로를 덮는다).
+
+**예상 효과: 배치당 배포 3건 → 1건.** (다음 배치에서 실측 필요)
+
+## 5. 남은 것
+
+- 배포 3→1 실측 (다음 배치)
+- `VERCEL_DEPLOY_HOOK_ADMIN` 시크릿 자체가 오배선 — geo-v2 를 가리키도록 고치거나
+  쓰지 않을 거면 시크릿을 지울 것 (지금은 워크플로에서 호출하지 않으므로 무해)
+- pg_cron `publish-watchdog` 스케줄 등록 (CRON_SECRET 필요 — 사용자 실행)
+- Round 183 4주 뒤 클릭 재측정

@@ -98,29 +98,18 @@ jobs:
 
       # 2026-05-29 Round 24: 두 사이트(medimap-blog + medimap-blog-v2) 모두 redeploy.
       # 60s module-level cache 무효화 + 새 글 즉시 라이브 노출.
-      - name: Trigger Vercel deploy hook — medimap-blog (자사+파트너 노출)
-        if: success() && env.VERCEL_DEPLOY_HOOK_BLOG != ''
-        env:
-          VERCEL_DEPLOY_HOOK_BLOG: ${{ secrets.VERCEL_DEPLOY_HOOK_BLOG }}
-        run: |
-          echo "Triggering medimap-blog redeploy..."
-          curl -sS -X POST "$VERCEL_DEPLOY_HOOK_BLOG" || true
-          echo ""
 
-      - name: Trigger Vercel deploy hook — geo-v2 (어드민 콘솔)
-        if: success() && env.VERCEL_DEPLOY_HOOK_ADMIN != ''
-        env:
-          VERCEL_DEPLOY_HOOK_ADMIN: ${{ secrets.VERCEL_DEPLOY_HOOK_ADMIN }}
-        run: |
-          echo "Triggering geo-v2 (admin) redeploy..."
-          curl -sS -X POST "$VERCEL_DEPLOY_HOOK_ADMIN" || true
-          echo ""
-
-      # 하위 호환 — 기존 단일 VERCEL_DEPLOY_HOOK secret 도 지원
-      - name: Trigger Vercel deploy hook — legacy single
-        if: success() && env.VERCEL_DEPLOY_HOOK != '' && env.VERCEL_DEPLOY_HOOK_BLOG == ''
-        env:
-          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
-        run: |
-          echo "Triggering legacy single deploy hook..."
-          curl -sS -X POST "$VERCEL_DEPLOY_HOOK" || true
+      # 🔴 Round 189 (2026-09-02) — 워크플로 배포 훅 제거.
+      #   재빌드는 Supabase DB 트리거(trg_fire_vercel_on_publish, 30분 디바운스)가
+      #   이미 담당한다. 그쪽이 더 일반적이다 — 이 워크플로뿐 아니라 어드민
+      #   즉시발행·백필 등 **모든 발행 경로**를 덮는다.
+      #   실측(2026-09-02 08:21~08:33 런): 발행 5편에 배포 3건이 생성됐는데
+      #     supabase-publish(DB 트리거) 1건  ← 디바운스가 5→1 로 접은 결과
+      #     blog(VERCEL_DEPLOY_HOOK_BLOG)  1건 ← 여기서 쏜 것
+      #     auto-publish-cron(VERCEL_DEPLOY_HOOK_ADMIN) 1건 ← 여기서 쏜 것
+      #   ⚠ 게다가 ADMIN 훅은 이름과 달리 geo-v2 가 아니라 **medimap-blog** 를
+      #     가리키고 있었다(훅 소유 프로젝트로 확인). 즉 같은 사이트를 두 번 더 빌드.
+      #   공개 라우트가 전부 ISR(60초/3600초)이라 재빌드 자체가 콘텐츠 노출에
+      #   필요하지 않고, 배포는 오히려 ISR 캐시를 통째로 무효화해 콜드 렌더를 만든다
+      #   (Round 186). Hobby 빌드 동시성 1 이라 긴급 수정도 이 뒤에 밀린다.
+      #   → 배포 훅을 여기서 쏘지 않는다. DB 트리거를 끄게 되면 그때 되살릴 것.
