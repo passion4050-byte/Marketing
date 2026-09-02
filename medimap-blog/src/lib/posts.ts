@@ -239,9 +239,22 @@ interface DbPostRow {
   former_slug: string | null;
 }
 
+/**
+ * 🔴 Round 184 (2026-09-02) — 목록 쿼리는 본문을 앞 1,500자만 가져온다.
+ *
+ *   `DB_SELECT` 는 목록 쿼리 **두 곳**(getDbPostRows LIMIT 500 ·
+ *   getMarketingDbRows LIMIT 200)에서만 쓰인다. 상세는 getDbPostRowBySlug 가
+ *   별도 SQL 로 전체 본문을 가져오므로 영향이 없다.
+ *   실측(2026-09-02): 발행 437편 본문 합계 **7.4MB**(평균 17KB). 이걸 sitemap·
+ *   rss·/all·getAllPostSlugs 가 매 콜드 요청마다 전송하고 있었다.
+ *   본문이 목록에 필요한 이유는 dbRowToPostMeta 의 제목/설명 폴백뿐인데
+ *   (extractTitleFromBody · extractDescriptionFromBody — 둘 다 본문 머리만 본다),
+ *   `left(body,1500)` 은 태그 제거 후에도 최소 257자가 남아 미달 행이 0건이다.
+ *   ⚠ 전체 본문이 필요한 코드를 여기에 붙이지 말 것. 그건 by-slug 쿼리의 일이다.
+ */
 const DB_SELECT = `
   gc.id, gc.tenant_id, t.name AS tenant_name, t.partner_slug,
-  gc.channel, gc.keyword_text, gc.body,
+  gc.channel, gc.keyword_text, left(gc.body, 1500) AS body,
   gc.compliance_status, gc.status,
   gc.slug, gc.title, gc.excerpt, gc.blog_category,
   gc.published_at,

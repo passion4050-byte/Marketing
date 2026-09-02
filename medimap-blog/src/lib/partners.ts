@@ -121,6 +121,12 @@ export interface PartnerPost {
   former_slug?: string | null;
 }
 
+/**
+ * Round 184 — 목록·카드·사이트맵용. 본문이 **없다**(잘린 본문도 노출하지 않는다).
+ * 본문이 필요한 곳은 상세 페이지와 RSS 뿐이며 그쪽은 `PartnerPost` 를 쓴다.
+ */
+export type PartnerPostMeta = Omit<PartnerPost, "body">;
+
 interface PartnerPostRow {
   id: number;
   tenant_id: number;
@@ -144,6 +150,35 @@ const POST_SELECT = `
   gc.id, gc.tenant_id, t.name AS tenant_name,
   t.partner_slug, gc.partner_category,
   gc.slug, gc.title, gc.excerpt, gc.body, gc.keyword_text,
+  gc.published_at, gc.created_at,
+  gc.cover_image_url, gc.cover_image_alt,
+  gc.noindex,
+  gc.former_slug
+`;
+
+/**
+ * 🔴 Round 184 (2026-09-02) — 목록용 SELECT: 본문을 앞 1,500자만 가져온다.
+ *
+ *   `/blog/[slug]` 콜드 렌더가 관련 파트너 카드 6장을 그리려고 `getAllPartnerPosts()`
+ *   (LIMIT 500, `gc.body` 전체)를 호출하고 있었다. 실측(2026-09-02): 발행 437편의
+ *   본문 합계 **7.4MB**(평균 17KB·최대 48KB). Vercel Hobby 함수 시간 안에서
+ *   콜드 스타트 + 7.4MB 전송 + MDX 컴파일이 겹치면 그대로 504
+ *   FUNCTION_INVOCATION_TIMEOUT — Round 181 이 "재현/원인 미확정"으로 남긴 그 증상이다.
+ *
+ *   본문이 목록에 필요한 이유는 단 하나, excerpt 폴백이다(발행 437편 중 **297편이
+ *   excerpt 없음** — 68%). 그래서 지우지 않고 자른다.
+ *   실측 근거: `left(body,1500)` 을 태그 제거하면 최소 257자가 남아
+ *   `.slice(0,180)` 에 미달하는 행이 **0건**이다. 여유는 충분하다.
+ *   → 전송량 7.4MB → 약 655KB (11배 감소).
+ *
+ *   ⚠ 이 SELECT 로 만든 객체는 `PartnerPostMeta`(body 없음)로만 내보낸다.
+ *     같은 `PartnerPost` 타입으로 돌려주면 누군가 잘린 본문을 상세 페이지에
+ *     그대로 렌더한다 — 타입으로 막는다.
+ */
+const POST_SELECT_META = `
+  gc.id, gc.tenant_id, t.name AS tenant_name,
+  t.partner_slug, gc.partner_category,
+  gc.slug, gc.title, gc.excerpt, left(gc.body, 1500) AS body, gc.keyword_text,
   gc.published_at, gc.created_at,
   gc.cover_image_url, gc.cover_image_alt,
   gc.noindex,
@@ -226,6 +261,58 @@ function isCacheFresh(ts: number): boolean {
  *   - 실패 시:  throw → Next.js ISR 캐시 안 함 → 다음 요청 재시도.
  *   - getSql() null (env 미설정): warn + 빈 배열 (cache 안 함 — 다음 호출에 재시도).
  */
+let _allPostMetasCache: { data: PartnerPostMeta[]; ts: number } | null = null;
+
+/**
+ * Round 184 — 목록용 파트너 글 (본문 제외). 전체 본문 쿼리와 **캐시를 분리**한다.
+ * 한 캐시를 공유하면 목록이 먼저 채운 잘린 본문을 상세 페이지가 집어간다.
+ */
+export async function getAllPartnerPostMetas(): Promise<PartnerPostMeta[]> {
+  if (_allPostMetasCache && isCacheFresh(_allPostMetasCache.ts)) {
+    return _allPostMetasCache.data;
+  }
+
+  const sql = getSql();
+  if (!sql) {
+    console.warn("[partners] getSql() returned null — env not configured?");
+    return [];
+  }
+
+  const queryPromise = sql.unsafe<PartnerPostRow[]>(`
+    SELECT ${POST_SELECT_META}
+    FROM generated_contents gc
+    LEFT JOIN tenants t ON t.id = gc.tenant_id
+    WHERE ${POST_FILTER}
+    ORDER BY COALESCE(gc.published_at, gc.created_at) DESC
+    LIMIT 500
+  `);
+
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(
+      () => reject(new Error(`[partners] meta query timeout (${QUERY_TIMEOUT_MS}ms)`)),
+      QUERY_TIMEOUT_MS,
+    ),
+  );
+
+  try {
+    const rows = await Promise.race([queryPromise, timeoutPromise]);
+    const metas = rows
+      .map(rowToPost)
+      .filter((p): p is PartnerPost => p !== null)
+      // 잘린 본문은 여기서 버린다. excerpt 는 이미 rowToPost 안에서 뽑혔다.
+      .map(({ body: _body, ...meta }) => meta);
+    _allPostMetasCache = { data: metas, ts: Date.now() };
+    console.log(
+      `[partners] fetched ${rows.length} partner post metas (body-less, cached for ${ALL_POSTS_CACHE_TTL_MS / 1000}s)`,
+    );
+    return metas;
+  } catch (err) {
+    console.error("[partners] getAllPartnerPostMetas query failed:", err);
+    // 전체 본문 경로와 동일 정책 — throw 해야 ISR 이 실패 결과를 캐시하지 않는다.
+    throw err;
+  }
+}
+
 export async function getAllPartnerPosts(): Promise<PartnerPost[]> {
   if (_allPostsCache && isCacheFresh(_allPostsCache.ts)) {
     return _allPostsCache.data;

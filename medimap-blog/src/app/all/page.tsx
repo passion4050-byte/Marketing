@@ -29,9 +29,9 @@ import { JsonLd } from "@/components/JsonLd";
 import { breadcrumbLd } from "@/lib/schema";
 import { getAllPostsIncludingLegacy } from "@/lib/posts";
 import {
-  getAllPartnerPosts,
+  getAllPartnerPostMetas,
   PARTNER_CATEGORIES,
-  type PartnerPost,
+  type PartnerPostMeta,
 } from "@/lib/partners";
 
 // 1h - matches sitemap.ts. Publishing is daily, so hourly freshness is plenty and
@@ -64,7 +64,7 @@ function fmt(d: string | undefined): string {
 export default async function AllContentPage() {
   const [posts, partnerPosts] = await Promise.all([
     getAllPostsIncludingLegacy().catch(() => []),
-    getAllPartnerPosts().catch((): PartnerPost[] => []),
+    getAllPartnerPostMetas().catch((): PartnerPostMeta[] => []),
   ]);
 
   // Round 173 - skip noindex-flagged posts and /blog URLs that only 308-redirect
@@ -78,7 +78,7 @@ export default async function AllContentPage() {
   );
 
   // category -> partner -> posts, ordered newest first inside each partner.
-  const byCategory = new Map<string, Map<string, PartnerPost[]>>();
+  const byCategory = new Map<string, Map<string, PartnerPostMeta[]>>();
   for (const p of partnerPosts) {
     if (p.noindex) continue;
     if (!byCategory.has(p.partner_category)) byCategory.set(p.partner_category, new Map());

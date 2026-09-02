@@ -1,9 +1,9 @@
 import type { MetadataRoute } from "next";
 import { getAllPostsIncludingLegacy as getAllPosts } from "@/lib/posts";
 import {
-  getAllPartnerPosts,
+  getAllPartnerPostMetas,
   PARTNER_CATEGORY_SLUGS,
-  type PartnerPost,
+  type PartnerPostMeta,
 } from "@/lib/partners";
 import { absoluteUrl } from "@/lib/site";
 import { getOverseasCards } from "@/lib/guides";
@@ -18,11 +18,11 @@ import { OVERSEAS_BLOG_CATEGORIES } from "@/lib/overseasBlog";
 //   더 오래 서빙해 페치 신뢰도↑. 발행은 일 단위라 1시간 신선도면 충분.
 export const revalidate = 3600;
 
-async function safeGetPartnerPosts(): Promise<PartnerPost[]> {
+async function safeGetPartnerPosts(): Promise<PartnerPostMeta[]> {
   try {
-    return await getAllPartnerPosts();
+    return await getAllPartnerPostMetas();
   } catch (err) {
-    console.error("[sitemap] getAllPartnerPosts failed, omitting partner URLs:", err);
+    console.error("[sitemap] getAllPartnerPostMetas failed, omitting partner URLs:", err);
     return [];
   }
 }

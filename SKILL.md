@@ -7011,3 +7011,76 @@ t4·t16 은 지금 A/B 실험이 돌고 있어 실험 드레인이 먼저 잡는
   비로소 특정된다. **Round 181 의 오진이 정확히 이 데이터 공백에서 나왔다.**
 - 발행 후 실측: 4주 뒤 리포트를 다시 임포트해 드레인 대상 키워드의 클릭이 실제로
   올랐는지 확인. 안 오르면 가설(글이 없어서 클릭이 없었다)이 틀린 것이다.
+
+
+# Round 184 (2026-09-02) — 🔴🔴 `/blog/[slug]` 콜드 렌더 60~120초. 한글 슬러그 문제가 아니었다
+
+Round 181 이 「`/blog/{한글슬러그}` 콜드 렌더 **504** 간헐 발생 — 재현/원인 미확정」으로
+남긴 항목. 실측해 보니 **한글과 아무 상관이 없었다.**
+
+## 1. 실측 (수정 전, 2026-09-02 라이브)
+
+```
+/blog/의료-AI-마케팅-도구-501            40초 초과 → curl 타임아웃
+/blog/통증재활-후기-473                  40초 초과 → curl 타임아웃
+/blog/seoul-wecircle-medical-marketing-future   61.7초 → 200   ← ASCII 슬러그도 똑같다
+/blog/gangnam-sports-rehab-cost-recovery-kwangdong  120초 초과
+/blog/통증재활-후기-473 (재요청)          0.166초 → 200        ← 한 번 데워지면 즉시
+/  · /with-partners                       0.3~0.5초 (캐시됨)
+```
+
+**결론: 슬러그 문자셋과 무관하다. `/blog/[slug]` 는 ISR 캐시 미스면 전부 60초를 넘는다.**
+Vercel 함수 시간 제한에 걸린 일부가 504 로 보였을 뿐이라 "간헐적"으로 보였고,
+한 번 warm 되면 0.16초라 재현이 안 됐던 것이다.
+**"간헐적"은 대부분 캐시 상태의 다른 이름이다 — 재현 안 되면 캐시부터 의심할 것.**
+
+## 2. 원인 — 카드 6장 그리려고 본문 7.4MB
+
+`/blog/[slug]` 는 하단 「관련 파트너 콘텐츠」 카드 **6장**을 뽑으려고
+`getAllPartnerPosts()`(LIMIT 500, `gc.body` 전체)를 호출한다.
+
+```sql
+-- 실측 2026-09-02
+발행 437편 본문 합계 7,441 kB · 평균 17,436자 · 최대 48,471자
+```
+
+`posts.ts` 의 `DB_SELECT` 도 같은 병이었다 — 목록 쿼리 2곳(LIMIT 500 / 200)이
+`gc.body` 를 통째로 싣고, 그걸 **sitemap · rss · /all · 홈 · getAllPostSlugs** 가 쓴다.
+홈은 파트너 글의 **개수와 커버 이미지**만 쓰는데 7.4MB 를 받고 있었다.
+
+게다가 두 조회가 **직렬**이었다(`await getAllPosts()` … 30줄 뒤 `await getAllPartnerPosts()`).
+
+## 3. 수정
+
+| 지점 | 전 | 후 |
+|---|---|---|
+| `partners.ts` | `POST_SELECT` (본문 전체) 하나 | `POST_SELECT_META` = `left(gc.body,1500)` 추가, **캐시 분리** |
+| 타입 | 전부 `PartnerPost` | 목록은 `PartnerPostMeta = Omit<PartnerPost,"body">` |
+| `posts.ts` | `DB_SELECT` 에 `gc.body` | `left(gc.body, 1500) AS body` (목록 2곳 전용) |
+| `/blog/[slug]` | 직렬 2회 조회 | `Promise.all` + 메타 조회 |
+| 홈·`/all`·`/with-partners`·sitemap | 본문 포함 | 메타 |
+
+**본문을 지우지 않고 자른 이유:** 목록에서 본문이 필요한 곳은 excerpt·제목 폴백뿐인데,
+발행 437편 중 **297편(68%)이 excerpt 가 비어 있다.** 지우면 그 68%의 카드 설명이 죽는다.
+`left(body,1500)` 은 태그 제거 후에도 **최소 257자**가 남아 `.slice(0,180)` 미달 행이
+**0건**이다(실측). → 7.4MB → 약 655KB.
+
+**🔴 잘린 본문은 타입으로 막았다.** 같은 `PartnerPost` 로 돌려주면 누군가 상세 페이지에
+잘린 본문을 렌더한다. `Omit<..., "body">` 로 컴파일 단계에서 불가능하게 만들었다.
+캐시도 분리했다 — 하나를 공유하면 목록이 먼저 채운 잘린 본문을 상세가 집어간다.
+
+## 4. 게이트
+
+`medimap-blog` 에는 `scripts/build-gate.sh` 가 없다(v2 에만 있다). 이번엔:
+`npm install` → `npx tsc --noEmit` (0 errors) → `npx next build` (exit 0, 73 페이지 생성).
+**esbuild 만으로는 절대 부족하다** — `PartnerPost` → `PartnerPostMeta` 교체는 순수 타입
+변경이라 esbuild 는 전부 통과시킨다.
+
+## 5. 남은 것
+
+- **배포 후 콜드 렌더 재측정 필수.** 61초가 몇 초로 떨어졌는지 실측 전엔 "고쳤다" 금지.
+  7.4MB 가 병목의 전부가 아닐 수 있다(Supabase 콜드 커넥션·mdx fs 읽기 잔존).
+- `/blog/[slug]` 의 `relatedPartnerPosts` 가 `.sort(() => Math.random() - 0.5)` 를 쓴다.
+  ISR 캐시된 서버 렌더라 **"매번 다른 4편"이 실제로는 동작하지 않는다** — 캐시 수명 동안
+  한 순서로 굳는다. 별도 라운드로 정리할 것(504 와 무관).
+- `rss.xml` 은 여전히 500편 본문 전체를 싣는다(전문 피드 의도). 크롤러 전용이라 남겨뒀다.

@@ -5,7 +5,7 @@ import { ArticleCard } from "@/components/ArticleCard";
 import { JsonLd } from "@/components/JsonLd";
 import { organizationLd, websiteLd } from "@/lib/schema";
 import { getAllPosts } from "@/lib/posts";
-import { getAllPartnerPosts } from "@/lib/partners";
+import { getAllPartnerPostMetas } from "@/lib/partners";
 import { kakaoTrackHrefSelf } from "@/lib/ctaLink";
 
 // Round 111 v3 (2026-07-02) — Editorial home. Off-white magazine cover style.
@@ -18,7 +18,11 @@ const CATEGORY_OVERLINE: Record<string, string> = {
 };
 
 export default async function HomePage() {
-  const [blogPosts, partnerPosts] = await Promise.all([getAllPosts(), getAllPartnerPosts()]);
+  // Round 184 — 홈은 파트너 글의 개수와 커버 이미지만 쓴다. 본문 7.4MB 불필요.
+  const [blogPosts, partnerPosts] = await Promise.all([
+    getAllPosts(),
+    getAllPartnerPostMetas(),
+  ]);
   const featured = blogPosts.find((p) => p.featured) ?? blogPosts[0];
   // Round 145c (감사 #13) — 홈 최신 목록 주제 중복 제거: 같은 주제(제목 앞 12자) 글이
   //   같은 날 여러 편 발행돼 나란히 노출되면 자동생성 티가 남 → distinct topic 만.

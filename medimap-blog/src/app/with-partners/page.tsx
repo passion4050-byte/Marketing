@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowUpRight } from "lucide-react";
-import { PARTNER_CATEGORIES, getAllPartnerPosts } from "@/lib/partners";
+import { PARTNER_CATEGORIES, getAllPartnerPostMetas } from "@/lib/partners";
 import { siteConfig, absoluteUrl } from "@/lib/site";
 import { kakaoTrackHrefSelf } from "@/lib/ctaLink";
 
@@ -35,7 +35,7 @@ const CATEGORY_COPY: Record<string, { subtitle: string; overline: string }> = {
 };
 
 export default async function WithPartnersHubPage() {
-  const all = await getAllPartnerPosts();
+  const all = await getAllPartnerPostMetas();
 
   const countByCategory = new Map<string, number>();
   const coverByCategory = new Map<string, string | null>();

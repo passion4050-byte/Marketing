@@ -12,7 +12,7 @@ import { CTABlock } from "@/components/CTABlock";
 import { FAQAccordion } from "@/components/FAQAccordion";
 import { JsonLd } from "@/components/JsonLd";
 import { RelatedPosts } from "@/components/RelatedPosts";
-import { PARTNER_CATEGORIES, getAllPartnerPosts } from "@/lib/partners";
+import { PARTNER_CATEGORIES, getAllPartnerPostMetas } from "@/lib/partners";
 
 // Defer client-only widgets until after hydration so they don't compete with
 // the LCP element (the article hero <p>) for main-thread time.
@@ -132,7 +132,14 @@ export default async function BlogPostPage({
   //   permanentRedirect() throws, so it must run before any rendering work.
   if (post.canonicalPath) permanentRedirect(post.canonicalPath);
 
-  const allPosts = await getAllPosts();
+  // Round 184 — 두 목록 조회를 병렬로. 예전엔 getAllPosts() 를 await 한 뒤
+  //   한참 아래에서 getAllPartnerPosts() 를 또 await 해 왕복이 직렬로 쌓였다.
+  //   콜드 렌더 실측(2026-09-02, 수정 전): ASCII 슬러그 61.7초 / 다른 글은
+  //   120초 초과 — 한글 슬러그 문제가 아니라 **캐시 미스면 다 느렸다**.
+  const [allPosts, allPartnerPosts] = await Promise.all([
+    getAllPosts(),
+    getAllPartnerPostMetas().catch(() => []),
+  ]);
   const minutes = post.readingMinutes;
 
   // Round 109-B (2026-07-03) — 자사 blog 카테고리 → 파트너 카테고리 자동 매핑.
@@ -160,7 +167,8 @@ export default async function BlogPostPage({
   const blogCat = (post.blogCategory || post.category || "").trim();
   const targetPartnerCats = _blogToPartnerCategoryMap[blogCat] || ["eyeclinic", "derma"];
 
-  const allPartnerPosts = await getAllPartnerPosts().catch(() => []);
+  // Round 184 — 관련 카드 6장을 그리려고 본문 7.4MB 를 끌어오던 자리.
+  //   메타만 받는다(본문 없음). 조회는 위에서 병렬로 끝냈다.
   const relatedPartnerPosts = allPartnerPosts
     .filter((p) => targetPartnerCats.includes(p.partner_category))
     .sort(() => Math.random() - 0.5) // 매번 다른 4편 노출 (다양성)
