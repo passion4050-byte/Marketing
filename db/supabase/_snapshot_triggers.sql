@@ -243,3 +243,22 @@ $function$;
 CREATE TRIGGER trg_medimap_inquiries_updated
   BEFORE UPDATE ON public.medimap_inquiries
   FOR EACH ROW EXECUTE FUNCTION medimap_inquiries_set_updated_at();
+
+
+-- =====================================================================
+-- pg_cron 잡 (Round 191, 2026-09-03 추출)
+--
+-- 🔴 트리거와 **정확히 같은 이유로** 여기 적는다: cron 잡도 리포 grep 에 0건이다.
+--    "무엇이 자동으로 돌고 있는지" 를 코드 리뷰에서 보려면 트리거만으로는 부족하다.
+--
+--   확인 한 줄:  SELECT jobid, jobname, schedule, command, active FROM cron.job;
+--
+--  jobid | jobname          | schedule    | command
+--  ------+------------------+-------------+-------------------------------------------------
+--    1   | publish-watchdog | 0 2,9 * * * | SELECT public.fire_cron_endpoint('publish-watchdog')
+--
+--  · 정본: round191_cron_endpoints.sql
+--  · 호출 대상 URL·시크릿은 명령문이 아니라 public.cron_endpoints 행에 있다
+--  · 상태 점검:  SELECT * FROM public.cron_endpoint_health;
+--                (last_status_code 200 = 정상, 401 = 시크릿 미주입/불일치)
+-- =====================================================================

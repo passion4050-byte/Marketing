@@ -7613,11 +7613,51 @@ DB 만 봐도 이상해 보이지 않는다. 유효 가동률로 치면 6런 중
 Round 188 감시자의 `STALE_HOURS=26` 기본값이 성립하는 근거는 오직 *해외 발행이
 매일 06:00 UTC 에 돈다*는 것 하나뿐인데, §2 에서 봤듯 그게 33% 확률로 잘린다.
 
-## 5. 남은 것
+## 5. ✅ 감시자 pg_cron 등록 — 배선을 바꿔서 끝냈다
 
-- **감시자 pg_cron 등록이 아직 안 됐다** — `SELECT * FROM cron.job` 가 **비어 있다**(실측).
-  Round 188 SQL 은 준비돼 있고 확장도 켜져 있다. `CRON_SECRET` 이 필요해
-  사용자 실행 대기 중. 이게 등록될 때까지 §2 같은 문제는 또 우연히 발견된다
+작업 시작 시 `SELECT * FROM cron.job` 는 **비어 있었다.** Round 188 은 코드도 배포도
+끝나 있었는데 **한 달 가까이 한 번도 돌지 못한 상태**였다.
+
+🔴 막힌 이유가 로직이 아니었다는 게 요점이다. Round 188 SQL 은 `cron.schedule` **명령문
+안에** URL+시크릿을 박는 형태였고, 그래서
+  - public 리포라 정본을 커밋할 수 없었다 → "사용자가 `<<WATCHDOG_URL>>` 을 손으로
+    치환해서 실행" 이라는 숙제가 됐고, 그대로 방치됐다
+  - `cron.job.command` 에 시크릿이 평문으로 남는다
+
+**배선을 `deploy_hooks` 와 같은 패턴으로 바꿨다** — 값은 테이블 행에, cron 은 함수만 호출:
+
+```
+public.cron_endpoints (id, url, secret, enabled, last_fired_at, last_request_id)
+   ↑ RLS 켜고 정책 0개 = anon/authenticated 전면 차단 (deploy_hooks 와 동일)
+public.fire_cron_endpoint(p_id)   -- SECURITY DEFINER, PUBLIC/anon/authenticated EXECUTE 회수
+public.cron_endpoint_health       -- 점검 뷰. url·secret 값은 안 보여주고 설정 여부만
+cron.job  jobid=1  '0 2,9 * * *'  SELECT public.fire_cron_endpoint('publish-watchdog')
+```
+
+- 시크릿은 `?cronSecret=` 쿼리가 아니라 **`x-cron-secret` 헤더**로 보낸다
+  (쿼리는 프록시·액세스 로그에 남는다 — Round 190 계열 규칙)
+- pg_net 은 비동기라 `last_request_id` 를 남긴다. 안 남기면 **발사 여부만 알고
+  성공 여부는 모른다** — Round 187 의 "아무도 모른다" 를 그대로 재현하게 된다
+
+**시크릿 없이 배선을 실측했다** (2026-09-03 03:11 UTC):
+```
+SELECT * FROM public.cron_endpoint_health;
+ enabled=true  secret_set=false
+ last_status_code=401  last_response={"ok":false,"error":"unauthorized"}
+```
+401 은 **DB → pg_net → geo.wecircle.co.kr → 라우트 핸들러** 가 끝까지 살아 있다는 증거다
+(404 였다면 라우트 문제, 타임아웃이었다면 네트워크 문제). 남은 건 시크릿 한 줄뿐.
+
+**교훈: 막힌 일이 "사용자 숙제" 로 한 달 남아 있으면 숙제의 난이도를 의심할 것.**
+Round 188 은 로직을 다 짜고 마지막 배선만 사람에게 넘겼는데, 그 배선이 하필
+"시크릿을 커밋할 수 없다" 는 제약과 정면충돌해 실행 불가능한 숙제가 돼 있었다.
+남길 숙제는 **UPDATE 한 줄**까지 줄여야 실제로 실행된다.
+
+## 6. 남은 것
+
+- 🔴 **사용자 작업 1건**: `UPDATE public.cron_endpoints SET secret='<geo-v2 CRON_SECRET>'
+  WHERE id='publish-watchdog';` → 그 뒤 `SELECT * FROM public.cron_endpoint_health;`
+  의 `last_status_code` 가 200 이면 감시자 가동 완료
 - `VERCEL_DEPLOY_HOOK_ADMIN` 시크릿 자체를 geo-v2 로 고치거나 삭제 (지금은 호출처 0)
 - 해외 배치가 60분 안에 끝나는지 다음 런에서 실측 (09-03 06:00 UTC 슬롯)
 - Round 183 4주 뒤 클릭 재측정
