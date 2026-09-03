@@ -104,19 +104,16 @@ jobs:
           IMAGE_GEN_ENABLED: 'true'
           IMAGE_PROVIDER: nano_banana
         run: python scripts/backfill_drafts_cover.py || true
-      # Step 3: Vercel 재배포 (신규 콘텐츠 즉시 라이브)
-      - name: Step 3 — Trigger Vercel redeploy
-        if: success()
-        env:
-          VERCEL_DEPLOY_HOOK_BLOG: ${{ secrets.VERCEL_DEPLOY_HOOK_BLOG }}
-          VERCEL_DEPLOY_HOOK_ADMIN: ${{ secrets.VERCEL_DEPLOY_HOOK_ADMIN }}
-        run: |
-          if [ -n "$VERCEL_DEPLOY_HOOK_BLOG" ]; then
-            echo "Triggering medimap-blog redeploy..."
-            curl -sS -X POST "$VERCEL_DEPLOY_HOOK_BLOG" || true
-          fi
-          if [ -n "$VERCEL_DEPLOY_HOOK_ADMIN" ]; then
-            echo "Triggering geo-v2 (admin) redeploy..."
-            curl -sS -X POST "$VERCEL_DEPLOY_HOOK_ADMIN" || true
-          fi
-          echo "✅ 학습 → 발행 → 배포 완료"
+      # 🔴 Round 191 (2026-09-03) — Step 3(배포 훅) 제거. Round 189 가 발행
+      #   워크플로 3개에서 뺀 것과 같은 이유인데, **매일 도는 이 워크플로가
+      #   빠져 있었다.**
+      #   실측(2026-09-02): 이 런이 12:25→12:48 에 돌면서 12:48:18 에
+      #   medimap-blog 배포를 하나 더 만들었다(훅 이름 `auto-publish-cron`
+      #   = VERCEL_DEPLOY_HOOK_ADMIN). ⚠ ADMIN 훅은 이름과 달리 geo-v2 가
+      #   아니라 medimap-blog 를 가리킨다 — 즉 위 BLOG 훅과 **같은 사이트**다.
+      #   · 발행(status 변경)은 DB 트리거 trg_fire_vercel_on_publish 가 이미
+      #     덮는다(BEFORE INSERT OR UPDATE OF status, 30분 디바운스).
+      #   · 이 워크플로의 나머지 작업(learned_insights 기록, 커버 이미지 백필)은
+      #     status 를 바꾸지 않으므로 트리거 대상이 아니고, 공개 라우트가 전부
+      #     ISR 이라 재빌드 없이도 revalidate 창 안에 반영된다.
+      #   · 배포는 오히려 ISR 캐시를 통째로 무효화해 콜드 렌더를 만든다(Round 186).

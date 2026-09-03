@@ -62,17 +62,15 @@ jobs:
 
       # Round 26 fix 4: errors > 0 (exit code 2) 이어도 부분 성공한 결과를
       # 즉시 라이브 반영. !cancelled() = workflow 가 강제 취소 안 됐을 때 항상 실행.
+      # 🔴 Round 191 (2026-09-03) — VERCEL_DEPLOY_HOOK_ADMIN 호출 제거.
+      #   이름과 달리 geo-v2 가 아니라 medimap-blog 를 가리킨다(Round 189).
+      #   바로 위 BLOG 훅과 같은 사이트라 순수 중복이었다.
       - name: Trigger Vercel redeploy
         if: ${{ !cancelled() }}
         env:
           VERCEL_DEPLOY_HOOK_BLOG: ${{ secrets.VERCEL_DEPLOY_HOOK_BLOG }}
-          VERCEL_DEPLOY_HOOK_ADMIN: ${{ secrets.VERCEL_DEPLOY_HOOK_ADMIN }}
         run: |
           if [ -n "$VERCEL_DEPLOY_HOOK_BLOG" ]; then
             echo "Triggering medimap-blog redeploy..."
             curl -sS -X POST "$VERCEL_DEPLOY_HOOK_BLOG" || true
-          fi
-          if [ -n "$VERCEL_DEPLOY_HOOK_ADMIN" ]; then
-            echo "Triggering geo-v2 redeploy..."
-            curl -sS -X POST "$VERCEL_DEPLOY_HOOK_ADMIN" || true
           fi

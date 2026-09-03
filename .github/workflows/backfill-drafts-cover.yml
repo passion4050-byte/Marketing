@@ -83,14 +83,16 @@ jobs:
           echo "Running: python scripts/backfill_drafts_cover.py $ARGS"
           python scripts/backfill_drafts_cover.py $ARGS
 
-      - name: Trigger Vercel deploy hooks (medimap-blog + geo-v2)
+      # 🔴 Round 191 (2026-09-03) — VERCEL_DEPLOY_HOOK_ADMIN 호출 제거.
+      #   이름은 geo-v2 인데 실제로는 **medimap-blog** 를 가리킨다(훅 소유
+      #   프로젝트로 확인, Round 189). 바로 위 BLOG 훅과 같은 사이트를 두 번
+      #   빌드하고 있었다 — 순수 중복이므로 뺀다.
+      #   BLOG 훅은 남긴다: 이 워크플로는 운영자가 손으로 돌리는 백필이고,
+      #   커버 이미지 갱신은 status 를 안 바꿔 DB 트리거 대상이 아니다.
+      - name: Trigger Vercel deploy hook (medimap-blog)
         if: success() && inputs.dry_run == false
         run: |
           if [ -n "${{ secrets.VERCEL_DEPLOY_HOOK_BLOG }}" ]; then
             curl -sS -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_BLOG }}" || true
             echo "medimap-blog deploy hook triggered"
-          fi
-          if [ -n "${{ secrets.VERCEL_DEPLOY_HOOK_ADMIN }}" ]; then
-            curl -sS -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_ADMIN }}" || true
-            echo "geo-v2 deploy hook triggered"
           fi
