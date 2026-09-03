@@ -1,5 +1,6 @@
 -- Round 191 (2026-09-03) — pg_cron 이 호출할 엔드포인트를 DB 행으로 둔다.
 -- ✅ 적용 완료 (2026-09-03, 마이그레이션 round191_cron_endpoints + round191_cron_endpoint_health).
+-- ✅ 가동 완료 (2026-09-03 07:19 UTC) — 시크릿 주입 후 last_status_code=200 실측. 남은 숙제 없음.
 --    이 파일은 정본/재적용용. 시크릿을 담지 않으므로 그대로 커밋해도 된다.
 --
 -- ## 왜 (🔴 이게 핵심)
@@ -122,15 +123,23 @@ SELECT cron.schedule(
 );
 
 -- ────────────────────────────────────────────────────────────────
--- 🔴 남은 사용자 작업 1건 — 시크릿 주입 (이것만 하면 감시자가 가동된다)
+-- ✅ 시크릿 주입 완료 — 감시자 가동 중. 재구축/타 프로젝트 이식 시에만 아래 한 줄이 필요하다.
 --
 --   UPDATE public.cron_endpoints
 --      SET secret = '<geo-v2 의 CRON_SECRET>', updated_at = now()
 --    WHERE id = 'publish-watchdog';
 --
 -- 확인:
---   SELECT public.fire_cron_endpoint('publish-watchdog');   -- 즉시 1회 발사
---   SELECT * FROM public.cron_endpoint_health;              -- last_status_code 가 200 이어야 정상
+--   SELECT public.fire_cron_endpoint('publish-watchdog');   -- RETURNS void → 결과 셀이 비는 게 정상
+--   SELECT * FROM public.cron_endpoint_health;              -- 성패는 여기서만 읽는다
 --
--- 2026-09-03 실측(시크릿 주입 전): last_status_code=401, last_response={"ok":false,"error":"unauthorized"}
---   → DB → pg_net → geo.wecircle.co.kr 경로 자체는 살아 있음이 증명됨. 남은 건 시크릿뿐.
+-- 🔴 fire_cron_endpoint 의 빈 결과를 실패로 읽지 말 것. void 함수이고, pg_net 은 비동기라
+--    발사 시점에는 응답이 존재하지도 않는다. 판정은 항상 cron_endpoint_health 로 한다.
+--
+-- 실측 이력 (2026-09-03):
+--   03:11 UTC 시크릿 주입 전 — secret_set=false, last_status_code=401 {"ok":false,"error":"unauthorized"}
+--     → DB → pg_net → geo.wecircle.co.kr 경로가 끝까지 살아 있음이 증명됨 (404·타임아웃이 아니었다)
+--   07:19 UTC 시크릿 주입 후 — secret_set=true, last_status_code=200
+--     {"ok":true,"alerted":false,"reason":"healthy","hours_since_last":18,"active_tenants":13,
+--      "thresholds":{"stale_hours":26,"tenant_stale_days":10}}
+--   cron.job jobid=1 'publish-watchdog' '0 2,9 * * *' active=true

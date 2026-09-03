@@ -7648,6 +7648,21 @@ SELECT * FROM public.cron_endpoint_health;
 401 은 **DB → pg_net → geo.wecircle.co.kr → 라우트 핸들러** 가 끝까지 살아 있다는 증거다
 (404 였다면 라우트 문제, 타임아웃이었다면 네트워크 문제). 남은 건 시크릿 한 줄뿐.
 
+**✅ 시크릿 주입 후 가동 확인** (2026-09-03 07:19 UTC):
+```
+ enabled=true  secret_set=true  last_status_code=200  last_error=null
+ {"ok":true,"alerted":false,"reason":"healthy",
+  "last_published_at":"2026-09-02T12:44:51Z","hours_since_last":18,
+  "active_tenants":13,"thresholds":{"stale_hours":26,"tenant_stale_days":10}}
+ cron.job jobid=1 'publish-watchdog' '0 2,9 * * *' active=true
+```
+Round 188 이 한 달 가까이 못 돌던 상태가 여기서 닫혔다. 11:00 / 18:00 KST 자동 발사 중.
+
+🔴 **`fire_cron_endpoint` 의 빈 결과를 실패로 읽지 말 것.** `RETURNS void` 라 결과 셀이
+비는 게 정상이고, pg_net 은 비동기라 발사 시점엔 응답이 **존재하지도 않는다**.
+성패 판정은 언제나 `cron_endpoint_health` 로 한다 — 발사 함수의 반환값으로 하지 않는다.
+(Round 187 의 "쐈는지 아무도 모른다" 를 반대 방향으로 재현하기 딱 좋은 지점이다.)
+
 **교훈: 막힌 일이 "사용자 숙제" 로 한 달 남아 있으면 숙제의 난이도를 의심할 것.**
 Round 188 은 로직을 다 짜고 마지막 배선만 사람에게 넘겼는데, 그 배선이 하필
 "시크릿을 커밋할 수 없다" 는 제약과 정면충돌해 실행 불가능한 숙제가 돼 있었다.
@@ -7655,9 +7670,7 @@ Round 188 은 로직을 다 짜고 마지막 배선만 사람에게 넘겼는데
 
 ## 6. 남은 것
 
-- 🔴 **사용자 작업 1건**: `UPDATE public.cron_endpoints SET secret='<geo-v2 CRON_SECRET>'
-  WHERE id='publish-watchdog';` → 그 뒤 `SELECT * FROM public.cron_endpoint_health;`
-  의 `last_status_code` 가 200 이면 감시자 가동 완료
+- ~~🔴 사용자 작업 1건: 시크릿 주입~~ → **✅ 완료 (09-03 07:19 UTC, 200 실측).** §5 참조
 - `VERCEL_DEPLOY_HOOK_ADMIN` 시크릿 자체를 geo-v2 로 고치거나 삭제 (지금은 호출처 0)
 - 해외 배치가 60분 안에 끝나는지 다음 런에서 실측 (09-03 06:00 UTC 슬롯)
 - Round 183 4주 뒤 클릭 재측정
