@@ -46,6 +46,11 @@ HTTP 요청이 성공했다는 뜻이 **아니다.** 그건 3단계에서만 알
 SELECT * FROM public.cron_endpoint_health;
 ```
 
+🔴 **Round 192 이후 이 뷰는 `net._http_response` 를 조인하지 않는다.** 예전 뷰는 조인했는데
+`pg_net.ttl=6h` 이고 발사 주기는 7h 라 **직전 결과를 구조적으로 100% 놓쳤다**(항상 NULL).
+지금은 `cron-endpoint-harvest` 잡이 15분마다 응답을 수확해 영속 컬럼에 넣는다.
+→ **1단계에서 `cron-endpoint-harvest` 잡도 같이 확인할 것.** 그게 죽으면 판정 수단이 죽는다.
+
 | 관측 | 판정 |
 |------|------|
 | `secret_set = false` | 🔴 FAIL — 시크릿 미주입 (401 이 뜬다) |
@@ -53,7 +58,11 @@ SELECT * FROM public.cron_endpoint_health;
 | `last_status_code = 401` | 🔴 FAIL — 시크릿 불일치. 단, **경로 자체는 살아 있다는 증거** |
 | `last_status_code = 404` | 🔴 FAIL — 라우트 없음 (배포 실패 의심 → Vercel 배포 상태 확인) |
 | `last_status_code` 5xx / `last_error` 있음 | 🔴 FAIL — 핸들러 예외 |
-| `last_status_code` NULL | ⚠ WARN — 응답 미도착. pg_net 이 비동기라 발사 직후면 정상. 잠시 후 재조회 |
+| `last_status_code` NULL + `harvest_pending=true` | ⚠ WARN — 발사 직후 수확 전. **15분 뒤 재조회** (harvest 주기) |
+| `last_status_code` NULL + `harvest_pending=false` | 🔴 FAIL — 발사 이력 자체가 없다. `cron.job` 등록을 다시 볼 것 |
+| `harvest_pending=true` 가 15분 넘게 지속 | 🔴 FAIL — pg_net worker 정지 의심 |
+| `ok_7d` < `runs_7d` | ⚠ WARN — 간헐 실패. `cron_endpoint_runs` 를 직접 볼 것 |
+| `last_error` 에 `response expired before harvest` | 🔴 FAIL — 수확 잡(`cron-endpoint-harvest`)이 안 돌고 있다 |
 
 ## 🔴 판정 시 반드시 지킬 해석 규칙 (실사고 이력)
 
@@ -66,6 +75,9 @@ SELECT * FROM public.cron_endpoint_health;
   걸려 있다 — `auto-publish` 는 일/화/목 23:00 + 월/수/금 05:00 UTC,
   `daily-brighteye-all-langs` 는 일·화·목 22:00 UTC, `auto-publish-overseas` 는 매일 06:00 UTC.
   요일을 먼저 맞춰볼 것 (Round 191 §4 실사고)
+- 🔴 **한 번 200 을 봤다고 판정 수단이 살아 있다는 뜻은 아니다.** Round 191b 는 시크릿
+  주입 직후(TTL 안)에 200 을 보고 "가동 확인" 으로 닫았는데, 그 뷰는 6시간 뒤부터
+  영원히 NULL 이었다. **관측은 시간이 지난 뒤 한 번 더 해야 검증이다** (Round 192)
 - **GitHub Actions 크론은 4~6시간 늦게 뜬다.** `'0 6 * * *'` 인 해외 발행이 실제로는
   10~12 UTC 에 시작한 이력이 있다. 예정 시각에 없다고 장애로 판정하지 말 것
 
@@ -77,6 +89,7 @@ SELECT * FROM public.cron_endpoint_health;
 | `secret_set=false` | 🔴 FAIL — 시크릿 미주입 |
 | `last_status_code <> 200` | 🔴 FAIL — 엔드포인트 응답 이상 |
 | 최근 실행이 schedule 간격보다 오래됨 | ⚠ WARN — stale, 원인 조사 |
+| `cron-endpoint-harvest` 잡 없음/비활성 | 🔴 FAIL — 판정 수단 자체가 죽었다 (Round 192) |
 | 위 전부 통과 | ✅ PASS |
 
 ## 트리거 시점
@@ -90,4 +103,4 @@ SELECT * FROM public.cron_endpoint_health;
 - Supabase MCP `execute_sql` 로만 실행. **DDL·UPDATE 금지** — 이 커맨드는 진단 전용
 - 시크릿 값 자체를 조회하지 말 것. `cron_endpoint_health` 는 설정 여부(boolean)만 노출하도록
   설계돼 있다 (Round 190 규칙). `SELECT * FROM cron_endpoints` 로 우회 조회 금지
-- 정본 SQL: `db/supabase/round191_cron_endpoints.sql`
+- 정본 SQL: `db/supabase/round192_cron_endpoint_harvest.sql` (배선 원본은 `round191_cron_endpoints.sql`)

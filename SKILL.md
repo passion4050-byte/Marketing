@@ -7674,3 +7674,125 @@ Round 188 은 로직을 다 짜고 마지막 배선만 사람에게 넘겼는데
 - `VERCEL_DEPLOY_HOOK_ADMIN` 시크릿 자체를 geo-v2 로 고치거나 삭제 (지금은 호출처 0)
 - 해외 배치가 60분 안에 끝나는지 다음 런에서 실측 (09-03 06:00 UTC 슬롯)
 - Round 183 4주 뒤 클릭 재측정
+
+
+# Round 192 (2026-09-08) — 🔴 판정용 뷰가 반나절이면 거짓말을 한다 (그리고 진짜 알람이 묻혀 있었다)
+
+5일 전 Round 191b 를 **"✅ 가동 확인, 남은 숙제 없음"** 으로 닫았다. 그 판정이 틀렸다.
+
+## 1. ✅ 먼저 지난 숙제 2건은 실측 통과
+
+**해외 배치 `timeout-minutes: 20 → 60`** — 09-03~09-07 5런 전부 `success`:
+
+| 시각(UTC) | 소요 |
+|---|---|
+| 09-07 11:20→11:40 | **20:21** |
+| 09-06 10:05→10:23 | 17:43 |
+| 09-05 09:49→10:03 | 14:14 |
+| 09-04 10:22→10:46 | **24:34** |
+| 09-03 10:32→10:52 | **20:17** |
+
+**5런 중 3런이 20분을 넘겼다.** 옛 설정이면 전부 `cancelled` 였다.
+유효 가동률 33% → 100%. 20분이라는 값에 근거가 없었다는 게 숫자로 확인됐다.
+
+`VERCEL_DEPLOY_HOOK_ADMIN` — grep 6건 전부 주석. 실제 호출처 0 확인.
+발행 자체도 7일간 끊김 없음(8~26편/일).
+
+## 2. 🔴 그런데 감시자 판정 뷰가 항상 `null` 을 돌려주고 있었다
+
+```
+SELECT * FROM public.cron_endpoint_health;   -- 2026-09-08 01:11 UTC
+ last_fired_at    = 2026-09-07 09:00:00Z    ← 쐈다는 사실은 남음
+ last_status_code = null                     ← 됐는지는 아무도 모름
+ last_response    = null
+ net._http_response 총 행수 = 1 (최신 00:04)
+```
+
+원인은 한 줄이다:
+
+```
+pg_net.ttl = 6 hours      ← 응답 보관 기간
+cron.job   = '0 2,9 * * *' ← 발사 주기 7시간
+```
+
+뷰가 `LEFT JOIN net._http_response` 인데 **발사 주기가 TTL보다 길다.**
+→ 어느 시점에 조회해도 직전 발사 결과는 이미 삭제돼 있다. **구조적으로 100% 놓친다.**
+
+🔴 **그런데 Round 191b 는 200 을 실측했다고 기록했다.** 07:19 에 시크릿을 넣고 07:19 에
+확인했기 때문이다 — TTL 6시간 안이라 우연히 보였을 뿐이다.
+**한 번의 성공 관측은 지속 가능한 판정 수단을 증명하지 않는다.**
+
+그리고 `null` 은 실패와 구분되지 않는다. 시크릿이 만료돼 401 이 떠도 똑같이 `null` 이다.
+
+## 3. 🔴 그 사이 감시자는 진짜 알람을 계속 감지하고 있었다
+
+수확 기능을 붙이고 처음 건진 200 응답 안에 이게 들어 있었다:
+
+```json
+{"ok":true,"alerted":true,"starving_count":1,
+ "starving":[{"name":"포레나의원","days_since":11}]}
+```
+
+확인해 보니 감시자가 **정확했다**:
+
+| 테넌트 | 마지막 ko 발행 | 14일 ko | 14일 전체 | status/enabled |
+|---|---|---|---|---|
+| 포레나의원 | **08-27 (11일 전)** | 1 | **19** | active / true |
+| 힐링안과 | 08-13 | 0 | 0 | paused / false |
+| 클리어서울안과 | 08-19 | 0 | 0 | paused / false |
+| 청담디어의원 | 08-22 | 0 | 0 | paused / false |
+
+paused 3곳을 알람에서 뺀 것도 정확하다(`auto_content_settings.enabled` + `tenants.status`
+둘 다 보는 Round 174i 로직이 제대로 동작). **포레나의원 1곳만 진짜 문제**였고,
+해외(en/ja/zh) 는 매일 도는데 **ko 만 11일째 0** 이다.
+
+키워드 소진도 아니다 — ko 적격 키워드 17개(위서클 15·지우피부과 16보다 많고 둘 다 발행 중).
+→ **ko 로테이션 선택 로직 문제.** Round 193 으로 넘긴다.
+
+**교훈: 판정 수단이 고장나면 감시자가 옳아도 소용이 없다.**
+Round 188~191b 는 넉 달에 걸쳐 감시자를 만들고 등록하고 가동시켰는데,
+정작 그 출력을 읽을 수단이 반나절짜리였다.
+
+## 4. 조치 — 조인하지 말고 수확한다
+
+`db/supabase/round192_cron_endpoint_harvest.sql` (적용 완료)
+
+- `cron_endpoints` 에 영속 스냅샷 컬럼 — `last_status_code`·`last_response`·`last_error`·`last_checked_at`
+- `cron_endpoint_runs` 이력 테이블 — 발사마다 1행. **가동률**(`ok_7d`/`runs_7d`)이 나온다
+- `harvest_cron_endpoint_responses()` — `*/15 * * * *`.
+  🔴 **발사 때만 수확하면 안 된다** — 발사 주기(7h) > TTL(6h) 이므로 독립 주기여야 한다
+- TTL 넘겨 사라진 행은 `response expired before harvest` 로 확정 표기.
+  안 하면 "판정 불가" 가 조용히 쌓여 가동률이 다시 거짓말을 한다
+- 보관 정리 — `cron_endpoint_runs` 90일, `cron.job_run_details` 30일
+  (harvest 가 15분마다 도니 하루 96행씩 는다)
+
+실측 (2026-09-08 01:16 UTC):
+```
+fire → harvest=1 →
+ last_status_code=200  harvest_pending=false  runs_7d=1  ok_7d=1
+```
+
+### 함정: 부분 유니크 인덱스와 `ON CONFLICT`
+```
+CREATE UNIQUE INDEX ... (request_id) WHERE request_id IS NOT NULL;
+INSERT ... ON CONFLICT (request_id) DO NOTHING;
+  → ERROR 42P10: there is no unique or exclusion constraint matching the ON CONFLICT specification
+```
+부분 인덱스를 쓰려면 `ON CONFLICT` 에 **같은 술어**를 붙여야 한다:
+`ON CONFLICT (request_id) WHERE request_id IS NOT NULL DO NOTHING`
+
+## 5. 문서 갱신
+
+- `CLAUDE.md` — "판정 뷰가 `net._http_response` 를 조인하면 6시간 뒤 거짓말한다" +
+  "한 번 200 을 봤다고 판정 수단이 살아 있다는 뜻이 아니다" 2개 규칙 추가
+- `/pg-cron-health` — `harvest_pending`·`ok_7d`/`runs_7d` 판정 행 추가.
+  기존 표의 *"NULL → 잠시 후 재조회"* 안내는 **정반대로 유도하고 있었다**(기다리면 더 나빠진다)
+- `round191_cron_endpoints.sql` — 뷰가 192 로 대체됐음을 파일 머리에 명시
+
+### 다음 라운드 후보 (192 이후)
+
+- 🔴 **Round 193: 포레나의원 ko 발행 11일 정지 원인** — 키워드는 남아 있다. 로테이션 선택 경로
+  (일반 + `target_tenant_id` **둘 다**) 를 봐야 한다
+- 다음 자동 발사(02:00 UTC) 이후 `harvest_pending=false` 재확인 — **시간을 두고 한 번 더**
+- Round 183 4주 뒤 클릭 재측정
+- `db/supabase/` 스냅샷 CI 자동 갱신

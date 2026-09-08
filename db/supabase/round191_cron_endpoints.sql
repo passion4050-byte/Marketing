@@ -1,4 +1,9 @@
 -- Round 191 (2026-09-03) — pg_cron 이 호출할 엔드포인트를 DB 행으로 둔다.
+-- ⚠️ 이 파일의 `cron_endpoint_health` 뷰는 **Round 192 가 대체했다.**
+--    → db/supabase/round192_cron_endpoint_harvest.sql 를 정본으로 볼 것.
+--    이유: 이 뷰는 net._http_response 를 조인하는데 pg_net.ttl=6h 이고 발사 주기는 7h 라
+--    직전 발사 결과를 구조적으로 100% 놓친다 (항상 null). 아래 "실측 이력" 의 200 은
+--    주입 직후(TTL 안)에 봐서 우연히 보였던 값이다.
 -- ✅ 적용 완료 (2026-09-03, 마이그레이션 round191_cron_endpoints + round191_cron_endpoint_health).
 -- ✅ 가동 완료 (2026-09-03 07:19 UTC) — 시크릿 주입 후 last_status_code=200 실측. 남은 숙제 없음.
 --    이 파일은 정본/재적용용. 시크릿을 담지 않으므로 그대로 커밋해도 된다.
@@ -133,6 +138,7 @@ SELECT cron.schedule(
 --   SELECT public.fire_cron_endpoint('publish-watchdog');   -- RETURNS void → 결과 셀이 비는 게 정상
 --   SELECT * FROM public.cron_endpoint_health;              -- 성패는 여기서만 읽는다
 --
+-- ⚠️ 아래 판정 절차는 Round 192 기준으로 갱신됐다 — harvest 가 수확한 스냅샷을 읽는다.
 -- 🔴 fire_cron_endpoint 의 빈 결과를 실패로 읽지 말 것. void 함수이고, pg_net 은 비동기라
 --    발사 시점에는 응답이 존재하지도 않는다. 판정은 항상 cron_endpoint_health 로 한다.
 --

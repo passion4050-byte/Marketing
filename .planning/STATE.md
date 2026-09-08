@@ -65,6 +65,12 @@ None yet.
 - 사용자 환경 확인 대기: Python 3.11+ 설치 여부, OpenAI/Anthropic API 키
 - 메디맵 첫 tenant 정보 미정 — 정의서 예시(BGN 밝은눈안과)로 시작 가능
 
+## Quick Tasks Completed
+
+| Date | Slug | Round | Result |
+|------|------|-------|--------|
+| 2026-09-08 | cron-health-null-fix | 192 | `cron_endpoint_health` 가 pg_net TTL(6h) < 발사주기(7h) 로 항상 null 이던 것 수정. 수확 잡 + 이력 테이블 도입, 200 실측 |
+
 ## Deferred Items
 
 | Category | Item | Status | Deferred At |
