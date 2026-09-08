@@ -147,6 +147,7 @@ def main() -> None:
         "💸 비용",
         "📍 발행 + 단축",
         "🔄 Funnel (전사)",
+        "🧭 AEO 퍼널",
         "🔗 블로그 동기화",
     ])
 
@@ -167,6 +168,10 @@ def main() -> None:
         render_funnel_global_tab(SessionLocal)
 
     with tabs[4]:
+        from src.admin.aeo_funnel_tab import render_aeo_funnel_tab
+        render_aeo_funnel_tab(SessionLocal)
+
+    with tabs[5]:
         from src.admin.sync_tab import render_sync_tab
         render_sync_tab(SessionLocal)
 

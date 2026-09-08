@@ -8,7 +8,11 @@ export const siteConfig = {
   subtitle: 'Hospital AI Platform',
   description:
     '병원 데이터를 구조화·발행하고 ChatGPT · Claude · Gemini · Perplexity 인용을 추적하는 AEO/GEO SaaS.',
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://geo-v2-beta.vercel.app',
+  // 🔴 Round 194 (2026-09-08) — 폴백이 프리뷰 호스트였다.
+  //   geo.wecircle.co.kr 에는 NEXT_PUBLIC_SITE_URL 이 없어서 이 폴백이 그대로 나갔고,
+  //   /sitemap.xml 과 /robots.txt 가 **다른 도메인(geo-v2-beta)** 을 광고하고 있었다.
+  //   크롤러가 프리뷰 호스트로 유도되면 크롤 예산 낭비 + 중복 색인 위험이다.
+  url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://geo.wecircle.co.kr',
   copyright: '© WECIRCLE GEO',
   // 자동 발행 대상이 되는 외부 채널
   channels: [

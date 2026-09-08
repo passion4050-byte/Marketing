@@ -444,6 +444,56 @@ def daily_auto_content_job(
             )
             .all()
         )
+        # 🔴 Round 193 (2026-09-08) — 굶김 정렬을 **이번 실행의 범위 안에서** 다시 매긴다.
+        #   실사고: 포레나의원 ko 발행이 11일째 0인데 해외(en/ja/zh)는 매일 나갔다.
+        #   원인은 `auto_content_settings.last_run_at` 커서를 ko 로테이션과 해외 배치가
+        #   **공유**하는 것이다. 해외 배치는 매일(ko 는 주 6회) 돌면서 같은 커서를 갱신하므로,
+        #   해외 상품을 가진 병원일수록 ko 대기열 뒤로 계속 밀린다.
+        #   실측 로그(09-07): rotated_today=[4,5,12,20,19] / 포레나(18)는 **6번째** —
+        #   ROTATION_PARTNER_BATCH=5 바로 밖에서 매번 잘렸다.
+        #   수정: "마지막으로 *이 범위의* 글을 낸 시각" 으로 정렬한다. ko 실행은 마지막 ko
+        #   발행 기준, 해외 실행은 해당 언어 발행 기준 — 커서가 범위별로 분리된다.
+        #   컬럼 추가가 필요 없고, 발행 실적 자체가 근거라 자기교정된다.
+        #   ⚠ CLAUDE.md 규칙("발행 대상 선택 규칙은 두 경로 모두에")대로 target 경로는
+        #     애초에 로테이션을 타지 않으므로 여기만 고치면 된다.
+        try:
+            _scope_sql = (
+                "SELECT tenant_id, max(published_at) FROM generated_contents "
+                "WHERE status = 'published' AND channel = 'blog_html'"
+            )
+            _scope_params: dict = {}
+            if lang_only is not None:
+                _scope_sql += " AND COALESCE(lang,'ko') = :lang"
+                _scope_params["lang"] = lang_only
+            elif market_only is not None:
+                _scope_sql += " AND COALESCE(market,'domestic') = :market"
+                _scope_params["market"] = market_only
+            _scope_sql += " GROUP BY tenant_id"
+            from sqlalchemy import text as _scope_text
+            _last_scope_pub = {
+                int(r[0]): r[1]
+                for r in s.execute(_scope_text(_scope_sql), _scope_params).fetchall()
+                if r[0] is not None
+            }
+            if _last_scope_pub or lang_only is not None or market_only is not None:
+                _EPOCH = _dt(1970, 1, 1, tzinfo=_tz.utc)
+
+                def _starve_key(st_):
+                    v = _last_scope_pub.get(st_.tenant_id)
+                    if v is None:
+                        return (_EPOCH, st_.tenant_id)  # 이 범위 발행 이력 0 → 최우선
+                    if v.tzinfo is None:
+                        v = v.replace(tzinfo=_tz.utc)
+                    return (v, st_.tenant_id)
+
+                active_settings = sorted(active_settings, key=_starve_key)
+                logger.info(
+                    "scheduler.starvation_sort",
+                    lang_only=lang_only, market_only=market_only,
+                    order=[st_.tenant_id for st_ in active_settings],
+                )
+        except Exception as _e:  # pragma: no cover - 정렬 실패해도 발행은 계속
+            logger.warning("scheduler.starvation_sort_failed", error=str(_e))
         # Round 83 — publish_plan 은 raw SQL 로 읽기 (함정 CW: ORM 미매핑 가능성 회피).
         from sqlalchemy import text as _sql_text
         _plan_rows = s.execute(

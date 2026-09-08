@@ -195,6 +195,20 @@ AI 검색엔진(Perplexity, ChatGPT, Gemini, Claude)에서 의료 도메인 브�
 - **Cross-site design sync**: 3개 사이트가 동일한 강남언니 디자인 토큰을 공유 — `src/dashboard/theme.py`(테넌트), `src/admin/theme.py`(어드민), `medimap-blog/tailwind.config.ts` + `medimap-blog/src/app/globals.css`(블로그). 브랜드 컬러 변경 시 4개 파일을 동시에 갱신. 확정 팔레트 — Brand `#1B68FF`(핫핑크), Accent `#1AD2A4`(민트), Admin Primary `#4F5DF8`(퍼플), Mint `#15CBA8`. SVG `<linearGradient>` stop-color 는 Tailwind 토큰이 미치지 않으므로 별도 체크리스트.
 - **Supabase 함수·트리거 정본화**: Supabase 함수/트리거를 신규 생성하거나 수정하면 반드시 `db/supabase/` 에 정본 SQL 을 남긴다. DB 안의 트리거는 **리포 grep 에 0건**이라 코드 리뷰로는 존재조차 알 수 없다 (Round 186: 발행마다 Vercel 배포를 쏘던 `trg_fire_vercel_on_publish` 를 찾는 데 이 때문에 오래 걸렸다). 원인 불명 증상 조사 시 `pg_trigger`·함수 정의도 스캔 범위에 넣을 것.
 - **발행 대상 선택 규칙은 두 경로 모두에**: 발행 키워드 선택 경로는 **일반 로테이션**과 **타깃 경로(`target_tenant_id`)** 둘이다. 게이트·우선순위 규칙을 한쪽에만 넣으면 다른 쪽이 옛 규칙으로 계속 발행한다 — Round 164b·173·182c·183 에서 같은 문으로 4회 반복됐다.
+- **🔴 ORM 미매핑 컬럼 = 조용히 죽는 가드 (실사고 2회: `Keyword` Round 183, `Tenant` Round 193)**
+  `getattr(obj, "col", default)` 는 매핑이 없으면 **언제나 default** 를 돌려준다. 예외도
+  경고도 없다. Round 193 실측: `Tenant` 에 `partner_slug`·`status` 가 없어서
+  ① Round 189 의 self 판정(`ps.endswith("-self")`)이 **죽은 코드**였고(발행 로그가 매번
+  `self_tenants=[]`), ② Round 174i 의 일시정지 가드도 항상 `"active"` 로 읽혀 무력했다.
+  **두 번 다 "고쳤다" 고 커밋한 뒤 몇 주간 아무도 몰랐다.**
+  → 새 컬럼을 조건문에 쓰기 전에 `grep "컬럼명" src/storage/models.py` 로 **매핑 존재를
+  먼저 확인**할 것. 없으면 모델에 추가하거나 raw SQL 로 읽는다.
+- **🔴 로테이션 커서를 두 파이프라인이 공유하면 한쪽이 굶는다 (실사고 Round 193)**
+  `auto_content_settings.last_run_at` 하나를 ko 로테이션과 해외 배치가 같이 갱신했다.
+  해외는 매일·ko 는 주 6회라, 해외 상품을 가진 병원일수록 ko 대기열 뒤로 밀려
+  **포레나의원 ko 발행이 11일째 0**이었다(해외는 매일 나가서 겉보기엔 정상).
+  → 굶김 정렬은 **그 실행의 범위(lang/market) 안에서 마지막으로 낸 발행 시각**으로 한다.
+  "최근에 뭔가 돌았다" 가 아니라 "이 범위의 결과물이 언제 나왔나" 가 기준이어야 한다.
 - **ORM `Keyword` 에 없는 컬럼이 있다**: 실 DB 에는 `purpose`·`experiment_arm`·`experiment_pair_id`·`tracked` 가 있지만 ORM 모델에는 **없다**. `getattr(k, "purpose", "own")` 은 언제나 기본값을 돌려줘 **필터가 조용히 무력화**된다. 이 컬럼들로 거를 땐 raw SQL 을 쓸 것 (테스트 SQLite 스키마도 `ALTER TABLE` 로 맞춰준다).
 - **Token-first components**: 신규 컴포넌트는 `brand-*` / `accent-*` 토큰 클래스만 사용. `#hexcode` 직접 삽입 금지 (SVG gradient 제외). 한 곳만 빠뜨려도 리브랜딩 시 색이 어긋나는 구멍이 됨.
 <!-- GSD:conventions-end -->

@@ -45,6 +45,19 @@ class Tenant(Base):
     # CHECK 제약은 Supabase 마이그레이션에서 ('A','B') 만 허용.
     publish_plan: Mapped[str] = mapped_column(String(2), default="A")
 
+    # 🔴 Round 193 (2026-09-08) — 이 두 컬럼이 ORM 에 없어서 두 개의 가드가 죽어 있었다.
+    #   scheduler 는 `getattr(tenant, "partner_slug", "")` / `getattr(tenant, "status", None)`
+    #   로 읽는데, 매핑이 없으면 **언제나 기본값**이 돌아온다 (CLAUDE.md 의 Keyword 함정과 동일).
+    #   실측 피해:
+    #     - Round 189 의 self 판정(`ps.endswith("-self")`)이 죽은 코드 → 발행 로그가
+    #       매번 `self_tenants=[]`. "self 1곳 + partner N곳" 보장이 통째로 무력.
+    #     - Round 174i 의 일시정지 가드(status in paused/churned)도 항상 "active" 로 읽혀
+    #       무력. 지금 paused 3곳이 안 도는 건 enabled=false 가 우연히 같이 꺼져 있어서다.
+    #   ⚠ status 의 DB 기본값은 'trial' 이다 — 'active' 만 통과시키면 안 된다.
+    #     scheduler 는 fail-open(paused/churned 만 제외)이라 그대로 안전하다.
+    partner_slug: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default="trial")
+
     keywords: Mapped[list["Keyword"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
     compliance_rules: Mapped[list["ComplianceRule"]] = relationship(
         back_populates="tenant", cascade="all, delete-orphan"
