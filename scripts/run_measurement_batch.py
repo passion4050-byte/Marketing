@@ -43,7 +43,25 @@ _GENERIC_KOREAN_TOKENS = {
     #   집계(포털·보고서 허수, 경쟁병원 스니펫 노출의 원천). 진료과명은 절대 brand 가 아님.
     "피부과", "안과", "성형외과", "치과", "내과", "외과", "정형외과", "산부인과",
     "한의원", "한방병원", "이비인후과", "비뇨기과", "신경외과", "가정의학과",
+    # 🔴 Round 195 (2026-09-08) — Round 153 과 같은 사고가 다른 경로로 재발했다.
+    #   실측(9월 멘션): "한방" 405건이 전부 바를정 한방의원의 target 멘션으로 잡혔다.
+    #   9월 전체 멘션의 **32%** 다. 한방 치료를 언급한 모든 AI 답변이 바를정 멘션이 됐다.
+    #   출처는 split() 이 아니라 **접미사 제거 경로**다 — "한방의원" 에서 "의원" 을 떼어
+    #   원문에 단어로 존재한 적도 없는 "한방" 을 만들어냈다. 아래 stem 가드 참조.
+    "한방", "한방의원", "의료원", "의료", "메디컬", "메디", "종합병원",
+    #   "강남점" 12건도 같은 부류 — "강남" 은 있는데 "강남점" 이 없었다.
+    #   지점 표기는 열거가 아니라 규칙으로 막는다(_is_branch_token).
+    "강남점", "잠실점", "부산점", "본점", "지점", "분점",
 }
+
+# 지점 표기(…점)는 이름이 무한하므로 열거가 불가능하다 — 규칙으로 거른다.
+def _is_branch_token(tok: str) -> bool:
+    return len(tok) <= 4 and tok.endswith("점")
+
+
+# 🔴 별칭 최소 길이. 2글자 한국어 토큰은 브랜드로 기능하지 않고 오탐만 만든다
+#   ("한방"·"모발"·"미앤"…). 실제 브랜드는 3글자 이상이거나 tenant_name 전체로 잡힌다.
+_MIN_ALIAS_LEN = 3
 
 
 def _build_aliases(tenant_name: str, target_brand: str) -> list[str]:
@@ -66,7 +84,7 @@ def _build_aliases(tenant_name: str, target_brand: str) -> list[str]:
             tok = tok.strip()
             if len(tok) < 2:
                 continue
-            if tok in _GENERIC_KOREAN_TOKENS:
+            if tok in _GENERIC_KOREAN_TOKENS or _is_branch_token(tok):
                 continue
             aliases.add(tok)
         # 한국어 부분 (의원/병원 + 잠실/서울 등 제외한 핵심 brand)
@@ -76,12 +94,35 @@ def _build_aliases(tenant_name: str, target_brand: str) -> list[str]:
             if cand not in _GENERIC_KOREAN_TOKENS and len(cand) >= 3:
                 aliases.add(cand)
                 # 의원/안과/병원 등 접미사 제거 버전
-                for suffix in ("의원", "병원", "안과의원"):
+                # 🔴 Round 195 — 여기가 "한방" 405건의 출처였다.
+                #   접미사를 떼면 **원문에 단어로 존재한 적 없는 토큰**이 생긴다.
+                #   "한방의원" → "한방" 처럼 일반명사가 만들어지면 그 단어가 나오는
+                #   모든 답변이 자사 멘션으로 집계된다. stem 은 더 엄격하게 검사한다:
+                #   ① 최소 3글자 ② 일반명사 목록 ③ 지점 표기
+                for suffix in ("의원", "병원", "안과의원", "피부과", "성형외과", "한의원"):
                     if cand.endswith(suffix) and len(cand) > len(suffix) + 1:
-                        aliases.add(cand[: -len(suffix)])
+                        stem = cand[: -len(suffix)]
+                        if len(stem) < _MIN_ALIAS_LEN:
+                            continue
+                        if stem in _GENERIC_KOREAN_TOKENS or _is_branch_token(stem):
+                            continue
+                        aliases.add(stem)
     if target_brand:
         aliases.add(target_brand.strip())
-    return [a for a in aliases if a]
+    # 최종 방어선 — tenant_name 전체는 길이 무관하게 통과시키고, 나머지는 최소 길이 적용.
+    #   (영문 slug 는 2글자여도 유효하므로 한글에만 적용한다: "bgn" 은 3, "TETE" 는 4)
+    full = (tenant_name or "").strip()
+    out = []
+    for a in aliases:
+        if not a:
+            continue
+        if a == full:
+            out.append(a)
+            continue
+        if any("가" <= ch <= "힣" for ch in a) and len(a) < _MIN_ALIAS_LEN:
+            continue
+        out.append(a)
+    return out
 
 
 def _build_engines(mode: str) -> list:
