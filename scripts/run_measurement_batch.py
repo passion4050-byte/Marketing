@@ -398,7 +398,21 @@ async def main() -> int:
 
 
 async def _resolve_recent_source_domains(sql_engine) -> None:
-    """이번 batch 의 responses 중 source_domains 가 NULL 인 것 추적."""
+    """source_domains 가 아직 없는 responses 의 인용 URL 을 해석한다.
+
+    🔴 Round 197 (2026-09-08) — 창이 10분이라 배치 앞부분이 통째로 누락됐다.
+       기존: `created_at > NOW() - INTERVAL '10 min'`. 그런데 이 함수는 배치 **끝**에
+       한 번 도는데 배치는 30~90분을 돈다 → 처음 20~80분 사이에 만들어진 응답은
+       호출 시점에 이미 10분을 넘겨 **영원히 해석되지 않는다**(다음 배치도 창 밖이다).
+       실측: gemini 응답 4,648건 중 source_domains 보유 2,346건(50.5%),
+       openai 17%, claude 42%. **인용의 절반이 애초에 관측 불가였다.**
+       Gemini 는 cited_urls 가 vertexaisearch 리다이렉트라 해석 없이는 도메인을 알 수 없으므로,
+       미해석 = 그 응답의 자사 인용은 존재해도 영영 세지지 않는다.
+
+    수정: 나이 창 대신 **미해석 잔량**을 본다(오래된 것도 따라잡는다).
+      RESOLVE_LOOKBACK_DAYS(기본 3) 안에서 최신 우선 RESOLVE_MAX_RESPONSES(기본 400)건.
+      배치가 하루 여러 번 돌므로 밀린 것은 몇 회에 걸쳐 소진된다.
+    """
     try:
         from src.parser.source_resolver import resolve_urls, summarize
     except Exception as e:  # noqa: BLE001
@@ -409,15 +423,19 @@ async def _resolve_recent_source_domains(sql_engine) -> None:
     with sql_engine.connect() as conn:
         # cited_urls 는 json type (not jsonb) — json_array_length 사용 또는 jsonb cast.
         # 또는 단순히 NULL 체크만 하고 Python 에서 list 검증.
+        _lookback = int(os.environ.get("RESOLVE_LOOKBACK_DAYS", "3") or "3")
+        _cap = int(os.environ.get("RESOLVE_MAX_RESPONSES", "400") or "400")
         rows = conn.execute(text(
             """
             SELECT r.id, r.cited_urls
             FROM responses r
-            WHERE r.created_at > NOW() - INTERVAL '10 min'
+            WHERE r.created_at > NOW() - make_interval(days => :lookback)
               AND r.source_domains IS NULL
               AND r.cited_urls IS NOT NULL
+            ORDER BY r.created_at DESC
+            LIMIT :cap
             """
-        )).mappings().all()
+        ), {"lookback": _lookback, "cap": _cap}).mappings().all()
 
     logger.info("Source 추적 대상 responses: %d 건", len(rows))
     total_resolved = 0

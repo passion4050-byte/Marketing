@@ -8085,3 +8085,93 @@ Round 194 의 "봇은 오지만 정작 글은 안 읽는다" 는 서술은 틀�
 - 다음 수집 런 검증 3종: `is_competitor > 0` · `"한방"` 재유입 없음 · 포레나의원 ko 발행
 - 아카이브 노화 대응 — 오래된 글의 갱신(lastmod)·허브 재링크가 재크롤을 부르는지 실험
 - 브랜드 표기 통합(`BGN`/`밝은눈안과`/`bgn`) — 귀속은 정확하므로 표시 단계만
+
+
+# Round 197 (2026-09-08) — 🔴 "인용률 0.8%" 를 믿기 전에 인용 파이프라인을 먼저 봤다
+
+Round 196 이 "인용률 0.8% 가 진짜 과제" 로 넘겼다. 이번 세션의 교훈대로
+**결론을 내기 전에 그 숫자를 만든 도구를 먼저 반증했다.** 4중으로 깨져 있었다.
+
+## 1. 🔴 해석기가 10분 창만 본다 → 인용의 절반이 애초에 관측 불가
+
+```python
+WHERE r.created_at > NOW() - INTERVAL '10 min'   # ← 배치는 30~90분을 돈다
+  AND r.source_domains IS NULL
+```
+`_resolve_recent_source_domains()` 는 배치 **끝**에 한 번 도는데, 창이 10분이라
+처음 20~80분 사이에 만들어진 응답은 호출 시점에 이미 창 밖이다. 다음 배치도 마찬가지다.
+→ **영원히 해석되지 않는다.**
+
+Gemini 의 `cited_urls` 는 `vertexaisearch.../grounding-api-redirect` 형태라
+해석 없이는 도메인을 알 수 없다. 즉 미해석 = 그 응답의 자사 인용은 **존재해도 안 세진다.**
+
+실측 커버리지(60일): gemini 2,346/4,648(**50.5%**) · claude 503/1,203(42%) · openai 655/3,781(17%)
+
+→ 나이 창 대신 **미해석 잔량**을 본다. `RESOLVE_LOOKBACK_DAYS`(기본 3) 안에서
+최신 우선 `RESOLVE_MAX_RESPONSES`(기본 400)건. 배치가 하루 여러 번 도니 밀린 건 소진된다.
+
+## 2. 🔴 수집기가 인용 출처 두 곳 중 하나만 읽었다
+
+인용 URL 이 들어오는 경로는 **둘**이다:
+| 경로 | 엔진 | 성격 |
+|---|---|---|
+| `source_domains` | Gemini | 리다이렉트를 HTTP 로 따라가 넣은 **해석 결과** |
+| `cited_urls` | Claude · OpenAI | 처음부터 **실제 URL** (해석 불필요) |
+
+`collect_citation_events.py` 는 ①만 읽었다. 그래서 **Claude 가 우리를 인용한 4건이
+citation_events 에 한 건도 없었고**, Round 194 의 *"인용 9건 전부 Gemini"* 라는
+결론이 나왔다. 그건 세계의 사실이 아니라 **쿼리의 사실**이었다.
+
+→ 둘을 UNION. `ON CONFLICT (response_id, cited_url) DO NOTHING` 이라 멱등.
+
+## 3. 🔴 자사 도메인 목록에 구 브랜드가 없었다
+
+`SELF_HOSTS = ("wecircle.co.kr",)`. 그런데 리브랜드 전 `medi-map.co.kr` URL 이
+**여전히 AI 답변에 인용되고 있다** — 실제로 미기록 인용 8건이 전부 이 도메인이었다.
+→ `medi-map.co.kr` · `medimap-blog-phi.vercel.app` 추가.
+
+## 4. 소급 적재 결과 — 9건 → 17건
+
+```
+gemini  13건 (생성 콘텐츠 5편 + 플랫폼 4)
+claude   4건 (전부 플랫폼)          ← 이전까지 0건으로 기록돼 있었다
+```
+
+🔴 **그런데 8건이 생성 콘텐츠가 아니라 구 플랫폼 페이지였다:**
+```
+medi-map.co.kr/search?q=밝은눈안과      (claude ×3, "bgn 밝은눈안과 가격")
+medi-map.co.kr/contents/view/7          (claude)
+medi-map.co.kr/hospital/view/H000026    (gemini)
+medi-map.co.kr/event?department=안과…   (gemini)
+global.medi-map.co.kr/                  (gemini ×2)
+```
+**AI 는 우리 글보다 우리 디렉터리를 더 잘 인용한다.** 병원 검색·상세 페이지가
+"가격" 류 질의에서 인용된다. 이건 콘텐츠 전략에 직접 시사점이 있다 —
+`content_id IS NULL`(플랫폼) 과 아닌 것(생성 글)은 구분해서 봐야 한다.
+
+생성 콘텐츠 기준 인용은 여전히 9건·5편이므로 **Round 196 의 인용률 0.8% 결론 자체는 유지된다.**
+
+## 5. 🔴 운영 장애 2건 — 사용자 조치 필요
+
+- **Perplexity 는 한 번도 측정된 적이 없다.** `responses` 에 perplexity 행이 **0건**.
+  최신 런 로그: `✓ Claude/Gemini/OpenAI engine 활성` — Perplexity 없음.
+  `_build_engines()` 가 `PERPLEXITY_API_KEY` 유무로 켜는데 **시크릿이 미설정**이다.
+  4엔진 제품이 3엔진으로 측정 중이고, 아무 데도 경고가 안 뜬다(조용히 skip).
+- **Anthropic 크레딧 소진 — Claude 측정이 2026-09-03부터 전량 실패.**
+  ```
+  Claude 호출 실패: Error code: 400 - invalid_request_error
+  'Your credit balance is too low to access the Anthropic API.'
+  ```
+  엔진은 "활성" 으로 뜨므로 로그 헤더만 봐선 정상으로 보인다.
+
+**교훈: 엔진이 조용히 빠지는 것을 아무도 감시하지 않는다.** Round 188 이 발행에 대해
+만든 감시자와 같은 것이 측정에도 필요하다 — "어제 엔진 N개가 응답했는가".
+
+### 다음 라운드 후보 (197 이후)
+
+- 🔴 사용자 조치 2건: **Perplexity API 키 등록** · **Anthropic 크레딧 충전**
+- 엔진 가동 감시 — 엔진별 최근 응답 시각을 `cron_endpoints` 감시자에 추가.
+  지금은 엔진 하나가 죽어도 몇 주간 아무도 모른다(실제로 Perplexity 는 넉 달)
+- 해석 커버리지 재측정 — §1 수정 후 gemini 50.5% 가 얼마나 오르는지
+- 플랫폼 인용 vs 콘텐츠 인용 분리 리포팅 (어드민 퍼널 탭은 이미 content_id 기준이라 정확)
+- 인용된 5편 vs 안 된 328편의 구조 차이 — 표본이 5라 가설 생성용으로만

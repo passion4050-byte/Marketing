@@ -30,27 +30,46 @@ from sqlalchemy import create_engine, text  # noqa: E402
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 logger = logging.getLogger("citation-events")
 
-SELF_HOSTS = ("wecircle.co.kr",)
+# 🔴 Round 197 — 구 브랜드 도메인이 빠져 있었다. 리브랜드(메디맵→위서클) 전 URL 이
+#   아직 AI 답변에 인용되고 있고, 그건 우리 인용이다.
+SELF_HOSTS = ("wecircle.co.kr", "medi-map.co.kr", "medimap-blog-phi.vercel.app")
 
+# 🔴 Round 197 — 인용 출처가 **두 곳**이다. 하나만 읽으면 엔진 하나가 통째로 안 보인다.
+#   ① source_domains — Gemini 전용. cited_urls 가 vertexaisearch 리다이렉트라
+#      HTTP 로 따라가 최종 도메인을 넣어둔 것. 해석 배치가 돌아야 채워진다.
+#   ② cited_urls     — Claude·OpenAI 는 **처음부터 실제 URL** 을 준다. 해석이 필요 없다.
+#   기존 SQL 은 ① 만 읽었다. 그래서 Claude 가 우리를 인용한 4건(2026-08-23~09-02)이
+#   citation_events 에 **한 건도 없었고**, "인용 9건 전부 Gemini" 라는 잘못된 결론이 나왔다.
+#   → 둘을 UNION 한다. 같은 (response_id, cited_url) 은 ON CONFLICT 로 멱등.
 INSERT_SQL = """
-WITH src AS (
-  SELECT r.id                AS response_id,
-         r.created_at        AS occurred_at,
-         q.engine            AS engine,
-         k.tenant_id         AS tenant_id,
-         k.id                AS keyword_id,
-         k.text              AS keyword_text,
-         COALESCE(k.lang,'ko') AS lang,
+WITH self_hit AS (
+  -- ① 해석된 source_domains (Gemini 리다이렉트 경로)
+  SELECT r.id AS response_id, r.created_at AS occurred_at, q.engine, q.keyword_id,
          COALESCE(x->>'final_url', x->>'domain') AS cited_url
   FROM responses r
-  JOIN queries  q ON q.id = r.query_id
-  JOIN keywords k ON k.id = q.keyword_id,
+  JOIN queries q ON q.id = r.query_id,
   LATERAL jsonb_array_elements(COALESCE(r.source_domains, '[]'::jsonb)) x
   WHERE r.created_at >= now() - make_interval(days => :days)
-    AND (
-      COALESCE(x->>'final_url','') ILIKE '%wecircle.co.kr%'
-      OR COALESCE(x->>'domain','') ILIKE '%wecircle.co.kr%'
-    )
+    AND (COALESCE(x->>'final_url','') ~* :hostre OR COALESCE(x->>'domain','') ~* :hostre)
+
+  UNION
+
+  -- ② 원본 cited_urls (Claude·OpenAI 는 실제 URL 을 직접 준다)
+  SELECT r.id, r.created_at, q.engine, q.keyword_id, u AS cited_url
+  FROM responses r
+  JOIN queries q ON q.id = r.query_id,
+  LATERAL jsonb_array_elements_text(
+    CASE WHEN jsonb_typeof(r.cited_urls::jsonb) = 'array'
+         THEN r.cited_urls::jsonb ELSE '[]'::jsonb END
+  ) u
+  WHERE r.created_at >= now() - make_interval(days => :days)
+    AND u ~* :hostre
+), src AS (
+  SELECT h.response_id, h.occurred_at, h.engine,
+         k.tenant_id, k.id AS keyword_id, k.text AS keyword_text,
+         COALESCE(k.lang,'ko') AS lang, h.cited_url
+  FROM self_hit h
+  JOIN keywords k ON k.id = h.keyword_id
 ), resolved AS (
   SELECT s.*,
          gc.id            AS content_id,
@@ -95,7 +114,8 @@ def main() -> int:
 
     engine = create_engine(db_url, pool_pre_ping=True)
     with engine.begin() as conn:
-        res = conn.execute(text(INSERT_SQL), {"days": days})
+        _hostre = "(" + "|".join(h.replace(".", r"\.") for h in SELF_HOSTS) + ")"
+        res = conn.execute(text(INSERT_SQL), {"days": days, "hostre": _hostre})
         inserted = res.rowcount if res.rowcount is not None else -1
     logger.info("신규 인용 이벤트: %s 건 (소급 %d일)", inserted, days)
 
