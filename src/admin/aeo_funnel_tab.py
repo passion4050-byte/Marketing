@@ -63,11 +63,25 @@ def _collect(SessionLocal, days: int) -> dict:
 
         # 🔴 크롤 도달은 "글 몇 편이 읽혔나" 로 센다. 히트 수로 세면 봇이 목록 페이지
         #    하나를 1000번 때린 것이 '도달 1000' 으로 보여 실상을 가린다.
+        #
+        # 🔴 Round 196 (2026-09-08) — 경로 접두사로 매칭하면 안 된다.
+        #    처음엔 `path LIKE '/blog/%'` 로 셌는데, 실제 canonical 은 대부분
+        #    `/with-partners/<카테고리>/<파트너>/<slug>` 다. 실측: AI 봇이 읽은 ko 글
+        #    중 164개가 /with-partners 경로였고 /blog 는 32개뿐 —
+        #    **실제 도달의 84%를 놓쳐서 12% 를 71% 대신 보고했다.**
+        #    → 경로의 **마지막 세그먼트**를 slug 와 동등 조인한다. 경로 구조가 바뀌어도
+        #      안 깨지고, LIKE 스캔보다 빠르며, 언어별 경로도 그대로 잡힌다.
         r = _q(s, f"""
-            SELECT count(DISTINCT path) FROM crawler_hits
-            WHERE hit_at >= now() - (:days || ' days')::interval
-              AND lower(bot_name) IN ('{bots}')
-              AND path LIKE '/blog/%%'
+            WITH seg AS (
+              SELECT DISTINCT regexp_replace(path, '^.*/', '') AS s
+              FROM crawler_hits
+              WHERE hit_at >= now() - (:days || ' days')::interval
+                AND lower(bot_name) IN ('{bots}')
+            )
+            SELECT count(*) FROM generated_contents g
+            WHERE g.status='published' AND g.channel='blog_html'
+              AND g.published_at >= now() - (:days || ' days')::interval
+              AND EXISTS (SELECT 1 FROM seg WHERE seg.s = g.slug)
         """, p)
         if r:
             out["crawled"] = int(r[0])
@@ -124,11 +138,17 @@ def _collect(SessionLocal, days: int) -> dict:
         # 봇이 어디를 읽고 있나 — "글이 아니라 목록·리다이렉트만 읽는" 상태를 드러낸다
         try:
             from sqlalchemy import text as _t
+            # is_post 는 접두사가 아니라 **마지막 세그먼트가 실제 발행 slug 인가**로 본다
+            # (Round 196 — /with-partners/... 도 개별 글이다).
             extra["bot_paths"] = s.execute(_t(f"""
-                SELECT path, count(*) AS hits FROM crawler_hits
-                WHERE hit_at >= now() - (:days || ' days')::interval
-                  AND lower(bot_name) IN ('{bots}')
-                GROUP BY path ORDER BY hits DESC LIMIT 8
+                SELECT c.path, count(*) AS hits,
+                       EXISTS (SELECT 1 FROM generated_contents g
+                                WHERE g.status='published'
+                                  AND g.slug = regexp_replace(c.path, '^.*/', '')) AS is_post
+                FROM crawler_hits c
+                WHERE c.hit_at >= now() - (:days || ' days')::interval
+                  AND lower(c.bot_name) IN ('{bots}')
+                GROUP BY c.path ORDER BY hits DESC LIMIT 8
             """), p).fetchall()
         except Exception:
             extra["bot_paths"] = []
@@ -263,16 +283,16 @@ def render_aeo_funnel_tab(SessionLocal) -> None:
     st.markdown("---")
     st.markdown("#### 🤖 AI 봇이 실제로 읽는 경로")
     st.caption(
-        "여기에 `/blog/<글>` 이 안 보이고 목록·리다이렉트만 있으면, **글이 크롤되지 않고 있다**는 뜻입니다. "
-        "크롤이 안 되면 인용은 구조적으로 불가능합니다."
+        "`개별 글` 태그는 경로의 마지막 세그먼트가 실제 발행 slug 인 경우입니다 "
+        "(`/blog/…` 뿐 아니라 `/with-partners/…` 도 개별 글입니다). "
+        "목록·리다이렉트만 보이면 글이 크롤되지 않고 있다는 뜻이고, 크롤이 안 되면 인용은 구조적으로 불가능합니다."
     )
     paths = extra.get("bot_paths") or []
     if not paths:
         st.info("기간 내 AI 봇 히트가 없습니다.")
     else:
         total = sum(int(r[1]) for r in paths) or 1
-        for path, hits in paths:
-            is_post = str(path).startswith("/blog/") and str(path) != "/blog"
+        for path, hits, is_post in paths:
             chip = admin_chip("개별 글", "mint") if is_post else admin_chip("목록·기타", "gray")
             st.markdown(
                 f'<div style="display:flex;align-items:center;gap:10px;padding:6px 0;'
