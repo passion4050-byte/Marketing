@@ -8175,3 +8175,91 @@ global.medi-map.co.kr/                  (gemini ×2)
 - 해석 커버리지 재측정 — §1 수정 후 gemini 50.5% 가 얼마나 오르는지
 - 플랫폼 인용 vs 콘텐츠 인용 분리 리포팅 (어드민 퍼널 탭은 이미 content_id 기준이라 정확)
 - 인용된 5편 vs 안 된 328편의 구조 차이 — 표본이 5라 가설 생성용으로만
+
+
+# Round 198 (2026-09-08) — 측정 엔진 감시자. 엔진이 빠져도 배치는 "성공" 으로 끝난다
+
+Round 197 이 남긴 것: Perplexity 넉 달 미측정, Claude 5일째 전량 실패.
+둘 다 **아무도 몰랐다.** 발행에는 Round 188 감시자가 있는데 측정에는 없었다.
+
+## 🔴 왜 안 보였나 — 배치가 성공으로 끝나기 때문이다
+
+엔진 하나가 죽어도 남은 엔진으로 계속 돌기 때문에 워크플로는 `success` 다.
+게다가 배치 로그 헤더에는 `✓ Claude engine 활성` 이 찍힌다 — 키가 **있으면** 활성으로
+뜨고, 호출이 전량 실패하는 것은 헤더에 안 나온다. 상태만 봐선 정상과 구분이 안 된다.
+그 사이 Mention Share 는 조용히 살아 있는 엔진 쪽으로 기운다.
+
+## 🔴 `responses` 가 아니라 `llm_call_logs` 를 본다
+
+`responses` 에는 **성공한 호출만** 남는다. 엔진이 100% 실패하면 그냥 조용해질 뿐이고
+**"요즘 조용하네" 와 "죽었다" 가 구분되지 않는다.**
+`llm_call_logs` 는 `status`('success'|'error')와 `error_msg` 를 남긴다:
+
+```
+provider  24h성공  24h실패  마지막 성공
+claude         0      140   2026-09-03   ← 이게 잡혀야 한다
+gemini       178        0   2026-09-08
+openai       141        0   2026-09-08
+perplexity     —        —   기록 없음     ← 이것도
+```
+
+## 판정 3종 — 원인이 다르면 판정도 달라야 한다
+
+| 판정 | 조건 | 실제 원인 |
+|---|---|---|
+| `missing` | 호출 기록이 아예 없음 | **API 키 시크릿 미등록** (Perplexity) |
+| `down` | 마지막 성공 30h+ 이전 · 또는 24h 성공 0 + 실패 10건+ | **크레딧 소진·키 만료** (Claude) |
+| `degraded` | 24h 실패율 50%+ (최소 10콜) | 레이트리밋·간헐 장애 |
+
+`missing` 과 `down` 을 뭉뚱그리면 메일을 받고도 어디를 봐야 할지 모른다.
+전자는 시크릿 탭, 후자는 결제 페이지다.
+
+⚠ `llm_call_logs.provider` 표기가 통일돼 있지 않다 — `claude` 와 `anthropic` 이 둘 다 있다.
+엔진 하나가 두 이름으로 쪼개지면 "조용하다" 로 오판하므로 별칭을 묶어서 센다.
+
+## ✅ 사용자 숙제 0으로 배선했다 (Round 191b 교훈의 적용)
+
+Round 188 은 "시크릿을 손으로 넣어라" 는 숙제를 남겼고 **한 달간 방치**됐다.
+이번엔 같은 앱의 같은 `CRON_SECRET` 이므로 **기존 행에서 복사**했다 —
+값을 알 필요도, 커밋할 이유도 없다:
+
+```sql
+INSERT INTO public.cron_endpoints (id, url, secret, enabled, note)
+SELECT 'measure-watchdog', 'https://geo.wecircle.co.kr/api/cron/measure-watchdog',
+       e.secret, true, '...'
+FROM public.cron_endpoints e WHERE e.id = 'publish-watchdog'
+ON CONFLICT (id) DO NOTHING;
+```
+
+배선 실측 (라우트 **배포 전**):
+```
+enabled=true  secret_set=true  last_status_code=404  harvest_pending=false
+```
+🔴 **404 는 이 시점에 정상 결과다** — DB → pg_net → geo.wecircle.co.kr 까지 도달했고
+라우트만 아직 없다는 뜻이다(타임아웃이면 네트워크, 401이면 시크릿).
+`git push` → Vercel 배포 후 다음 발사에서 200 이 된다.
+
+## 등록된 pg_cron 잡 (현재 3개)
+
+| jobid | jobname | 스케줄 |
+|---|---|---|
+| 1 | `publish-watchdog` | `0 2,9 * * *` |
+| 2 | `cron-endpoint-harvest` | `*/15 * * * *` |
+| 3 | `measure-watchdog` | `30 1,8 * * *` |
+
+감시자 두 개를 같은 시각에 두지 않았다(30분 차) — pg_net 큐가 겹치고,
+메일이 동시에 오면 어느 쪽 문제인지 헷갈린다.
+
+## 게이트
+
+`build-gate.sh` ✅ PASS · esbuild PASS · **`npx tsc --noEmit` errors=0**
+(v2 의 .ts 는 tsc 까지 도는 게 규칙 — esbuild 는 타입을 못 잡는다)
+
+### 다음 라운드 후보 (198 이후)
+
+- 🔴 **사용자 조치 2건은 그대로 남아 있다**: Perplexity API 키 등록 · Anthropic 크레딧 충전.
+  감시자는 이제 이걸 **매일 두 번 알려준다** — 조치는 여전히 사람이 해야 한다
+- push 후 `measure-watchdog` 200 실측 + 첫 알람 메일 내용 확인
+- 다음 수집 런 검증 3종: `is_competitor > 0` · `"한방"` 재유입 없음 · 포레나의원 ko 발행
+- 해석 커버리지 재측정 — Round 197 §1 수정 후 gemini 50.5% 가 얼마나 오르는지
+- 인용된 5편 vs 안 된 328편의 구조 차이 (표본 5라 가설 생성용)

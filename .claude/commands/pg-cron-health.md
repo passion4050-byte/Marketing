@@ -13,6 +13,16 @@ Supabase MCP(`execute_sql`) 로 실행. **read-only 쿼리만 사용한다.**
 
 ## 실행 순서
 
+### 0. 등록돼 있어야 하는 잡 (2026-09-08 기준)
+
+| jobname | 스케줄 | 역할 |
+|---|---|---|
+| `publish-watchdog` | `0 2,9 * * *` | 발행 중단·굶는 병원 감지 (Round 188) |
+| `cron-endpoint-harvest` | `*/15 * * * *` | pg_net 응답 수확 — **이게 죽으면 판정 수단이 죽는다** (Round 192) |
+| `measure-watchdog` | `30 1,8 * * *` | 측정 엔진 누락·중단 감지 (Round 198) |
+
+하나라도 없으면 그 자체가 FAIL 이다.
+
 ### 1. 등록 여부
 
 ```sql
@@ -43,7 +53,7 @@ HTTP 요청이 성공했다는 뜻이 **아니다.** 그건 3단계에서만 알
 ### 3. 엔드포인트 실응답 (여기가 진짜 판정)
 
 ```sql
-SELECT * FROM public.cron_endpoint_health;
+SELECT * FROM public.cron_endpoint_health;   -- 행이 여러 개다. 전부 볼 것
 ```
 
 🔴 **Round 192 이후 이 뷰는 `net._http_response` 를 조인하지 않는다.** 예전 뷰는 조인했는데
@@ -103,4 +113,8 @@ SELECT * FROM public.cron_endpoint_health;
 - Supabase MCP `execute_sql` 로만 실행. **DDL·UPDATE 금지** — 이 커맨드는 진단 전용
 - 시크릿 값 자체를 조회하지 말 것. `cron_endpoint_health` 는 설정 여부(boolean)만 노출하도록
   설계돼 있다 (Round 190 규칙). `SELECT * FROM cron_endpoints` 로 우회 조회 금지
-- 정본 SQL: `db/supabase/round192_cron_endpoint_harvest.sql` (배선 원본은 `round191_cron_endpoints.sql`)
+- 정본 SQL: `db/supabase/round192_cron_endpoint_harvest.sql` (배선 원본은 `round191_cron_endpoints.sql`,
+  measure-watchdog 등록은 `round198_measure_watchdog.sql`)
+- 🔴 **감시자를 새로 붙일 땐 시크릿을 손으로 넣게 하지 말 것.** 같은 앱이면
+  `SELECT e.secret FROM cron_endpoints e WHERE e.id='publish-watchdog'` 로 복사한다.
+  Round 188 은 "시크릿을 손으로 넣어라" 숙제를 남겨 한 달간 방치됐다 (Round 191b).
