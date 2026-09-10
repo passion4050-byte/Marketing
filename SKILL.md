@@ -8447,3 +8447,40 @@ Round 198 의 `claude`/`anthropic` 별칭 분열과 **같은 종류의 함정**�
 - 크레딧 소진으로 비어 있는 09-03~09-10 측정 구간을 리포트에서 어떻게 표기할지
 - 해외 SEO: `<html lang>` 근본 수정 — 라우트 그룹별 루트 레이아웃 분리(`(ko)`/`(intl)`)
 - clinics 허브 BreadcrumbList·ItemList LD
+
+## 세션랩 (2026-09-11 01:00 KST) — 다음 기기: 노트북
+
+푸시 완료: `4961324`(R199 해외 SEO) · `eea1937`(R200 굶김 수정) · `9238ce1`(기록+규칙).
+작업트리 clean, `origin/main` 과 동기 (behind=0 ahead=0). 임시 브랜치 삭제됨.
+
+**노트북 시작 루틴**
+```bash
+cd <repo> && git pull
+```
+
+**🔴 1순위 검증 — R200 수정이 실제로 먹었는지 (기회는 하루 뒤가 아니라 오늘 아침이다)**
+
+ko 발행 cron 은 UTC 일/화/목 23:00 + UTC 월/수/금 05:00 이다.
+지금 UTC 목요일이므로 **2026-09-10 23:00 UTC = 09-11 08:00 KST 에 발사**된다(약 7시간 뒤).
+해외 배치는 06:00 UTC(15:00 KST)라 **ko 실행보다 뒤** — 이번엔 키를 덮어쓰지 못한다.
+
+판정 2종(둘 다 볼 것):
+1. 배치 로그 `scheduler.starvation_sort` 의 `order` **첫 항목이 18**(포레나의원)인지
+   → `gh run list --workflow=auto-publish.yml --limit 1` 로 run 잡고 `gh run view <id> --log`
+2. 실제 ko 발행이 나갔는지 (로그만 믿지 말 것)
+```sql
+select tenant_id, max(published_at) from generated_contents
+where status='published' and channel='blog_html' and coalesce(lang,'ko')='ko'
+  and tenant_id in (18,6) group by 1;
+-- 기대: 18(포레나) 이 09-11 로 갱신. 안 됐으면 order 는 맞았는데 다른 게이트에 걸린 것 →
+--       키워드 상한(R155/R177) · publish_plan(R83) · ROTATION_PARTNER_BATCH 를 순서대로 볼 것
+```
+
+**남은 사용자 조치 1건**
+- `PERPLEXITY_API_KEY` 를 GitHub 리포 Secrets 에 추가 (충전으로는 안 풀린다 — R200 참조)
+
+**미검증으로 남긴 것 (정직하게 명시)**
+- R200 의 수정 블록은 **실행된 적이 없다.** 게이트는 ① 프로덕션 import(컴파일) ②
+  새 SQL 을 Supabase 직접 실행, 두 조각으로 나눠 통과시켰다. 런타임 실적은 위 1순위 검증에서.
+- R199 해외 SEO 는 라이브 실측 완료(타이틀 중복 해소 · `/about` hreflang 6줄 · `lang="ja"`).
+  단 GSC 반영은 재크롤 이후라 순위·노출 변화는 이번 세션에서 알 수 없다.
