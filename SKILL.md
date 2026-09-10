@@ -8360,3 +8360,90 @@ Round 198 이 감시자를 만들어 둔 덕에 사흘 만에 잡혔다 — 없�
 - `<html lang>` 근본 수정 — 라우트 그룹별 루트 레이아웃 분리(`(ko)` / `(intl)`)
 - clinics 허브 BreadcrumbList·ItemList LD
 - 크레딧 소진으로 편향된 09-09~ 측정 구간을 리포트에서 어떻게 표기할지 (구멍 있는 데이터)
+
+# Round 200 (2026-09-11) — 고쳤다고 커밋한 굶김 정렬이 ko 경로에선 한 번도 안 돌았다
+
+## 🔴 else 가 없어서 범위가 통째로 빠졌다
+
+Round 193 은 "굶김 정렬을 **이번 실행의 범위 안에서** 다시 매긴다" 고 커밋했다.
+그런데 범위 SQL 의 분기에 `else` 가 없었다:
+
+```python
+if lang_only is not None:      _scope_sql += " AND COALESCE(lang,'ko') = :lang"
+elif market_only is not None:  _scope_sql += " AND COALESCE(market,'domestic') = :market"
+# ← else 없음. 일반 로테이션은 필터 없는 SQL 을 돌린다
+```
+
+**ko 로테이션(`auto-publish.yml`)은 `MARKET_ONLY`·`LANG_ONLY` 를 둘 다 넘기지 않는다.**
+그래서 굶김 키가 "모든 언어를 통틀어 마지막으로 발행한 시각" 이 됐다.
+커서가 `last_run_at` → `max(published_at)` 로 **이름만 바뀌었을 뿐,
+ko 와 해외가 같은 키를 공유하는 구조는 그대로**였다.
+
+## 반증 — 정렬을 두 경로로 재계산해 대조했다
+
+숫자 하나만 보고 결론내지 않기 위해, 코드가 실제로 쓰는 키(필터 없음)와
+의도한 키(ko 한정)로 각각 `row_number()` 를 매겨 나란히 놓았다.
+(CLAUDE.md "새 지표를 만들면 그 자체를 먼저 반증할 것")
+
+| 병원 | 실제 순위 | ko 기준 순위 | ko 마지막 | 해외 마지막 |
+|---|---|---|---|---|
+| 포레나의원 | **13위(꼴찌)** | **1위** | 08-27 | 09-10 12:43 |
+| 지우피부과 | 9위 | 2위 | 09-04 | 09-09 12:57 |
+
+포레나의원은 **당일 해외 발행이 키를 덮어써** 매번 `ROTATION_PARTNER_BATCH` 밖으로
+밀려났다. 굶은 날수는 Round 193 시점 11일 → **14일로 악화**됐다.
+그동안 `publish-watchdog` 는 매일 `starving: 포레나의원` 을 정확히 보고하고 있었다 —
+**감시자는 멀쩡했고 고쳤다는 코드가 틀렸다.**
+
+⚠ 더 오래 굶은 3곳(힐링안과 28일·클리어서울안과 22일·청담디어의원 19일)은
+`status='paused'`·`enabled=false` 라 감시자가 **정확히 제외**한 것이었다. 오탐 아님.
+
+## 🔴 거르는 축은 market 이 아니라 lang 이다
+
+수정하면서 `market='domestic'` 으로 걸려다가 실측에서 걸렀다:
+
+```
+ko / domestic  395건
+ko / 'KR'        5건   ← market 으로 걸면 놓친다
+```
+
+`market` 표기가 통일돼 있지 않다. `lang='ko'` 는 400건 전부를 잡고,
+굶김의 의미("이 병원의 한국어 글이 언제 나갔나")와도 일치한다.
+Round 198 의 `claude`/`anthropic` 별칭 분열과 **같은 종류의 함정**이다 —
+집계 축의 표기가 갈리면 조용히 샌다.
+
+## 게이트 — 이 PC 엔 Python 이 없다
+
+`python`·`py` 모두 WindowsApps 스텁만 있어 `py_compile` 로컬 실행 불가.
+대신 **존재하지 않는 tenant_id(999999)로 `auto-publish` 워크플로를 브랜치에서 실행**해
+프로덕션 환경에서 `src.collector.scheduler` import 를 태웠다.
+타깃 경로는 `last_run_at` 을 갱신하지 않고, 그 tenant 의 키워드가 없어 발행 0건이다.
+
+→ **규칙: 사무실 PC 는 Python 미설치.** `.py` 수정 시 py_compile 을 로컬에서 못 돌리므로
+   위 방식(무해한 입력으로 워크플로 import 태우기)을 게이트로 쓴다. 집 PC/노트북에
+   Python 이 있으면 그쪽에서 `python -m py_compile` 이 정답.
+
+## 측정 엔진 복구 — 사용자 충전 후 실측
+
+키워드 2개짜리 최소 측정을 수동 실행(`measure-ai-mentions`, keyword_limit=2)해 확인:
+
+| 엔진 | 성공 | 실패 | 비고 |
+|---|---|---|---|
+| claude | 2 | 0 | 09-03 이후 처음 |
+| gemini | 2 | 0 | 크레딧 소진 이후 처음 |
+| openai | 2 | 0 | |
+| perplexity | — | — | **키 미등록, 여전히 호출 0** |
+
+🔴 **충전으로 안 풀리는 게 하나 있다.** Perplexity 는 크레딧이 아니라 키 문제다.
+`gh secret list` 실측 결과 리포에 `PERPLEXITY_API_KEY` 자체가 없다
+(있는 것: ANTHROPIC_API_KEY · GEMINI_API_KEY · GOOGLE_API_KEY · OPENAI_API_KEY).
+넉 달째 조용히 skip 된 이유가 이것이다. **"충전했다" 와 "키가 있다" 는 다른 사실이다.**
+
+### 다음 라운드 후보 (200 이후)
+
+- 다음 ko 로테이션에서 포레나의원이 실제 1순위로 뽑히는지 실측
+  (로그 `scheduler.starvation_sort` 의 `order` 첫 항목 + 익일 ko 발행 유무)
+- `PERPLEXITY_API_KEY` 등록 (사용자 조치)
+- 크레딧 소진으로 비어 있는 09-03~09-10 측정 구간을 리포트에서 어떻게 표기할지
+- 해외 SEO: `<html lang>` 근본 수정 — 라우트 그룹별 루트 레이아웃 분리(`(ko)`/`(intl)`)
+- clinics 허브 BreadcrumbList·ItemList LD

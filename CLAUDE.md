@@ -33,6 +33,16 @@
 ### 빌드 게이트 (push 명령 제공 전 필수 — 실사고 3회 예방 실증)
 - .tsx/.ts 수정: 수정본 /tmp 사본 확보(마운트 동기화 확인 or 재적용) → `npx --yes esbuild --loader:.tsx=tsx <파일> --outfile=/dev/null` PASS 확인
 - .py 수정: `python3 -m py_compile <파일>`
+- 🔴 **사무실 PC 엔 실제 Python 이 없다** (Round 200 실측 — `python`·`py` 모두 WindowsApps
+  스텁만 있고 `-V` 조차 안 나온다). 여기서는 py_compile 게이트를 못 돌리므로 대체 경로를 쓴다:
+  **무해한 입력으로 GitHub Actions 를 브랜치에서 돌려 프로덕션 Python 에 import 를 태운다.**
+  예: `gh workflow run auto-publish.yml --ref <branch> -f tenant_id=999999`
+  → 로그에 `scheduler.target_no_keyword` 가 찍히면 **모듈은 파싱·실행됐다**(= 문법 OK).
+    `{"drafts":0,"published":0}` 이고 타깃 경로는 `last_run_at` 을 갱신하지 않아 부작용 0.
+    exit 3 은 "생성 0 + 실패 1" 규칙에 따른 **정상 결과**다 — 코드 결함이 아니다.
+  ⚠ 이건 **컴파일만** 증명한다. 조기 반환 때문에 로테이션 블록은 실행되지 않으므로,
+    거기서 조립하는 **SQL 은 Supabase 에 직접 태워 따로 검증**할 것 (Round 200 은 그렇게 했다).
+  집 PC·노트북에 Python 이 있으면 그쪽에서 `python -m py_compile` 이 정답.
 - 게이트 없이 push 명령 주는 것 금지
 
 ### 🔴 esbuild 는 타입을 못 잡는다 — Next 규약 수동 체크 필수 (실사고 Round 144)
@@ -147,6 +157,15 @@ push 후 "됐겠지" 금지. Vercel 프로젝트 `geo-v2`(팀 slug `medimaps-pro
   `down`(성공 0+실패 다수=크레딧·키 만료) · `degraded`(실패율 50%+=레이트리밋).
   뭉뚱그리면 알람을 받고도 시크릿 탭인지 결제 페이지인지 모른다.
   ⚠ 같은 엔진이 표기 불일치(`claude`/`anthropic`)로 쪼개지면 집계에서 새므로 별칭을 묶을 것.
+  🔴 **"충전했다" 와 "키가 있다" 는 다른 사실이다** (Round 200). 사용자가 "다 충전했어" 라고
+  해도 `missing` 판정 엔진은 안 살아난다 — 돈이 아니라 시크릿이 없는 것이다. 실측:
+  Claude·Gemini 는 충전으로 즉시 복구(2/2 성공)됐지만 Perplexity 는 그대로 0이었고,
+  `gh secret list` 에 `PERPLEXITY_API_KEY` 자체가 없었다(넉 달째 조용히 skip 된 이유).
+  → 복구 보고 전에 **`gh secret list` 로 키 존재를 먼저 확인**하고, 판정별로 조치를 분리해
+    알릴 것. 그리고 복구는 **실호출로만** 확인한다 — `check_llm_health.py` 는 과거 로그만
+    읽는 리더라 충전 직후엔 아무것도 증명하지 못한다.
+    최소 비용 실호출: `gh workflow run measure-ai-mentions.yml -f engine_mode=production
+    -f keyword_limit=2` → `llm_call_logs` 에서 엔진별 성공/실패 확인.
 - **비동기 호출 함수를 새로 만들 땐 request id 를 저장하고 판정용 health view 를 같이 만든다.**
   안 만들면 "쐈다는 것만 알고 됐는지는 아무도 모른다" 가 된다 (Round 187 재현).
 
