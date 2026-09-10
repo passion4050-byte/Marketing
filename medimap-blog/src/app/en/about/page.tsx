@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { overseasAlternates } from "@/lib/hreflang";
 import Link from "next/link";
 import { JsonLd } from "@/components/JsonLd";
 import { ContactButtons } from "@/components/ContactButtons";
@@ -8,10 +9,7 @@ export const metadata: Metadata = {
   title: "About WECIRCLE",
   description:
     "WECIRCLE turns a Korean clinic's clinical philosophy into compliant, AI-citeable content assets — editorial, medical-law compliance and citation measurement in one pipeline.",
-  alternates: {
-    canonical: "/en/about",
-    languages: { en: "/en/about", ja: "/ja/about", "zh-Hans": "/zh/about", "zh-Hant": "/tw/about", ko: "/about" },
-  },
+  alternates: overseasAlternates("en", "/about", "/about"),
 };
 
 const PRINCIPLES = [

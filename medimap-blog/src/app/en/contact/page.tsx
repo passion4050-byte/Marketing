@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { overseasAlternates } from "@/lib/hreflang";
 import { JsonLd } from "@/components/JsonLd";
 import { ContactButtons } from "@/components/ContactButtons";
 import { siteConfig } from "@/lib/site";
@@ -7,10 +8,7 @@ export const metadata: Metadata = {
   title: "Talk to WECIRCLE",
   description:
     "Patients: free help comparing Korean clinics and booking. Clinics: see which competitors AI cites for your treatments. English, Japanese and Chinese support.",
-  alternates: {
-    canonical: "/en/contact",
-    languages: { en: "/en/contact", ja: "/ja/contact", "zh-Hans": "/zh/contact", "zh-Hant": "/tw/contact", ko: "/contact" },
-  },
+  alternates: overseasAlternates("en", "/contact", "/contact"),
 };
 
 const STEPS = [

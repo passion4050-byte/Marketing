@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { overseasAlternates } from "@/lib/hreflang";
 import Link from "next/link";
 import { JsonLd } from "@/components/JsonLd";
 import { ContactButtons } from "@/components/ContactButtons";
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   title: "Get Your Korean Clinic Cited by ChatGPT, Perplexity & Gemini",
   description:
     "Foreign patients now ask AI for the best clinics in Korea. WECIRCLE publishes English, Japanese & Chinese GEO/AEO content that ranks on Google and gets your clinic cited by AI — measured, not guessed.",
-  alternates: { canonical: "/en" },
+  alternates: overseasAlternates("en", "", "/"),
 };
 
 const STEPS = [

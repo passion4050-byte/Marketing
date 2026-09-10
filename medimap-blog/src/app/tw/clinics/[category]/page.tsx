@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { category } = await params;
   const label = CAT_LABELS[category] ?? category;
   return {
-    title: `韓國${label}診所 — WECIRCLE Global`,
+    title: `韓國${label}診所`,
     alternates: overseasAlternates("tw", `/clinics/${category}`),
   };
 }

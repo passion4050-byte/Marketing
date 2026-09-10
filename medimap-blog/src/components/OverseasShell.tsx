@@ -33,9 +33,14 @@ export function OverseasShell({
    */
   const headerCtaHref = lang === "ja" ? LINE : WA;
   const headerCtaBg = lang === "ja" ? "bg-[#06C755]" : "bg-[#25D366]";
+  // Round 199 (2026-09-11) - the root layout hardcodes <html lang="ko">, and an App
+  //   Router root layout cannot read the pathname, so every /en /ja /zh /tw page was
+  //   served declaring Korean content while its hreflang claimed otherwise. Scoping the
+  //   real language on this wrapper costs nothing visually and stops the contradiction.
+  const HTML_LANG = { en: "en", ja: "ja", zh: "zh-Hans", tw: "zh-Hant" }[lang];
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#FAFAF7] text-stone-900">
+    <div lang={HTML_LANG} className="flex min-h-screen flex-col bg-[#FAFAF7] text-stone-900">
       <header className="sticky top-0 z-40 border-b border-stone-200/70 bg-[#FAFAF7]/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3.5 md:py-4">
           <Link href={home} className="flex items-baseline gap-2" aria-label="WECIRCLE Global">

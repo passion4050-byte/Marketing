@@ -8263,3 +8263,100 @@ enabled=true  secret_set=true  last_status_code=404  harvest_pending=false
 - 다음 수집 런 검증 3종: `is_competitor > 0` · `"한방"` 재유입 없음 · 포레나의원 ko 발행
 - 해석 커버리지 재측정 — Round 197 §1 수정 후 gemini 50.5% 가 얼마나 오르는지
 - 인용된 5편 vs 안 된 328편의 구조 차이 (표본 5라 가설 생성용)
+
+# Round 199 (2026-09-11) — 해외 온페이지 SEO. 선언은 다 돼 있었는데 하나도 유효하지 않았다
+
+카카오톡으로 받은 `hospital-onpage-seo` 스킬을 자사 해외 로케일(`/en` `/ja` `/zh` `/tw`)에
+적용했다. 정본 보고서: `medimap-blog/SEO_ONPAGE_REPORT.md`.
+
+## 🔴 Next 는 `alternates` 를 병합하지 않고 대체한다 (이번 라운드 핵심)
+
+`en/ja/zh/tw/layout.tsx` 는 `languages` 에 4개 로케일 + `ko` 를 **정확히** 선언하고 있었다.
+그런데 페이지가 `alternates: { canonical: "/ja" }` 한 줄만 선언하면 레이아웃의 `languages` 가
+**통째로 사라진다.** 로케일 홈 4개 · about·contact·blog(en·ja·zh) · guides 상세가 전부
+그 상태였다 — **canonical 만 있고 언어 대체는 없이 서빙**되고 있었다.
+
+코드만 보면 "hreflang 잘 돼 있네" 로 읽힌다. 레이아웃에 있으니까. **빌드 산출물을 봐야 안다.**
+이건 Round 193 의 "죽은 ORM 가드" 와 같은 형태다 — 선언은 있는데 실행 경로에서 무력화.
+
+## 🔴 hreflang 은 상호 참조여야 유효하다 — 국내가 되받은 적이 없었다
+
+해외 about·contact 는 예전부터 `ko: "/about"` 을 달고 있었다. 그런데 국내 `/about` 은
+`alternates: { canonical: "/about" }` 뿐이었다. **한쪽만 선언한 짝은 Google 이 무시한다.**
+국내 홈은 `metadata` export 자체가 없어 루트 레이아웃을 상속하고 있었다.
+
+→ `koAlternates()` 신설. 국내 `/` `/about` `/contact` `/blog` 가 해외 4개를 되받는다.
+→ `overseasAlternates()` 에 `x-default`(→`/en`) 추가. 종점이 없으면 Google 이 기본형을 임의로 고른다.
+→ `ko` 는 **1:1 대응이 확실한 경로에만** 넣는 옵트인 인자로 바꿨다. `/clinics` ↔
+   `/with-partners` 처럼 대응이 깨지는 곳에 ko 를 달면 짝이 어긋나 오히려 손해다.
+
+## 🔴 브랜드명이 두 번 나가고 있었다 (라이브 실측)
+
+```
+/en/clinics  <title>Partner clinics — WECIRCLE Global · WECIRCLE Global</title>
+```
+레이아웃 `title.template: "%s · WECIRCLE Global"` + 페이지가 손으로 붙인 `— WECIRCLE Global`.
+**SERP 타이틀 예산 60자 중 18자를 반복 브랜드명이 먹고 있었다.** 29개 파일에서 제거.
+추측이 아니라 `curl | grep '<title>'` 로 먼저 확인하고 고쳤다.
+
+## 그 외
+
+- 해외 페이지가 `<html lang="ko">` 로 나갔다. App Router 루트 레이아웃은 pathname 을 못 읽어
+  분기 불가 → `OverseasShell` 래퍼에 실제 언어 스코프(`en`/`ja`/`zh-Hans`/`zh-Hant`).
+  근본 수정(라우트 그룹별 루트 레이아웃 분리)은 별도 라운드.
+- ja·zh·tw 홈에 구조화 데이터가 **하나도 없었다**(en 만 Service LD). en 구조를 미러.
+- 허브 8개(clinics·blog × 4로케일) 타이틀·설명을 DB `keywords` 의 **실제 추적 중인 해외
+  키워드 279개**(en 78·ja 69·zh-Hant 69·zh-Hans 63)에서 어휘를 가져와 정렬. 지어낸 키워드 없음.
+
+## 🔴 실사고 — perl 스크립트에 한글 리터럴을 직접 넣어 이중인코딩 2회
+
+`open '<:encoding(UTF-8)'` 로 **디코드해서 읽은** 문자열에, `use utf8` 없는 스크립트의
+**raw 바이트 한글 리터럴**을 섞어 쓰면 쓰는 순간 이중 인코딩된다.
+`주식회사 위서클` → `ì£¼ìíì¬ ììí´`. **JSON-LD 의 `legalName` 이 깨진 채 배포될 뻔했다.**
+
+→ 규칙: **비ASCII 치환 텍스트는 스크립트에 넣지 말고 별도 UTF-8 데이터 파일에 쓰고
+`:encoding(UTF-8)` 로 읽어 온다.** bash heredoc 은 UTF-8 을 그대로 쓰므로 안전하다.
+커밋 전 이중인코딩 스캔을 돌릴 것:
+```bash
+for f in $(git diff --name-only); do
+  LC_ALL=C grep -l $'\xc3\xa2\xc2\x80\|\xc3\xac\xc2\|\xc3\xab\xc2\|\xc3\xaa\xc2' "$f"
+done   # 출력이 비어야 정상
+```
+
+## 게이트
+
+`medimap-blog` 은 `build-gate.sh` 가 없다(v2 전용) → `npm install`(22s) →
+`npx tsc --noEmit` **errors 0** → `npx next build` **성공**. 산출물 `.next/server/app/*.html` 에서
+title 중복 해소 · hreflang 6줄(x-default 포함) · `lang="zh-Hant"` · `legalName` 바이트 일치를 직접 확인.
+
+## 🔴 측정 4엔진 중 3개가 죽어 있다 (Round 198 감시자의 첫 수확)
+
+`measure-watchdog` 는 정상 가동 확인됐다 — `last_status_code=200`, 하루 2회 발사, 알람 3건 감지 중.
+감시자가 잡아낸 실상 (`llm_call_logs`, 7일):
+
+| 엔진 | 24h 성공 | 24h 실패 | 마지막 성공 | 원인 |
+|---|---|---|---|---|
+| openai | 172 | 0 | 09-10 12:43 | 정상 |
+| gemini | 37 | 103 | 09-09 23:39 | 🔴 **AI Studio 선불 크레딧 소진**(신규) |
+| claude | 0 | 140 | **09-03** | 🔴 크레딧 소진 (7일째, 980건 전량 실패) |
+| perplexity | — | — | 기록 없음 | 🔴 API 키 미등록 (넉 달째) |
+
+**Gemini 소진은 Round 198 시점엔 없던 신규 장애다.** 측정 부하를 가장 많이 지던 엔진이라
+09-09 밤부터 사실상 **OpenAI 단독 측정**이고, 그 기간 Mention Share 는 편향돼 있다.
+Round 198 이 감시자를 만들어 둔 덕에 사흘 만에 잡혔다 — 없었으면 또 몇 달 몰랐을 것이다.
+
+## Round 198 후속 검증 (같이 확인)
+
+- ✅ `measure-watchdog` 200 실측 (Round 198 미검증 항목)
+- ✅ `is_competitor` 7일 **521건** — Round 194 수정 동작 중
+- 🔴 **포레나의원 ko 발행 13일째 0** — Round 193 에서 굶김 정렬을 고쳤는데 11일 → **13일로 악화**.
+  `publish-watchdog` 가 매일 `starving: 포레나의원 13일` 을 보고하고 있다. 미해결.
+
+### 다음 라운드 후보 (199 이후)
+
+- 🔴 **포레나의원 굶김 재조사** — Round 193 수정이 왜 효과가 없었나. 감시자는 계속 울고 있다
+- 🔴 **사용자 조치 3건**: Anthropic 크레딧 · Gemini AI Studio 크레딧 · Perplexity 키 등록
+- 배포 후 라이브 재검증 — 타이틀 중복 해소 + `/about` hreflang 6줄 (보고서 §9 명령)
+- `<html lang>` 근본 수정 — 라우트 그룹별 루트 레이아웃 분리(`(ko)` / `(intl)`)
+- clinics 허브 BreadcrumbList·ItemList LD
+- 크레딧 소진으로 편향된 09-09~ 측정 구간을 리포트에서 어떻게 표기할지 (구멍 있는 데이터)

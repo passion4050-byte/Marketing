@@ -13,7 +13,7 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const guide = await getGuide("zh-Hant", slug);
-  if (!guide) return { title: "攻略 — WECIRCLE Global" };
+  if (!guide) return { title: "攻略" };
   return {
     // 🔴 Round 180b (2026-08-30) — 해외 라우트에는 robots 가 아예 없었다.
     //   그래서 Round 178 의 해외 중복 noindex 처리는 전부 no-op 였다.

@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   title: "關於 WECIRCLE",
   description:
     "WECIRCLE 將診所的診療理念，重新編輯為通過醫療法、可被AI引用的內容資產。編輯、醫療法合規、引用計量在同一條流水線完成。",
-  alternates: overseasAlternates("tw", "/about"),
+  alternates: overseasAlternates("tw", "/about", "/about"),
 };
 
 const PRINCIPLES = [

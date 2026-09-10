@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { koAlternates } from "@/lib/hreflang";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowUpRight } from "lucide-react";
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
   title: "위서클 인사이트",
   description:
     "위서클이 발행하는 병원 마케팅 인사이트. AI 검색 시대에 병원이 어떻게 살아남는지 다룹니다.",
-  alternates: { canonical: "/blog" },
+  alternates: koAlternates("/blog"),
   openGraph: { title: "위서클 인사이트", type: "website" },
 };
 

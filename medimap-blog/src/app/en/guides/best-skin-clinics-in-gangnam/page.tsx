@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { overseasAlternates } from "@/lib/hreflang";
 import { notFound } from "next/navigation";
 import { getGuide } from "@/lib/guides";
 import { GuideArticle, type GuideLabels } from "@/components/GuideArticle";
@@ -10,18 +11,11 @@ const SLUG = "best-skin-clinics-in-gangnam";
 
 export async function generateMetadata(): Promise<Metadata> {
   const guide = await getGuide("en", SLUG);
-  if (!guide) return { title: "Best Skin Clinics in Gangnam — WECIRCLE Global" };
+  if (!guide) return { title: "Best Skin Clinics in Gangnam" };
   return {
     title: guide.title,
     description: guide.excerpt ?? undefined,
-    alternates: {
-      canonical: `/en/guides/${SLUG}`,
-      languages: {
-        en: `/en/guides/${SLUG}`,
-        ja: `/ja/guides/${SLUG}`,
-        "zh-Hans": `/zh/guides/${SLUG}`, "zh-Hant": `/tw/guides/${SLUG}`,
-      },
-    },
+    alternates: overseasAlternates("en", `/guides/${SLUG}`),
     openGraph: {
       type: "article",
       title: guide.title,

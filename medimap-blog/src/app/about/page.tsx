@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { koAlternates } from "@/lib/hreflang";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { JsonLd } from "@/components/JsonLd";
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
   title: "회사소개 — 위서클",
   description:
     "위서클은 AI 검색 시대에 병원이 살아남는 방식을 다시 씁니다. 편집·의료법·측정을 한 파이프라인에서.",
-  alternates: { canonical: "/about" },
+  alternates: koAlternates("/about"),
 };
 
 const PRINCIPLES = [

@@ -6,8 +6,9 @@ import { overseasAlternates } from "@/lib/hreflang";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "提携クリニック — WECIRCLE Global",
-  description: "診療科別の韓国提携クリニック。検証済みガイドを読み、無料見積もりを受け取れます。",
+  title: "韓国のクリニック一覧 — ソウル・江南（診療科別）",
+  description:
+    "診療科別の韓国クリニック一覧。江南・清潭の皮膚科、スマイルラシック、植毛、歯科。日本語対応と費用の目安、施術ガイドを掲載しています。",
   alternates: overseasAlternates("ja", "/clinics"),
 };
 

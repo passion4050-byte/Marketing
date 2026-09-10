@@ -21,10 +21,10 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  if (!isOverseasBlogCategory(slug)) return { title: "Blog — WECIRCLE Global" };
+  if (!isOverseasBlogCategory(slug)) return { title: "Blog" };
   const meta = OVERSEAS_BLOG_LABELS.en[slug];
   return {
-    title: `${meta.label} — WECIRCLE Global`,
+    title: `${meta.label}`,
     description: meta.desc,
     alternates: overseasAlternates("en", `/blog/category/${slug}`),
   };

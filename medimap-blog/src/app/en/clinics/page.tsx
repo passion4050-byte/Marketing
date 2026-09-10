@@ -6,9 +6,9 @@ import { overseasAlternates } from "@/lib/hreflang";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Partner clinics — WECIRCLE Global",
+  title: "Korean Clinics by Specialty — Seoul & Gangnam",
   description:
-    "Korean partner clinics by specialty. Compare, read verified guides, and get a free quote.",
+    "Korean clinics by specialty — skin, LASIK and SMILE, hair transplant, dental, plastic surgery. English-speaking, with treatment guides and price ranges for foreign patients.",
   alternates: overseasAlternates("en", "/clinics"),
 };
 

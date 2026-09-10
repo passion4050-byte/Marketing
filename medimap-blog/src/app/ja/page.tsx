@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
+import { overseasAlternates } from "@/lib/hreflang";
 import Link from "next/link";
+import { JsonLd } from "@/components/JsonLd";
 import { ContactButtons } from "@/components/ContactButtons";
 import { OverseasHomeShowcase } from "@/components/OverseasHomeShowcase";
+import { siteConfig } from "@/lib/site";
 
 // Round 159b — 홈에 최신 가이드·클리닉 커버 섹션(DB) 추가 → ISR 60s
 export const revalidate = 60;
@@ -10,15 +13,33 @@ export const metadata: Metadata = {
   title: "韓国クリニックをChatGPT・Perplexity・Geminiに引用させる",
   description:
     "外国人患者はAIで韓国のクリニックを探します。WECIRCLEは英語・日本語・中国語のGEO/AEOコンテンツを発信し、Googleで上位表示され、AIに引用される仕組みを作ります。",
-  alternates: { canonical: "/ja" },
+  alternates: overseasAlternates("ja", "", "/"),
 };
 
 const SPECIALTIES = ["皮膚科・美容皮膚", "美容外科（鼻・目・輪郭）", "視力矯正（SMILE・LASIK）", "植毛（FUE）", "歯科（インプラント）", "健康診断・アンチエイジング"];
 const SPECIALTY_CATS = ["derma", "plastic", "eyeclinic", "hair", "dental", "internal"];
 
 export default async function JaHome() {
+  // Round 199 (2026-09-11) — en 홈에만 있던 Service 구조화 데이터를 ja/zh/tw 에도 넣는다.
+  //   이 세 로케일 홈은 JSON-LD 를 하나도 내보내지 않고 있었다.
+  const serviceLd = {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    name: "WECIRCLE Global — 韓国クリニック向けGEO/AEO",
+    serviceType: "AI search optimization (GEO/AEO) for medical tourism",
+    provider: {
+      "@type": "Organization",
+      name: "WECIRCLE",
+      legalName: "주식회사 위서클",
+      url: `${siteConfig.url}/ja`,
+      address: { "@type": "PostalAddress", addressLocality: "Seoul", addressCountry: "KR" },
+    },
+    areaServed: "Global",
+    description: "英語・日本語・中国語のGEO/AEOコンテンツを発信し、韓国のクリニックがGoogleで上位表示され、ChatGPT・Perplexity・Geminiに引用されるようにします。",
+  };
   return (
     <>
+      <JsonLd data={serviceLd} />
       <section className="mx-auto max-w-6xl px-5 pb-16 pt-16 md:pt-24">
         <div className="max-w-3xl">
           <div className="mb-5 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-stone-500">

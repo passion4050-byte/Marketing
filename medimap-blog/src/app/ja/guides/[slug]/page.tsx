@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { overseasAlternates } from "@/lib/hreflang";
 import { notFound, redirect } from "next/navigation";
 import { getGuide } from "@/lib/guides";
 import { GuideArticle, type GuideLabels } from "@/components/GuideArticle";
@@ -12,7 +13,7 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const guide = await getGuide("ja", slug);
-  if (!guide) return { title: "ガイド — WECIRCLE Global" };
+  if (!guide) return { title: "ガイド" };
   return {
     // 🔴 Round 180b (2026-08-30) — 해외 라우트에는 robots 가 아예 없었다.
     //   그래서 Round 178 의 해외 중복 noindex 처리는 전부 no-op 였다.
@@ -20,14 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     robots: guide.noindex ? { index: false, follow: true } : undefined,
     title: guide.title,
     description: guide.excerpt ?? undefined,
-    alternates: {
-      canonical: `/ja/guides/${slug}`,
-      languages: {
-        en: `/en/guides/${slug}`,
-        ja: `/ja/guides/${slug}`,
-        "zh-Hans": `/zh/guides/${slug}`, "zh-Hant": `/tw/guides/${slug}`,
-      },
-    },
+    alternates: overseasAlternates("ja", `/guides/${slug}`),
     openGraph: {
       type: "article",
       title: guide.title,

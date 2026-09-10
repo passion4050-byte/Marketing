@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const info = await getPartnerBySlug(partner);
   const name = overseasPartnerName(partner, "zh", info?.name ?? partner);
   return {
-    title: `${name} — WECIRCLE Global`,
+    title: `${name}`,
     alternates: overseasAlternates("zh", `/clinics/${category}/${partner}`),
   };
 }

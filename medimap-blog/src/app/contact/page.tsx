@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { koAlternates } from "@/lib/hreflang";
 import Link from "next/link";
 import { ArrowUpRight, MessageCircle, Mail, MapPin } from "lucide-react";
 import { JsonLd } from "@/components/JsonLd";
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
   title: "제휴 문의 — 위서클",
   description:
     "위서클 파트너십 · 제휴 문의. 카카오톡 상담이 가장 빠릅니다. 서면 문의는 이메일로.",
-  alternates: { canonical: "/contact" },
+  alternates: koAlternates("/contact"),
 };
 
 const CHANNELS = [

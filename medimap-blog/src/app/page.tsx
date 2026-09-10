@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowUpRight } from "lucide-react";
@@ -7,9 +8,21 @@ import { organizationLd, websiteLd } from "@/lib/schema";
 import { getAllPosts } from "@/lib/posts";
 import { getAllPartnerPostMetas } from "@/lib/partners";
 import { kakaoTrackHrefSelf } from "@/lib/ctaLink";
+import { koAlternates } from "@/lib/hreflang";
 
 // Round 111 v3 (2026-07-02) — Editorial home. Off-white magazine cover style.
 export const revalidate = 60;
+
+/*
+ * Round 199 (2026-09-11) — 국내 홈이 해외 4개 로케일을 되받는다.
+ *   해외 홈들은 예전부터 `ko: "/"` 를 선언했지만 국내 홈은 루트 레이아웃의
+ *   `alternates: { canonical: "/" }` 만 상속해 짝이 성립한 적이 없었다.
+ *   페이지 alternates 는 레이아웃 것을 병합이 아니라 대체하므로, RSS types 를
+ *   여기서 다시 실어 준다 (Round 118-B 네이버 서치어드바이저 autodiscovery 유지).
+ */
+export const metadata: Metadata = {
+  alternates: koAlternates("/", { "application/rss+xml": "/rss.xml" }),
+};
 
 const CATEGORY_OVERLINE: Record<string, string> = {
   content_marketing: "Content Marketing",

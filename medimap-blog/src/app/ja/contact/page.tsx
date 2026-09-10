@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { overseasAlternates } from "@/lib/hreflang";
 import { JsonLd } from "@/components/JsonLd";
 import { ContactButtons } from "@/components/ContactButtons";
 import { siteConfig } from "@/lib/site";
@@ -7,10 +8,7 @@ export const metadata: Metadata = {
   title: "WECIRCLEに相談する",
   description:
     "20分の相談で、今どの競合がAIに引用されているかをお見せします。韓国クリニックのための英語・日本語・中国語GEO/AEO。",
-  alternates: {
-    canonical: "/ja/contact",
-    languages: { en: "/en/contact", ja: "/ja/contact", "zh-Hans": "/zh/contact", "zh-Hant": "/tw/contact", ko: "/contact" },
-  },
+  alternates: overseasAlternates("ja", "/contact", "/contact"),
 };
 
 const STEPS = [

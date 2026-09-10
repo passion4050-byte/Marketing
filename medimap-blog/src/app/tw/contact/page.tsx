@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: "聯絡 WECIRCLE",
   description:
     "20分鐘通話，我們將展示目前哪些競爭對手正被AI引用。為韓國診所提供英語、日語、中文的 GEO/AEO。",
-  alternates: overseasAlternates("tw", "/contact"),
+  alternates: overseasAlternates("tw", "/contact", "/contact"),
 };
 
 const STEPS = [

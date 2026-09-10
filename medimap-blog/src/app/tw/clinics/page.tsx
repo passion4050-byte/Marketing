@@ -6,8 +6,9 @@ import { overseasAlternates } from "@/lib/hreflang";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "合作診所 — WECIRCLE Global",
-  description: "按科別瀏覽韓國合作診所。閱讀經審核的攻略，取得免費報價。",
+  title: "韓國診所一覽 — 首爾·江南（按科別）",
+  description:
+    "按科別瀏覽韓國診所。江南·清潭皮膚科、SMILE近視雷射、植髮、牙科。附外國患者就診攻略與費用參考。",
   alternates: overseasAlternates("tw", "/clinics"),
 };
 
