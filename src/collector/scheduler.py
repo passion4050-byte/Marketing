@@ -468,6 +468,23 @@ def daily_auto_content_job(
             elif market_only is not None:
                 _scope_sql += " AND COALESCE(market,'domestic') = :market"
                 _scope_params["market"] = market_only
+            else:
+                # 🔴 Round 200 (2026-09-11) — Round 193 의 수정이 ko 로테이션에는 한 번도
+                #   적용된 적이 없다. 여기에 else 가 없어서, 범위 인자를 주지 않는 일반
+                #   로테이션(= auto-publish.yml, ko 경로)은 필터 없는 SQL 을 돌려
+                #   **"모든 언어를 통틀어 마지막으로 발행한 시각"** 을 굶김 키로 썼다.
+                #   해외 배치가 매일 도는 병원은 그 키가 매일 갱신되므로, 커서만
+                #   last_run_at → max(published_at) 로 바뀌었을 뿐 **공유는 그대로**였다.
+                #   실측(2026-09-10, enabled 13곳): 포레나의원은 ko 마지막 발행이 08-27
+                #   인데 당일 해외 발행(12:43)이 키를 덮어써 **정렬 13위(꼴찌)** —
+                #   ko 기준으로 다시 매기면 **1위**다. 지우피부과도 9위↔2위로 같은 증상.
+                #   일반 로테이션의 범위는 국내다(이 파일이 이미 lang_only in (None,'ko')
+                #   · market_only in (None,'domestic') 를 국내와 동일시한다) → 명시한다.
+                #   ⚠ 거르는 축은 market 이 아니라 **lang** 이다. market 표기가 통일돼
+                #     있지 않다 — 실측: ko/domestic 395건 외에 **ko/'KR' 5건**이 있어
+                #     market='domestic' 로 걸면 그 5건을 놓친다. lang='ko' 는 400건 전부를
+                #     잡고, 굶김의 의미("이 병원의 한국어 글이 언제 나갔나")와도 일치한다.
+                _scope_sql += " AND COALESCE(lang,'ko') = 'ko'"
             _scope_sql += " GROUP BY tenant_id"
             from sqlalchemy import text as _scope_text
             _last_scope_pub = {
