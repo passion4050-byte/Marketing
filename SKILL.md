@@ -8549,8 +8549,14 @@ pytest tests/test_scheduler.py  → 9 passed / 3 failed
 git stash 후 같은 명령          → 9 passed / 3 failed   ← 동일. 회귀 아님
 ```
 `git stash` 한 번이 "내가 깼나" 를 30초에 끝냈다. **테스트 실패를 보면 결론 전에
-베이스라인부터 잰다.** 실패 3건의 실체는 SQLite 테스트 스키마 드리프트
-(`generated_contents.published_at`·`structure_type` 미존재, Postgres 전용 SQL 이 sqlite 문법 오류).
+베이스라인부터 잰다.**
+
+🔴 **다만 여기서 내린 원인 진단은 틀렸다 — Round 202 에서 정정한다.** 나는 실패 3건을
+"SQLite 테스트 스키마 드리프트(`published_at`·`structure_type` 미존재)" 로 적었는데,
+그 `sqlite3.OperationalError` 들은 전부 `try/except` 에 잡히는 **잡음**이었다.
+실제 원인은 ① `publish_plan` 기본값 `'A'` + 토요일 = Round 83 요일 게이트(2건)
+② 테스트 스키마에 `experiment_arm` 이 없어 타깃 경로 가드가 조용히 죽음(1건).
+**눈에 띄는 에러를 원인으로 착각했다.** 로그의 `plan_a_skipped_today` 한 줄이 답이었다.
 
 py_compile PASS. ⚠ **이 노트북에는 실제 Python 이 있다**(3.12.10 / py 3.14.4) —
 Round 200 의 "사무실 PC 엔 Python 이 없다" 는 그 기기 한정이다.
@@ -8570,5 +8576,68 @@ Round 200 의 "사무실 PC 엔 Python 이 없다" 는 그 기기 한정이다.
 - 🔴 사용자 조치 1건 그대로: `PERPLEXITY_API_KEY` 를 GitHub 리포 Secrets 에 추가
   (충전으로는 안 풀린다 — R200. `missing` 은 돈이 아니라 시크릿 문제다)
 - `tests/test_scheduler.py` 3건 SQLite 스키마 드리프트 복구 (테스트가 회귀를 못 잡는 상태)
+- 크레딧 소진으로 비어 있는 09-03~09-10 측정 구간을 리포트에서 어떻게 표기할지
+- 해외 SEO: `<html lang>` 근본 수정 — 라우트 그룹별 루트 레이아웃 분리(`(ko)`/`(intl)`)
+
+# Round 202 (2026-09-12) — 정정: 테스트 3건은 스키마 드리프트가 아니라 요일 의존이었다
+
+Round 201 에서 `pytest tests/test_scheduler.py` 3건 실패의 원인을 "SQLite 테스트 스키마
+드리프트" 로 적었다. **틀렸다.** 베이스라인 비교(회귀 아님)는 맞았지만 원인이 틀렸고,
+그대로 두면 다음 사람이 sqlite 스키마를 뒤지게 된다.
+
+## 🔴 눈에 띄는 에러를 원인으로 착각했다
+
+로그에 `sqlite3.OperationalError`(`published_at`·`structure_type` 없음, Postgres 전용 SQL)
+가 잔뜩 찍혀 있었다. 전부 `try/except` 에 잡히는 **잡음**이다. 진짜 원인은 한 줄이었다:
+
+```
+scheduler.plan_a_skipped_today  skipped_tenants=[1]
+```
+
+`tenants.publish_plan` 기본값 `'A'` + Round 83 게이트(월/수/금 KST) → 테스트 tenant 가
+스킵됐다. 2026-09-12 는 **토요일**이었다. 즉 두 테스트는 **주 4일(화·목·토·일) 실패**하고
+월/수/금만 통과하는 요일 의존 테스트였고, 내 수정과는 아무 상관이 없었다.
+
+같은 파일 L259 에 이미 같은 교훈이 적혀 있었다 — `publish_plan='B' — 플랜 A 의 월/수/금
+게이트에 테스트가 요일 의존하지 않게`. 나중에 쓴 테스트만 알고 있었다.
+
+→ **실패를 볼 땐 무엇이 스킵됐는지를 먼저 찾는다.** 시끄러운 예외가 아니라 조용한 스킵이
+원인인 경우가 많다.
+
+## 🔴 세 번째 실패는 더 나쁜 것이었다 — 가드를 한 번도 실행하지 않는 테스트
+
+`test_naver_demand_drain_applies_to_target_path` 는 이미 `publish_plan='B'` 인데도 실패했다
+(기대 `모발이식 탈락기`, 실제 `라식`).
+
+타깃 경로의 `_ok_rows` SQL 은 `purpose`·`content_eligible`·`experiment_arm` 을 **한 쿼리로**
+읽는다. 테스트 헬퍼는 `purpose` 만 ALTER 했다 →
+쿼리 전체 예외 → `except: _ok_rows = []` → `if _ok_rows:` 안의 **네이버 드레인 블록이 통째로 스킵**.
+
+즉 Round 183 을 잠그려고 만든 테스트가 **드레인을 한 번도 실행하지 않은 채** 실패하고 있었다.
+CLAUDE.md "ORM 미매핑 컬럼 = 조용히 죽는 가드" 와 같은 꼴이고, 이번엔 테스트 쪽이었다.
+컬럼을 채우자 통과 — Round 183 의 보장은 코드에 살아 있다.
+
+## Round 201 회귀 테스트 — 음성 검증까지 했다
+
+`test_rotation_without_scope_never_picks_overseas_keyword`:
+- `daily_count` = 풀 크기(ko 1 + 해외 5 = 6) → **날짜 오프셋과 무관하게** 판정된다.
+  6슬롯이 풀을 한 바퀴 돌므로, 수정 전이라면 해외가 반드시 섞인다.
+- `tenant_products` 테이블을 만들어 해외 상품을 active 로 둔다.
+  🔴 이게 없으면 `_publish_ok` 가 해외를 전부 걸러 **무엇을 주장해도 통과**한다 — 공허한 테스트.
+- **음성 검증**: 수정 전 커밋(`bebb124`)의 `scheduler.py` 로 되돌려 실패를 확인했다.
+  통과만 보고 닫으면 잠금장치인 줄 알았던 게 장식일 수 있다.
+
+## 결과
+
+```
+pytest tests/test_scheduler.py  →  13 passed   (이전: 9 passed / 3 failed)
+```
+이제 이 파일은 **어느 요일에 돌려도** 같은 결과를 낸다.
+
+### 다음 라운드 후보 (202 이후)
+
+- 🔴 **09-14 08:00 KST ko 발사분 판정 2종** (Round 201 런타임 실적 — 아직 미검증)
+- 🔴 사용자 조치 1건: `PERPLEXITY_API_KEY` GitHub Secrets 등록 (충전으로는 안 풀린다)
+- 다른 테스트 파일에도 같은 요일 의존이 있는지 일괄 점검 (`publish_plan` 미지정 tenant grep)
 - 크레딧 소진으로 비어 있는 09-03~09-10 측정 구간을 리포트에서 어떻게 표기할지
 - 해외 SEO: `<html lang>` 근본 수정 — 라우트 그룹별 루트 레이아웃 분리(`(ko)`/`(intl)`)

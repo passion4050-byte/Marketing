@@ -71,6 +71,7 @@ None yet.
 |------|------|-------|--------|
 | 2026-09-08 | cron-health-null-fix | 192 | `cron_endpoint_health` 가 pg_net TTL(6h) < 발사주기(7h) 로 항상 null 이던 것 수정. 수확 잡 + 이력 테이블 도입, 200 실측 |
 | 2026-09-12 | ko-rotation-lang-scope | 201 | ko 굶김 1순위로 뽑힌 슬롯이 해외 키워드를 발행하던 것 수정. 정렬(R200)은 ko 로 좁혔는데 키워드 풀은 안 좁혀 포레나의원 09-11 슬롯이 zh-Hans 로 나갔다 |
+| 2026-09-12 | scheduler-test-date-dependency | 202 | 정정 — 테스트 3건 실패는 스키마 드리프트가 아니라 publish_plan 기본값 'A' 의 요일 게이트였다. 요일 비의존화 + 죽은 가드 컬럼 보강 + R201 회귀 테스트(음성 검증 포함). 13 passed |
 
 ## Deferred Items
 

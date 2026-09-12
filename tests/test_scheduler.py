@@ -119,7 +119,11 @@ def test_daily_auto_content_job_skips_when_disabled(session_factory):
     from src.storage.models import AutoContentSetting
 
     with session_factory() as s:
-        s.add(Tenant(id=1, name="메디맵", domain_category="안과", region="서울", business_model=""))
+        # 🔴 Round 202 — publish_plan='B' 가 **없으면 이 테스트는 공허하게 통과**한다.
+        #   기대값이 tenants=0 이라, 월/수/금이 아닌 날에는 enabled 게이트가 망가져도
+        #   요일 게이트가 대신 0 을 만들어 초록불이 켜진다. 검증 대상을 요일에서 떼어낸다.
+        s.add(Tenant(id=1, name="메디맵", domain_category="안과", region="서울",
+                     business_model="", publish_plan="B"))
         s.commit()
         s.add(Keyword(id=1, tenant_id=1, text="라식", target_brand="메디맵", is_active=True))
         s.add(AutoContentSetting(tenant_id=1, enabled=False, daily_count=2,
@@ -141,7 +145,12 @@ def test_daily_auto_content_job_creates_drafts(monkeypatch, session_factory):
     monkeypatch.setenv("MAX_CONTENT_GEN_PER_DAY", "100")
 
     with session_factory() as s:
-        s.add(Tenant(id=1, name="메디맵", domain_category="안과", region="서울", business_model=""))
+        # 🔴 Round 202 — publish_plan='B'. 기본값 'A' 는 Round 83 의 월/수/금 게이트에
+        #   걸려 **이 테스트가 주 4일(화·목·토·일) 실패**했다. 실측 2026-09-12(토):
+        #   `scheduler.plan_a_skipped_today skipped_tenants=[1]` → tenants=0.
+        #   이 테스트가 보려는 것은 요일 게이트가 아니라 draft 생성이다.
+        s.add(Tenant(id=1, name="메디맵", domain_category="안과", region="서울",
+                     business_model="", publish_plan="B"))
         s.commit()
         s.add(Keyword(id=1, tenant_id=1, text="라식", target_brand="메디맵", is_active=True))
         s.add(AutoContentSetting(
@@ -176,7 +185,9 @@ def test_daily_auto_content_job_round_robin_keywords_and_channels(
     monkeypatch.setenv("MAX_CONTENT_GEN_PER_DAY", "100")
 
     with session_factory() as s:
-        s.add(Tenant(id=1, name="메디맵", domain_category="안과", region="서울", business_model=""))
+        # Round 202 — publish_plan='B' (위와 같은 이유: 요일 게이트 비의존)
+        s.add(Tenant(id=1, name="메디맵", domain_category="안과", region="서울",
+                     business_model="", publish_plan="B"))
         s.commit()
         # 활성 키워드 3개 + 비활성 1개 — 비활성은 라운드로빈에서 제외돼야
         s.add(Keyword(id=1, tenant_id=1, text="라식", target_brand="메디맵", is_active=True))
@@ -228,6 +239,13 @@ def _create_naver_report_table(session_factory):
         # keywords.purpose 는 실 DB 에 있지만 ORM Keyword 모델에는 없다(Round 182c 기록).
         # 드레인 SQL 이 purpose 게이트를 쓰므로 테스트 스키마도 실 DB 를 따라간다.
         s.execute(_t("ALTER TABLE keywords ADD COLUMN purpose TEXT"))
+        # 🔴 Round 202 — experiment_arm 도 같이 만든다. 타깃 경로의 _ok_rows SQL 이
+        #   purpose·content_eligible·experiment_arm **세 컬럼을 한 쿼리로** 읽는데,
+        #   이 컬럼이 없으면 쿼리 전체가 예외 → `except: _ok_rows = []` → 그 안에 있는
+        #   네이버 드레인 블록이 통째로 건너뛰어진다. 즉 Round 183 을 잠그려고 만든
+        #   테스트가 **드레인을 한 번도 실행하지 않은 채** 실패하고 있었다.
+        #   (컬럼 하나가 빠져 가드가 조용히 죽는 것 — CLAUDE.md ORM 미매핑 항목과 같은 꼴)
+        s.execute(_t("ALTER TABLE keywords ADD COLUMN experiment_arm TEXT"))
         s.commit()
 
 
@@ -374,3 +392,81 @@ def test_naver_demand_drain_applies_to_target_path(monkeypatch, session_factory)
     with session_factory() as s:
         drafts = s.query(GeneratedContent).order_by(GeneratedContent.id).all()
     assert [d.keyword_text for d in drafts] == ["모발이식 탈락기"]
+
+
+def _create_tenant_products_table(session_factory, rows):
+    """tenant_products 는 raw SQL 로만 읽힌다(ORM 모델 없음) — 테스트 스키마를 직접 만든다.
+
+    이 테이블이 없으면 `_publish_ok` 가 해외 키워드를 **전부** 걸러버려서,
+    해외 관련 테스트가 무엇을 검증하든 통과해버린다(공허한 통과).
+    """
+    from sqlalchemy import text as _t
+
+    with session_factory() as s:
+        s.execute(_t(
+            "CREATE TABLE tenant_products ("
+            " id INTEGER PRIMARY KEY, tenant_id INTEGER, market TEXT,"
+            " lang TEXT, status TEXT)"
+        ))
+        for tid, market, lang in rows:
+            s.execute(
+                _t("INSERT INTO tenant_products (tenant_id, market, lang, status)"
+                   " VALUES (:tid, :m, :l, 'active')"),
+                {"tid": tid, "m": market, "l": lang},
+            )
+        s.commit()
+
+
+def test_rotation_without_scope_never_picks_overseas_keyword(
+    monkeypatch, session_factory,
+):
+    """🔴 Round 201 — 범위 인자 없는 일반 로테이션은 ko 만 발행한다.
+
+    실사고: R200 이 굶김 정렬을 ko 로 좁혔는데 키워드 풀은 안 좁혀서, ko 로 굶어
+    1순위가 된 포레나의원이 그 슬롯에 zh-Hans 글(`红大皮肤科推荐`)을 냈다. 굶김 키는
+    그대로 남아 다음 실행에서 또 1순위 — 알람은 계속 울리고 ko 는 영원히 안 나간다.
+
+    해외는 범위를 명시하는 전용 배치(MARKET_ONLY/LANG_ONLY)가 따로 담당한다.
+
+    설계 메모: daily_count 를 풀 크기와 같게 둬서 **날짜 로테이션 오프셋과 무관하게**
+    판정된다. 수정 전이라면 6슬롯이 6개 키워드를 한 바퀴 돌아 해외가 반드시 섞인다.
+    """
+    from src.collector.scheduler import daily_auto_content_job
+    from src.storage.models import AutoContentSetting, GeneratedContent
+
+    monkeypatch.setenv("LLM_PROVIDER", "stub")
+    monkeypatch.setenv("MAX_DAILY_USD", "100")
+    monkeypatch.setenv("MAX_CONTENT_GEN_PER_DAY", "100")
+
+    with session_factory() as s:
+        s.add(Tenant(id=1, name="포레나의원", domain_category="피부과", region="서울",
+                     business_model="", publish_plan="B"))
+        s.commit()
+        s.add(Keyword(id=1, tenant_id=1, text="강남 리쥬란", target_brand="포레나",
+                      is_active=True, lang="ko", market="domestic"))
+        for _i, (_lang, _text) in enumerate(
+            [("en", "gangnam skin clinic"), ("ja", "江南 皮膚科"),
+             ("zh-Hans", "红大皮肤科推荐"), ("zh-Hant", "江南皮膚科推薦"),
+             ("en", "korea skin booster")],
+            start=2,
+        ):
+            s.add(Keyword(id=_i, tenant_id=1, text=_text, target_brand="포레나",
+                          is_active=True, lang=_lang, market="overseas"))
+        s.add(AutoContentSetting(
+            tenant_id=1, enabled=True, daily_count=6, channels=["blog_html"],
+        ))
+        s.commit()
+
+    # 해외 상품을 전부 active 로 — 이게 없으면 _publish_ok 가 해외를 걸러 공허한 통과가 된다.
+    _create_tenant_products_table(session_factory, [
+        (1, "overseas", "en"), (1, "overseas", "ja"),
+        (1, "overseas", "zh-Hans"), (1, "overseas", "zh-Hant"),
+    ])
+
+    daily_auto_content_job(session_factory)
+
+    with session_factory() as s:
+        drafts = s.query(GeneratedContent).order_by(GeneratedContent.id).all()
+
+    assert drafts, "발행이 0건이면 이 테스트는 아무것도 검증하지 못한다"
+    assert {d.keyword_text for d in drafts} == {"강남 리쥬란"}
