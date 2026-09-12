@@ -8641,3 +8641,59 @@ pytest tests/test_scheduler.py  →  13 passed   (이전: 9 passed / 3 failed)
 - 다른 테스트 파일에도 같은 요일 의존이 있는지 일괄 점검 (`publish_plan` 미지정 tenant grep)
 - 크레딧 소진으로 비어 있는 09-03~09-10 측정 구간을 리포트에서 어떻게 표기할지
 - 해외 SEO: `<html lang>` 근본 수정 — 라우트 그룹별 루트 레이아웃 분리(`(ko)`/`(intl)`)
+
+## 세션랩 (2026-09-12 15:50 KST) — 노트북 세션. Round 201~202
+
+푸시 완료: `649c412`(R201 수정) · `969dd06`(R201 기록+규칙) · `3a8bd84`(R202 정정+테스트).
+작업트리 clean, `origin/main` 과 동기(ahead=0 behind=0).
+
+**다음 기기 시작 루틴**
+```bash
+cd <repo> && git pull
+```
+
+### 🔴 1순위 검증 — Round 201 런타임 실적 (2026-09-14 08:00 KST)
+
+ko cron 은 `0 23 * * 0,2,4`. 다음 발사는 **2026-09-13 23:00 UTC = 09-14 08:00 KST**
+(GitHub 스케줄 지연으로 실제론 1~2시간 늦게 뜬다 — 09-11 은 00:50 UTC 에 떴다).
+09-14 는 월요일 KST 라 plan A 5곳도 함께 돈다.
+
+판정 2종(둘 다 볼 것):
+1. 그 run 의 픽에 **해외 키워드 0건**인지
+```bash
+gh run list --workflow=auto-publish.yml --limit 3
+gh run view <id> --log | grep -o "blog.structure_type *keyword=.*structure=."
+```
+   → 전부 한국어여야 한다. 하나라도 중국어·일본어·영어가 보이면 R201 이 안 먹은 것.
+2. 포레나의원(18) ko 발행이 실제로 나갔는지 (로그만 믿지 말 것)
+```sql
+select tenant_id, max(published_at) from generated_contents
+where status='published' and channel='blog_html' and coalesce(lang,'ko')='ko'
+  and tenant_id in (18,6) group by 1;
+-- 기대: 18 이 09-14 로 갱신 (현재 08-27, 16일째 0)
+```
+   안 나왔는데 1번이 통과했다면 다음 용의자 순서: 키워드 상한(R155/R177) ·
+   `publish_plan`(R83) · `ROTATION_PARTNER_BATCH`.
+
+### 남은 사용자 조치 1건
+
+- `PERPLEXITY_API_KEY` 를 GitHub 리포 Secrets 에 추가.
+  실측 확인: `gh secret list` 23건에 **없다**. `measure-watchdog` 이 매일 두 번
+  `verdict: missing` 으로 정확히 보고 중이다. 충전으로는 안 풀린다(R200).
+
+### 이번 세션에서 **검증까지 끝낸** 것
+
+- R200 굶김 정렬: 런타임 동작 확인(order 첫 항목 18). 부수로 R193 ORM 수정도 살아 있음(`self_tenants=[12]`)
+- R198 `measure-watchdog`: **지연 재관측 통과** — 4일 뒤인 지금도 200, `runs_7d=10 ok_7d=9`.
+  실패 2건은 배포 전 404(정상) + 5초 타임아웃 1회로 둘 다 설명됨.
+  (CLAUDE.md "한 번 200 을 봤다고 판정 수단이 살아 있다는 뜻이 아니다" 의 후속 관측)
+- 엔진 복구: claude 142/0 · gemini 174/0 · openai 142/0 (24h 성공/실패). perplexity 만 기록 없음
+- R183 타깃 경로 네이버 드레인: 테스트가 처음으로 **실제 실행**되며 통과 — 코드는 살아 있었다
+
+### 미검증으로 남긴 것 (정직하게)
+
+- **R201 수정 블록은 아직 런타임에서 실행된 적이 없다.** 게이트는 py_compile + 13 passed +
+  음성 검증(수정 전 코드에서 실패)까지 통과했지만, 실제 발행은 09-14 발사분이 처음이다.
+- 09-11 ko run 에서 t6(지우피부과)도 zh-Hant 로 슬롯을 썼다. R201 이 먹으면 6도 같이
+  풀려야 하는데, 6 의 ko 마지막 발행은 09-04 라 굶김 순위가 18 다음이다 — 09-14 에 안
+  나와도 즉시 이상은 아니다. 09-16 까지 안 나오면 별건으로 볼 것.
