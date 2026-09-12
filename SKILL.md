@@ -8484,3 +8484,91 @@ where status='published' and channel='blog_html' and coalesce(lang,'ko')='ko'
   새 SQL 을 Supabase 직접 실행, 두 조각으로 나눠 통과시켰다. 런타임 실적은 위 1순위 검증에서.
 - R199 해외 SEO 는 라이브 실측 완료(타이틀 중복 해소 · `/about` hreflang 6줄 · `lang="ja"`).
   단 GSC 반영은 재크롤 이후라 순위·노출 변화는 이번 세션에서 알 수 없다.
+
+# Round 201 (2026-09-12) — 정렬은 고쳤는데 슬롯을 다른 언어가 가져갔다
+
+Round 200 세션랩이 남긴 1순위 검증을 그대로 돌렸다. **판정 1은 PASS, 판정 2는 FAIL.**
+둘 다 봤기 때문에 "고쳤다" 로 닫지 않았다 — 하나만 봤으면 또 몇 주를 흘려보냈을 것이다.
+
+## 판정 1 ✅ — R200 정렬은 런타임에서 동작한다
+
+09-11 00:50 UTC 발사분(run `34548188930`):
+```
+scheduler.starvation_sort    lang_only=None market_only=None order=[18, 6, 20, 8, 12, 4, ...]
+scheduler.rotation_selected  rotated_today=[12, 18, 6, 20, 8] self_tenants=[12]
+```
+첫 항목 = **18(포레나의원)**. R200 이전엔 13위(꼴찌)로 `ROTATION_PARTNER_BATCH=5` 밖이었다.
+부수 확인: `self_tenants=[12]` — Round 193 의 ORM 매핑 수정도 살아 있다(이전엔 항상 `[]`).
+
+## 판정 2 ❌ — 그런데 ko 발행은 안 나갔다
+
+```
+tenant 18  ko 마지막 발행 = 2026-08-27  (16일째 0, R200 시점 14일에서 악화)
+tenant  6  ko 마지막 발행 = 2026-09-04
+```
+같은 run 의 픽:
+```
+t12 의료기관 디지털 마케팅 도구  ko
+t18 红大皮肤科推荐              zh-Hans  ← ko 굶김 1순위 슬롯
+t6  江南童妍針推薦              zh-Hant  ← ko 굶김 2순위 슬롯
+t20/t8/t4                       ko
+```
+
+## 🔴 원인 — 범위를 정렬에만 넣고 대상 풀에는 안 넣었다
+
+`daily_auto_content_job`, `lang_only`/`market_only` 둘 다 없을 때:
+
+| | 범위 |
+|---|---|
+| 굶김 정렬 (R200) | `AND COALESCE(lang,'ko')='ko'` — ko 로 좁힘 |
+| 키워드 풀 | `market_only is None` → **필터 없음** |
+
+**ko 로 굶었으니 1순위로 뽑아놓고 그 슬롯에 중국어 글을 쓴다.** 굶김 키는 그대로 남아
+다음 실행에서 또 1순위 — 알람은 영원히 울리고 ko 는 영원히 안 나가는 무한 루프다.
+
+CLAUDE.md 의 *"발행 대상 선택 규칙은 두 경로 모두에"* 와 뿌리는 같지만 축이 다르다.
+저건 **일반 로테이션 ↔ 타깃 경로**(경로 두 개), 이건 **정렬 축 ↔ 대상 풀 축**(같은 경로 안).
+
+수정: 범위 인자가 둘 다 없으면 풀도 `lang='ko'` 로 좁힌다(R200 `else` 와 대칭).
+축을 **lang** 으로 맞춘 이유는 굶김 키와 같은 축이어야 슬롯이 그 알람을 해소하기 때문이다.
+(실측: `keywords` 는 lang/market 이 1:1 짝 — ko=domestic 474 · 해외 283 · 엇갈림 0건.
+어느 축이든 결과는 같지만 규칙은 "정렬과 같은 축".)
+
+## 해외는 줄지 않는다 — 이건 중복 경로였다
+
+해외는 범위를 명시하는 전용 배치가 매일 따로 돈다
+(`auto-publish-overseas.yml` `MARKET_ONLY=overseas` · `daily-brighteye-all-langs.yml` `LANG_ONLY`).
+
+tenant 18 최근 14일: **해외 23편**(zh-Hans 8·ja 6·en 5·zh-Hant 4) 대비 **ko 0편**.
+일반 로테이션 4개 run 의 픽 23건 중 4건(17%)이 해외 키워드였고 전부 중복 경로다.
+
+## 🔴 게이트 — 실패 3건을 내 탓으로 오판할 뻔했다
+
+```
+pytest tests/test_scheduler.py  → 9 passed / 3 failed
+git stash 후 같은 명령          → 9 passed / 3 failed   ← 동일. 회귀 아님
+```
+`git stash` 한 번이 "내가 깼나" 를 30초에 끝냈다. **테스트 실패를 보면 결론 전에
+베이스라인부터 잰다.** 실패 3건의 실체는 SQLite 테스트 스키마 드리프트
+(`generated_contents.published_at`·`structure_type` 미존재, Postgres 전용 SQL 이 sqlite 문법 오류).
+
+py_compile PASS. ⚠ **이 노트북에는 실제 Python 이 있다**(3.12.10 / py 3.14.4) —
+Round 200 의 "사무실 PC 엔 Python 이 없다" 는 그 기기 한정이다.
+
+## 미검증 (정직하게)
+
+이 수정도 **런타임에서 실행된 적이 없다.** 실적은 다음 ko 발사분
+**2026-09-13 23:00 UTC = 09-14 08:00 KST** 에서 판정 2종으로 확인한다:
+1. 그 run 의 `blog.structure_type keyword=` 전수에 **해외 키워드 0건**
+2. `generated_contents` 의 tenant 18 ko 발행이 09-14 로 갱신
+
+안 되면 다음 용의자 순서: 키워드 상한(R155/R177) · `publish_plan`(R83) · `ROTATION_PARTNER_BATCH`.
+
+### 다음 라운드 후보 (201 이후)
+
+- 🔴 **09-14 08:00 KST 판정 2종** (위)
+- 🔴 사용자 조치 1건 그대로: `PERPLEXITY_API_KEY` 를 GitHub 리포 Secrets 에 추가
+  (충전으로는 안 풀린다 — R200. `missing` 은 돈이 아니라 시크릿 문제다)
+- `tests/test_scheduler.py` 3건 SQLite 스키마 드리프트 복구 (테스트가 회귀를 못 잡는 상태)
+- 크레딧 소진으로 비어 있는 09-03~09-10 측정 구간을 리포트에서 어떻게 표기할지
+- 해외 SEO: `<html lang>` 근본 수정 — 라우트 그룹별 루트 레이아웃 분리(`(ko)`/`(intl)`)
