@@ -678,6 +678,22 @@ def daily_auto_content_job(
                     else _KW_CAP_OVERSEAS
                 )
                 return _pub_counts.get((text_, lang_), 0) >= cap
+            # 🔴 Round 201 (2026-09-12) — 정렬은 ko 로 좁혔는데 **키워드 풀은 안 좁혔다.**
+            #   R200 이 고친 굶김 정렬은 런타임에서 실제로 동작했다(09-11 run 34548188930:
+            #   order 첫 항목 = 18 포레나의원). 그런데 그 슬롯에서 뽑힌 키워드는
+            #   `红大皮肤科推荐`(zh-Hans) 였고, 2순위 지우피부과(6)도 `江南童妍針推薦`(zh-Hant)
+            #   이었다 → **ko 굶김으로 1순위를 얻어놓고 중국어 글을 쓴다.** 굶김 키는 그대로
+            #   남아 다음 실행에서 또 1순위가 되는 무한 루프다(포레나 ko 0일수 16일로 악화).
+            #   CLAUDE.md "발행 대상 선택 규칙은 두 경로 모두에" 가 이번엔 **정렬 축 ↔ 풀 축**
+            #   사이에서 깨진 형태. 범위 기본값을 R200 정렬의 else 와 대칭으로 맞춘다.
+            #   ⚠ 해외 커버리지는 줄지 않는다 — 해외는 범위 인자를 명시하는 전용 배치가
+            #     매일 따로 돈다(auto-publish-overseas.yml MARKET_ONLY=overseas ·
+            #     daily-brighteye-all-langs.yml LANG_ONLY). 실측(14일, tenant 18):
+            #     해외 23편(zh-Hans 8·ja 6·en 5·zh-Hant 4) 대비 ko 0편. ko 로테이션이
+            #     해외를 또 찍는 것은 중복 경로이고 그 대가로 ko 가 굶는다.
+            #   축은 market 이 아니라 **lang** — 굶김 키와 같은 축이어야 슬롯이 알람을 해소한다
+            #   (실측: keywords 는 lang/market 1:1 짝. ko=domestic 474 · 해외 283 · 엇갈림 0).
+            _rotation_domestic_only = lang_only is None and market_only is None
             # 키워드별 lang/market 동반 로드 + 발행 게이팅. 해외 키워드는 그 언어로 생성.
             kw_rows = [
                 (
@@ -701,6 +717,11 @@ def daily_auto_content_job(
                 and (
                     market_only is None
                     or (getattr(k, "market", "domestic") or "domestic") == market_only
+                )
+                # Round 201 — 범위 인자 없는 일반 로테이션은 국내(ko) 전용.
+                and (
+                    not _rotation_domestic_only
+                    or (getattr(k, "lang", "ko") or "ko") == "ko"
                 )
             ]
             # 전 키워드 상한 도달 시 발행 중단이 아니라 전체 풀로 폴백 (발행 0 방지).

@@ -70,6 +70,7 @@ None yet.
 | Date | Slug | Round | Result |
 |------|------|-------|--------|
 | 2026-09-08 | cron-health-null-fix | 192 | `cron_endpoint_health` 가 pg_net TTL(6h) < 발사주기(7h) 로 항상 null 이던 것 수정. 수확 잡 + 이력 테이블 도입, 200 실측 |
+| 2026-09-12 | ko-rotation-lang-scope | 201 | ko 굶김 1순위로 뽑힌 슬롯이 해외 키워드를 발행하던 것 수정. 정렬(R200)은 ko 로 좁혔는데 키워드 풀은 안 좁혀 포레나의원 09-11 슬롯이 zh-Hans 로 나갔다 |
 
 ## Deferred Items
 
