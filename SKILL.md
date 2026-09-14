@@ -8936,3 +8936,61 @@ Postgres 실측: 기존 후보 685 → 245(브랜드 제외 전). 기존 후보�
 - GSC 4~20위 기존 글 보강 파이프라인(새 글 아님) 설계
 - `/tw/` 허브 구조를 국문 허브에 이식 검토 · 미해석 source_domains 599건
 - 어드민 잔여 `medimap-self` 4곳 · `LLM_PROVIDER` 시크릿 · auto-learn 키워드 출처 · `retry_for_quality` 비용
+
+## 세션랩 (2026-09-14 12:50 KST) — 노트북 세션. Round 203~205
+
+푸시 완료: `45e1627`(R203~204 어드민 측정 결함) · `087a9bf`(R205 발행 우선순위) · 이 세션랩 커밋.
+작업트리 clean, `origin/main` 과 동기.
+배포: `45e1627` geo-v2·medimap-blog **success**(커밋 status 기준 — Vercel MCP 403).
+`087a9bf` 는 파이썬·SQL 중심이라 프론트 영향 없음(랩 시점 Vercel pending — 다음 세션에서 status 한 번 확인).
+
+**다음 기기 시작 루틴**
+```bash
+cd <repo> && git pull
+```
+
+### 🔴 1순위 검증 — Round 205 런타임 실적 (2026-09-16 08:00 KST)
+
+ko cron `0 23 * * 0,2,4` → **2026-09-15 23:00 UTC**(GitHub 지연으로 실제 1~2시간 늦음). 수요일 KST 라 plan A 포함.
+```bash
+gh run list --workflow=auto-publish.yml --limit 3
+gh run view <id> --log | grep -E "coverage_drain|naver_demand_drain|blog.structure_type"
+```
+1. `scheduler.coverage_drain path=rotation` 이 찍히는가, 픽이 **비브랜드·첫 글** 키워드인가
+   (안 찍혔는데 naver_demand_drain 도 없다면: `COVERAGE_DRAIN` 시크릿/env 오설정 or 대상 병원 풀에 미개척 0 — 실측상 병원당 5~19개라 후자 가능성 낮음)
+2. 발행 구성 — 기준선: 최근 30일 ko 216편 중 **비브랜드 첫 글 96편(44%)**
+```sql
+-- 그 run 이후 ko 발행 중 첫 글 비율 (브랜드 판정은 funnel_tenant_stats 의 tok CTE 재사용)
+select g.id, g.tenant_id, g.keyword_text,
+  (select count(*) from generated_contents g2 where g2.tenant_id=g.tenant_id and g2.keyword_text=g.keyword_text
+     and g2.status='published' and g2.channel='blog_html' and coalesce(g2.lang,'ko')='ko' and g2.published_at<g.published_at) prior
+from generated_contents g
+where g.status='published' and g.channel='blog_html' and coalesce(g.lang,'ko')='ko' and g.id > 828
+order by g.id;
+```
+3. A/B 자동 생성(매주 월 07:00 KST, 다음 **09-21**) 픽이 own·ko·비브랜드·비일시정지인지
+
+### 사업 목표 지표 — 기준선 (2~3주 뒤 비교)
+- **비브랜드 등장률** (`funnel_tenant_stats`): 30일 **6.6%**(6,092응답) · 14일 **6.6%**(4,148응답)
+- 🔴 구성 효과 주의(R204 에서 한 번 속을 뻔함): 비교는 **keywords.id ≤ 834 로 고정**한 집합에서 할 것.
+  신규 키워드가 들어오면 등장률이 콘텐츠와 무관하게 움직인다.
+- 월별 참고: 비브랜드 own 키워드 글 있음 8.6/14.0/10.2% vs 없음 6.3/7.6/6.0% (7·8·9월)
+- 자사 인용 `citation_events` = 47행(허수 제거 후), wecircle 인용 도메인 순위 143/2,084(14일)
+
+### 이번 세션에서 **검증까지 끝낸** 것
+- R201 런타임: 09-14 run 픽 6건 전부 ko, t6 이 중국어→한국어로 전환(음성 대조). 18 은 auto-learn 으로 먼저 해소
+- 테스트 요일 무관성: 시계 고정 3종(월B 13 · 토B 13 · 토A 6 failed). 도구 결함 2회(`-s` cp949) 대조군으로 적발
+- 어드민 funnel RPC = 원시 SQL 전 항목 일치 · anon EXECUTE 차단 확인
+- 인용 수집 새 정규식 선택 47행 = 기존 47행 · 허수 14행 삭제
+- competitors 전체 보기 T2 오분류 71/9,452건 실측 · 위서클 자사 판정 복구(own 29 키워드)
+- 커버리지 드레인·브랜드 토큰·A/B 게이트: 59 passed + 음성 검증 2종
+
+### 미검증으로 남긴 것 (정직하게)
+- **R205 발행 우선순위는 런타임에서 실행된 적이 없다** — 09-16 발사분이 처음
+- 어드민 funnel·competitors 수정은 배포 success 까지만 확인, **로그인 후 화면은 안 봤다**(Apify 는 쿠키 게이트로 불가).
+  다음 세션에서 운영자가 `/admin/funnel` 에 "비브랜드 등장률" 카드가 뜨는지 한 번 확인 필요
+- 비브랜드 등장률 상승이 실제로 나오는지는 2~3주 관측 필요 (지금은 가설: 첫 글 = 1.5~2배는 상관관계)
+
+### 사용자 조치
+- Apify 토큰이 대화에 평문으로 노출됨 → Apify 콘솔에서 재발급 권장
+- (보류) PERPLEXITY_API_KEY — 사용자 결정으로 당분간 안 씀
