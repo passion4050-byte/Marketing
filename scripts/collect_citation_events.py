@@ -30,9 +30,14 @@ from sqlalchemy import create_engine, text  # noqa: E402
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 logger = logging.getLogger("citation-events")
 
-# 🔴 Round 197 — 구 브랜드 도메인이 빠져 있었다. 리브랜드(메디맵→위서클) 전 URL 이
-#   아직 AI 답변에 인용되고 있고, 그건 우리 인용이다.
-SELF_HOSTS = ("wecircle.co.kr", "medi-map.co.kr", "medimap-blog-phi.vercel.app")
+# 🔴 Round 203 — Round 197 의 "구 브랜드 도메인" 추가는 **오진이었다. 되돌린다.**
+#   medi-map.co.kr 은 우리 옛 도메인이 아니라 **전 직장 메디맵의 병원찾기 플랫폼**이다
+#   (title "메디맵 | 잘하는 병원 찾기, 실시간 후기 & 시술 가격 비교", wecircle 로 리다이렉트 안 됨).
+#   실측: 이 도메인으로 들어간 citation_events 14건이 **전부** /search?q=… · /hospital/view/… ·
+#   /event?… · global.medi-map.co.kr — 우리 글은 0건. "자사 인용" 61건 중 23% 가 허수였다.
+#   Round 180b(src/content/learned_pattern.py)가 이미 같은 결론을 냈는데 197 이 되살렸다.
+#   어드민 domain_classifications 도 medi-map.co.kr = T4(의료 플랫폼)로 옳게 분류돼 있다.
+SELF_HOSTS = ("wecircle.co.kr", "medimap-blog-phi.vercel.app")
 
 # 🔴 Round 197 — 인용 출처가 **두 곳**이다. 하나만 읽으면 엔진 하나가 통째로 안 보인다.
 #   ① source_domains — Gemini 전용. cited_urls 가 vertexaisearch 리다이렉트라
@@ -50,7 +55,7 @@ WITH self_hit AS (
   JOIN queries q ON q.id = r.query_id,
   LATERAL jsonb_array_elements(COALESCE(r.source_domains, '[]'::jsonb)) x
   WHERE r.created_at >= now() - make_interval(days => :days)
-    AND (COALESCE(x->>'final_url','') ~* :hostre OR COALESCE(x->>'domain','') ~* :hostre)
+    AND (COALESCE(x->>'final_url','') ~* :urlre OR COALESCE(x->>'domain','') ~* :domre)
 
   UNION
 
@@ -63,7 +68,7 @@ WITH self_hit AS (
          THEN r.cited_urls::jsonb ELSE '[]'::jsonb END
   ) u
   WHERE r.created_at >= now() - make_interval(days => :days)
-    AND u ~* :hostre
+    AND u ~* :urlre
 ), src AS (
   SELECT h.response_id, h.occurred_at, h.engine,
          k.tenant_id, k.id AS keyword_id, k.text AS keyword_text,
@@ -105,6 +110,19 @@ GROUP BY 1 ORDER BY 2 DESC
 """
 
 
+def host_patterns() -> dict[str, str]:
+    """자사 호스트 판정 정규식 — **호스트 위치에 고정**한다 (Round 203).
+
+    이전 패턴은 URL 어디에든 부분일치했다. 그러면 `https://other.com/?ref=wecircle.co.kr`
+    같은 남의 URL 도 자사 인용이 된다. 서브도메인(geo.wecircle.co.kr 등)은 허용.
+    """
+    hosts = "|".join(h.replace(".", r"\.") for h in SELF_HOSTS)
+    return {
+        "urlre": rf"^https?://([a-z0-9-]+\.)*({hosts})([/?#:]|$)",
+        "domre": rf"^([a-z0-9-]+\.)*({hosts})$",
+    }
+
+
 def main() -> int:
     db_url = os.environ.get("DATABASE_URL", "")
     if not db_url:
@@ -114,8 +132,7 @@ def main() -> int:
 
     engine = create_engine(db_url, pool_pre_ping=True)
     with engine.begin() as conn:
-        _hostre = "(" + "|".join(h.replace(".", r"\.") for h in SELF_HOSTS) + ")"
-        res = conn.execute(text(INSERT_SQL), {"days": days, "hostre": _hostre})
+        res = conn.execute(text(INSERT_SQL), {"days": days, **host_patterns()})
         inserted = res.rowcount if res.rowcount is not None else -1
     logger.info("신규 인용 이벤트: %s 건 (소급 %d일)", inserted, days)
 

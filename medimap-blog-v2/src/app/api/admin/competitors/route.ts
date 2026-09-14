@@ -22,6 +22,7 @@ import { NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
 import { fetchAllRows } from '@/lib/fetchAllRows';
 import { classifyDomain, loadClassifierSets, type Tier } from '@/lib/domain-classifier';
+import { isSelfTenant as isSelfTenantRow } from '@/lib/tenant-self';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -60,7 +61,7 @@ export async function GET(req: Request) {
     (t: { id: number; name: string; business_model: string | null; partner_slug: string | null }) => ({
       id: t.id,
       name: t.name,
-      is_self: t.business_model === 'self' || t.partner_slug === 'medimap-self',
+      is_self: isSelfTenantRow(t),  // Round 203 — 'medimap-self' 하드코딩은 리브랜드로 죽어 있었다
     })
   );
   const selectedTenantRow = tenantIdFilter
@@ -71,7 +72,7 @@ export async function GET(req: Request) {
         id: selectedTenantRow.id,
         name: selectedTenantRow.name,
         business_model: selectedTenantRow.business_model ?? '',
-        is_self: selectedTenantRow.business_model === 'self' || selectedTenantRow.partner_slug === 'medimap-self',
+        is_self: isSelfTenantRow(selectedTenantRow),
       }
     : null;
   // Round 36 — selected tenant 의 자체 도메인 set (homepage + additional_domains 통합)
@@ -86,6 +87,21 @@ export async function GET(req: Request) {
         return set.size > 0 ? set : null;
       })()
     : null;
+  // 🔴 Round 203 — "전체 보기"(tenant 미선택)에서는 selectedClientDomains 가 null 이라
+  //   **모든 병원 홈페이지가 T5 경쟁사로 분류**되고 T2 는 항상 0이었다(우리 점유율 과소).
+  //   citations route 처럼 질의의 소속 tenant 도메인으로 폴백한다.
+  const tenantDomainsMap = new Map<number, Set<string>>();
+  (tenantsAll ?? []).forEach(
+    (t: { id: number; homepage: string | null; additional_domains: string[] | null }) => {
+      const set = new Set<string>();
+      const main = extractDomain(t.homepage);
+      if (main) set.add(main.toLowerCase());
+      (t.additional_domains ?? []).forEach((d: string) => {
+        if (d) set.add(d.toLowerCase().replace(/^www\./, ''));
+      });
+      if (set.size > 0) tenantDomainsMap.set(t.id, set);
+    }
+  );
 
   // Round 75 — 기간 필터 (일수). 기본 30, 1~365 클램프.
   const daysParam = url.searchParams.get('days');
@@ -143,10 +159,12 @@ export async function GET(req: Request) {
   );
   const queryKeywordMap = new Map<number, number>();
   const queryEngineMap = new Map<number, string>();  // Round 64 — query → 엔진
-  (queries ?? []).forEach((q: { id: number; keyword_id: number; engine: string }) => {
+  const queryTenantMap = new Map<number, number>();  // Round 203 — 전체 보기 T2 폴백용
+  (queries ?? []).forEach((q: { id: number; tenant_id: number; keyword_id: number; engine: string }) => {
     if (landscapeKwIds.has(q.keyword_id)) {
       queryKeywordMap.set(q.id, q.keyword_id);
       queryEngineMap.set(q.id, q.engine);
+      queryTenantMap.set(q.id, q.tenant_id);
     }
   });
   const validQueryIds = new Set(queryKeywordMap.keys());
@@ -211,8 +229,12 @@ export async function GET(req: Request) {
       }
       const kwBucket = keywordMatrix.get(kw)!;
 
+      const qTenant = queryTenantMap.get(r.query_id);
+      const clientDomains =
+        selectedClientDomains ?? (qTenant != null ? tenantDomainsMap.get(qTenant) ?? null : null);
       (r.source_domains ?? []).forEach((sd) => {
-        const tier = classifyDomain(sd.domain, null, selectedClientDomains, classifierSets);
+        // Round 203 — final_url 을 넘겨야 카카오 자사 path(T1) 판정이 동작한다 (null 이면 항상 NOISE).
+        const tier = classifyDomain(sd.domain, sd.final_url ?? null, clientDomains, classifierSets);
         // Round 66 — 클라이언트 현황 집계 (스킵 전에)
         if (tier !== 'NOISE') clientStatus.total_sources++;
         if (tier === 'T1') clientStatus.medimap_t1++;

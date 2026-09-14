@@ -8697,3 +8697,182 @@ where status='published' and channel='blog_html' and coalesce(lang,'ko')='ko'
 - 09-11 ko run 에서 t6(지우피부과)도 zh-Hant 로 슬롯을 썼다. R201 이 먹으면 6도 같이
   풀려야 하는데, 6 의 ko 마지막 발행은 09-04 라 굶김 순위가 18 다음이다 — 09-14 에 안
   나와도 즉시 이상은 아니다. 09-16 까지 안 나오면 별건으로 볼 것.
+
+# Round 203 (2026-09-14) — R201 런타임 판정 통과 + 테스트 요일 무관성 실측
+
+## 판정 1 — 픽에 해외 키워드 0건 ✅
+
+run `34793752625` (09-14 00:46 UTC, 예정 23:00 에서 1h46m 지연 — 평소 수준).
+`blog.structure_type keyword=` 6건 전부 한국어:
+`위서클` · `백옥주사 효과 지속 기간과 주의사항` · `강남 통증재활` · `서울 한방 실리프팅` ·
+`부산 스마일라식` · `잠실 라섹 비용`. DB 도 6편 전부 `lang='ko'`(t12·6·20·8·10·4).
+
+**음성 대조가 저절로 생겼다**: t6 은 09-11 run 에서 ko 굶김 1순위를 받고도 **zh-Hant** 로
+슬롯을 썼던 병원이다(R201 의 발단과 같은 꼴). 오늘은 starvation 1순위로 뽑혀
+`강남 백옥주사…` **한국어**를 냈다. 같은 병원·같은 경로에서 수정 전후가 갈렸다.
+
+## 판정 2 — 포레나의원(18) ko 발행 09-14 갱신 ❌ … 그런데 기대 자체가 틀렸다
+
+18 은 오늘 run 에 없다(`rotated_today=[12, 6, 20, 8, 10, 4]`). 굶김 정렬 order 에서 18 은
+10번째였다. **정렬은 옳다** — 18 의 ko 는 이미 풀려 있었다:
+
+| id | published_at (UTC) | 경로 |
+|---|---|---|
+| 562 | 08-27 18:46 | (이전 마지막) |
+| 806 | **09-12 11:54** | Auto-learn cited own content (run 34692087027) |
+| 814 | **09-13 13:04** | Auto-learn cited own content (run 34758592466) |
+
+즉 **로테이션이 아니라 auto-learn 경로가 먼저 18 의 굶김을 풀었고**, 굶김 정렬은 그걸
+"최근에 ko 를 냈다" 로 정확히 읽어 순위를 내렸다. R200 정렬이 발행 경로를 가리지 않고
+결과물 기준(`max(published_at) where lang='ko'`)으로 본다는 것도 함께 확인됐다.
+
+🔴 **교훈: 판정 기준을 "특정 경로가 X 를 냈다" 로 쓰면 다른 경로가 먼저 해소했을 때 거짓 실패가
+난다.** 목표는 "18 이 ko 로 굶지 않는다" 였지 "로테이션이 18 을 뽑는다" 가 아니었다.
+판정은 **경로가 아니라 결과물**(그 범위의 마지막 발행 시각)로 쓸 것 — CLAUDE.md "경로(path)로
+콘텐츠를 식별하지 말 것" 과 뿌리가 같다.
+
+→ R201 은 **런타임 검증 완료**로 닫는다. 18 의 ko 14일 발행 = 2편(굶김 해소).
+
+## 테스트 요일 무관성 — 정적 확인 + 시계 고정 실측
+
+**정적**: 요일 게이트는 리포 전체에서 `scheduler.py:435` 한 곳뿐(`weekday()` grep 1건).
+`daily_auto_content_job` 을 부르는 테스트는 `tests/test_scheduler.py` 에만 있고, 그 6개
+tenant 생성부가 전부 `publish_plan="B"`. 다른 테스트 파일은 이 게이트에 닿지 않는다.
+
+**실측**: 오늘은 월요일(게이트 열림)이라 그냥 돌린 13 passed 는 아무것도 증명하지 못한다.
+`scheduler` 모듈이 부른 `datetime.now()` 만 고정하는 pytest 플러그인으로 3종 대조:
+
+| 조건 | 결과 | 의미 |
+|---|---|---|
+| 월요일 · plan B | 13 passed | 대조군 |
+| **토요일 · plan B** | **13 passed** | 요일 무관 ✅ |
+| 토요일 · plan A (음성) | 6 failed / 7 passed | 고정이 실제로 게이트를 닫았다 |
+
+`hits=13`(고정된 `now()` 가 실제로 호출됨)도 같이 기록해 "고정이 안 먹어서 통과" 를 배제했다.
+
+## 🔴 실험 도구가 두 번 틀렸다 — 대조군이 없었으면 오진했다
+
+1. **전역 `datetime` 교체 + `-s`** → 토요일 plan B **7 failed**. "요일 의존이 남아 있다" 로 결론낼
+   뻔했으나 **월요일 고정도 똑같이 7 failed** 였다 → 요일이 아니라 도구 문제.
+2. 범위를 scheduler 로 좁혀도 월요일 7 failed → 여전히 도구 문제. 한 테스트만 로그를 보니:
+   `'cp949' codec can't encode character '—'` → **`-s`(캡처 해제) 때문에 Windows cp949
+   콘솔로 `—` 가 출력되며 생성 경로가 예외** → `auto_content_error` → drafts 0.
+   `-s` 를 빼고 정보는 파일로 남기자 정상.
+
+→ **시계·환경을 조작하는 실험은 "조건을 바꾸지 않은 대조군(월요일)" 을 반드시 같이 돌린다.**
+대조군이 실패하면 결과는 전부 도구의 것이다. (CLAUDE.md "새 지표·판정 도구를 만들면 그 자체를
+먼저 반증할 것" 의 테스트 버전)
+⚠ Windows 로컬에서 `pytest -s` 로 발행 테스트를 돌리지 말 것 — 콘솔 인코딩 때문에 거짓 실패한다.
+
+## 관찰만 (손대지 않음)
+
+- auto-learn 이 18 에 쓴 키워드가 `'포레나의원 마케팅'`. 환자용 글 제목은 리프팅으로 나갔지만,
+  "마케팅" 은 대행사 쪽 질의라 측정 키워드가 발행 키워드로 새는 경로일 수 있다.
+- 같은 글이 `blog.retry_for_quality no_table=True` 로 3회 재시도 후 attempt=3 에서 표 없이 수락.
+  재시도 3회분 LLM 비용이 품질 개선 없이 소모된다(t19 도 동일 패턴).
+- 로그 `LLM_PROVIDER='***' → fallback 체인으로 대체` — 시크릿 값이 유효값 목록에 없다.
+  동작은 fallback 으로 정상이나, 의도한 provider 가 안 쓰이고 있을 수 있다.
+- 로컬 `test_scheduler.py` 소요 시간이 실행마다 크게 다르다(토요일 고정 32초 · 월요일 고정
+  555~610초 · 무고정 209초). `--durations`: 발행 테스트가 **개당 ~90초로 균일**, round_robin 235초.
+  균일한 90초는 LLM 모킹 밖의 네트워크 타임아웃 냄새다. 원인 미규명 — 테스트 밀폐성 후보.
+
+### 다음 라운드 후보 (203 이후)
+
+- 🔴 사용자 조치 1건: `PERPLEXITY_API_KEY` GitHub Secrets 등록 (충전으로는 안 풀린다 — R200)
+- `LLM_PROVIDER` 시크릿 값 확인 (유효값: fallback|stub|gemini|anthropic|openai)
+- auto-learn 키워드 출처 점검 — `'포레나의원 마케팅'` 같은 브랜드+마케팅 질의가 발행 키워드로 쓰이는지
+- `retry_for_quality` 가 `no_table` 만 남았을 때 재시도를 계속하는 비용 낭비
+- `test_scheduler.py` 발행 테스트 개당 ~90초 — 모킹 밖 네트워크 호출 추적(밀폐성)
+- 크레딧 소진으로 비어 있는 09-03~09-10 측정 구간을 리포트에서 어떻게 표기할지
+- 해외 SEO: `<html lang>` 근본 수정 — 라우트 그룹별 루트 레이아웃 분리(`(ko)`/`(intl)`)
+
+# Round 204 (2026-09-14) — 어드민 4대 목표 페이지 감사: wecircle 이 실제로 영향력이 있는가
+
+사용자 요청: `/admin/competitors` · `/admin/citations` · `/admin/funnel` · `/admin/traffic` 를 분석해
+wecircle.co.kr 콘텐츠가 목표에 영향력이 있는지·성장추이·개선점 확인 후 개선.
+PERPLEXITY 는 당분간 안 쓴다(사용자 결정 — 후보에서 내림).
+
+## Apify 로는 어드민을 못 본다
+Apify(website-content-crawler) 로 4개 URL → **전부 `/admin/login` 리다이렉트**(쿠키 게이트).
+관리자 비밀번호를 외부 크롤러에 넘기지 않고, **페이지가 읽는 원천 데이터(Supabase)를 직접 분석**했다.
+Apify 는 공개 사이트 점검에 썼다: wecircle.co.kr 85페이지 전부 200·canonical 정상·ko,
+블로그 글 Article+FAQPage 스키마 있음. (`apify~cheerio-scraper` 는 권한 승인 필요로 실패 →
+`apify~website-content-crawler` 사용)
+
+## 결론 — 영향력은 "있지만 좁다". 겉보기 성장의 상당 부분은 착시
+
+| 지표 | 실측 | 판정 |
+|---|---|---|
+| 우리 브랜드 등장률(전체) | 7월 8~11% → 9월 12~15% | 겉보기 상승 |
+| └ **브랜드명 질의** | 56~91% | 콘텐츠 무관하게 원래 높음 |
+| └ **비브랜드 질의** | 7월 5.7~7.5% · 8월 6.0~9.6% · 9월 6.1~8.4% | **제자리** |
+| 9월 상승의 원인 | 브랜드 질의 측정량 주 ~35 → ~280건 | **구성 효과** |
+| own 비브랜드 키워드, 글 있음 vs 없음 | 8.6/14.0/10.2% vs 6.3/7.6/6.0% (7·8·9월) | **콘텐츠 효과 ≈1.5~2배** ✅ |
+| competitor_landscape(라식·백내장 등 대형 키워드) | 4~8%, 글 있어도 개선 없음 | 효과 없음 |
+| AI 인용 도메인 순위(14일) | wecircle.co.kr **143위 / 2,084**, 4,752응답 중 23 | 선두 youtube 645·modoodoc 594 |
+| 대형 키워드 출처 9,452건 중 wecircle | **0건** | 롱테일에서만 인용됨 |
+| wecircle 인용 응답(원시) | 08-17~08-31 하루 0 → 09-01 이후 하루 1~6 | 실제 증가 ✅ |
+| 인용된 페이지 | 47건 중 절반이 `/tw/clinics/…` 허브·`/`·`/contact`·`/about` | 글보다 허브·브랜드 페이지 |
+| GSC 노출 | 9월 하루 30~68, `/with-partners` 정본 12→40/일 | 유지·통합 진행 |
+| GSC 클릭 | 28일 14건 | 표본 작음 |
+| Google organic 세션 | 8월 중순 주 ~10 → 9월 ≈0 | 하락 |
+| 네이버 referral | 주 3 → 28 → 15 | 실질 주 채널 |
+| AI referral | 09-07 주 chatgpt.com **5세션** (첫 실유입) | 신호 |
+
+교차검증: 비브랜드 분류는 표본 30개 수동 확인(`밝은눈안과강남`=브랜드, `라식`=비브랜드).
+인용 증가는 citation_events 와 원시 responses 양쪽에서 확인(백필 착시 아님).
+
+## 🔴 찾은 측정 결함과 수정
+
+**① 자사 인용 23% 허수 — R197 회귀** (`scripts/collect_citation_events.py`)
+`SELF_HOSTS` 의 `medi-map.co.kr` 은 우리 옛 도메인이 아니라 **전 직장 메디맵의 병원찾기 플랫폼**
+(title "메디맵 | 잘하는 병원 찾기…", 리다이렉트 없음). 14행 전부 `/search?q=` · `/hospital/view/` ·
+`global.medi-map.co.kr`. Round 180b(`learned_pattern.py`)가 이미 오탐으로 결론냈는데 197 이 되살렸다.
+→ 제거 + 자사 정규식을 **호스트 위치에 고정**(`?ref=wecircle.co.kr`·`wecircle.co.kr.evil.com` 거부).
+검증: 새 패턴 선택 47행 = 기존 wecircle 47행, 누락 0, 메디맵 0, 신규 삽입 0.
+CLAUDE.md 의 잘못된 R197 규칙도 정정.
+⚠ **14행 삭제는 push 후** `db/supabase/round203_citation_events_medimap_purge.sql` (백업 포함).
+먼저 지우면 measure-ai-mentions 의 collect(DAYS=30)가 옛 코드로 다시 넣는다.
+
+**② /admin/funnel 숫자가 1,000에서 잘림**
+queries·mentions 를 행으로 끌어와 JS 로 셌다 → 30일 질의 6,792·멘션 4,853 이 각 1,000 으로 표시.
+→ 서버 집계 RPC `funnel_tenant_stats(p_days)` (정본 `db/supabase/round203_funnel_tenant_stats.sql`, 적용 완료).
+stub 제외, 멘션은 기간 내 질의 응답 기준. **service_role 전용**(anon/authenticated EXECUTE 회수 확인).
+검증: RPC vs 원시 SQL — 질의 6,792=6,792 · 발행 642=642 · 등장응답 846=846 · 브랜드+비브랜드=전체.
+신규 KPI **비브랜드 등장률**(30일 6.6%, 브랜드 질의 63.3%) + 표 컬럼. "전환율 %" 는 100% 초과 가능해 "질의당 N배" 로.
+GSC/GA4 28일 조회도 `fetchAllRows`(gsc_daily 28일 705행, 곧 상한).
+
+**③ /admin/competitors·citations — 자사 판정이 리브랜드로 죽어 있었다**
+`partner_slug === 'medimap-self'` 하드코딩 5곳(competitors·trends·trends/detail·citations).
+위서클은 `wecircle-self` + business_model `모발이식` → is_self=false →
+**위서클 선택 시 own 키워드 29개 대신 competitor_landscape 1개만 분석**. 스케줄러는 R189 에서 고쳤고 어드민만 남음.
+→ `src/lib/tenant-self.ts` `isSelfTenant()` (R189 와 같은 `-self` 접미사 규칙).
+
+**④ /admin/competitors 전체 보기 — 병원 홈페이지가 경쟁사로**
+tenant 미선택이면 client 도메인 set 이 null → 각 병원 자기 홈페이지가 T5. 30일 71/9,452건.
+→ 질의 소속 tenant 도메인으로 폴백. `classifyDomain(domain, null, …)` 로 final_url 을 버려
+카카오 자사 path 판정이 죽어 있던 것도 수정.
+
+**⑤ /admin/traffic — 예방**: generated_contents(692)·keywords(746) 단발 조회가 1,000 상한 근접 →
+`fetchAllRows`. 공용 헬퍼에 `onError` 콜백 추가(에러를 삼키지 않게, Round 153).
+
+게이트: `build-gate.sh` PASS · `tsc --noEmit` 0 (1회차에 내가 넣은 `contentRows` 변수 중복을 tsc 가 잡음) ·
+`py_compile` OK.
+
+## 손대지 않은 것 (판단 근거)
+- `/blog/<slug>` 사본의 `noindex` + canonical 조합: Google 비권장 조합이지만 실측상 정본 노출이
+  12→40/일로 늘어 통합이 작동 중. 클릭 표본(28일 14)이 작아 인과 판단 불가 → 관찰.
+- 어드민 다른 페이지의 `medimap-self` 하드코딩 4곳(`PublishedTab.tsx:78`, `reports/page.tsx:123`,
+  `(portal)/page.tsx:300`, `content-queue/page.tsx:804`) — 4대 목표 페이지 밖. 대부분 이름 폴백이 있으나
+  `page.tsx:300` 은 위서클을 파트너로 셀 수 있음 → 후보.
+- citations 페이지 `(30일)` 라벨 하드코딩, trends/detail `.limit(2000)` 1,000 캡 — 후보.
+- 미해석 source_domains(`domain: null`) 14일 599응답 — 우리 인용이 숨어 있을 수 있음 → 후보.
+
+### 다음 라운드 후보 (204 이후)
+- 🔴 push 후 `round203_citation_events_medimap_purge.sql` 실행 + 배포 READY 확인(sha 기준)
+- 🔴 **사업 레버**: 비브랜드 영향력이 6~8% 에서 정체. 콘텐츠가 있는 롱테일만 1.5~2배.
+  대형 키워드(라식·백내장)는 인용 0 → 발행을 **GSC 4~20위 롱테일 + 글 없는 own 키워드**로 집중할지 결정
+- `/tw/` 허브·브랜드 페이지가 인용의 절반 — 허브 페이지 구조(FAQ·요약 표)를 국문 허브에도 적용 검토
+- 미해석 source_domains 599건 재해석 배치 점검
+- 어드민 잔여 `medimap-self` 4곳 → `isSelfTenant()` 로 통일
+- `LLM_PROVIDER` 시크릿 값 확인 · auto-learn 키워드 출처 · `retry_for_quality` 비용 낭비

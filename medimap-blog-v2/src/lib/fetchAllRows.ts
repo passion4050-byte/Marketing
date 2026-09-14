@@ -23,14 +23,18 @@ interface PageResult<T> {
 
 export async function fetchAllRows<T>(
   buildPage: (from: number, to: number) => PromiseLike<PageResult<T>>,
-  opts: { pageSize?: number; maxRows?: number } = {}
+  // Round 203 — onError: 에러를 삼키면 빈 화면으로 위장한다(Round 153). 호출부가 표면화할 수 있게.
+  opts: { pageSize?: number; maxRows?: number; onError?: (message: string) => void } = {}
 ): Promise<T[]> {
   const pageSize = opts.pageSize ?? 1000;
   const maxRows = opts.maxRows ?? 50000; // 폭주 방지 상한
   const out: T[] = [];
   for (let from = 0; out.length < maxRows; from += pageSize) {
     const { data, error } = await buildPage(from, from + pageSize - 1);
-    if (error) break; // 부분 결과라도 반환 (기존 단발 쿼리와 동일한 관용성)
+    if (error) {
+      opts.onError?.(error.message);
+      break; // 부분 결과라도 반환 (기존 단발 쿼리와 동일한 관용성)
+    }
     const rows = data ?? [];
     out.push(...rows);
     if (rows.length < pageSize) break;

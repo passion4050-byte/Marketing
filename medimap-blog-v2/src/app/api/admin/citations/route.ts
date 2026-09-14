@@ -30,6 +30,7 @@
 import { NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
 import { classifyDomain, loadClassifierSets, type Tier } from '@/lib/domain-classifier';
+import { isSelfTenant } from '@/lib/tenant-self';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -90,7 +91,7 @@ export async function GET(req: Request) {
     (t: { id: number; name: string; homepage: string | null; business_model: string | null; partner_slug: string | null }) => ({
       id: t.id,
       name: t.name,
-      is_self: t.business_model === 'self' || t.partner_slug === 'medimap-self',
+      is_self: isSelfTenant(t),  // Round 203 — 'medimap-self' 하드코딩은 리브랜드로 죽어 있었다
     })
   );
   // Round 36 — tenant 별 자체 도메인 set (homepage + additional_domains 통합).

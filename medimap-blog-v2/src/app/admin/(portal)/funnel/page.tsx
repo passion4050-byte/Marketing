@@ -8,8 +8,9 @@
  *   - 멘션/측정 비율, 클릭/멘션 비율 등 conversion 카드
  *   - 빈 단계는 명시적 안내 (mock 없음)
  */
-import { LinkIcon, FileText, Target, MousePointerClick, Zap, Search, Bot } from 'lucide-react';
+import { LinkIcon, FileText, Target, MousePointerClick, Zap, Search, Bot, Crosshair } from 'lucide-react';
 import { getServerClient } from '@/lib/supabase';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,6 +29,14 @@ interface FunnelRow {
   // 정의상 1.0 을 초과할 수 있음 → % 가 아니라 "배" 로 표기 (Round 144).
   mentionsPerQuery: number;
   ctr: number; // clicks / mentions
+  /**
+   * Round 203 — 브랜드명 질의("밝은눈안과강남", "위서클")는 콘텐츠와 무관하게 60~90% 등장한다.
+   * 콘텐츠가 만드는 영향력은 **병원명이 없는 질의**에서만 보이므로 응답 단위로 분리한다.
+   */
+  brandedResponses: number;
+  brandedHits: number;
+  nonbrandedResponses: number;
+  nonbrandedHits: number;
   /**
    * Round 144b — 신규 클라이언트가 목록에서 통째로 사라지던 문제.
    * 이전엔 발행·측정·멘션이 모두 0이면 filter 에서 탈락해, 방금 등록한
@@ -75,20 +84,20 @@ async function fetchTraffic(): Promise<TrafficSummary> {
     .toISOString()
     .slice(0, 10);
 
-  // 🔴 드릴다운 조용한 400 교훈(Round 153) — error 를 버리지 않는다.
-  const [gscRes, ga4Res] = await Promise.all([
-    sb.from('gsc_daily').select('date, clicks, impressions, position').gte('date', since),
-    sb.from('ga4_source_daily').select('date, source, sessions').gte('date', since),
+  // 🔴 Round 203 — 단발 select 는 PostgREST max-rows(1,000)에서 조용히 잘린다.
+  //   gsc_daily 28일분이 이미 705행(page×date)이라 곧 KPI 가 잘린 합계가 된다 → 전량 수집.
+  const [gscRows, ga4Rows] = await Promise.all([
+    fetchAllRows<{ date: string; clicks: number; impressions: number; position: number }>(
+      (from, to) =>
+        sb.from('gsc_daily').select('date, clicks, impressions, position')
+          .gte('date', since).order('date').order('page').range(from, to)
+    ),
+    fetchAllRows<{ date: string; source: string; sessions: number }>(
+      (from, to) =>
+        sb.from('ga4_source_daily').select('date, source, sessions')
+          .gte('date', since).order('date').order('source').order('medium').range(from, to)
+    ),
   ]);
-  if (gscRes.error) console.error('[funnel] gsc_daily 조회 실패:', gscRes.error.message);
-  if (ga4Res.error) console.error('[funnel] ga4_source_daily 조회 실패:', ga4Res.error.message);
-
-  const gscRows = (gscRes.data ?? []) as {
-    date: string; clicks: number; impressions: number; position: number;
-  }[];
-  const ga4Rows = (ga4Res.data ?? []) as {
-    date: string; source: string; sessions: number;
-  }[];
 
   const gscDates = new Set<string>();
   let gscClicks = 0;
@@ -133,49 +142,34 @@ async function fetchData() {
   const sb = getServerClient();
   if (!sb) return { rows: [] as FunnelRow[], error: 'Supabase 미연결' };
 
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-
   const { data: tenants } = await sb.from('tenants').select('id, name, status');
-  const { data: contents } = await sb
-    .from('generated_contents')
-    .select('tenant_id, status, channel')
-    .eq('status', 'published')
-    .eq('channel', 'blog_html');
-  const { data: queries } = await sb
-    .from('queries')
-    .select('id, tenant_id')
-    .gte('requested_at', since);
-  // 🔴 Round 144 (2026-08-02) — 기간 필터 누락 수정.
-  //   분모(queries)에만 30일 필터가 있고 분자(mentions)에는 없어서
-  //   "인용률 226.2%" 같은 100% 초과 값이 프로덕션에 노출됐음.
-  const { data: mentions } = await sb
-    .from('mentions')
-    .select('id, tenant_id, is_target')
-    .gte('created_at', since);
-  const { data: shortlinks } = await sb
-    .from('shortlinks')
-    .select('tenant_id, click_count')
-    .eq('is_active', true);
 
-  const publishedMap = new Map<number, number>();
-  (contents ?? []).forEach((c: { tenant_id: number }) => {
-    publishedMap.set(c.tenant_id, (publishedMap.get(c.tenant_id) ?? 0) + 1);
-  });
-  const queryMap = new Map<number, number>();
-  (queries ?? []).forEach((q: { tenant_id: number }) => {
-    queryMap.set(q.tenant_id, (queryMap.get(q.tenant_id) ?? 0) + 1);
-  });
-  const mentionMap = new Map<number, { total: number; target: number }>();
-  (mentions ?? []).forEach((m: { tenant_id: number | null; is_target: boolean }) => {
-    if (!m.tenant_id) return;
-    const prev = mentionMap.get(m.tenant_id) ?? { total: 0, target: 0 };
-    mentionMap.set(m.tenant_id, {
-      total: prev.total + 1,
-      target: prev.target + (m.is_target ? 1 : 0),
-    });
-  });
+  // 🔴 Round 203 — 발행·질의·멘션을 행으로 끌어와 JS 로 세던 방식은 PostgREST max-rows(1,000)에
+  //   **에러 없이 잘렸다**. 실측(09-14): 30일 측정 질의 6,792건·멘션 4,853건이 각 1,000건으로
+  //   표시됐다. 서버 집계 RPC 로 옮긴다 (정본: db/supabase/round203_funnel_tenant_stats.sql).
+  //   stub 엔진 제외, 멘션은 기간 내 질의의 응답 기준(분자·분모 기간 일치 — Round 144 교훈 유지).
+  const statsRes = await sb.rpc('funnel_tenant_stats', { p_days: 30 });
+  if (statsRes.error) {
+    console.error('[funnel] funnel_tenant_stats 실패:', statsRes.error.message);
+    return { rows: [] as FunnelRow[], error: `집계 RPC 실패 — ${statsRes.error.message}` };
+  }
+  type StatRow = {
+    tenant_id: number; published: number; queries: number; responses: number;
+    hit_responses: number; branded_responses: number; branded_hits: number;
+    nonbranded_responses: number; nonbranded_hits: number;
+    mentions: number; target_mentions: number;
+  };
+  const statMap = new Map<number, StatRow>();
+  ((statsRes.data ?? []) as StatRow[]).forEach((s) => statMap.set(s.tenant_id, s));
+
+  const shortlinks = await fetchAllRows<{ tenant_id: number | null; click_count: number | null }>(
+    (from, to) =>
+      sb.from('shortlinks').select('tenant_id, click_count')
+        .eq('is_active', true).order('id').range(from, to)
+  );
+
   const linkMap = new Map<number, { count: number; clicks: number }>();
-  (shortlinks ?? []).forEach((s: { tenant_id: number | null; click_count: number | null }) => {
+  shortlinks.forEach((s) => {
     if (!s.tenant_id) return;
     const prev = linkMap.get(s.tenant_id) ?? { count: 0, clicks: 0 };
     linkMap.set(s.tenant_id, {
@@ -187,10 +181,11 @@ async function fetchData() {
   // Round 144b — 필터 제거. 발행·측정 0인 신규 클라이언트도 "온보딩 대기"로 노출.
   const rows: FunnelRow[] = ((tenants ?? []) as TenantRow[])
     .map((t) => {
-      const mt = mentionMap.get(t.id) ?? { total: 0, target: 0 };
+      const st = statMap.get(t.id);
+      const mt = { total: st?.mentions ?? 0, target: st?.target_mentions ?? 0 };
       const lk = linkMap.get(t.id) ?? { count: 0, clicks: 0 };
-      const q = queryMap.get(t.id) ?? 0;
-      const published = publishedMap.get(t.id) ?? 0;
+      const q = st?.queries ?? 0;
+      const published = st?.published ?? 0;
       const stage: FunnelRow['stage'] =
         q > 0 ? 'measuring' : published > 0 ? 'published_only' : 'awaiting_setup';
       return {
@@ -204,6 +199,10 @@ async function fetchData() {
         clicks: lk.clicks,
         mentionsPerQuery: q > 0 ? mt.target / q : 0,
         ctr: mt.total > 0 ? (lk.clicks / mt.total) * 100 : 0,
+        brandedResponses: st?.branded_responses ?? 0,
+        brandedHits: st?.branded_hits ?? 0,
+        nonbrandedResponses: st?.nonbranded_responses ?? 0,
+        nonbrandedHits: st?.nonbranded_hits ?? 0,
         stage,
       };
     })
@@ -228,11 +227,22 @@ export default async function FunnelPage() {
       mentions: acc.mentions + r.targetMentions,
       shortlinks: acc.shortlinks + r.shortlinks,
       clicks: acc.clicks + r.clicks,
+      brandedResponses: acc.brandedResponses + r.brandedResponses,
+      brandedHits: acc.brandedHits + r.brandedHits,
+      nonbrandedResponses: acc.nonbrandedResponses + r.nonbrandedResponses,
+      nonbrandedHits: acc.nonbrandedHits + r.nonbrandedHits,
     }),
-    { published: 0, queries: 0, mentions: 0, shortlinks: 0, clicks: 0 }
+    {
+      published: 0, queries: 0, mentions: 0, shortlinks: 0, clicks: 0,
+      brandedResponses: 0, brandedHits: 0, nonbrandedResponses: 0, nonbrandedHits: 0,
+    }
   );
-  const overallCitationRate =
-    totals.queries > 0 ? (totals.mentions / totals.queries) * 100 : 0;
+  // 한 응답에 멘션이 여러 건 생길 수 있어 100% 를 넘을 수 있다 → 표와 같이 "배" 로 표기.
+  const mentionsPerQueryAll = totals.queries > 0 ? totals.mentions / totals.queries : 0;
+  const nonbrandedRate =
+    totals.nonbrandedResponses > 0 ? (totals.nonbrandedHits / totals.nonbrandedResponses) * 100 : 0;
+  const brandedRate =
+    totals.brandedResponses > 0 ? (totals.brandedHits / totals.brandedResponses) * 100 : 0;
   const overallCtr = totals.mentions > 0 ? (totals.clicks / totals.mentions) * 100 : 0;
   /**
    * Round 144c — 추적 링크가 하나라도 발급됐으면 클릭 컬럼을 노출한다.
@@ -259,7 +269,7 @@ export default async function FunnelPage() {
       )}
 
       {/* KPI 5단계 funnel */}
-      <section className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-5">
+      <section className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <div className="card card-pad">
           <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-ink-muted">
             <FileText className="h-3 w-3" /> 발행 콘텐츠
@@ -279,7 +289,21 @@ export default async function FunnelPage() {
             <Target className="h-3 w-3" /> 우리 멘션
           </div>
           <div className="mt-1 text-2xl font-bold text-ink-soft">{totals.mentions.toLocaleString()}</div>
-          <div className="text-[10px] text-ink-muted">전환율 {overallCitationRate.toFixed(1)}%</div>
+          <div className="text-[10px] text-ink-muted">질의당 {mentionsPerQueryAll.toFixed(2)}배</div>
+        </div>
+        <div
+          className="card card-pad"
+          title="병원명이 들어간 질의(예: '밝은눈안과강남')는 콘텐츠와 무관하게 대부분 등장합니다. 병원명이 없는 질의에서 우리 병원이 등장한 AI 응답의 비율 — 콘텐츠가 만드는 영향력입니다."
+        >
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-ink-muted">
+            <Crosshair className="h-3 w-3" /> 비브랜드 등장률
+          </div>
+          <div className="mt-1 text-2xl font-bold text-accent-deep">
+            {totals.nonbrandedResponses > 0 ? `${nonbrandedRate.toFixed(1)}%` : '—'}
+          </div>
+          <div className="text-[10px] text-ink-muted">
+            응답 {totals.nonbrandedResponses.toLocaleString()} · 브랜드 질의 {brandedRate.toFixed(0)}%
+          </div>
         </div>
         <div className="card card-pad">
           <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-ink-muted">
@@ -372,7 +396,7 @@ export default async function FunnelPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] text-xs">
+            <table className="w-full min-w-[920px] text-xs">
               {/*
                 Round 144b/c — 추적 컬럼을 조건부로.
                 미발급 상태에서는 전 행이 "—" 라 화면 폭만 먹었으므로 숨기고,
@@ -387,6 +411,7 @@ export default async function FunnelPage() {
                   <th className="px-3 py-2.5 text-right">브랜드 등장</th>
                   <th className="px-3 py-2.5 text-right" title="브랜드 등장 ÷ 측정 질의. 한 응답에 여러 번 등장할 수 있어 1배를 넘을 수 있습니다.">질의당 등장</th>
                   <th className="px-3 py-2.5 text-right" title="브랜드 등장 ÷ 발행 편수. 콘텐츠 1편당 얼마나 노출로 이어졌는지.">발행당 등장</th>
+                  <th className="px-3 py-2.5 text-right" title="병원명이 없는 질의의 AI 응답 중 우리 병원이 등장한 비율. 괄호는 응답 수.">비브랜드 등장률</th>
                   {trackingLive && (
                     <th className="px-3 py-2.5 text-right" title="발행 콘텐츠의 카카오 상담 CTA 클릭 수 (추적 링크 경유 서버 기록).">상담 클릭</th>
                   )}
@@ -431,6 +456,16 @@ export default async function FunnelPage() {
                         <span className={perPublished >= 10 ? 'font-bold text-accent-deep' : 'text-ink-soft'}>
                           {perPublished.toFixed(1)}
                         </span>
+                      ) : '—'}
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-mono text-xs">
+                      {r.nonbrandedResponses > 0 ? (
+                        <>
+                          <span className="font-bold text-ink-soft">
+                            {((r.nonbrandedHits / r.nonbrandedResponses) * 100).toFixed(1)}%
+                          </span>
+                          <span className="ml-1 text-[10px] text-ink-faint">({r.nonbrandedResponses})</span>
+                        </>
                       ) : '—'}
                     </td>
                     {trackingLive && (

@@ -13,6 +13,7 @@
 import { NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
 import { classifyDomain, loadClassifierSets, type Tier } from '@/lib/domain-classifier';
+import { isSelfTenant as isSelfTenantRow } from '@/lib/tenant-self';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -111,10 +112,9 @@ export async function GET(req: Request) {
   const selRow = tenantIdFilter
     ? (tenantsAll ?? []).find((t: { id: number }) => t.id === tenantIdFilter)
     : null;
+  // Round 203 — 'medimap-self' 하드코딩은 리브랜드(wecircle-self)로 죽어 있었다
   const isSelfTenant =
-    !!selRow &&
-    ((selRow as { business_model?: string }).business_model === 'self' ||
-      (selRow as { partner_slug?: string }).partner_slug === 'medimap-self');
+    !!selRow && isSelfTenantRow(selRow as { business_model?: string | null; partner_slug?: string | null });
 
   // 키워드 (자사는 own, 그 외는 competitor_landscape)
   let kwQuery = sb.from('keywords').select('id, text, tenant_id, lang').eq('is_active', true);

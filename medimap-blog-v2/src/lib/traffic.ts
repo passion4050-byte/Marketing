@@ -13,6 +13,7 @@
  *   (Round 148 교훈: 한글 슬러그는 인코딩/디코딩 양쪽 다 대비)
  */
 import { getServerClient } from '@/lib/supabase';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
 export interface DailyPoint {
   d: string;
@@ -180,18 +181,28 @@ export async function fetchTrafficDashboard(days = 28): Promise<TrafficDashboard
   }
 
   // 🔴 Round 153 교훈 — error 를 버리면 빈 화면으로 위장한다. 전부 표면화.
-  const [seriesRes, gscPagesRes, ga4PagesRes, queriesRes, sourcesRes, contentsRes, tenantsRes, keywordsRes] =
+  // 🔴 Round 203 — generated_contents(발행 692)·keywords(활성 746)는 PostgREST max-rows(1,000)에
+  //   근접했다. 넘는 순간 에러 없이 잘려 slug 매칭이 조용히 빠진다 → 전량 수집.
+  const [seriesRes, gscPagesRes, ga4PagesRes, queriesRes, sourcesRes, publishedRows, tenantsRes, keywordRows] =
     await Promise.all([
       sb.rpc('traffic_daily_series', { p_days: 90 }),
       sb.rpc('traffic_gsc_pages', { p_days: days, p_limit: 500 }),
       sb.rpc('traffic_ga4_pages', { p_days: days, p_limit: 500 }),
       sb.rpc('traffic_gsc_queries', { p_days: days, p_limit: 100 }),
       sb.rpc('traffic_ga4_sources', { p_days: days, p_limit: 50 }),
-      sb.from('generated_contents')
-        .select('id, slug, title, tenant_id, keyword_text, lang')
-        .eq('status', 'published'),
+      fetchAllRows<ContentRow>(
+        (from, to) =>
+          sb.from('generated_contents')
+            .select('id, slug, title, tenant_id, keyword_text, lang')
+            .eq('status', 'published').order('id').range(from, to),
+        { onError: (m) => errors.push(`contents: ${m}`) }
+      ),
       sb.from('tenants').select('id, name, partner_slug'),
-      sb.from('keywords').select('text').eq('is_active', true),
+      fetchAllRows<{ text: string | null }>(
+        (from, to) =>
+          sb.from('keywords').select('text').eq('is_active', true).order('id').range(from, to),
+        { onError: (m) => errors.push(`keywords: ${m}`) }
+      ),
     ]);
 
   const collect = (label: string, e: { message: string } | null) => {
@@ -202,13 +213,11 @@ export async function fetchTrafficDashboard(days = 28): Promise<TrafficDashboard
   collect('ga4_pages', ga4PagesRes.error);
   collect('gsc_queries', queriesRes.error);
   collect('ga4_sources', sourcesRes.error);
-  collect('contents', contentsRes.error);
   collect('tenants', tenantsRes.error);
-  collect('keywords', keywordsRes.error);
 
-  const contents = (contentsRes.data ?? []) as ContentRow[];
+  const contents = publishedRows;
   const tenants = (tenantsRes.data ?? []) as { id: number; name: string; partner_slug: string | null }[];
-  const keywordPool = ((keywordsRes.data ?? []) as { text: string | null }[])
+  const keywordPool = keywordRows
     .map((k) => (k.text ?? '').trim())
     .filter((t) => t.length >= 2);
 
