@@ -33,9 +33,20 @@ def _candidates(session):
         text(
             """
             SELECT k.tenant_id, k.text AS keyword,
-                   (SELECT max(started_at) FROM ab_tests a WHERE a.tenant_id = k.tenant_id) AS last_test
+                   (SELECT max(started_at) FROM ab_tests a WHERE a.tenant_id = k.tenant_id) AS last_test,
+                   tn.name AS tenant_name, tn.partner_slug
             FROM keywords k
+            JOIN tenants tn ON tn.id = k.tenant_id
             WHERE k.is_active = true
+              -- 🔴 Round 204 — 이 경로는 게이트가 하나도 없었다. 발행 대상 선택 경로는
+              --   로테이션·타깃에 더해 **여기가 세 번째**다(CLAUDE.md "두 경로 모두에" 의 확장).
+              --   실사고: 2026-09-08 모우림 `헤어라인교정`(purpose=competitor_landscape,
+              --   content_eligible=false — R173 이 발행에서 뺀 헤드 키워드)이 이 경로로 발행됐다.
+              AND COALESCE(k.purpose, 'own') = 'own'
+              AND COALESCE(k.content_eligible, true) = true
+              AND COALESCE(k.lang, 'ko') = 'ko'
+              -- R174i — 어드민 일시정지 병원에 글을 내면 안 된다(fail-open: null 은 active).
+              AND COALESCE(lower(tn.status), 'active') NOT IN ('paused', 'churned')
               AND k.tenant_id IN (
                     -- Round 81: UI 가 쓰는 learned_insights.applied + 같은 진료과(domain_category) 매칭.
                     -- (기존엔 빈 applied_insights 테이블을 봐서 split-brain. 또 tenant 단순매칭이면
@@ -56,7 +67,20 @@ def _candidates(session):
             """
         )
     ).fetchall()
-    return rows
+    # Round 204 — 브랜드명 질의("밝은눈안과강남")는 글과 무관하게 56~91% 등장한다.
+    #   변형 A/B 로 차이를 볼 수 있는 곳은 비브랜드 질의뿐이다(6~14% 구간).
+    #   규칙은 발행 로테이션·어드민 funnel RPC 와 같은 src/content/brand_tokens.py.
+    from src.content.brand_tokens import brand_tokens, is_branded
+
+    _tok_cache: dict[int, set[str]] = {}
+    out = []
+    for tenant_id, keyword, last_test, tenant_name, partner_slug in rows:
+        if tenant_id not in _tok_cache:
+            _tok_cache[tenant_id] = brand_tokens(tenant_name, partner_slug)
+        if is_branded(keyword, _tok_cache[tenant_id]):
+            continue
+        out.append((tenant_id, keyword, last_test))
+    return out
 
 
 def run_auto(session_factory) -> dict:

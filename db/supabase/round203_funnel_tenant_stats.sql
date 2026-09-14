@@ -30,10 +30,14 @@ WITH tok AS (
     AND w !~ '점$'
     AND w NOT IN ('피부과','안과','의원','병원','치과','한의원','한방의원','성형외과','클리닉','한방병원')
   UNION
+  -- Round 204 — 제거형에도 일반명사 제외. "성형외과"·"클리닉" 은 뗄 접미사가 없어 원형이 통과했다.
+  --   규칙 정본: src/content/brand_tokens.py (tests/test_brand_tokens.py 가 SQL 과의 합의를 잠금)
   SELECT t.id, lower(regexp_replace(w, '(의원|피부과|안과|병원)$', ''))
   FROM tenants t, regexp_split_to_table(t.name, '\s+') w
   WHERE w !~ '점$'
+    AND w NOT IN ('피부과','안과','의원','병원','치과','한의원','한방의원','성형외과','클리닉','한방병원')
     AND char_length(regexp_replace(w, '(의원|피부과|안과|병원)$', '')) >= 3
+    AND regexp_replace(w, '(의원|피부과|안과|병원)$', '') NOT IN ('피부과','안과','의원','병원','치과','한의원','한방의원','성형외과','클리닉','한방병원')
   UNION
   SELECT t.id, lower(t.partner_slug)
   FROM tenants t

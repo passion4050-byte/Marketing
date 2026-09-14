@@ -8876,3 +8876,63 @@ tenant 미선택이면 client 도메인 set 이 null → 각 병원 자기 홈�
 - 미해석 source_domains 599건 재해석 배치 점검
 - 어드민 잔여 `medimap-self` 4곳 → `isSelfTenant()` 로 통일
 - `LLM_PROVIDER` 시크릿 값 확인 · auto-learn 키워드 출처 · `retry_for_quality` 비용 낭비
+
+# Round 205 (2026-09-14) — 사업 방향 반영: 발행을 "글 없는 비브랜드 롱테일" 로 집중
+
+사용자 결정: "사업방향은 너가 분석한대로 진행". R204 배포 확인 후 착수.
+
+## R204 마감 확인
+- push `45e1627` → GitHub 커밋 상태 **Vercel geo-v2 · medimap-blog 둘 다 success**
+  (Vercel MCP 는 403 이라 커밋 status 로 sha 판정)
+- `citation_events` 허수 14행 삭제 완료: deleted 14 · 전부 medi-map · 남은 47행 = wecircle 전량
+
+## 발행 슬롯이 어디에 쓰이고 있었나 (최근 30일 ko 216편)
+| 구분 | 편수 |
+|---|---:|
+| own · 비브랜드 · **첫 글** | 96 |
+| own · 비브랜드 · **이미 글 있는 키워드 반복** | **72 (33%)** |
+| competitor_landscape (R173 이 발행에서 뺀 헤드 키워드) | 25 — 24편은 R182c(09-01) 이전, **1편은 09-08 A/B 경로** |
+| 키워드 테이블에 없음(auto-learn) | 10 |
+| 브랜드 | 11 |
+동시에 활성 병원에 **글 0편인 비브랜드 ko 키워드 ~190개**가 남아 있었다.
+
+## 수정 1 — 커버리지 드레인 (로테이션·타깃 공용 헬퍼)
+`scheduler._coverage_drain_rows`: ko·domestic · 발행 0편 · 비브랜드만 **순서 보존 필터**.
+우선순위: 실험 드레인 → 네이버 수요 드레인(이제 `_claimed` 플래그 세움) → **커버리지** → 날짜 로테이션.
+발행되면 조건에서 자동 이탈 → 영구 편향 아님. 해외 슬롯 미적용(R182·R201 함정). 끄기 `COVERAGE_DRAIN=0`.
+로그: `scheduler.coverage_drain path=rotation|target pool= uncovered= keywords=`.
+
+## 수정 2 — 브랜드 판정 정본 `src/content/brand_tokens.py`
+어드민 RPC 와 같은 규칙. 작성 중 구멍 발견: 접미사 제거 경로가 일반명사를 안 걸러
+`성형외과`·`클리닉` 단독 단어가 원형 그대로 토큰이 됐다(현재 tenant 엔 없음) → 파이썬·SQL 둘 다 수정,
+RPC 재적용(결과 불변: 비브랜드 6,092응답 6.6%). 테스트 기대값은 **SQL 을 실 tenant 16곳에 돌린 토큰표**.
+
+## 수정 3 — 세 번째 발행 경로 `scripts/run_ab_auto.py` 게이트
+게이트가 0개였다. purpose=own · content_eligible · ko · 병원 일시정지 제외(R174i) + 브랜드 질의 제외.
+Postgres 실측: 기존 후보 685 → 245(브랜드 제외 전). 기존 후보에 경쟁조사 82·발행제외 143·해외 267·일시정지 125.
+
+## 게이트
+- `py_compile` scheduler·run_ab_auto OK · A/B 후보 SQL 은 Supabase 에 직접 태워 검증
+- 신규 테스트: `test_brand_tokens.py` 21 · 커버리지 드레인 3 (rotation·env off·target)
+- **음성 검증**: ① 일반명사 가드 제거 시 2건 실패 ② `git show HEAD:scheduler.py` 로 되돌리면
+  드레인 테스트 2건 실패(로테이션이 4개 전부·타깃이 covered `홍대 리쥬란`) → 원복 cmp 확인
+- 판별력 설계: rotation 은 daily_count=풀 크기(날짜 무관), target 은 **오늘 수정 전 픽이 covered 가 되도록
+  tenant_id 를 계산**해 어느 날 돌려도 수정 전 코드에서 실패하게 했다.
+
+## 판정 계획 (미검증 — 런타임 실적 필요)
+다음 ko 발사 `0 23 * * 0,2,4` → **2026-09-15 23:00 UTC = 09-16 08:00 KST**(수, plan A 포함).
+1. run 로그에 `scheduler.coverage_drain` 이 찍히고 픽이 비브랜드·첫 글 키워드인지
+2. DB: 그 run 의 발행 중 `prior=0 AND NOT branded` 비율 (기존 30일 44%(96/216) 대비 상승)
+3. 2~3주 뒤 **비브랜드 등장률**(어드민 funnel KPI, 현재 6.6%) — 이게 사업 목표 지표다.
+   ⚠ 반증 규칙: 측정 키워드 구성이 바뀌면 등장률이 구성 효과로 움직인다(R204 에서 이미 한 번 속을 뻔함).
+   **같은 키워드 집합(09-14 기준 활성 비브랜드) 으로 고정해** 전후를 비교할 것.
+
+## 의도적으로 안 한 것
+- "GSC 4~20위 키워드에 글 추가": 같은 키워드에 새 글을 더 쓰면 이미 순위 오른 페이지와 카니벌라이즈할 수
+  있다(R155). 4~20위 레버는 **새 글이 아니라 기존 글 보강**이 맞다 → 후보로 분리.
+
+### 다음 라운드 후보 (205 이후)
+- 🔴 09-16 08:00 KST 판정 3종 (위)
+- GSC 4~20위 기존 글 보강 파이프라인(새 글 아님) 설계
+- `/tw/` 허브 구조를 국문 허브에 이식 검토 · 미해석 source_domains 599건
+- 어드민 잔여 `medimap-self` 4곳 · `LLM_PROVIDER` 시크릿 · auto-learn 키워드 출처 · `retry_for_quality` 비용

@@ -53,6 +53,51 @@ _NAVER_DEMAND_SQL = (
 )
 
 
+def _coverage_drain_rows(s, tenant_id: int, candidates: list, published_count) -> list:
+    """Round 204 (2026-09-14) — 아직 글이 없는 비브랜드 ko 키워드를 먼저 소진한다.
+
+    근거 (AI 답변 등장률 실측, 2026-07~09, 병원명 없는 own 키워드):
+      글 있는 키워드 8.6% · 14.0% · 10.2%  vs  글 없는 키워드 6.3% · 7.6% · 6.0%  (7·8·9월)
+      → 첫 글이 등장률을 약 1.5~2배로 만든다. 반면 최근 30일 ko 발행 216편 중 72편(33%)이
+        **이미 글이 있는 키워드의 반복**이었고, 활성 병원에 글 0편인 비브랜드 키워드가 ~190개 남아 있었다.
+      브랜드명 질의("밝은눈안과강남")는 글과 무관하게 56~91% 등장하므로 우선 대상이 아니다.
+
+    Round 182(실험)·183(네이버 수요) 드레인과 같은 형태: 발행되면 조건에서 자동 이탈하므로
+    영구 편향이 아니다. 앞선 드레인이 슬롯을 잡았으면 호출하지 말 것.
+
+    candidates: (text, lang, market) 목록 — **순서를 보존한 채 걸러서** 돌려준다.
+      (재정렬하면 날짜 로테이션 오프셋의 의미가 바뀐다 — tests 가 로테이션 픽을 직접 계산한다)
+    published_count(text, lang) -> int : 그 키워드의 해당 언어 발행 편수.
+    반환 []: 비활성·해당 없음 → 호출부는 기존 풀을 그대로 쓴다.
+
+    ⚠ ko·domestic 전용. CLAUDE.md "범위는 정렬과 대상 풀에 같은 축으로"(R201) —
+      해외 슬롯에 적용하면 풀이 비어 발행이 조용히 멈춘다(R182 함정).
+    """
+    if os.getenv("COVERAGE_DRAIN", "1").strip().lower() in ("0", "false", "off"):
+        return []
+    from sqlalchemy import text as _t
+    from src.content.brand_tokens import brand_tokens, is_branded
+
+    try:
+        # partner_slug 는 ORM 매핑 여부와 무관하게 raw SQL 로 읽는다(CLAUDE.md ORM 미매핑 규칙).
+        _row = s.execute(
+            _t("SELECT name, partner_slug FROM tenants WHERE id = :tid"), {"tid": tenant_id}
+        ).fetchone()
+    except Exception:  # pragma: no cover - 컬럼 미배포 환경
+        s.rollback()
+        _row = None
+    if _row is None:
+        return []
+    tokens = brand_tokens(_row[0], _row[1])
+    return [
+        r for r in candidates
+        if (r[1] or "ko") == "ko"
+        and (r[2] or "domestic") == "domestic"
+        and published_count(r[0], r[1] or "ko") == 0
+        and not is_branded(r[0], tokens)
+    ]
+
+
 def daily_measurement_job(session_factory) -> dict:
     """모든 tenant 의 활성 keyword 에 대해 수집 실행.
 
@@ -378,6 +423,40 @@ def daily_auto_content_job(
                                     keywords=[k.text for k in _k_dem],
                                 )
                                 kws = _k_dem
+                                _tgt_claimed = True  # Round 204 — 커버리지 드레인보다 우선
+                    # 🔴 Round 204 — 커버리지 드레인을 타깃 경로에도. 로테이션과 같은 헬퍼·같은 축.
+                    if (
+                        not _tgt_claimed
+                        and lang_only in (None, "ko")
+                        and market_only in (None, "domestic")
+                    ):
+                        _tgt_pub_by_text = {k.text: _tgt_pub.get(k.id, 0) for k in kws}
+                        _cov_texts = {
+                            r[0]
+                            for r in _coverage_drain_rows(
+                                s, target_tenant_id,
+                                [
+                                    (
+                                        k.text,
+                                        getattr(k, "lang", "ko") or "ko",
+                                        getattr(k, "market", "domestic") or "domestic",
+                                    )
+                                    for k in kws
+                                ],
+                                lambda t_, _l: _tgt_pub_by_text.get(t_, 0),
+                            )
+                        }
+                        if _cov_texts:
+                            _k_cov = [k for k in kws if k.text in _cov_texts]
+                            logger.info(
+                                "scheduler.coverage_drain",
+                                path="target",
+                                tenant_id=target_tenant_id,
+                                pool=len(kws),
+                                uncovered=len(_k_cov),
+                                keywords=[k.text for k in _k_cov][:10],
+                            )
+                            kws = _k_cov
                 if not kws:
                     logger.error(
                         "scheduler.target_no_keyword", tenant_id=target_tenant_id,
@@ -829,6 +908,26 @@ def daily_auto_content_job(
                             keywords=[r[0] for r in _demand_rows],
                         )
                         kw_rows = _demand_rows
+                        _rotation_claimed = True  # Round 204 — 아래 커버리지 드레인보다 우선
+
+            # 🔴 Round 204 (2026-09-14) — 커버리지 드레인: 글 0편인 비브랜드 ko 키워드 먼저.
+            #   근거·규칙은 _coverage_drain_rows docstring. 타깃 경로에도 같은 헬퍼가 걸린다
+            #   (CLAUDE.md "발행 대상 선택 규칙은 두 경로 모두에").
+            if not _rotation_claimed and _exp_scope_ok:
+                _cov_rows = _coverage_drain_rows(
+                    s, tenant_id, kw_rows,
+                    lambda t_, l_: _pub_counts.get((t_, l_), 0),
+                )
+                if _cov_rows:
+                    logger.info(
+                        "scheduler.coverage_drain",
+                        path="rotation",
+                        tenant_id=tenant_id,
+                        pool=len(kw_rows),
+                        uncovered=len(_cov_rows),
+                        keywords=[r[0] for r in _cov_rows][:10],
+                    )
+                    kw_rows = _cov_rows
         # Round 160 (2026-08-16) — LANG_ONLY 타깃: brighteye 전 언어 데일리 워크플로가
         #   언어별로 1회씩 호출한다 (ko/en/ja/zh-Hans/zh-Hant). 미지정 시 무변경.
         if lang_only is not None:

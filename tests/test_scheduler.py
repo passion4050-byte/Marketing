@@ -470,3 +470,111 @@ def test_rotation_without_scope_never_picks_overseas_keyword(
 
     assert drafts, "발행이 0건이면 이 테스트는 아무것도 검증하지 못한다"
     assert {d.keyword_text for d in drafts} == {"강남 리쥬란"}
+
+
+def _setup_coverage_tenant(session_factory, tenant_id: int):
+    """Round 204 — 커버리지 드레인 공통 셋업.
+
+    키워드 4개 (Keyword.id 순):
+      1 홍대 리쥬란                   — 이미 발행 1편 (covered)
+      2 포레나의원 위치와 진료 시간    — 브랜드명 질의 (uncovered 이지만 브랜드)
+      3 홍대 스킨부스터 비용           — **글 0편 · 비브랜드** ← 드레인 대상
+      4 홍대 울쎄라                   — 이미 발행 1편 (covered)
+    """
+    from src.storage.models import AutoContentSetting, GeneratedContent
+
+    with session_factory() as s:
+        # publish_plan='B' — 월/수/금 게이트에 요일 의존하지 않게 (Round 202).
+        s.add(Tenant(id=tenant_id, name="포레나의원", domain_category="피부과", region="서울",
+                     business_model="", publish_plan="B", partner_slug="forena"))
+        s.commit()
+        for kid, text_ in [(1, "홍대 리쥬란"), (2, "포레나의원 위치와 진료 시간"),
+                           (3, "홍대 스킨부스터 비용"), (4, "홍대 울쎄라")]:
+            s.add(Keyword(id=kid, tenant_id=tenant_id, text=text_, target_brand="포레나",
+                          is_active=True, lang="ko", market="domestic"))
+        for text_ in ("홍대 리쥬란", "홍대 울쎄라"):
+            s.add(GeneratedContent(tenant_id=tenant_id, keyword_text=text_, channel="blog_html",
+                                   body="<p>기존 글</p>", compliance_status="pass",
+                                   status="published", lang="ko", market="domestic"))
+        s.add(AutoContentSetting(
+            tenant_id=tenant_id, enabled=True, daily_count=4, channels=["blog_html"],
+        ))
+        s.commit()
+    # 타깃 경로의 _ok_rows SQL 이 purpose·experiment_arm 을 읽는다 — 없으면 가드가 통째로 죽는다(R202).
+    _create_naver_report_table(session_factory)
+
+
+def _new_blog_keywords(session_factory) -> list[str]:
+    from src.storage.models import GeneratedContent
+
+    with session_factory() as s:
+        rows = (
+            s.query(GeneratedContent)
+            .filter(GeneratedContent.status != "published")
+            .order_by(GeneratedContent.id)
+            .all()
+        )
+    return [r.keyword_text for r in rows]
+
+
+def test_coverage_drain_rotation_picks_only_uncovered_nonbranded(monkeypatch, session_factory):
+    """🔴 Round 204 — 로테이션은 글 0편인 비브랜드 ko 키워드를 먼저 소진한다.
+
+    실측 근거: 비브랜드 own 키워드의 AI 답변 등장률이 글 있음 10~14% vs 없음 6~7%.
+    그런데 최근 30일 ko 발행의 33% 가 이미 글이 있는 키워드의 반복이었다.
+
+    판별력: daily_count = 풀 크기(4) → 수정 전이면 4슬롯이 4개 키워드를 한 바퀴 돌아
+    covered·브랜드 키워드가 **반드시** 섞인다. 날짜 오프셋과 무관하다.
+    """
+    from src.collector.scheduler import daily_auto_content_job
+
+    monkeypatch.setenv("LLM_PROVIDER", "stub")
+    monkeypatch.setenv("MAX_DAILY_USD", "100")
+    monkeypatch.setenv("MAX_CONTENT_GEN_PER_DAY", "100")
+    monkeypatch.delenv("COVERAGE_DRAIN", raising=False)
+    _setup_coverage_tenant(session_factory, tenant_id=1)
+
+    daily_auto_content_job(session_factory)
+
+    picked = _new_blog_keywords(session_factory)
+    assert picked, "생성 0건이면 이 테스트는 아무것도 검증하지 못한다"
+    assert set(picked) == {"홍대 스킨부스터 비용"}
+
+
+def test_coverage_drain_can_be_disabled_by_env(monkeypatch, session_factory):
+    """COVERAGE_DRAIN=0 이면 기존 로테이션 그대로 — 운영 중 코드 수정 없이 끌 수 있어야 한다."""
+    from src.collector.scheduler import daily_auto_content_job
+
+    monkeypatch.setenv("LLM_PROVIDER", "stub")
+    monkeypatch.setenv("MAX_DAILY_USD", "100")
+    monkeypatch.setenv("MAX_CONTENT_GEN_PER_DAY", "100")
+    monkeypatch.setenv("COVERAGE_DRAIN", "0")
+    _setup_coverage_tenant(session_factory, tenant_id=1)
+
+    daily_auto_content_job(session_factory)
+
+    assert set(_new_blog_keywords(session_factory)) == {
+        "홍대 리쥬란", "포레나의원 위치와 진료 시간", "홍대 스킨부스터 비용", "홍대 울쎄라",
+    }
+
+
+def test_coverage_drain_applies_to_target_path(monkeypatch, session_factory):
+    """🔴 Round 204 — 타깃 경로(target_tenant_id)에도 같은 드레인이 걸린다 (R182c·183 교훈).
+
+    판별력: 타깃 경로는 (날짜 ordinal + tenant_id) % len 으로 1개를 고른다. tenant_id 를
+    **오늘 수정 전 픽이 covered 키워드(id 1 '홍대 리쥬란')가 되도록** 골라서, 어느 날 돌려도
+    수정 전 코드에서는 실패하게 만든다.
+    """
+    import datetime as _dt
+    from src.collector.scheduler import daily_auto_content_job
+
+    monkeypatch.setenv("LLM_PROVIDER", "stub")
+    monkeypatch.setenv("MAX_DAILY_USD", "100")
+    monkeypatch.setenv("MAX_CONTENT_GEN_PER_DAY", "100")
+    monkeypatch.delenv("COVERAGE_DRAIN", raising=False)
+    tid = next(t for t in range(1, 5) if (_dt.date.today().toordinal() + t) % 4 == 0)
+    _setup_coverage_tenant(session_factory, tenant_id=tid)
+
+    daily_auto_content_job(session_factory, target_tenant_id=tid)
+
+    assert _new_blog_keywords(session_factory) == ["홍대 스킨부스터 비용"]
