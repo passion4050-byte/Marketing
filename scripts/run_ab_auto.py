@@ -57,6 +57,15 @@ def _candidates(session):
                             WHERE applied = true AND domain_category IS NOT NULL
                           )
                   )
+              -- 🔴 Round 206 — 키워드당 1편 규칙. 이미 글이 있는 키워드로 변형을 또 만들지 않는다.
+              --   ⚠ A/B 자체가 한 키워드에 두 편을 만드므로 DB 트리거가 두 번째 arm 발행을 거절한다.
+              --   R206 이후 이 경로는 스케줄 off(수동 실행만) — 되살리려면 설계부터 다시.
+              AND NOT EXISTS (
+                    SELECT 1 FROM generated_contents g
+                    WHERE g.tenant_id = k.tenant_id AND g.keyword_text = k.text
+                      AND COALESCE(g.lang, 'ko') = 'ko' AND g.channel = 'blog_html'
+                      AND g.status IN ('published', 'draft')
+                  )
               AND NOT EXISTS (
                     SELECT 1 FROM ab_tests a
                     WHERE a.tenant_id = k.tenant_id

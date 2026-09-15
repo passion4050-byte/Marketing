@@ -284,6 +284,7 @@ AI 검색엔진(Perplexity, ChatGPT, Gemini, Claude)에서 의료 도메인 브�
 - **발행 대상 선택 규칙은 모든 경로에**: 발행 키워드 선택 경로는 **일반 로테이션** · **타깃 경로(`target_tenant_id`)** · **A/B 자동 생성(`scripts/run_ab_auto.py`, 주간)** **세 곳**이다. 게이트·우선순위 규칙을 한쪽에만 넣으면 다른 쪽이 옛 규칙으로 계속 발행한다 — Round 164b·173·182c·183 에서 같은 문으로 4회 반복됐고, **Round 204 에서 세 번째 경로가 발견됐다**(게이트 0개 — 2026-09-08 발행 제외 헤드 키워드 `헤어라인교정` 이 이 경로로 발행됨. 후보 685개 중 경쟁조사 82·발행제외 143·해외 267·일시정지 병원 125).
   → 새 게이트를 추가할 땐 `grep -rn "FROM keywords" scripts/ src/` 로 **키워드를 고르는 SQL 을 전수** 찾을 것.
   - **우선순위 규칙 (Round 204)**: 실험 드레인 → 네이버 수요 드레인 → **커버리지 드레인**(글 0편 · 비브랜드 · ko) → 날짜 로테이션. 브랜드 판정 정본은 `src/content/brand_tokens.py` (어드민 RPC `funnel_tenant_stats` 와 규칙 동일, `tests/test_brand_tokens.py` 가 합의를 잠금). 끄기: `COVERAGE_DRAIN=0`.
+  - **🔴 키워드·언어당 1편 (Round 206)**: 세 경로 모두 published/draft 가 있는 키워드는 고르지 않고, 풀이 비면 폴백 없이 `scheduler.keyword_pool_exhausted` 로 스킵한다. DB 트리거 `trg_00_guard_blog_publish` 가 최후 방어선 — ① `compliance_report` 없는 blog_html insert/발행 거절(코드 밖 SQL 직접 삽입 차단) ② 같은 tenant·lang·keyword 두 번째 발행 거절. 발행량을 바꿀 땐 `grep -rn run_auto_content_once .github/workflows` 로 호출처 전수 확인(`auto-learn-own` 처럼 이름과 다른 발행 경로가 있었다).
   - 🔴 **범위(scope)는 정렬과 대상 풀에 같은 축으로 넣는다 (실사고 Round 201)**
     R200 은 굶김 정렬을 `lang='ko'` 로 좁혔는데 **키워드 풀은 안 좁혔다.** 결과: ko 로 굶었다는
     이유로 1순위를 받은 병원이 그 슬롯에 **중국어 글**을 냈다(포레나의원 `红大皮肤科推荐`).

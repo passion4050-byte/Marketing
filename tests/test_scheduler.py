@@ -553,9 +553,73 @@ def test_coverage_drain_can_be_disabled_by_env(monkeypatch, session_factory):
 
     daily_auto_content_job(session_factory)
 
-    assert set(_new_blog_keywords(session_factory)) == {
-        "홍대 리쥬란", "포레나의원 위치와 진료 시간", "홍대 스킨부스터 비용", "홍대 울쎄라",
-    }
+    # 🔴 Round 206 — 드레인을 꺼도 "키워드당 1편" 은 유지된다. 이미 글이 있는
+    #   '홍대 리쥬란'·'홍대 울쎄라' 는 로테이션 풀에서 빠진다(R204 당시 기대값은 4개 전부였다).
+    picked = _new_blog_keywords(session_factory)
+    assert sorted(picked) == sorted(["포레나의원 위치와 진료 시간", "홍대 스킨부스터 비용"])
+
+
+def test_rotation_never_rewrites_covered_keyword_or_repeats_in_run(monkeypatch, session_factory):
+    """🔴 Round 206 — 키워드·언어당 1편.
+
+    실측: 발행 667편 중 387편이 같은 키워드의 추가 글, 제목까지 같은 묶음 24개.
+    판별력: daily_count=4 인데 미작성 키워드는 2개(1개는 브랜드) →
+      - 수정 전 상한 12 면 covered 키워드가 풀에 남아 다시 뽑힌다.
+      - 수정 전 루프는 `% len` 으로 한 바퀴 돌아 같은 키워드를 **한 실행에 두 번** 생성한다.
+    드레인을 꺼서(COVERAGE_DRAIN=0) 커버리지 드레인이 우연히 가려주지 못하게 한다.
+    """
+    from src.collector.scheduler import daily_auto_content_job
+
+    monkeypatch.setenv("LLM_PROVIDER", "stub")
+    monkeypatch.setenv("MAX_DAILY_USD", "100")
+    monkeypatch.setenv("MAX_CONTENT_GEN_PER_DAY", "100")
+    monkeypatch.setenv("COVERAGE_DRAIN", "0")
+    _setup_coverage_tenant(session_factory, tenant_id=1)
+
+    daily_auto_content_job(session_factory)
+
+    picked = _new_blog_keywords(session_factory)
+    assert picked, "생성 0건이면 이 테스트는 아무것도 검증하지 못한다"
+    assert "홍대 리쥬란" not in picked and "홍대 울쎄라" not in picked
+    assert len(picked) == len(set(picked)), f"한 실행 안에서 중복 생성: {picked}"
+
+
+def test_rotation_skips_when_every_keyword_is_covered(monkeypatch, session_factory):
+    """🔴 Round 206 — 풀 소진 시 '전체 풀 폴백' 으로 이미 쓴 키워드를 다시 쓰지 않는다."""
+    from src.collector.scheduler import daily_auto_content_job
+    from src.storage.models import GeneratedContent
+
+    monkeypatch.setenv("LLM_PROVIDER", "stub")
+    monkeypatch.setenv("MAX_DAILY_USD", "100")
+    monkeypatch.setenv("MAX_CONTENT_GEN_PER_DAY", "100")
+    _setup_coverage_tenant(session_factory, tenant_id=1)
+    with session_factory() as s:
+        for text_ in ("포레나의원 위치와 진료 시간", "홍대 스킨부스터 비용"):
+            s.add(GeneratedContent(tenant_id=1, keyword_text=text_, channel="blog_html",
+                                   body="<p>기존 글</p>", compliance_status="pass",
+                                   status="published", lang="ko", market="domestic"))
+        s.commit()
+
+    daily_auto_content_job(session_factory)
+
+    assert _new_blog_keywords(session_factory) == []
+
+
+def test_target_path_refuses_explicit_keyword_already_covered(monkeypatch, session_factory):
+    """🔴 Round 206 — 어드민이 키워드를 직접 지정해도 이미 글이 있으면 LLM 을 부르지 않는다."""
+    from src.collector.scheduler import daily_auto_content_job
+
+    monkeypatch.setenv("LLM_PROVIDER", "stub")
+    monkeypatch.setenv("MAX_DAILY_USD", "100")
+    monkeypatch.setenv("MAX_CONTENT_GEN_PER_DAY", "100")
+    _setup_coverage_tenant(session_factory, tenant_id=1)
+
+    summary = daily_auto_content_job(
+        session_factory, target_tenant_id=1, target_keyword="홍대 리쥬란",
+    )
+
+    assert _new_blog_keywords(session_factory) == []
+    assert summary["errors"] == 1
 
 
 def test_coverage_drain_applies_to_target_path(monkeypatch, session_factory):

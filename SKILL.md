@@ -9050,7 +9050,39 @@ order by g.id;
 월·수·금 cron 이 사라져 09-16 런은 없다. R205 커버리지 드레인 판정은 **09-21(월) 08:00 KST 런**으로 이동.
 A/B 자동 생성 09-21 판정 항목은 스케줄 off 로 삭제.
 
+## Round 206b (2026-09-15) — 중복 글 차단 + BGN 잠실 SQL 직접 삽입 차단
+
+### BGN 잠실 5편 묶음의 정체 — 파이프라인 밖 SQL 직접 삽입
+- 08-15 이후 `compliance_report` NULL 인 발행 글 **34편 전부 tenant 4**. 08-17 부터 3~4일마다 밤 5편, `llm_call_logs` 0건.
+- 파이프라인 글과 흔적이 다르다: 본문 ~3.4천 자(파이프라인 1.7~2.3만), 파란 콜아웃 HTML, `structure_type` 이 `activity_guide` 류(리포 grep 0건).
+- 09-14 13:25Z 삽입 직전 postgres 로그에 `column g.partner_slug does not exist` · `value too long for varchar(20)` — 시행착오 SQL. edge_logs 에 REST 기록 없음.
+- RemoteTrigger 루틴은 전부 disabled. → 다른 기기의 대화형 세션/사람이 DB 에 직접 넣은 것으로 판정. **누구인지는 미확인.**
+- 코드 밖 경로는 코드로 못 막는다 → DB 트리거 `trg_00_guard_blog_publish`(정본 `db/supabase/round206_guard_blog_publish.sql`).
+
+### 중복 — 실측
+- 발행 667편 중 **387편** 이 같은 tenant·lang·keyword 의 추가 글, **제목까지 같은 묶음 24개**(최대 4편: 밝은눈 강남 597·670·727·773).
+- 원인 3개: ① 키워드 상한 12/6 (R179 "2번째부터 다른 질문" 가정이 깨짐) ② 상한 도달 시 국내 전체 풀 폴백
+  ③ 생성 루프 `% len(kw_rows)` — `daily_count > 풀 크기` 면 한 실행에 같은 키워드 2회 ④ A/B 는 구조상 한 키워드 2편.
+- API 실측(7일): 호출 3,268건 중 **측정 2,946건(90%)** · 글 생성 322건. "중복이 API 를 먹는다" 는 부분적 사실 — 최대 소비처는 측정이다.
+
+### 조치
+- `scheduler.py`: 상한 **1**(published+draft 카운트) · 국내 폴백 제거 · 루프 `min(daily_count, len)` · 타깃 경로 SQL 도 lang 일치+pub=0 만 · 명시 키워드가 이미 있으면 LLM 호출 전 거절(`scheduler.target_keyword_already_covered`)
+- `run_ab_auto.py`: 이미 글 있는 키워드 제외 (스케줄은 R206 에서 off)
+- DB 트리거: ① compliance 없는 blog_html insert/발행 거절 ② 같은 키워드 두 번째 발행 거절(advisory lock 으로 경합 차단). 이름 `trg_00_` → 배포 트리거보다 먼저 실행.
+- 기존 제목 중복 22편 `noindex=true` (정본+되돌리기 `db/supabase/round206_noindex_title_duplicates.sql`)
+
+### 검증 (근거)
+- 트리거 4케이스, 서브트랜잭션 롤백·잔여 0행: ① 린터 없는 insert **차단** ② #476 키워드 재발행 **차단** ③ 정상 draft **통과** ④ 기존 중복 #670 UPDATE **통과**
+  (⚠ 첫 검증 쿼리는 "통과" 기록 insert 가 롤백 예외와 함께 사라져 ③④ 가 빈 결과였다 — 기록을 예외 핸들러로 옮겨 재검증)
+- 라이브: #773 `noindex, follow` (X-Vercel-Cache MISS) · 유지본 #597 robots 메타 없음. 사이트맵엔 #773 아직 잔존(캐시) — 재확인 필요
+- 새 SQL 을 Supabase 에 직접 실행: 병원별 미작성 ko 키워드 3(위서클)~25(BGN) — 위서클·심포니는 약 한 달 뒤 소진
+- pytest `-k "coverage or rotation_never or skips_when_every or refuses_explicit"`: 수정본 **6 passed** /
+  음성 검증(scheduler.py 만 HEAD 로, 테스트는 유지) **4 failed** — 새 테스트 3개 + 갱신한 disabled_by_env 가 수정 전 코드에서 실제로 실패함
+- 전체 test_scheduler.py 는 이 PC 에서 11분(스텁 생성·이미지 경로 대기). 관련 서브셋만 게이트로 쓸 것
+
 ### 다음 라운드 후보 (Round 207+)
+0. 🔴 **위서클(3)·심포니(4) 미작성 ko 키워드 곧 소진** — 키워드 추가 없으면 `keyword_pool_exhausted` 로 발행 0
+00. BGN 잠실 SQL 직접 삽입 주체 확인 — 트리거로 막혔으니 그쪽에서 에러가 날 것
 1. 🔴 **#852 등 날조 글 전수 점검** — 의사 데이터 0 병원 글에서 `[가-힣]{3} ?(대표 ?)?원장` + 따옴표 인용 → draft 전환(사용자 승인 후)
 2. 🔴 모우림 09-15 09:24/09:28 **같은 키워드 2편 중복 발행** 원인
 3. 성과 보드 RPC 정직화 — 28일 노출 가중평균 · 표본 부족 · former_slug 인코딩 (계획서 0주차)

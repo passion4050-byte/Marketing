@@ -326,6 +326,26 @@ def daily_auto_content_job(
                 if _row is not None:
                     _tgt_lang = getattr(_row, "lang", "ko") or "ko"
                     _tgt_market = getattr(_row, "market", "domestic") or "domestic"
+                # 🔴 Round 206 — 어드민이 키워드를 직접 지정해도 이미 글이 있으면 생성하지 않는다.
+                #   LLM 을 부른 뒤 DB 트리거에서 거절당하면 호출 비용만 날린다 → 부르기 전에 막는다.
+                from sqlalchemy import text as _sql_dup
+                _dup = s.execute(
+                    _sql_dup(
+                        "SELECT id FROM generated_contents "
+                        "WHERE tenant_id = :tid AND keyword_text = :kw "
+                        "AND COALESCE(lang,'ko') = :lang AND channel = 'blog_html' "
+                        "AND status IN ('published', 'draft') LIMIT 1"
+                    ),
+                    {"tid": target_tenant_id, "kw": keyword_text, "lang": _tgt_lang},
+                ).fetchone()
+                if _dup is not None:
+                    logger.error(
+                        "scheduler.target_keyword_already_covered",
+                        tenant_id=target_tenant_id, keyword=keyword_text,
+                        lang=_tgt_lang, existing_content_id=int(_dup[0]),
+                    )
+                    summary["errors"] += 1
+                    return summary
             else:
                 kws = (
                     s.query(_Kw)
@@ -359,7 +379,8 @@ def daily_auto_content_job(
                             "SELECT k.id, COALESCE(k.experiment_arm,'') AS arm, "
                             "       (SELECT count(*) FROM generated_contents g "
                             "          WHERE g.tenant_id = k.tenant_id AND g.keyword_text = k.text "
-                            "            AND g.status = 'published' AND g.channel = 'blog_html') AS pub "
+                            "            AND COALESCE(g.lang,'ko') = COALESCE(k.lang,'ko') "
+                            "            AND g.status IN ('published', 'draft') AND g.channel = 'blog_html') AS pub "
                             "  FROM keywords k "
                             " WHERE k.tenant_id = :tid AND k.is_active "
                             "   AND COALESCE(k.content_eligible, true) = true "
@@ -370,7 +391,9 @@ def daily_auto_content_job(
                 except Exception:  # pragma: no cover - column not deployed
                     _ok_rows = []
                 if _ok_rows:
-                    _ok_ids = {r[0] for r in _ok_rows}
+                    # 🔴 Round 206 — 로테이션과 같은 규칙: 이미 글(published/draft)이 있는
+                    #   키워드·언어는 타깃 경로에서도 고르지 않는다(키워드당 1편).
+                    _ok_ids = {r[0] for r in _ok_rows if int(r[2] or 0) == 0}
                     kws = [k for k in kws if k.id in _ok_ids]
                     # While an experiment runs, the target path drains unpublished
                     #   experiment keywords first; otherwise one dispatch muddies the
@@ -733,8 +756,16 @@ def daily_auto_content_job(
             #   회피로 전환하므로, 이제 여러 편이 서로 다른 질문을 다룬다(국내와 동일한 성질).
             #   국내 잠실 라식 11편이 11개 다른 질문인 것이 이 방식의 실증.
             #   6 은 보수적 출발값 — 실제 중복 재발 여부를 보고 조정한다.
-            _KW_CAP_DOMESTIC = 12
-            _KW_CAP_OVERSEAS = 6
+            # 🔴 Round 206 (2026-09-15) — 상한 12/6 → **1** (키워드·언어당 한 편).
+            #   179 의 가정("2번째 글부터는 다른 질문을 잡는다")은 실측에서 깨졌다:
+            #   발행 667편 중 387편이 같은 병원·같은 키워드의 추가 글이고, **제목까지 같은
+            #   글이 24묶음**(밝은눈 강남 "스마일라식 재수술 정말 가능한가요?" 597·670·727·773
+            #   4편). 같은 질문을 다시 쓰는 데 LLM·이미지 호출을 쓰고 서로 카니벌라이즈한다.
+            #   발행이 병원당 주 1편으로 줄었으니(R206) 한 키워드는 한 편을 깊게 쓴다.
+            #   draft 도 센다 — 검수 대기 중인 키워드를 다음 주에 또 생성하지 않도록.
+            #   DB 트리거 trg_guard_blog_publish(db/supabase/round206_*.sql)가 최후 방어선.
+            _KW_CAP_DOMESTIC = 1
+            _KW_CAP_OVERSEAS = 1
             from sqlalchemy import text as _sql_cap
             _pub_counts: dict = {
                 (r[0], r[1] or "ko"): int(r[2])
@@ -742,7 +773,7 @@ def daily_auto_content_job(
                     _sql_cap(
                         "SELECT keyword_text, COALESCE(lang,'ko') AS lang, count(*) "
                         "FROM generated_contents "
-                        "WHERE tenant_id = :tid AND status = 'published' "
+                        "WHERE tenant_id = :tid AND status IN ('published', 'draft') "
                         "AND channel = 'blog_html' AND keyword_text IS NOT NULL "
                         "GROUP BY keyword_text, COALESCE(lang,'ko')"
                     ),
@@ -803,24 +834,9 @@ def daily_auto_content_job(
                     or (getattr(k, "lang", "ko") or "ko") == "ko"
                 )
             ]
-            # 전 키워드 상한 도달 시 발행 중단이 아니라 전체 풀로 폴백 (발행 0 방지).
-            # 🔴 Round 177 — 해외는 폴백 금지. 여기서 폴백하면 그게 곧 중복 재생산이다.
-            #   해외 풀이 소진되면 발행을 건너뛰고 로그로 알린다(= 키워드 추가 신호).
-            if not kw_rows and _pub_counts:
-                kw_rows = [
-                    (k.text, (getattr(k, "lang", "ko") or "ko"),
-                     (getattr(k, "market", "domestic") or "domestic"))
-                    for k in kws
-                    # Round 173 — 폴백 경로에도 content_eligible 적용. 여기서 빠뜨리면
-                    #   상한 도달 tenant 가 조용히 헤드 키워드로 되돌아간다.
-                    if getattr(k, "content_eligible", True) is not False
-                    # Round 177 — 폴백은 국내 전용.
-                    and (getattr(k, "market", "domestic") or "domestic") == "domestic"
-                    and _publish_ok(
-                        (getattr(k, "lang", "ko") or "ko"),
-                        (getattr(k, "market", "domestic") or "domestic"),
-                    )
-                ]
+            # 🔴 Round 206 — 상한 도달 시 "전체 풀로 폴백" 을 제거했다(R177 은 해외만 막았다).
+            #   상한이 1 인 지금 폴백 = 이미 쓴 키워드를 다시 쓰는 것이다.
+            #   풀이 비면 아래 scheduler.keyword_pool_exhausted 로그가 "키워드 추가" 신호다.
 
             # Round 182 (2026-08-31) - drain A/B experiment keywords first.
             #   The rotation walks the whole tenant pool (20-30 kws) by date offset,
@@ -950,7 +966,9 @@ def daily_auto_content_job(
         #   결정적이라 같은 날 재실행해도 동일 픽(중복 생성 없음), A/B 재현성 유지.
         import datetime as _dt_rot
         _rot_offset = (_dt_rot.date.today().toordinal() + tenant_id) % len(kw_rows)
-        for i in range(daily_count):
+        # 🔴 Round 206 — 슬롯 수를 풀 크기로 자른다. daily_count > len(kw_rows) 이면
+        #   `% len` 이 한 바퀴 돌아 **같은 실행 안에서 같은 키워드를 두 번** 생성했다.
+        for i in range(min(daily_count, len(kw_rows))):
             keyword_text, kw_lang, kw_market = kw_rows[(_rot_offset + i) % len(kw_rows)]
             channel = ch_cycle[i % len(ch_cycle)]
             try:
