@@ -15,8 +15,8 @@
  * (db/supabase/round188_publish_watchdog_cron.sql 참조)
  *
  * ## 두 가지를 본다
- * 1. **전면 정지** — 마지막 발행이 `PUBLISH_WATCHDOG_STALE_HOURS`(기본 26h) 이전이면
- *    cron 자체가 안 돈 것이다. 해외 발행이 매일 06:00 UTC 라 정상이면 26h 를 넘을 수 없다.
+ * 1. **전면 정지** — 마지막 발행이 `PUBLISH_WATCHDOG_STALE_HOURS`(기본 192h, Round 206) 이전이면
+ *    cron 자체가 안 돈 것이다. 발행이 주 1회(월 ko · 수 해외)라 정상이면 8일을 넘을 수 없다.
  * 2. **개별 굶김** — 활성(enabled + status active) 테넌트 중 마지막 ko 발행이
  *    `PUBLISH_WATCHDOG_TENANT_DAYS`(기본 10일) 이전인 곳. 로테이션이 도는데도
  *    특정 병원만 굶는 경우를 잡는다(Round 174c 가 고쳤던 문제의 재발 감지).
@@ -30,7 +30,10 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const ADMIN_EMAIL = process.env.CITATION_ALERT_EMAIL ?? 'passion4050@gmail.com';
-const STALE_HOURS = Number(process.env.PUBLISH_WATCHDOG_STALE_HOURS ?? 26);
+// 🔴 Round 206 (2026-09-15) — 26h → 192h(8일). 발행이 주 1회(월 ko · 수 해외)로 바뀌어
+//   26h 기준이면 매일 "전면 정지" 오탐이 난다. 가장 긴 공백은 수→월 5일 + Actions 지연(최대 6.5h).
+//   개별 굶김(TENANT_STALE_DAYS=10)은 주 1회 + 지연에서도 여유가 있어 그대로 둔다.
+const STALE_HOURS = Number(process.env.PUBLISH_WATCHDOG_STALE_HOURS ?? 192);
 const TENANT_STALE_DAYS = Number(process.env.PUBLISH_WATCHDOG_TENANT_DAYS ?? 10);
 
 interface StarvingTenant {

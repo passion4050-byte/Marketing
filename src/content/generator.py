@@ -603,6 +603,65 @@ _NAVER_AEO_DIRECTIVE = (
 )
 
 
+# 🔴 Round 206 (2026-09-15) — 회사 온페이지 SEO 가이드 → 콘텐츠 작성 지침.
+#   방향 전환: 발행을 병원당 주 1편으로 줄이는 대신 **한 편의 깊이**에 투자한다.
+#   이 디렉티브는 가이드의 "절대 규칙"(사실 날조 금지 · 의료광고 금지 표현 신규 생성 금지)과
+#   "검색의도 → 전환" · E-E-A-T · 헤딩 · 메타 규칙 중 **생성 단계에서 지킬 수 있는 것만** 옮겼다.
+#   (사이트맵·hreflang·렌더링 같은 수집/색인 계층은 콘텐츠가 아니라 사이트 코드의 몫이다.)
+#
+#   왜 날조 금지를 맨 앞에 두나 — 실측(2026-09-15):
+#     활성 13곳 전부 `doctors` 테이블이 **0행**인데, 모우림의원 #852 본문에
+#     "이진영 원장님은 '수술 후 관리는…'" 이라는 **실명 + 따옴표 인용**이 들어갔다.
+#     그 이름은 tenants·brand_voices·doctors·reference_documents 어디에도 없다.
+#     원인은 기존 프롬프트 두 줄이다 — ① "담당 의사 자격·경력을 1회 명시"(무조건)
+#     ② 톤 예시 "검사 다음 날 출근해야 했던 30대 직장인 분의 경우"(가상 사례 유도).
+#     데이터가 없는데 "명시하라"고 하면 LLM 은 만들어낸다. 의료 사이트에서 실존 의사에게
+#     가짜 발언을 붙이는 건 의료법·명예 양쪽의 리스크다.
+_SEO_DEPTH_DIRECTIVE = (
+    "[콘텐츠 깊이·신뢰 기준 — 회사 SEO 가이드, 다른 모든 지침보다 우선]\n"
+    "0) 🔴 사실을 지어내지 마세요. 의사 이름·면허·경력·학회·시술 건수·가격·주소·전화·"
+    "영업시간·후기·별점·환자 사례·의료진 발언 인용은 **이 프롬프트에 병원 데이터로 주어진 값만** "
+    "씁니다. 주어지지 않았으면 그 문장을 통째로 빼세요('OOO 원장' 같은 자리표시도 금지). "
+    "다른 지침이 '의사 경력을 명시하라', '실제 사례를 넣어라'고 해도 데이터가 없으면 쓰지 않는 것이 맞습니다.\n"
+    "   - 가상의 환자 사례('30대 직장인 A씨는…') 대신 조건형으로 쓰세요: "
+    "'야간 운전이 잦다면', '렌즈를 10년 이상 꼈다면'.\n"
+    "   - 이 병원의 가격은 주어진 값만. 일반적인 시장 범위를 쓸 땐 '일반적으로' + 범위 + "
+    "'병원·검사 결과에 따라 다름'을 같은 문장에 두고, 이 병원 가격처럼 읽히게 쓰지 마세요.\n"
+    "   - 수치에 출처 기관을 붙이는 건 참고 자료(references)에 그 수치가 있을 때만입니다.\n"
+    "1) 먼저 키워드의 **검색 의도**를 하나로 판정하고 구조를 맞추세요.\n"
+    "   - 정보형(증상·원인·기간): 즉답 → 판단 기준 → '이런 경우엔 진료가 필요하다'는 전환 지점.\n"
+    "   - 비교형(A vs B, 차이): 기준별 비교표 + '이런 사람은 A, 이런 사람은 B' 판단 기준.\n"
+    "   - 거래형(비용·가격·예약·잘하는 곳·추천): 비용을 바꾸는 요인 표, 상담·예약 절차 단계, "
+    "내원 전 준비물. 비용 요인은 항목으로, 금액 단정은 금지.\n"
+    "   - 지역형(지역명+시술): 거래형 구조 + 병원 데이터로 주어진 위치·교통 정보만.\n"
+    "2) meta title 은 **그 언어권 사람이 검색창에 실제로 치는 표현**을 앞쪽에 둡니다. "
+    "번역투 제목이 아니라 현지 검색어 어순·표기로(예: 일본어 '韓国 レーシック 費用', "
+    "번체 '韓國 近視雷射 推薦', 간체 '韩国 近视手术 多少钱', 영어 'LASIK cost in Korea'). "
+    "사이트가 제목 뒤에 병원명·브랜드를 자동으로 붙이므로 title 에 병원명을 반복하지 마세요. "
+    "길이는 검색결과에서 잘리지 않게: 한국어 40자·일본어/중국어 32자·영어 60자 안쪽, "
+    "핵심 검색어는 앞 절반 안에.\n"
+    "3) meta description 은 [즉답 1문장(숫자·조건 포함)] + [이 글에서 얻는 것 1문장] + "
+    "[압박 없는 짧은 행동 문장: '상담 전 확인할 항목을 정리했습니다' 류]. "
+    "한국어 110자·일본어/중국어 90자·영어 155자 안쪽. '지금 바로', '선착순' 같은 유인 표현 금지.\n"
+    "4) 헤딩: 제목이 유일한 H1 입니다. 본문 heading 은 H2, 그 아래 보조만 H3. "
+    "H2 는 서로 겹치지 않는 하위 질문 하나씩이고, 제목 문장을 H2 에 그대로 복사하지 않습니다"
+    "(같은 질문이라도 표현을 바꾸세요).\n"
+    "5) E-E-A-T 는 날조 없이 만듭니다.\n"
+    "   - 경험: 실제 진료 흐름(검사 항목 → 상담 → 시술 → 경과 확인)과 각 단계에서 환자가 "
+    "겪는 일을 구체적으로. 이 병원 고유의 수치·장비명은 주어진 값만.\n"
+    "   - 전문성: 의학적 판단 기준을 이름으로 적습니다(각막 두께·도수·모낭 단위·피부 타입 등).\n"
+    "   - 신뢰: 부작용·한계·**이 시술이 맞지 않는 사람**을 최소 한 섹션에서 다룹니다 "
+    "(부작용 누락은 의료광고 위반이기도 합니다).\n"
+    "6) 정보 획득 — 이 글에만 있는 것 하나: 판단 기준표, 상담 때 물어볼 질문 목록, 흔한 오해 교정, "
+    "단계별 타임라인 중 최소 1개를 반드시 넣으세요. 분량을 채우려는 반복·일반론은 쓰지 않습니다. "
+    "구글은 사람을 위해 쓴 글과 검색 순위를 위해 대량 생산한 글을 구분합니다.\n"
+    "7) 전환: 거래형·지역형이면 내부 링크 후보 중 비용·예약·위치를 다루는 글을 우선 연결하세요. "
+    "메신저·전화·예약 링크는 주어진 채널만 안내하고, 없으면 연락처를 만들지 말고 "
+    "'병원 문의 채널'로만 표현합니다.\n"
+    "8) 의료광고 금지 표현(효과 보장·최상급·타 병원 비교·부작용 누락·후기로 유인)을 새로 만들지 마세요."
+)
+
+
 # 해외(overseas) SEO/GEO 아키타입 — 상위노출 레퍼런스 실측 골격
 #   (.planning/overseas-seo-geo-content-routine.md §2). lang != ko 일 때만 주입.
 #   Round 146-B 개정 — "skin clinic in korea" 상위 5사 실측 반영:
@@ -617,7 +676,9 @@ _OVERSEAS_ARCHETYPE_DIRECTIVE = (
     "'Location (neighborhood)', 'Best for (one line)', 'Popular services (real device/treatment names)', "
     "'Visit flow (analysis→consult→treat→aftercare)', 'Visitor tip (stay-schedule advice)'.\n"
     "3) 'Booking steps' — include a ready-to-copy inquiry script in the target language AND in Korean.\n"
-    "4) 'Price guide' — an itemized table of typical KRW ranges per procedure (concrete numbers AI can cite).\n"
+    "4) 'Price guide' — an itemized table of typical KRW ranges per procedure (concrete numbers AI can cite). "
+    "Label them as general market ranges ('typically'), never as this clinic's price unless the clinic data "
+    "gives it (Round 206).\n"
     "5) 'How to choose' — a practical checklist (English/native support, device transparency, treatment plan, photos & aftercare).\n"
     "6) 'What to expect at your first visit' — numbered steps.\n"
     "7) 'Traveler practicality' — recommended session count & spacing (e.g. 3–5 sessions, 3–6 weeks apart), "
@@ -629,7 +690,9 @@ _OVERSEAS_ARCHETYPE_DIRECTIVE = (
     "write (e.g. 'Is {treatment} in Korea worth it?', 'How much did you actually pay for {treatment} in "
     "Gangnam?', 'Can I do this as a foreigner without speaking Korean?') — AI engines retrieve these "
     "long-tail community phrasings, and the only written answer should be ours.\n"
-    "10) 'Getting there' — the clinic/area address EXACTLY as written on Google Maps in English, nearest "
+    "10) 'Getting there' — ONLY with the address/station data given in the verified NAP block "
+    "(Round 206: never guess an exit number or address; omit this section if none is given) — the clinic/area "
+    "address EXACTLY as written on Google Maps in English, nearest "
     "subway station + exit number, and one line inviting the reader to search the clinic name on Google "
     "Maps (AI local recommendations are retrieved from map databases — our text must match the map "
     "listing verbatim so engines can join the two).\n"
@@ -1034,6 +1097,7 @@ def generate_blog_post(
             _STATS_ENFORCE_DIRECTIVE,
             _SERP_PROVEN_DIRECTIVE,  # Round 146-B — 상위 5사 실측 구조 (국내/해외 공용)
             _NAVER_AEO_DIRECTIVE,  # Round 181 — 네이버 AI 브리핑 인용 기준 (국내/해외 공용)
+            _SEO_DEPTH_DIRECTIVE,  # Round 206 — 회사 SEO 가이드: 날조 금지·검색의도·메타·E-E-A-T (국내/해외 공용)
             _overseas_directive,
             _nap_directive,  # Round 162 — 검증된 NAP (지도 축)
             _internal_links_directive,  # Round 165 — 내부 링크 (토픽 클러스터)

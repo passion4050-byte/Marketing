@@ -6,7 +6,8 @@ name: Auto-publish OVERSEAS content (cron)
 #   해외는 항상 draft — 어드민에서 검수 후 수동 발행(의료법).
 on:
   schedule:
-    - cron: '0 6 * * *'    # 매일 06:00 UTC = 15:00 KST — 해외 전용
+    # 🔴 Round 206 (2026-09-15) — 매일 → 주 1회(수 15:00 KST). 발행량 축소 방침(auto-publish.yml 참조).
+    - cron: '0 6 * * 3'    # 수 06:00 UTC = 수 15:00 KST — 해외 전용, 주 1회
   workflow_dispatch:
     inputs:
       tenant_id:

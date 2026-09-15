@@ -76,7 +76,13 @@ jobs:
           echo "✅ 자사 인용 URL 총 $TOTAL 개 발견 → $LEARNED 개 학습 완료"
 
       # Step 2: 학습된 패턴 즉시 반영해 콘텐츠 발행
+      # 🔴 Round 206 (2026-09-15) — 발행 스텝 비활성화. 학습(Step 1)만 매일 돈다.
+      #   이 스텝은 "학습 워크플로" 이름 뒤에서 **매일 전체 로테이션(약 6편)을 발행**하고 있었다.
+      #   주당 약 42편 — 명시된 발행 정책(auto-publish.yml, 월·수·금)보다 큰 숨은 경로였다.
+      #   실측(2026-09-14 23:40~23:55 KST): 6편 발행, 같은 시각 auto-publish 런 없음.
+      #   학습 결과(learned_insights)는 주간 auto-publish 가 읽으므로 반영은 그대로 된다.
       - name: Step 2 — Generate + publish content with learned patterns
+        if: ${{ false }}
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

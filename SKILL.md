@@ -8994,3 +8994,66 @@ order by g.id;
 ### 사용자 조치
 - Apify 토큰이 대화에 평문으로 노출됨 → Apify 콘솔에서 재발급 권장
 - (보류) PERPLEXITY_API_KEY — 사용자 결정으로 당분간 안 씀
+
+## Round 206 (2026-09-15) — 🔴 방향 전환: 발행 병원당 주 1편 + "AI 노출 진단 리포트" 8주 테스트
+
+계획서: `.planning/PIVOT-R206-diagnosis-report.md` (판정일 **2026-11-10**, 중간 10-13)
+
+### 왜 — 성과 보드 검증에서 시작했다
+- "강남밝은눈안과 2위 / 노출 14 / 클릭 1" 역추적: 노출·클릭은 맞다. **순위는 틀렸다.**
+  `focus_performance_board` 가 `min(position)` = 90일 중 **최고 하루**(09-10, 노출 1회). 가중평균 **8.8위**.
+  게다가 `gsc_daily` 는 page 단위라 **키워드 순위가 아니라 그 글이 아무 검색어로 받은 순위**다
+  (실제 `밝은눈안과` 쿼리는 45~78위). 클릭 1건은 GSC 가 가린 익명 쿼리 → GA4 1세션 → 카카오 CTA 0.
+- 보드 전체 재계산: "목표 달성 8" → 노출 가중평균 기준 **0**.
+- `former_slug` 가 한글로 저장돼 퍼센트 인코딩된 GSC page 와 `LIKE` 매칭 불가(#476 옛 URL 노출 6건 누락).
+- 사업 실측: 발행 14→265편/월인데 GA4 세션 496→288, 카카오 CTA **전 기간 0**, 문의 5월 3건 이후 0.
+
+### 🔴 함정 — 발행 경로는 "명시된 cron" 보다 많다 (R204 세 번째 경로에 이어 네 번째)
+정책은 "월·수·금" 이었지만 실제로는 6경로가 발행했다:
+| 경로 | R206 전 | R206 후 |
+|---|---|---|
+| `auto-publish.yml` ko | 월·수·금 ×2 (batch 5) | **월 08:00 KST 1회, batch 20**(전 병원 1편) |
+| `auto-learn-own.yml` Step 2 | **매일 로테이션 발행(~6편)** ← 이름이 "학습" | `if: false` (학습 Step 1 만 매일) |
+| `auto-publish-overseas.yml` | 매일 | **수 15:00 KST 1회** |
+| `daily-brighteye-all-langs.yml` | 월·수·금 ×5언어 | 스케줄 off (dispatch 만) — ⚠ 유료 5언어 약속 변경, 고객 안내 필요 |
+| `ab-auto-generate.yml` | 주 1회 | 스케줄 off (dispatch 만) |
+| 수동: BGN 잠실 5편 묶음 | 밤 22:30 draft 생성 → 다음 날 10:30 일괄 승인 | **코드 밖 — 운영자 확인 필요** |
+실측 근거: 09-14 23:40~23:55 KST 6편 발행 시각에 auto-publish 런이 없었고 `auto-learn-own` 런(14:36Z)과 일치.
+→ **발행량을 바꿀 땐 `grep -rn run_auto_content_once .github/workflows` 로 호출처 전수 확인.**
+   워크플로 이름으로 역할을 추정하지 말 것.
+
+### 🔴 함정 — "명시하라" 는 프롬프트는 데이터가 없으면 날조를 만든다
+- 활성 13곳 전부 `doctors` **0행**. 그런데 모우림 #852(09-15 발행)에 "이진영 원장님은 '…'" 실명+인용.
+  tenants·brand_voices·doctors·reference_documents 어디에도 없는 이름, 웹 검색으로도 미확인.
+- 원인 두 줄(`llm.py` `_BLOG_SYSTEM_PROMPT`): D-2.4 "담당 의사 자격·경력 1회 명시"(무조건) +
+  B.2 톤 예시 "30대 직장인 분의 경우"(가상 사례 유도).
+- 수정: 둘 다 "주어진 경우에만" 으로 + `generator.py` `_SEO_DEPTH_DIRECTIVE`(회사 SEO 가이드 → 작성 지침,
+  국내/해외 공용, 0번이 날조 금지) + 해외 아키타입 'Getting there' 출구번호·'Price guide' 가드.
+- 메타 규칙 정정: title 30~60자 → **40자 이내**(사이트가 뒤에 "| 병원명 · WECIRCLE" 를 붙인다), description 150 → **110자**.
+
+### 감시자 기준 조정
+- `publish-watchdog` `STALE_HOURS` 기본 26 → **192**(주 1회 발행에서 매일 전면정지 오탐 방지). TENANT_DAYS 10 유지.
+
+### 검증 (근거)
+- 워크플로 YAML 5개 js-yaml 파싱: schedule 이 의도대로(`0 23 * * 0` / `0 6 * * 3` / null / null / Step2 `if: ${{ false }}`, batch `'20'`)
+- v2 `scripts/build-gate.sh` **RESULT: ✅ PASS** + `npx tsc --noEmit` exit 0
+- `python -m py_compile` generator.py·llm.py OK, 디렉티브 import OK(1,966자)
+- pytest test_blog/test_generator/test_naver_blog/test_compliance_merge: **5 failed 18 passed — `git stash` 베이스라인도 동일 5/18**
+  (로컬 chromadb 미설치·SQLite `structure_type` 컬럼 없음 → 원래 깨져 있던 것. 후보에 적어둠)
+- 🔴 이 PC 에 **실제 Python 3.12 가 설치돼 있다**(`%LOCALAPPDATA%\Programs\Python\Python312`) — CLAUDE.md "사무실 PC 엔 Python 없음" 은 이 기기엔 해당 없음
+
+### 미검증
+- 새 지침으로 생성된 글이 실제로 날조 없이 나오는지 — **첫 주간 런 09-21(월) 08:00 KST** 이후 확인
+- 주간 batch 20 이 90분 timeout 안에 13곳을 다 도는지 — 같은 런에서 확인
+
+### 🔴 09-16 판정 인수인계(위 세션랩)는 무효
+월·수·금 cron 이 사라져 09-16 런은 없다. R205 커버리지 드레인 판정은 **09-21(월) 08:00 KST 런**으로 이동.
+A/B 자동 생성 09-21 판정 항목은 스케줄 off 로 삭제.
+
+### 다음 라운드 후보 (Round 207+)
+1. 🔴 **#852 등 날조 글 전수 점검** — 의사 데이터 0 병원 글에서 `[가-힣]{3} ?(대표 ?)?원장` + 따옴표 인용 → draft 전환(사용자 승인 후)
+2. 🔴 모우림 09-15 09:24/09:28 **같은 키워드 2편 중복 발행** 원인
+3. 성과 보드 RPC 정직화 — 28일 노출 가중평균 · 표본 부족 · former_slug 인코딩 (계획서 0주차)
+4. 진단 리포트 v0 (기존 측정 재사용, 수동 편집 허용)
+5. BGN 잠실 5편 묶음 draft 생성 출처 확인(코드 밖 경로)
+6. 로컬 pytest 베이스라인 5건(chromadb·SQLite structure_type) 정리

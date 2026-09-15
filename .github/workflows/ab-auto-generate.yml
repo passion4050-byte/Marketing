@@ -5,8 +5,10 @@ name: A/B auto-generate (weekly Mon 07:00 KST)
 # 보수적: 1회 1개. 발행은 기존 검수 큐 + 컴플라이언스 린트 거침 (라이브 직행 X).
 
 on:
-  schedule:
-    - cron: '0 22 * * 1'   # 월요일 22:00 UTC = 화요일 07:00 KST
+  # 🔴 Round 206 (2026-09-15) — 스케줄 중단(수동 실행만 유지). 발행량 주 1회 방침 기간엔
+  #   A/B 표본이 너무 작아 결론을 못 내고, 이 경로는 R204 에서 게이트 누락이 발견된 전력도 있다.
+  # schedule:
+  #   - cron: '0 22 * * 1'   # 월요일 22:00 UTC = 화요일 07:00 KST
   workflow_dispatch:
     inputs:
       max_new:
