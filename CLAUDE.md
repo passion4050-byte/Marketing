@@ -43,6 +43,12 @@
   ⚠ 이건 **컴파일만** 증명한다. 조기 반환 때문에 로테이션 블록은 실행되지 않으므로,
     거기서 조립하는 **SQL 은 Supabase 에 직접 태워 따로 검증**할 것 (Round 200 은 그렇게 했다).
   집 PC·노트북에 Python 이 있으면 그쪽에서 `python -m py_compile` 이 정답.
+  🔴 **정정 (Round 206)**: "Python 없음" 은 WindowsApps **스텁만 보고 내린 판정**일 수 있다. 2026-09-15 이 리포
+  (`C:\Users\User\Marketing`) 기기에서 `%LOCALAPPDATA%\Programs\Python\Python312\python.exe` 가 실제로 동작했고
+  `py_compile`·pytest 를 로컬에서 돌렸다. 우회 경로를 쓰기 전에 `Get-Command python` 결과 경로와
+  `%LOCALAPPDATA%\Programs\Python\Python3*` 를 먼저 확인할 것.
+  ⚠ 로컬엔 chromadb·streamlit 이 없어 `pytest tests` 전체는 수집 단계에서 멈춘다 → **파일/`-k` 로 좁혀 돌린다.**
+  `tests/test_scheduler.py` 전체는 11분 걸린다.
 - 🔴 **테스트가 실패하면 결론 전에 베이스라인부터 잰다** (Round 201). `pytest` 3건 실패를
   보고 내 수정 탓으로 닫을 뻔했으나, `git stash` 후 같은 명령이 **동일하게 3건 실패**했다.
   30초짜리 확인이 오진 하나를 막는다.
@@ -250,6 +256,13 @@ AI 검색엔진(Perplexity, ChatGPT, Gemini, Claude)에서 의료 도메인 브�
 
 - **Multi-tenant from day 1**: 모든 테이블에 `tenant_id` FK (Tenant 자기 자신 제외). 쿼리/생성/검색 모든 경로에서 tenant 격리.
 - **Compliance 강제**: 의료법 린터를 모든 콘텐츠 생성 경로에 강제. 우회 경로 만들지 말 것.
+  🔴 코드 밖 경로(DB 직접 SQL)는 코드로 못 막는다 — Round 206b 부터 DB 트리거 `trg_00_guard_blog_publish` 가
+  `compliance_report` 없는 blog_html 을 거절한다. 같은 이벤트의 트리거는 **이름순** 실행이라 가드는 `trg_00_` 접두사.
+- **🔴 '명시하라' 류 무조건 지시는 데이터가 없으면 날조를 만든다 (실사고 Round 206)**
+  활성 13곳 전부 `doctors` 0행인데 "담당 의사 자격·경력 1회 명시" 지시 + "30대 직장인 분의 경우" 사례형 예시 때문에
+  발행 글(#852)에 **실명 원장 + 따옴표 인용**이 생성됐다(어느 테이블에도 없는 이름).
+  → 생성 프롬프트의 사실 지시는 전부 **"주어진 경우에만"** 으로 쓰고, 예시는 사례형이 아니라 조건형("…이라면")으로.
+  날조 금지 규칙은 `src/content/generator.py` `_SEO_DEPTH_DIRECTIVE` 0번이 정본.
 - **Cost guardrail**: LLM 호출 전 `MAX_DAILY_USD`, `MAX_CONTENT_GEN_PER_DAY` 사전 체크. 가드레일 우회 금지.
 - **No auto-posting**: 외부 플랫폼(네이버 블로그/티스토리/인스타) 자동 게시 금지. 출력은 클립보드/파일로만.
 - **Korean-first**: UI/콘텐츠/룰 한국어. 영어는 코드 식별자에만.

@@ -9089,3 +9089,75 @@ A/B 자동 생성 09-21 판정 항목은 스케줄 off 로 삭제.
 4. 진단 리포트 v0 (기존 측정 재사용, 수동 편집 허용)
 5. BGN 잠실 5편 묶음 draft 생성 출처 확인(코드 밖 경로)
 6. 로컬 pytest 베이스라인 5건(chromadb·SQLite structure_type) 정리
+
+## Round 206c (2026-09-15) — 측정 API 호출 효율화 (`3e78460`)
+
+### 실측 — "중복 글이 API 를 먹는다" 는 절반만 맞았다
+- 7일 LLM 호출 3,268건 중 **측정 2,946건(90%)** · 글 생성 322건. 발행이 주 1회가 됐으니 남는 비용은 측정이다.
+- 실패 호출(Claude 400 · Gemini 429)은 09-06~10 크레딧 소진 구간에 몰려 있고 **09-11 이후 0건** — 이미 해소.
+- 성공 측정 호출 2,562건의 구조적 낭비:
+  | 낭비 | 주당 | 근거 |
+  |---|---|---|
+  | 한 배치 안 같은 (엔진, 프롬프트) 반복 | ~350 (14%) | 프롬프트 = 키워드+sample_index+언어 안내문 — **병원 정보 없음** |
+  | paused 병원 3곳 측정 | 130 | 측정 SELECT 에만 status 게이트가 없었다 |
+  | 브랜드명 질의 매일 측정 | 218 | 등장률 원래 56~91%(R204) — 매일 새 정보 없음 |
+
+### 🔴 함정 — 대상에서 빼도 LIMIT 이 빈자리를 채우면 호출은 안 줄어든다
+`ORDER BY … LIMIT 120` 구조라 paused·브랜드를 거르면 **다른 키워드가 슬롯을 메운다** → 신호 밀도는 오르지만 호출 수는 그대로.
+절감을 원하면 상한도 같이 내려야 한다. 그리고 SQL LIMIT **뒤에서** 거르면 tracked 브랜드 키워드가 매일 앞자리를 먹고 버려진다
+→ 전체 후보(392행)를 받아 Python 에서 거른 뒤 자른다.
+
+### 조치
+- `src/engines/reuse.py` `ResponseReuseEngine`: 배치 캐시로 같은 (엔진, 프롬프트) 는 1회만 호출. 재사용분은
+  `raw_payload.reused_from_batch_cache` 표시 → `collect.py` 가 **llm_call_logs·비용을 기록하지 않음**(로그 = 실제 벤더 호출).
+  stub 은 병원별 URL 을 섞으므로 래핑 제외. 끄기 `MEASURE_REUSE_RESPONSES=0`.
+- `run_measurement_batch.py`: paused/churned 제외 · 브랜드 질의 7일 1회(`BRANDED_MEASURE_INTERVAL_DAYS`, 규칙은 `brand_tokens.py`)
+- `measure-ai-mentions.yml` `KEYWORD_LIMIT` 120 → **105** (tracked 는 paused 제외 후 100 — "상한 > tracked" 규칙 유지)
+
+### 검증 (근거)
+- 테스트: `tests/test_measurement_reuse.py` 2개 + collector·brand_aliases = **30 passed** / collect.py 를 HEAD 로 되돌리면 "로그는 실제 호출만" 테스트 **실패**(음성 검증)
+  (첫 실행 1 failed 는 테스트 문장 "알파안과**와**" 조사 때문에 멘션 추출 0 — 코드 문제 아님, 문장 수정)
+- 선택 SQL 을 Supabase 에 직접: 후보 392 · paused 0 · tracked 100
+- **운영 실호출** run 34934999521 (production, keyword_limit=18, 3e78460): `브랜드 질의 주기 스킵: 17` ·
+  엔진별 `실호출=16 재사용=2` → 응답 54 / 벤더 호출 48. DB 교차: llm_call_logs **48행** · responses **54** ·
+  공유 키워드(631~634) 응답 12건의 raw_text **distinct 6** — 로그와 DB 일치
+- 예상 절감: 재사용 ~50/일 + 상한 15×3=45/일 → **측정 약 420 → 약 325건/일(-23%)**. 09-16 07:00 KST 정기 런부터 실측 확인 필요
+
+## 세션랩 (2026-09-15 15:30 KST) — 사무실 PC. Round 206~206c
+
+푸시 완료: `e212053`(R206 방향 전환·날조 금지 지침) · `1d6679b`(R206b 중복·린터 우회 차단) · `3e78460`(R206c 측정 효율화) · 이 세션랩 커밋.
+배포: `e212053` geo-v2·medimap-blog **success**(커밋 status). DB 트리거 `trg_00_guard_blog_publish` 적용 완료. 제목 중복 22편 noindex 적용 완료.
+
+**다음 기기 시작 루틴**
+```bash
+cd <repo> && git pull
+```
+
+### 🔴 1순위 검증
+1. **09-16 07:00 KST 측정 정기 런** — `gh run view <id> --log | grep -E "응답 재사용 engine|브랜드 질의 주기 스킵"` + 그날 measurement llm_call_logs ≈ 325 안팎인지 (기준선 420/일)
+2. **09-21(월) 08:00 KST 첫 주간 발행** — 클라우드 루틴 `trig_01Wo4k2evzw9aEpgmhFJGvyS` 가 17:00 KST 에 10개 항목 점검(읽기 전용).
+   결과: https://claude.ai/code/routines/trig_01Wo4k2evzw9aEpgmhFJGvyS . 루틴이 안 돌았으면 그 프롬프트를 그대로 수동 실행
+3. 사이트맵에서 noindex 22편 빠졌는지(09-15 확인 시점엔 캐시로 #773 잔존)
+
+### 이번 세션에서 검증까지 끝낸 것
+- 성과 보드 역추적: 노출·클릭 정확 / 순위 `min(position)` 착시 → 목표 달성 8 = 실제 0
+- 발행 6경로 주 1회화: YAML 파싱 · build-gate PASS · tsc 0
+- 트리거 4케이스 · 스케줄러 새 테스트 음성 검증(4 failed→6 passed) · 측정 재사용 운영 실호출 + DB 교차검증
+
+### 미검증으로 남긴 것 (정직하게)
+- **주간 발행·새 콘텐츠 지침으로 생성된 글은 아직 한 편도 없다** — 09-21 이 처음
+- 측정 절감률(-23%)은 추정. 정기 런 1회 이상 봐야 한다
+- 성과 보드 RPC 는 **여전히 min 순위**를 보여준다(미수정)
+- BGN 잠실 SQL 직접 삽입 주체 미확인
+
+### 사용자 결정 대기
+- 피벗 판정 기준 숫자(제안: 유료 3곳 또는 진단 요청 5건) 확정
+- #852 등 날조 의심 글 전수 점검 후 draft 전환 여부
+- 밝은눈 강남점 5개 언어 약속 변경 고객 안내
+- 측정 빈도 자체(매일 → 주 3회 등) 추가 축소 여부 — 이번엔 정보 손실 없는 절감만 했다
+
+### 다음 라운드 후보 (Round 207+) — 우선순위
+- P0: 위 1순위 검증 3종 · 날조 글 전수 스캔(#852 모우림 "이진영 원장")
+- P1: 성과 보드 RPC 정직화(28일 노출 가중평균·표본 부족·former_slug 인코딩) → 진단 리포트 v0 · 위서클(3)/심포니(4) ko 키워드 보충
+- P2: `publishing-path-audit` 스킬화(워크플로 cron ↔ published_at ↔ llm_call_logs·compliance_report 대조 — 이번 세션 수작업) ·
+  월간 리포트 R144 라벨 결함 · 같은 키워드·다른 제목 387편 정책 · 로컬 pytest 베이스라인 정리
