@@ -85,7 +85,10 @@ jobs:
           #   비용은 제약이 아니다(측정 LLM 비용 실측 일 $0.05~0.3). 제약은 Gemini 분당 한도뿐.
           # Round 181 — 90 → 120. 네이버 실측 검색어 30개를 tracked 로 추가해 76 → 106 이 됐다.
           #   상한이 tracked 개수보다 커야 한다는 규칙은 그대로다.
-          KEYWORD_LIMIT: ${{ inputs.keyword_limit || '120' }}
+          # 🔴 Round 206c (2026-09-15) — 120 → 105. 일시정지 병원 제외로 tracked 가 106 → 100 이 됐고,
+          #   브랜드명 질의는 7일에 1회로 줄였다(run_measurement_batch.py). 남는 슬롯을 다른 키워드로
+          #   다시 채우면 호출은 그대로이므로 상한도 같이 내린다. 규칙(상한 > tracked 100)은 유지.
+          KEYWORD_LIMIT: ${{ inputs.keyword_limit || '105' }}
           # Round 85 — $1 → $5 (3엔진 활성, OpenAI/Anthropic paid 활용)
           MAX_DAILY_USD: ${{ secrets.MAX_DAILY_USD || '5.0' }}
           # Round 35 (2026-05-31): 자사 own 키워드만 측정 (기본).
@@ -124,7 +127,7 @@ jobs:
         #   (실제 호출 여부의 정본은 llm_call_logs 다.)
         env:
           ENGINE_MODE: ${{ inputs.engine_mode || secrets.ENGINE_MODE || 'stub' }}
-          KEYWORD_LIMIT: ${{ inputs.keyword_limit || '120' }}
+          KEYWORD_LIMIT: ${{ inputs.keyword_limit || '105' }}
         run: |
           {
             echo "## AI 측정 결과"

@@ -225,8 +225,14 @@ async def collect_for_keyword(
                 logger.warning("collector.mention_extract_error", error=str(e))
                 mentions_extracted = []
 
+            # 🔴 Round 206c — 배치 캐시에서 재사용한 응답은 실제 API 호출이 아니다.
+            #   응답·멘션은 이 병원 몫으로 그대로 저장하되, 호출 로그와 비용은 남기지 않는다
+            #   (llm_call_logs 가 "실제로 벤더에 보낸 호출" 을 뜻해야 헬스체크·비용 가드가 맞다).
+            from src.engines.reuse import is_reused as _is_reused
+            _reused = _is_reused(resp)
+
             # DB INSERT (단일 트랜잭션)
-            actual_cost = _estimate_query_cost(current_engine.name, prompt)
+            actual_cost = 0.0 if _reused else _estimate_query_cost(current_engine.name, prompt)
             with session_factory() as ws:
                 q = Query(
                     tenant_id=tenant_id,
@@ -264,17 +270,18 @@ async def collect_for_keyword(
                         context_snippet=em.context_snippet,
                     ))
 
-                ws.add(LlmCallLog(
-                    tenant_id=tenant_id,
-                    provider=current_engine.name,
-                    model=current_engine.name,
-                    channel="measurement",
-                    keyword=keyword_text,
-                    input_tokens=0,
-                    output_tokens=0,
-                    cost_usd=actual_cost,
-                    status="success",
-                ))
+                if not _reused:
+                    ws.add(LlmCallLog(
+                        tenant_id=tenant_id,
+                        provider=current_engine.name,
+                        model=current_engine.name,
+                        channel="measurement",
+                        keyword=keyword_text,
+                        input_tokens=0,
+                        output_tokens=0,
+                        cost_usd=actual_cost,
+                        status="success",
+                    ))
                 ws.commit()
 
             async with state_lock:

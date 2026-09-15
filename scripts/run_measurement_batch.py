@@ -223,9 +223,13 @@ async def main() -> int:
         rows = conn.execute(text(
             f"""
             SELECT k.id, k.tenant_id, k.text AS keyword_text, t.name AS tenant_name,
-                   k.target_brand, k.purpose, k.last_measured_at
+                   k.target_brand, k.purpose, k.last_measured_at, t.partner_slug
             FROM keywords k JOIN tenants t ON t.id=k.tenant_id
             WHERE k.is_active = true
+              -- 🔴 Round 206c — 일시정지·해지 병원은 측정하지 않는다(fail-open: null 은 active).
+              --   실측 7일: 힐링안과·청담디어·클리어서울(paused) 측정 성공 호출 130건.
+              --   발행 로테이션(R174i)·A/B(R204) 는 이미 이 게이트가 있었고 측정만 빠져 있었다.
+              AND COALESCE(lower(t.status), 'active') NOT IN ('paused', 'churned')
               AND (
                     -- 🔴 Round 180b — tracked 는 measure_eligible / purpose 게이트를 건너뛴다.
                     --   (Round 181b: 이 바이패스는 own 잡에서만 켠다 — 위 _tracked_bypass 주석 참조)
@@ -255,9 +259,42 @@ async def main() -> int:
                      COALESCE(t.focus_tier, 0) DESC,
                      k.last_measured_at ASC NULLS FIRST,
                      k.id
-            LIMIT :limit
             """
-        ), {"limit": keyword_limit}).mappings().all()
+        )).mappings().all()
+
+    # 🔴 Round 206c — 브랜드명 질의는 BRANDED_MEASURE_INTERVAL_DAYS(기본 7)일에 한 번만.
+    #   브랜드 질의("밝은눈안과강남")는 글과 무관하게 56~91% 등장한다(R204 실측) — 매일 재도
+    #   새 정보가 거의 없다. 실측 7일: 활성 병원 브랜드 질의 측정 218건(22개 키워드).
+    #   ⚠ SQL LIMIT 뒤에서 거르면 tracked 브랜드 키워드가 매일 앞자리를 차지한 채 버려져
+    #     슬롯만 먹는다 → 전체 후보를 받아 여기서 거른 뒤 keyword_limit 으로 자른다.
+    #   판정 규칙은 발행·어드민과 같은 src/content/brand_tokens.py.
+    from datetime import datetime, timedelta, timezone
+
+    from src.content.brand_tokens import brand_tokens, is_branded
+
+    _branded_days = float(os.environ.get("BRANDED_MEASURE_INTERVAL_DAYS", "7") or "7")
+    _now = datetime.now(timezone.utc)
+    _tok_cache: dict = {}
+    _kept = []
+    _branded_skipped = 0
+    for r in rows:
+        tid = r["tenant_id"]
+        if tid not in _tok_cache:
+            _tok_cache[tid] = brand_tokens(r["tenant_name"], r.get("partner_slug"))
+        last = r["last_measured_at"]
+        if last is not None and last.tzinfo is None:
+            last = last.replace(tzinfo=timezone.utc)
+        if (
+            _branded_days > 0
+            and last is not None
+            and _now - last < timedelta(days=_branded_days)
+            and is_branded(r["keyword_text"], _tok_cache[tid])
+        ):
+            _branded_skipped += 1
+            continue
+        _kept.append(r)
+    rows = _kept[:keyword_limit]
+    logger.info("브랜드 질의 주기 스킵: %d 건 (interval=%s일)", _branded_skipped, _branded_days)
 
     logger.info("대상 키워드: %d 건", len(rows))
     if not rows:
@@ -266,6 +303,15 @@ async def main() -> int:
 
     engines = _build_engines(mode)
     logger.info("활성 엔진: %s", [e.__class__.__name__ for e in engines])
+    # 🔴 Round 206c — 같은 배치에서 같은 (엔진, 프롬프트) 는 한 번만 호출하고 답을 병원끼리 공유한다.
+    #   근거·안전성은 src/engines/reuse.py docstring. stub 은 병원별 URL 을 섞으므로 제외.
+    _reuse_cache: dict = {}
+    if mode != "stub" and os.environ.get("MEASURE_REUSE_RESPONSES", "1").strip() not in ("0", "false", "off"):
+        from src.engines.reuse import ResponseReuseEngine
+        from src.engines.stub import StubEngine as _Stub
+
+        engines = [e if isinstance(e, _Stub) else ResponseReuseEngine(e, _reuse_cache) for e in engines]
+        logger.info("응답 재사용 활성 (MEASURE_REUSE_RESPONSES=0 으로 끄기)")
 
     # 측정 실행 — 엔진별로 collect_for_keyword 호출
     from src.collector.collect import collect_for_keyword
@@ -382,6 +428,9 @@ async def main() -> int:
 
     logger.info("==== 측정 완료 ====")
     logger.info("success=%d fail=%d mentions=%d", total_success, total_failed, total_mentions)
+    for _e in engines:
+        if hasattr(_e, "hits"):
+            logger.info("응답 재사용 engine=%s 실호출=%d 재사용=%d", _e.name, _e.misses, _e.hits)
 
     # Round 36 (2026-05-31) — fairness 갱신.
     # 이번 batch 에서 처리된 keyword 들 last_measured_at = NOW() UPDATE.
