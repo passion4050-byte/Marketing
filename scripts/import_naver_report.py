@@ -34,6 +34,7 @@ import re
 import sys
 from datetime import date, datetime
 from typing import Iterable
+from urllib.parse import unquote, urlsplit
 
 from sqlalchemy import create_engine, text
 
@@ -134,6 +135,71 @@ LINK_PAGES = text(
     """
 )
 
+# 🔴 Round 207 (2026-09-20) — 위 SQL 한 판으로는 9월 리포트 30행 중 8행이 안 붙었다.
+#   ① 한글 슬러그가 퍼센트 인코딩돼 온다:
+#      .../healingeye/%EB%9D%BC%EC%84%B9-317  =  라섹-317
+#      LIKE 는 인코딩된 문자열과 DB 의 한글 slug 를 영원히 못 맞춘다.
+#   ② 슬러그가 바뀐 글은 former_slug 로만 잡힌다(위 SQL 은 slug 만 본다).
+#   ③ 파트너 인덱스 페이지(/with-partners/derma/symphony)는 글이 아니라
+#      content_id 가 없지만, 경로의 partner_slug 로 **병원까지는** 확정적으로 붙는다.
+#   ⚠ 빈 마지막 세그먼트 주의: 'https://wecircle.co.kr/' 의 마지막 세그먼트는 ''
+#     이고, 이걸 coalesce(former_slug,'') 와 비교하면 former_slug 가 NULL 인 글
+#     **아무거나** 걸린다(실제로 홈이 글 #88 에 붙는 사고가 났다). 반드시 비우지 말 것.
+SELECT_UNLINKED_PAGES = text(
+    """
+    SELECT id, value FROM naver_search_report
+     WHERE dimension = 'page' AND period_end = :pe AND content_id IS NULL
+    """
+)
+
+FIND_CONTENT_BY_SLUG = text(
+    """
+    SELECT id, tenant_id FROM generated_contents
+     WHERE slug = :slug OR former_slug = :slug
+     LIMIT 1
+    """
+)
+
+SET_PAGE_CONTENT = text(
+    "UPDATE naver_search_report SET content_id = :cid, tenant_id = :tid WHERE id = :rid"
+)
+
+# 글로는 못 붙어도 경로에 파트너 슬러그가 있으면 병원은 확정된다(추정 아님).
+LINK_PAGES_PARTNER = text(
+    """
+    UPDATE naver_search_report r
+       SET tenant_id = t.id
+      FROM tenants t
+     WHERE r.dimension = 'page'
+       AND r.period_end = :pe
+       AND r.tenant_id IS NULL
+       AND t.partner_slug IS NOT NULL
+       AND r.value ~ ('/with-partners/[^/]+/' || t.partner_slug || '(/|$)')
+    """
+)
+
+
+def _slug_of(url: str) -> str:
+    """URL → 마지막 경로 세그먼트(퍼센트 디코딩 후). 없으면 빈 문자열."""
+    path = urlsplit(url).path.rstrip("/")
+    if not path:
+        return ""
+    return unquote(path.rsplit("/", 1)[-1])
+
+
+def link_pages_decoded(conn, pe: date) -> int:
+    """LINK_PAGES 가 놓친 행을 디코딩한 slug/former_slug 로 다시 붙인다."""
+    linked = 0
+    for rid, value in conn.execute(SELECT_UNLINKED_PAGES, {"pe": pe}).fetchall():
+        slug = _slug_of(value or "")
+        if not slug:  # 홈('/') 등 — 붙일 글이 없다. 빈 값으로 매칭하면 안 된다.
+            continue
+        row = conn.execute(FIND_CONTENT_BY_SLUG, {"slug": slug}).fetchone()
+        if row:
+            conn.execute(SET_PAGE_CONTENT, {"cid": row[0], "tid": row[1], "rid": rid})
+            linked += 1
+    return linked
+
 
 def main() -> int:
     ap = argparse.ArgumentParser()
@@ -182,7 +248,21 @@ def main() -> int:
         if not args.dry_run:
             k = conn.execute(LINK_KEYWORDS, {"pe": pe}).rowcount
             p = conn.execute(LINK_PAGES, {"pe": pe}).rowcount
-            print(f"연결: keyword {k}건, page {p}건")
+            # Round 207 — 인코딩된 한글 슬러그 + former_slug 를 2차 패스로 회수.
+            p2 = link_pages_decoded(conn, pe)
+            # 글엔 못 붙어도 경로의 partner_slug 로 병원은 붙인다(인덱스 페이지 등).
+            pt = conn.execute(LINK_PAGES_PARTNER, {"pe": pe}).rowcount
+            print(f"연결: keyword {k}건, page {p}건(+디코딩 {p2}건), 병원만 {pt}건")
+
+            left = conn.execute(
+                text(
+                    "SELECT count(*) FROM naver_search_report "
+                    " WHERE dimension='page' AND period_end=:pe AND tenant_id IS NULL"
+                ),
+                {"pe": pe},
+            ).scalar()
+            if left:
+                print(f"⚠ 병원 미연결 page {left}행 — 카테고리/목록 페이지인지 확인할 것")
 
     print(f"{'(dry-run) ' if args.dry_run else ''}총 {total}행 처리 — 기간 {ps} ~ {pe}")
 
