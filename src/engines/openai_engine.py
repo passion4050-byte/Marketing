@@ -10,11 +10,32 @@ cited_urls: 응답 텍스트의 URL 정규식 추출 (검색 미지원 모델 fa
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import time
 
 from src.engines.base import BaseEngine, EngineError, EngineResponse
+
+logger = logging.getLogger("openai-engine")
+
+# 🔴 Round 207 (2026-09-20) — 검색모델 폴백을 "조용히" 하지 않는다.
+#   실사고: 2026-08-20 부터 search-preview 호출이 매번 실패해 일반 모델로 폴백했고,
+#   `except Exception:` 이 벤더 에러를 통째로 삼켜 **31일간 아무도 몰랐다**.
+#   증상은 cited_urls 0/2,745 건(08-19 까지는 60/68) + 지연 p95 8,449→6,770ms 붕괴.
+#   llm_call_logs 는 폴백 응답을 `success` 로 기록하므로 로그만 봐선 구분이 안 됐다.
+#   (R198 "성공만 남는 로그로는 죽은 구성요소를 볼 수 없다" 와 같은 꼴.)
+#   → 폴백은 유지하되(측정을 멈추지 않는다) **반드시 보이게** 만든다:
+#     ① 첫 발생 1회 WARNING 에 벤더 에러 원문 ② 프로세스 누적 카운터
+#     ③ raw_payload 에 search_fallback 플래그 — 나중에 DB 로 소급 판정 가능.
+_search_fallback_count = 0
+_search_ok_count = 0
+_search_fallback_error: str | None = None
+
+
+def search_fallback_stats() -> tuple[int, int, str | None]:
+    """(폴백 횟수, 검색성공 횟수, 첫 에러 원문) — 배치 종료 요약용."""
+    return _search_fallback_count, _search_ok_count, _search_fallback_error
 
 
 # Round 103 (2026-06-29): 웹검색 모델 기본값 — 일반 gpt-4o-mini 는 검색을 안 해
@@ -80,8 +101,23 @@ class OpenAIEngine(BaseEngine):
                         u = (ann.get("url_citation") or {}).get("url")
                     if u:
                         cited.append(u)
-            except Exception:
+                global _search_ok_count
+                _search_ok_count += 1
+            except Exception as search_err:
                 # 2) 검색모델 미지원/오류 → 일반 모델 폴백 (URL 정규식만)
+                #    ⚠ 이 경로로 오면 웹검색이 **실행되지 않는다** → 인용 0 이 정상 귀결이다.
+                #    조용히 넘어가면 "인용이 줄었다" 로만 보이고 원인이 안 보인다(R207).
+                global _search_fallback_count, _search_fallback_error
+                _search_fallback_count += 1
+                if _search_fallback_error is None:
+                    _search_fallback_error = f"{type(search_err).__name__}: {search_err}"
+                    logger.warning(
+                        "🔴 OpenAI 웹검색 모델(%s) 호출 실패 → 일반 모델(%s) 폴백. "
+                        "이 경로는 인용 URL 을 만들지 못한다. 벤더 에러: %s",
+                        self._model,
+                        _FALLBACK_MODEL,
+                        _search_fallback_error,
+                    )
                 used_model = _FALLBACK_MODEL
                 resp = await self._client.chat.completions.create(
                     model=_FALLBACK_MODEL,
@@ -107,5 +143,8 @@ class OpenAIEngine(BaseEngine):
             raw_payload={
                 "id": getattr(resp, "id", None),
                 "model": getattr(resp, "model", used_model),
+                # R207 — 이 응답이 웹검색을 거쳤는지. False 면 인용 0 이 정상이다.
+                # DB 에 남으므로 "언제부터 실명했나" 를 나중에 SQL 로 소급할 수 있다.
+                "search_used": used_model != _FALLBACK_MODEL,
             },
         )

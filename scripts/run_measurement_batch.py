@@ -432,6 +432,23 @@ async def main() -> int:
         if hasattr(_e, "hits"):
             logger.info("응답 재사용 engine=%s 실호출=%d 재사용=%d", _e.name, _e.misses, _e.hits)
 
+    # 🔴 Round 207 — OpenAI 웹검색 폴백을 매 런 요약에 강제로 띄운다.
+    #   폴백해도 호출 자체는 성공이라 success/fail 카운터엔 안 잡힌다 → 별도 줄이 필요하다.
+    #   이게 없어서 2026-08-20~09-20 31일간 인용 0 을 아무도 눈치채지 못했다.
+    try:
+        from src.engines.openai_engine import search_fallback_stats
+
+        _fb, _ok, _err = search_fallback_stats()
+        if _fb:
+            logger.warning(
+                "🔴 OpenAI 웹검색 폴백 %d 건 (검색성공 %d 건) — 폴백분은 인용 URL 0. 첫 에러: %s",
+                _fb, _ok, _err,
+            )
+        elif _ok:
+            logger.info("OpenAI 웹검색 정상 %d 건", _ok)
+    except Exception as _e2:  # noqa: BLE001
+        logger.warning("OpenAI 폴백 통계 조회 실패: %s", _e2)
+
     # Round 36 (2026-05-31) — fairness 갱신.
     # 이번 batch 에서 처리된 keyword 들 last_measured_at = NOW() UPDATE.
     # 다음 cron 은 last_measured_at 가장 오래된 (또는 NULL) 키워드 우선 픽업.

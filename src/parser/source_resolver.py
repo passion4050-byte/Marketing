@@ -21,11 +21,15 @@ logger = logging.getLogger("source-resolver")
 # Round 102 (2026-06-29): wecircle 리브랜딩(Round 90) 후 커스텀 도메인 wecircle.co.kr
 #   누락 → AI 가 wecircle.co.kr 인용해도 자사로 안 잡혀 source share 가 0 으로 새던 버그.
 #   (medimap-blog-phi 는 Vercel alias 로 남아있을 수 있어 함께 유지)
+# 🔴 Round 207 (2026-09-20): medi-map.co.kr 제거. R203 이 collect_citation_events.py
+#   SELF_HOSTS 만 고치고 **이 목록은 놓쳐서** is_self 플래그가 계속 오염되고 있었다
+#   (실측: responses.source_domains 에 is_self=true 인 medi-map 10건, 08-23~09-15
+#    → 어드민 5-Tier 자사 54 vs 증거 테이블 64 불일치의 정체).
+#   medi-map.co.kr 은 전 직장 메디맵의 병원찾기 플랫폼이고 우리 글은 0건 —
+#   domain_classifications 에서도 T4 다. 자사 = wecircle.co.kr(+서브도메인).
 SELF_DOMAINS: set[str] = {
     "wecircle.co.kr",
     "www.wecircle.co.kr",
-    "medi-map.co.kr",
-    "www.medi-map.co.kr",
     "medimap-blog-phi.vercel.app",
     "geo-v2-beta.vercel.app",
     "geo-v2-git-main-medimaps-projects.vercel.app",
