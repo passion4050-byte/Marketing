@@ -22,7 +22,7 @@ export default function ZhContactPage() {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "WECIRCLE",
-    legalName: "주식회사 위서클",
+    legalName: "위써클",
     url: `${siteConfig.url}/zh`,
     email: siteConfig.contact.email,
     address: { "@type": "PostalAddress", addressLocality: "Seoul", addressCountry: "KR" },
@@ -89,7 +89,7 @@ export default function ZhContactPage() {
             <dl className="mt-6 space-y-2 text-sm text-stone-600">
               <div className="flex gap-3">
                 <dt className="w-24 shrink-0 font-semibold text-stone-800">公司</dt>
-                <dd>주식회사 위서클 (WECIRCLE Inc.)</dd>
+                <dd>위써클 (WECIRCLE)</dd>
               </div>
               <div className="flex gap-3">
                 <dt className="w-24 shrink-0 font-semibold text-stone-800">所在地</dt>

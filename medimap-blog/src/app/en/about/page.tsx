@@ -50,7 +50,7 @@ export default function EnAboutPage() {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "WECIRCLE",
-    legalName: "주식회사 위서클",
+    legalName: "위써클",
     url: `${siteConfig.url}/en`,
     description:
       "Multilingual GEO/AEO content publishing that gets Korean clinics cited by AI search for foreign-patient queries.",

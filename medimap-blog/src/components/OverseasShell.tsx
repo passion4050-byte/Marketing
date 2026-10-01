@@ -119,7 +119,7 @@ export function OverseasShell({
             </div>
           </div>
           <div className="mt-4 text-[12px] text-stone-400">
-            © 2026 WECIRCLE (주식회사 위서클) · Seoul, Korea · Business No. 798-67-00527
+            © 2026 WECIRCLE (위써클) · Seoul, Korea · Business No. 798-67-00527
           </div>
         </div>
       </footer>

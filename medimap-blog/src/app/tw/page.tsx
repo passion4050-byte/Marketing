@@ -30,7 +30,7 @@ export default async function TwHome() {
     provider: {
       "@type": "Organization",
       name: "WECIRCLE",
-      legalName: "주식회사 위서클",
+      legalName: "위써클",
       url: `${siteConfig.url}/tw`,
       address: { "@type": "PostalAddress", addressLocality: "Seoul", addressCountry: "KR" },
     },

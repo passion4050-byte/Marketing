@@ -62,7 +62,7 @@ export default async function EnHomePage() {
     provider: {
       "@type": "Organization",
       name: "WECIRCLE",
-      legalName: "주식회사 위서클",
+      legalName: "위써클",
       url: `${siteConfig.url}/en`,
       address: {
         "@type": "PostalAddress",

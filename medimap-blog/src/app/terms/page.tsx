@@ -14,7 +14,7 @@ export const revalidate = false;
 
 export const metadata: Metadata = {
   title: "이용약관 | WECIRCLE",
-  description: `${siteConfig.publisher.legalName}(WECIRCLE) 서비스 이용약관.`,
+  description: `${siteConfig.publisher.legalName} 서비스 이용약관.`,
   alternates: { canonical: "/terms" },
   robots: { index: false, follow: true },
 };
@@ -103,7 +103,7 @@ export default function TermsPage() {
 
           <hr />
           <p className="text-[11px] text-ink-muted">
-            <strong>법인:</strong> {siteConfig.publisher.legalName} ·{" "}
+            <strong>상호:</strong> {siteConfig.publisher.legalName} ·{" "}
             <strong>주소:</strong> {siteConfig.contact.address} ·{" "}
             <strong>사업자등록번호:</strong> {siteConfig.contact.businessNumber}
           </p>

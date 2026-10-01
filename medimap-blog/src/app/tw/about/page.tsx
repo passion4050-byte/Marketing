@@ -50,7 +50,7 @@ export default function TwAboutPage() {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "WECIRCLE",
-    legalName: "주식회사 위서클",
+    legalName: "위써클",
     url: `${siteConfig.url}/tw`,
     description: "讓韓國診所在外國患者的AI檢索中被引用的多語言 GEO/AEO 內容發布。",
     address: { "@type": "PostalAddress", addressLocality: "Seoul", addressCountry: "KR" },

@@ -50,7 +50,7 @@ export default function JaAboutPage() {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "WECIRCLE",
-    legalName: "주식회사 위서클",
+    legalName: "위써클",
     url: `${siteConfig.url}/ja`,
     description:
       "韓国クリニックを外国人患者のAI検索で引用させる、多言語GEO/AEOコンテンツ発信。",

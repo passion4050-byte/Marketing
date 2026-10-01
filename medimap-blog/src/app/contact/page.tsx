@@ -148,7 +148,7 @@ export default function ContactPage() {
                   <span className="text-xs text-stone-500">Publisher</span>
                 </div>
                 <dl className="space-y-4">
-                  <Row label="법인명" value={siteConfig.publisher.legalName} />
+                  <Row label="상호" value={siteConfig.publisher.legalName} />
                   <Row
                     label="주소"
                     value={siteConfig.contact.address}

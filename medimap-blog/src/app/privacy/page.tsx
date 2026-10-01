@@ -14,7 +14,7 @@ export const revalidate = false;
 
 export const metadata: Metadata = {
   title: "개인정보처리방침 | WECIRCLE",
-  description: `${siteConfig.publisher.legalName}(WECIRCLE) 개인정보처리방침.`,
+  description: `${siteConfig.publisher.legalName} 개인정보처리방침.`,
   alternates: { canonical: "/privacy" },
   robots: { index: false, follow: true },
 };
@@ -70,7 +70,7 @@ export default function PrivacyPage() {
 
           <h2>4. 개인정보 보호책임자</h2>
           <ul>
-            <li>법인: {siteConfig.publisher.legalName}</li>
+            <li>상호: {siteConfig.publisher.legalName}</li>
             <li>이메일: {siteConfig.contact.email}</li>
             <li>주소: {siteConfig.contact.address}</li>
           </ul>

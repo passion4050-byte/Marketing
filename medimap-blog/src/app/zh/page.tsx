@@ -30,7 +30,7 @@ export default async function ZhHome() {
     provider: {
       "@type": "Organization",
       name: "WECIRCLE",
-      legalName: "주식회사 위서클",
+      legalName: "위써클",
       url: `${siteConfig.url}/zh`,
       address: { "@type": "PostalAddress", addressLocality: "Seoul", addressCountry: "KR" },
     },

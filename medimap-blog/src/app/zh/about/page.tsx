@@ -50,7 +50,7 @@ export default function ZhAboutPage() {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "WECIRCLE",
-    legalName: "주식회사 위서클",
+    legalName: "위써클",
     url: `${siteConfig.url}/zh`,
     description: "让韩国诊所在外国患者的AI检索中被引用的多语言 GEO/AEO 内容发布。",
     address: { "@type": "PostalAddress", addressLocality: "Seoul", addressCountry: "KR" },

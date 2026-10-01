@@ -110,7 +110,7 @@ export function GuideArticle({
     mainEntityOfPage: base,
     datePublished: guide.published_at ?? undefined,
     author: { "@type": "Organization", name: "WECIRCLE" },
-    publisher: { "@type": "Organization", name: "WECIRCLE", legalName: "주식회사 위서클" },
+    publisher: { "@type": "Organization", name: "WECIRCLE", legalName: "위써클" },
   };
   const breadcrumbLd = {
     "@context": "https://schema.org",

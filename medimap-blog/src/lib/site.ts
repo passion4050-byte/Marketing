@@ -42,7 +42,7 @@ export const siteConfig = {
   gtm: process.env.NEXT_PUBLIC_GTM_ID || "",
   publisher: {
     name: "WECIRCLE",
-    legalName: "주식회사 위서클",
+    legalName: "위써클(WECIRCLE)",
     logo: "/wecircle-logo.svg",
   },
   // Round 90 — 콘텐츠 시리즈 컨셉 (사이트 안 "위서클 인사이트" 라벨 유지)
