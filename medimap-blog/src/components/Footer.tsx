@@ -56,15 +56,17 @@ export function Footer() {
                 { label: "개인정보처리방침", href: "/privacy" },
                 { label: "이용약관", href: "/terms" },
               ]}
-              trailing={
-                <div className="mt-6 space-y-1 text-[11px] leading-relaxed text-stone-500">
-                  <div className="font-semibold text-stone-700">{siteConfig.publisher.legalName}</div>
-                  <div>{siteConfig.contact.address}</div>
-                  <div>사업자 {siteConfig.contact.businessNumber}</div>
-                </div>
-              }
             />
           </div>
+        </div>
+
+        {/* Business info — 사업자등록번호 · 사업장 주소 */}
+        <div className="mt-8 flex flex-col gap-1 text-[12px] leading-relaxed text-stone-600 md:flex-row md:flex-wrap md:gap-x-4">
+          <span>
+            사업자등록번호 <span className="tabular-nums">{siteConfig.contact.businessNumber}</span>
+          </span>
+          <span className="hidden text-stone-300 md:inline">|</span>
+          <span>주소 {siteConfig.contact.address}</span>
         </div>
 
         {/* CTA row */}

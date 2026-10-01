@@ -33,7 +33,8 @@ export const siteConfig = {
     phone: process.env.NEXT_PUBLIC_PHONE || "02-0000-0000",
     medimapMain: "https://medi-map.co.kr",
     // Round 90 — wecircle 사업자 정보 (footer/about 표시)
-    address: "서울특별시 서초구 사임당로 8길 13",
+    // 2026-10-02 — 사업자등록증 기재 주소 그대로 (호수까지)
+    address: "서울특별시 서초구 사임당로8길 13, 4층 402호 M247호(서초동)",
     businessNumber: "798-67-00527",
     email: "passion4050@gmail.com",
   },
