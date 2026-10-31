@@ -9330,3 +9330,38 @@ ab-analysis · auto-pattern-learning · map-axis-monitor · pg_cron 3종(워치�
 ### 다음 라운드 후보 (Round 209+)
 - Round 208+ 후보 그대로 유효 (P0 `b9f70d6` stub 게이트 · 벨리셀 유료 전환 제안 / P1 한글↔영문 URL 중복 색인 · 네이버 롱테일 시딩 / P2 어드민 툴팁)
 - P1: geo-v2 에 `주식회사 위서클` **잔존 확인됨** — `medimap-blog-v2/src/app/api/scanner/lead/route.ts` · `src/app/report/[tenantId]/[period]/page.tsx` (클라이언트 보고서에 노출). build-gate.sh 후 정정
+
+## Round 209 (2026-10-31) — 사업 판정: 종료 기준 충족 → 동결
+
+**판정 (R207 기준 "3축 중 2축 미달 → 종료")**: 유료 0/16 ❌ · 리드 30일 0건(마지막 scanner_leads 09-01) ❌ ·
+네이버 벨리셀 35클릭(08-21~09-19) ✅. 벨리셀 유료 제안 무응답 → 사용자 결정 **동결**(사이트·DB 유지).
+
+**동결 조치**
+- GitHub 스케줄 워크플로 7개 disable: ab-analysis · auto-pattern-learning · citation-alerts · llm-health-check ·
+  map-axis-monitor · compress-post-images · auto-learn (R207 의 6개와 합쳐 13개 정지). **search-traffic-sync 만 유지**(비용 0, 재개 판단 기준선)
+- pg_cron 3종 `active=false`: publish-watchdog · cron-endpoint-harvest · measure-watchdog (재개: `cron.alter_job(id, active := true)`)
+
+**🔴 유입 수집이 09-25부터 매일 실패하고 있었다 — 의존성 자동 업그레이드**
+`sqlalchemy>=2.0` 이 2.1.6 을 설치 → 2.1 부터 `postgresql://` 기본 드라이버가 **psycopg3** →
+`ModuleNotFoundError: No module named 'psycopg'`(우리는 psycopg2-binary). 마지막 성공 런은 2.0.54.
+수정: `requirements.txt`·`pyproject.toml` 에 `<2.1` 고정. 브랜치 런(backfill 45)으로 GSC 949행·GA4 248행 적재 확인.
+⚠ 같은 requirements 를 쓰는 Streamlit 앱도 재배포 시 같은 이유로 깨질 수 있었다.
+교훈: **상한 없는 `>=` 는 언젠가 메이저 동작 변경을 끌어온다.** "살려둔 잡" 도 결과 테이블의 max(date) 로 생존 확인할 것.
+
+**🔴 GA4 DB 값이 9월을 부풀렸다 (MCP 실측 대조)**
+| | GA4 실측 | DB `ga4_source_daily` |
+|---|---|---|
+| 9월 | **135** | 202 |
+| 10월(1~30) | 239 | 239 ✅ |
+차이 67 = 잠정 행 `(not set)` 50 · `(data not available)` 15 · 기타 2. 동기화가 upsert 만 하고 **사라진 조합을 지우지 않는다.**
+`ga4_daily` 는 페이지 단위라 세션 합산에 쓰면 안 된다(9월 182 로 오보할 뻔). GSC 10월 19클릭은 MCP=DB 일치.
+
+**동결 후에도 유입은 늘었다** (10월 발행 1편): 세션 135→239, 네이버 모바일 65→116, 구글 클릭 19. 리드는 0 — 판정 불변.
+
+**계정·도구**: wecircle GA4 = 계정 393497422 / 속성 535901659. 로컬 GSC·GA4 MCP 는 서비스계정
+`claude-analytics-reader@gen-lang-client-0106099671.iam.gserviceaccount.com`(GSC 제한적·GA4 뷰어, 10-31 추가).
+GitHub 수집은 별도 SA `geo-644@…`(GSC 전체).
+
+### 재개 시 후보
+- P1: `fetch_search_traffic.py` 를 기간 단위 delete→insert 로 바꿔 GA4 잠정 행 제거
+- R207/208 후보(벨리셀 외 유료 전환 · 한글↔영문 URL 중복 색인 · 네이버 롱테일 시딩) 유효
