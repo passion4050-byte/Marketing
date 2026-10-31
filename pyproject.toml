@@ -7,7 +7,7 @@ authors = [{ name = "메디맵" }]
 
 dependencies = [
     "streamlit>=1.30",
-    "sqlalchemy>=2.0",
+    "sqlalchemy>=2.0,<2.1",
     "alembic>=1.13",
     "pydantic>=2.5",
     "python-dotenv>=1.0",

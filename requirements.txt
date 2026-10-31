@@ -2,7 +2,7 @@
 # pyproject.toml 의 dependencies 와 동기화 유지.
 
 streamlit>=1.30
-sqlalchemy>=2.0
+sqlalchemy>=2.0,<2.1  # 2.1 은 postgresql:// 기본 드라이버가 psycopg3 → psycopg2-binary 로는 ModuleNotFoundError (R209)
 alembic>=1.13
 pydantic>=2.5
 python-dotenv>=1.0
